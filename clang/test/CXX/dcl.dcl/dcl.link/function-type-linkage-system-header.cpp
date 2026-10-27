@@ -26,6 +26,5 @@ inline int in_system_header() {
 
 int use = in_system_header();
 
-int (*p)(int) = cb; // expected-error {{cannot initialize a variable of type 'int (*)(int)' with an lvalue of type 'extern "C" int (int)'}}
-int x = call(cb); // expected-error {{no matching function for call to 'call'}}
-// expected-note@h.h:6 {{candidate template ignored: could not match 'R (int)' against 'extern "C" int (int)'}}
+int (*p)(int) = cb; // expected-error {{converting 'extern "C" int (*)(int)' to 'int (*)(int)' changes the language linkage of the function type}}
+int x = call(cb); // expected-error {{converting 'extern "C" int (*)(int)' to 'int (*)(int)' changes the language linkage of the function type}}

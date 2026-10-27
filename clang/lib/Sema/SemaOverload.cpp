@@ -91,6 +91,9 @@ static ExprResult CreateFunctionRefExpr(
                              CK_FunctionToPointerDecay);
 }
 
+static bool differOnlyInFunctionLanguageLinkage(Sema &S, QualType From,
+                                                QualType To);
+
 static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
                                  bool InOverloadResolution,
                                  StandardConversionSequence &SCS,
@@ -2359,8 +2362,13 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
       if (!S.Context.hasSameUnqualifiedType(
               S.ExtractUnqualifiedFunctionType(ToType), FromType)) {
         // if the function type matches except for [[noreturn]], it's ok
-        if (!S.IsFunctionConversion(FromType,
-                                    S.ExtractUnqualifiedFunctionType(ToType)))
+        QualType ToFnType = S.ExtractUnqualifiedFunctionType(ToType);
+        if (!S.IsFunctionConversion(FromType, ToFnType) &&
+            // as it is if only the language linkage differs ([dcl.link]p1),
+            // which is diagnosed below
+            !S.Context.hasSameUnqualifiedType(
+                eraseFunctionLanguageLinkage(S.Context, ToFnType),
+                eraseFunctionLanguageLinkage(S.Context, FromType)))
           // otherwise, only a boolean conversion is standard
           if (!ToType->isBooleanType())
             return false;
@@ -2637,6 +2645,19 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
   if (CanonFrom == CanonTo)
     return true;
 
+  // Pointers to functions whose types differ only in language linkage are not
+  // convertible ([dcl.link]p1), but the conversion is accepted with a
+  // downgradable diagnostic. It is ill-formed, so it ranks below every
+  // conforming candidate and is chosen only if nothing else is viable.
+  if (S.getLangOpts().CPlusPlus &&
+      differOnlyInFunctionLanguageLinkage(S, CanonFrom, CanonTo)) {
+    SCS.Second = ICK_Incompatible_Pointer_Conversion;
+    SCS.Third = ICK_Identity;
+    SCS.setToType(1, ToType);
+    SCS.setToType(2, ToType);
+    return true;
+  }
+
   // If we have not converted the argument type to the parameter type,
   // this is a bad conversion sequence, unless we're resolving an overload in C.
   if (S.getLangOpts().CPlusPlus || !InOverloadResolution)
@@ -2680,6 +2701,74 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
   SCS.Third = ICK_Identity;
   SCS.setToType(2, ToType);
   return true;
+}
+
+QualType clang::eraseFunctionLanguageLinkage(ASTContext &Ctx, QualType T) {
+  Qualifiers Quals = T.getLocalQualifiers();
+  const Type *Ty = T.getTypePtr();
+  QualType Result = QualType(Ty, 0);
+  if (const auto *PT = dyn_cast<PointerType>(Ty)) {
+    Result = Ctx.getPointerType(
+        eraseFunctionLanguageLinkage(Ctx, PT->getPointeeType()));
+  } else if (const auto *LRT = dyn_cast<LValueReferenceType>(Ty)) {
+    Result = Ctx.getLValueReferenceType(
+        eraseFunctionLanguageLinkage(Ctx, LRT->getPointeeType()));
+  } else if (const auto *RRT = dyn_cast<RValueReferenceType>(Ty)) {
+    Result = Ctx.getRValueReferenceType(
+        eraseFunctionLanguageLinkage(Ctx, RRT->getPointeeType()));
+  } else if (const auto *MPT = dyn_cast<MemberPointerType>(Ty)) {
+    Result = Ctx.getMemberPointerType(
+        eraseFunctionLanguageLinkage(Ctx, MPT->getPointeeType()),
+        MPT->getQualifier(), MPT->getMostRecentCXXRecordDecl());
+  } else if (const auto *FPT = dyn_cast<FunctionProtoType>(Ty)) {
+    SmallVector<QualType, 8> Params;
+    for (QualType P : FPT->param_types())
+      Params.push_back(eraseFunctionLanguageLinkage(Ctx, P));
+    FunctionProtoType::ExtProtoInfo EPI = FPT->getExtProtoInfo();
+    EPI.ExtInfo = EPI.ExtInfo.withCLanguageLinkage(false);
+    Result = Ctx.getFunctionType(
+        eraseFunctionLanguageLinkage(Ctx, FPT->getReturnType()), Params, EPI);
+  } else if (const auto *FNPT = dyn_cast<FunctionNoProtoType>(Ty)) {
+    Result = Ctx.getFunctionNoProtoType(
+        eraseFunctionLanguageLinkage(Ctx, FNPT->getReturnType()),
+        FNPT->getExtInfo().withCLanguageLinkage(false));
+  }
+  return Ctx.getQualifiedType(Ctx.getCanonicalType(Result), Quals);
+}
+
+// Whether a pointer (or pointer-to-member) to function converts to another one
+// by changing only the language linkage of the function types they are built
+// from ([dcl.link]p1), possibly together with a function pointer conversion.
+static bool differOnlyInFunctionLanguageLinkage(Sema &S, QualType From,
+                                                QualType To) {
+  ASTContext &Ctx = S.Context;
+  const Type *F = Ctx.getCanonicalType(From).getTypePtr();
+  const Type *T = Ctx.getCanonicalType(To).getTypePtr();
+  QualType FP, TP;
+  if (const auto *FPT = dyn_cast<PointerType>(F)) {
+    const auto *TPT = dyn_cast<PointerType>(T);
+    if (!TPT)
+      return false;
+    FP = FPT->getPointeeType();
+    TP = TPT->getPointeeType();
+  } else if (const auto *FMP = dyn_cast<MemberPointerType>(F)) {
+    const auto *TMP = dyn_cast<MemberPointerType>(T);
+    if (!TMP || !declaresSameEntity(FMP->getMostRecentCXXRecordDecl(),
+                                    TMP->getMostRecentCXXRecordDecl()))
+      return false;
+    FP = FMP->getPointeeType();
+    TP = TMP->getPointeeType();
+  } else {
+    return false;
+  }
+  if (!FP->isFunctionType() || !TP->isFunctionType())
+    return false;
+  QualType ErasedFrom = eraseFunctionLanguageLinkage(Ctx, From);
+  QualType ErasedTo = eraseFunctionLanguageLinkage(Ctx, To);
+  if (Ctx.hasSameType(From, ErasedFrom) && Ctx.hasSameType(To, ErasedTo))
+    return false;
+  return Ctx.hasSameType(ErasedFrom, ErasedTo) ||
+         S.IsFunctionConversion(ErasedFrom, ErasedTo);
 }
 
 static bool
@@ -6500,11 +6589,15 @@ static bool CheckConvertedConstantConversions(Sema &S,
   case ICK_Writeback_Conversion:
   case ICK_Zero_Event_Conversion:
   case ICK_C_Only_Conversion:
-  case ICK_Incompatible_Pointer_Conversion:
   case ICK_Fixed_Point_Conversion:
   case ICK_HLSL_Vector_Truncation:
   case ICK_HLSL_Matrix_Truncation:
     return false;
+
+  case ICK_Incompatible_Pointer_Conversion:
+    // In C++ this is only the conversion between pointers to functions that
+    // differ in language linkage, diagnosed when the conversion is performed.
+    return true;
 
   case ICK_Lvalue_To_Rvalue:
   case ICK_Array_To_Pointer:
@@ -11174,10 +11267,13 @@ bool clang::isBetterOverloadCandidate(
     StartArg = 1;
 
   auto IsIllFormedConversion = [&](const ImplicitConversionSequence &ICS) {
-    // We don't allow incompatible pointer conversions in C++.
+    // C++ has no incompatible pointer conversions except between function
+    // pointers that differ only in language linkage, which are ill-formed.
+    if (ICS.isStandard() &&
+        ICS.Standard.Second == ICK_Incompatible_Pointer_Conversion)
+      return true;
     if (!S.getLangOpts().CPlusPlus)
-      return ICS.isStandard() &&
-             ICS.Standard.Second == ICK_Incompatible_Pointer_Conversion;
+      return false;
 
     // The only ill-formed conversion we allow in C++ is the string literal to
     // char* conversion, which is only considered ill-formed after C++11.
@@ -14013,7 +14109,10 @@ public:
 private:
   bool candidateHasExactlyCorrectType(const FunctionDecl *FD) {
     return Context.hasSameUnqualifiedType(TargetFunctionType, FD->getType()) ||
-           S.IsFunctionConversion(FD->getType(), TargetFunctionType);
+           S.IsFunctionConversion(FD->getType(), TargetFunctionType) ||
+           Context.hasSameUnqualifiedType(
+               eraseFunctionLanguageLinkage(Context, TargetFunctionType),
+               eraseFunctionLanguageLinkage(Context, FD->getType()));
   }
 
   /// \return true if A is considered a better overload candidate for the

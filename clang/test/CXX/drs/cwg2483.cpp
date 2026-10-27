@@ -17,6 +17,6 @@ struct T {
 // ([dcl.link]); that of a non-static member function does not.
 extern "C" void (*p)() = &T::f;
 void (*q)() = &T::f;
-// expected-error@-1 {{cannot initialize a variable of type 'void (*)()' with an rvalue of type 'extern "C" void (*)()'}}
+// expected-error@-1 {{converting 'extern "C" void (*)()' to 'void (*)()' changes the language linkage of the function type}}
 void (T::*r)() = &T::g;
 } // namespace cwg2483

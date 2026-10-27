@@ -9299,6 +9299,16 @@ def err_typecheck_convert_incompatible_function_pointer : Error<
 def ext_typecheck_convert_incompatible_function_pointer : ExtWarn<
   err_typecheck_convert_incompatible_function_pointer.Summary>,
   InGroup<IncompatibleFunctionPointerTypes>, DefaultError;
+def ext_function_pointer_language_linkage_conversion : ExtWarn<
+  "converting %0 to %1 changes the language linkage of the function type; "
+  "function types with different language linkages are distinct types "
+  "([dcl.link]p1)">,
+  InGroup<FunctionTypeLanguageLinkage>, DefaultError;
+// In an unevaluated operand (type trait, requires-expression, decltype) the
+// conversion is an error, so that SFINAE and traits report the types as not
+// convertible.
+def err_function_pointer_language_linkage_conversion : Error<
+  ext_function_pointer_language_linkage_conversion.Summary>;
 def warn_typecheck_convert_incompatible_function_pointer_strict : Warning<
   err_typecheck_convert_incompatible_function_pointer.Summary>,
   InGroup<DiagGroup<"incompatible-function-pointer-types-strict">>, DefaultIgnore;

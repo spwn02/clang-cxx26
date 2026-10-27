@@ -194,14 +194,11 @@ namespace cwg13 { // cwg13: yes
   template<typename T> int h(void (T)); // #cwg13-h
 
   A<int> a1(f); // #cwg13-a1
-  // expected-error@#cwg13-a1 {{no matching constructor for initialization of 'A<int>'}}
-  //   expected-note@#cwg13-A-copy {{candidate constructor (the implicit copy constructor) not viable: no known conversion from 'extern "C" void (int)' to 'const A<int>' for 1st argument}}
-  //   since-cxx11-note@#cwg13-A-copy {{candidate constructor (the implicit move constructor) not viable: no known conversion from 'extern "C" void (int)' to 'A<int>' for 1st argument}}
-  //   expected-note@#cwg13-A-ctor {{candidate constructor not viable: no known conversion from 'extern "C" void (int)' to 'void (*)(int)' for 1st argument}}
+  // expected-error@#cwg13-a1 {{converting 'extern "C" void (*)(int)' to 'void (*)(int)' changes the language linkage of the function type}}
   A<char> a2(g);
   int a3 = h(f); // #cwg13-a3
   // expected-error@#cwg13-a3 {{no matching function for call to 'h'}}
-  //   expected-note@#cwg13-h {{candidate template ignored: could not match 'void (T)' against 'extern "C" void (int)'}}
+  //   expected-note@#cwg13-h {{candidate template ignored: deduced type 'void (*)(int)' of 1st parameter does not match adjusted type 'extern "C" void (*)(int)' of argument [with T = int]}}
   int a4 = h(g);
 } // namespace cwg13
 

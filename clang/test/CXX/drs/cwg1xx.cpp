@@ -1054,7 +1054,7 @@ namespace cwg168 { // cwg168: yes
     static int f();
   };
   p a = &S::f;
-  // expected-error@-1 {{cannot initialize a variable of type 'p' (aka 'extern "C" int (*)()') with an rvalue of type 'int (*)()'}}
+  // expected-error@-1 {{converting 'int (*)()' to 'p' (aka 'extern "C" int (*)()') changes the language linkage of the function type}}
   q b = &S::f;
 } // namespace cwg168
 

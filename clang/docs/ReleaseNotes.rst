@@ -45,8 +45,14 @@ Potentially Breaking Changes
   without a linkage-specification keeps the linkage of the first declaration. A function with C++ language linkage
   can no longer be passed where a pointer to a function with C language linkage is expected and vice versa
   (``atexit``, ``qsort``, ``bsearch``, ``signal``, ``pthread_create`` with a C++ function; an ``extern "C"``
-  function as a non-type template argument of a C++ function pointer type); write an ``extern "C" typedef`` for the
-  type, or convert with ``reinterpret_cast``. The mangling of such a type is ``Y`` ahead of the function type, as the
+  function as a non-type template argument of a C++ function pointer type); such a conversion is diagnosed with
+  ``-Wfunction-type-language-linkage`` (an error by default, ``-Wno-error=function-type-language-linkage`` or
+  ``-Wno-function-type-language-linkage`` downgrade or silence it; in an unevaluated operand it stays an error, so
+  traits and ``requires`` expressions still see the types as distinct), or write an ``extern "C" typedef`` for the
+  type. A function type written in a template argument still matches a class template partial specialization
+  written outside the linkage-specification (``WrapperFunction<int()>`` in an ``extern "C"`` block).
+  The runtimes of compiler-rt are built with the warning off, and its ``safestack`` interceptor and the XRay
+  interface definitions no longer rely on the old rules. The mangling of such a type is ``Y`` ahead of the function type, as the
   Itanium C++ ABI specifies. Diagnostics print the language linkage of function types as ``extern "C"``.
   libc++ declares the ``extern "C"`` and ``extern "C++"`` overloads of ``atexit``, ``at_quick_exit``, ``qsort`` and
   ``bsearch`` the standard requires.

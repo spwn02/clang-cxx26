@@ -41,6 +41,7 @@
 #include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TemplateKinds.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
+#include "clang/Sema/Overload.h"
 #include "clang/Sema/Ownership.h"
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/Template.h"
@@ -1410,6 +1411,16 @@ bool Sema::isSameOrCompatibleFunctionType(QualType P, QualType A) {
   if (!PF || !AF)
     return Context.hasSameType(P, A);
 
+  // A difference in language linkage alone is diagnosed when the function is
+  // converted to the target type ([dcl.link]p1).
+  if (PF->getExtInfo().getCLanguageLinkage() !=
+      AF->getExtInfo().getCLanguageLinkage()) {
+    PF = Context.adjustFunctionType(
+        PF, PF->getExtInfo().withCLanguageLinkage(
+                AF->getExtInfo().getCLanguageLinkage()));
+    P = QualType(PF, 0);
+  }
+
   // Noreturn and noexcept adjustment.
   if (QualType AdjustedParam; TryFunctionConversion(P, A, AdjustedParam))
     P = AdjustedParam;
@@ -2050,12 +2061,9 @@ static TemplateDeductionResult DeduceTemplateArgumentsByTypeMatch(
           FPP->isVariadic() != FPA->isVariadic())
         return TemplateDeductionResult::NonDeducedMismatch;
 
-      // Function types with different language linkages are distinct types
-      // ([dcl.link]p1).
-      if (FPP->getExtInfo().getCLanguageLinkage() !=
-              FPA->getExtInfo().getCLanguageLinkage() &&
-          !S.ignoresFunctionTypeLanguageLinkage())
-        return TemplateDeductionResult::NonDeducedMismatch;
+      // A function type written in an extern "C" block (a template argument of
+      // an interface declared there) still matches a pattern written outside
+      // it, so the language linkage is not part of the match.
 
       // Check return types.
       if (auto Result = DeduceTemplateArgumentsByTypeMatch(
@@ -3325,7 +3333,17 @@ static TemplateDeductionResult FinishTemplateArgumentDeduction(
       break;
     TemplateArgument PP = P.isPackExpansion() ? P.getPackExpansionPattern() : P,
                      PA = A.isPackExpansion() ? A.getPackExpansionPattern() : A;
-    if (!S.Context.isSameTemplateArgument(PP, PA)) {
+    // A function type written in a linkage-specification (a template argument
+    // of an interface declared in an extern "C" block) still matches a pattern
+    // written outside it: the language linkage of the function types is not
+    // part of the match.
+    bool SameIgnoringLinkage =
+        PP.getKind() == TemplateArgument::Type &&
+        PA.getKind() == TemplateArgument::Type &&
+        S.Context.hasSameType(
+            eraseFunctionLanguageLinkage(S.Context, PP.getAsType()),
+            eraseFunctionLanguageLinkage(S.Context, PA.getAsType()));
+    if (!SameIgnoringLinkage && !S.Context.isSameTemplateArgument(PP, PA)) {
       if (!P.isPackExpansion() && !A.isPackExpansion()) {
         Info.Param = makeTemplateParameter(TPL->getParam(
             (AsStack.empty() ? As.end() : AsStack.back().begin()) -

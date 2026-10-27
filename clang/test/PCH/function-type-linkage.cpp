@@ -14,7 +14,7 @@ void xf(int);
 CFn *a = cf;
 CxxFn *b = xf;
 CFn *c = xf;
-// expected-error@-1 {{cannot initialize a variable of type 'CFn *' (aka 'extern "C" void (*)(int)') with an lvalue of type 'void (int)'}}
+// expected-error@-1 {{converting 'void (*)(int)' to 'CFn *' (aka 'extern "C" void (*)(int)') changes the language linkage of the function type}}
 CxxFn *d = cf;
-// expected-error@-1 {{cannot initialize a variable of type 'CxxFn *' (aka 'void (*)(int)') with an lvalue of type 'extern "C" void (int)'}}
+// expected-error@-1 {{converting 'extern "C" void (*)(int)' to 'CxxFn *' (aka 'void (*)(int)') changes the language linkage of the function type}}
 #endif

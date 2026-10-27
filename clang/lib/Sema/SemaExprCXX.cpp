@@ -5330,6 +5330,27 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
                              From->getValueKind()).get();
     break;
 
+  case ICK_Incompatible_Pointer_Conversion:
+    // In C++ only a conversion between pointers to functions that differ in
+    // language linkage ([dcl.link]p1) gets here.
+    // An explicit conversion (a cast) is how the language linkage of a
+    // function pointer type is changed.
+    if (CCK == CheckedConversionKind::Implicit ||
+        CCK == CheckedConversionKind::ForBuiltinOverloadedOp)
+      Diag(From->getExprLoc(),
+           isUnevaluatedContext()
+               ? diag::err_function_pointer_language_linkage_conversion
+               : diag::ext_function_pointer_language_linkage_conversion)
+          << From->getType() << ToType << From->getSourceRange();
+    // The two function types have the same representation.
+    From = ImpCastExprToType(From, ToType.getUnqualifiedType(),
+                             ToType->isMemberPointerType()
+                                 ? CK_ReinterpretMemberPointer
+                                 : CK_NoOp,
+                             VK_PRValue, /*BasePath=*/nullptr, CCK)
+               .get();
+    break;
+
   case ICK_Lvalue_To_Rvalue:
   case ICK_Array_To_Pointer:
   case ICK_Function_To_Pointer:
@@ -5337,7 +5358,6 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
   case ICK_Qualification:
   case ICK_Num_Conversion_Kinds:
   case ICK_C_Only_Conversion:
-  case ICK_Incompatible_Pointer_Conversion:
   case ICK_HLSL_Array_RValue:
   case ICK_HLSL_Vector_Truncation:
   case ICK_HLSL_Matrix_Truncation:

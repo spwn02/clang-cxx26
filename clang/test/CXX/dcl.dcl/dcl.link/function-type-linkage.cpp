@@ -33,14 +33,13 @@ extern "C" void c_cb(int);
 void use() {
   f1(c_cb);
   f1(cxx_cb);
-  // expected-error@-1 {{no matching function for call to 'f1'}}
-  // expected-note@#f1 {{candidate function not viable: no known conversion from 'void (int)' to 'extern "C" void (*)(int)' for 1st argument}}
+  // expected-error@-1 {{converting 'void (*)(int)' to 'extern "C" void (*)(int)' changes the language linkage of the function type}}
   CFN *pc = c_cb;
   CFN *pc2 = cxx_cb;
-  // expected-error@-1 {{cannot initialize a variable of type 'CFN *' (aka 'extern "C" void (*)(int)') with an lvalue of type 'void (int)'}}
+  // expected-error@-1 {{converting 'void (*)(int)' to 'CFN *' (aka 'extern "C" void (*)(int)') changes the language linkage of the function type}}
   CXXFN *px = cxx_cb;
   CXXFN *px2 = c_cb;
-  // expected-error@-1 {{cannot initialize a variable of type 'CXXFN *' (aka 'void (*)(int)') with an lvalue of type 'extern "C" void (int)'}}
+  // expected-error@-1 {{converting 'extern "C" void (*)(int)' to 'CXXFN *' (aka 'void (*)(int)') changes the language linkage of the function type}}
   CXXFN *px3 = reinterpret_cast<CXXFN *>(c_cb);
   (void)pc; (void)pc2; (void)px; (void)px2; (void)px3;
 }
@@ -88,20 +87,20 @@ static_assert(same<decltype(&X::mf2), void (X::*)(FUNC *)>::value, "");
 extern "C" void g() {
   auto l = [](int) {};
   void (*p)(int) = l;
-  // expected-error@-1 {{no viable conversion from '(lambda at}}
-  // expected-note@-3 {{candidate function}}
+  // expected-error@-1 {{converting 'void (*)(int)' to 'extern "C" void (*)(int)' changes the language linkage of the function type}}
   void (*p2)(int) = c_cb;
   CXXFN *p3 = l;
   (void)p; (void)p2; (void)p3;
 }
 
 // [temp.deduct]: a function type with C language linkage does not match a
-// parameter of C++ function type.
+// parameter of C++ function type (unlike a conversion, which is diagnosed
+// with -Wfunction-type-language-linkage, template argument deduction fails).
 template <typename T> int h(void (*)(T)); // #h
 int a1 = h(cxx_cb);
 int a2 = h(c_cb);
 // expected-error@-1 {{no matching function for call to 'h'}}
-// expected-note@#h {{candidate template ignored: could not match 'void (T)' against 'extern "C" void (int)'}}
+// expected-note@#h {{candidate template ignored: deduced type 'void (*)(int)' of 1st parameter does not match adjusted type 'extern "C" void (*)(int)' of argument [with T = int]}}
 
 // Redeclarations without a linkage-specification inherit the type's linkage.
 extern "C" void r1(int);

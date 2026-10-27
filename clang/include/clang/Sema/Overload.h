@@ -45,6 +45,11 @@ class APValue;
 class ASTContext;
 class Sema;
 
+  /// The canonical type \p T with the language linkage cleared from every
+  /// function type it is built from ([dcl.link]p1: function types with
+  /// different language linkages are distinct types).
+  QualType eraseFunctionLanguageLinkage(ASTContext &Ctx, QualType T);
+
   /// OverloadingResult - Capture the result of performing overload
   /// resolution.
   enum OverloadingResult {

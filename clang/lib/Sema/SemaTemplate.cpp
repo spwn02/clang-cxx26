@@ -8042,8 +8042,17 @@ ExprResult Sema::BuildExpressionFromDeclTemplateArgument(
   QualType DestExprType = ParamType.getNonLValueExprType(Context);
   if (!Context.hasSameType(RefExpr.get()->getType(), DestExprType)) {
     CastKind CK;
+    QualType ErasedType =
+        eraseFunctionLanguageLinkage(Context, RefExpr.get()->getType());
+    QualType ErasedDestType = eraseFunctionLanguageLinkage(Context, DestExprType);
     if (Context.hasSimilarType(RefExpr.get()->getType(), DestExprType) ||
         IsFunctionConversion(RefExpr.get()->getType(), DestExprType)) {
+      CK = CK_NoOp;
+    } else if (ParamType->isFunctionPointerType() &&
+               (Context.hasSameType(ErasedType, ErasedDestType) ||
+                IsFunctionConversion(ErasedType, ErasedDestType))) {
+      // The function types differ in language linkage ([dcl.link]p1); the
+      // conversion was diagnosed when the argument was converted.
       CK = CK_NoOp;
     } else if (ParamType->isVoidPointerType() &&
                RefExpr.get()->getType()->isPointerType()) {
