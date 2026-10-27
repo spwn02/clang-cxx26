@@ -50,7 +50,7 @@ static const ModeImpl *CurrentMode = nullptr;
 
 using namespace __xray;
 
-void __xray_log_set_buffer_iterator(XRayBuffer (*Iterator)(XRayBuffer))
+extern "C" void __xray_log_set_buffer_iterator(XRayBuffer (*Iterator)(XRayBuffer))
     XRAY_NEVER_INSTRUMENT {
   atomic_store(&__xray::XRayBufferIterator,
                reinterpret_cast<uintptr_t>(Iterator), memory_order_release);
@@ -191,7 +191,7 @@ XRayLogFlushStatus __xray_log_flushLog() XRAY_NEVER_INSTRUMENT {
   return GlobalXRayImpl->flush_log();
 }
 
-XRayLogFlushStatus __xray_log_process_buffers(
+extern "C" XRayLogFlushStatus __xray_log_process_buffers(
     void (*Processor)(const char *, XRayBuffer)) XRAY_NEVER_INSTRUMENT {
   // We want to make sure that there will be no changes to the global state for
   // the log by synchronising on the XRayBufferIteratorMutex.

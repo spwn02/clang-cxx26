@@ -794,13 +794,13 @@ __orc_rt_elfnix_create_pthread_key(char *ArgData, size_t ArgSize) {
 //                           cxa_atexit support
 //------------------------------------------------------------------------------
 
-int __orc_rt_elfnix_cxa_atexit(void (*func)(void *), void *arg,
+extern "C" int __orc_rt_elfnix_cxa_atexit(void (*func)(void *), void *arg,
                                void *dso_handle) {
   return ELFNixPlatformRuntimeState::get().registerAtExit(func, arg,
                                                           dso_handle);
 }
 
-int __orc_rt_elfnix_atexit(void (*func)(void *)) {
+extern "C" int __orc_rt_elfnix_atexit(void (*func)(void *)) {
   auto &PlatformRTState = ELFNixPlatformRuntimeState::get();
   return ELFNixPlatformRuntimeState::get().registerAtExit(
       func, NULL, PlatformRTState.getPlatformJDDSOHandle());

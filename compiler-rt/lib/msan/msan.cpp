@@ -745,7 +745,7 @@ void __sanitizer_unaligned_store64(uu64 *p, u64 x) {
   *p = x;
 }
 
-void __msan_set_death_callback(void (*callback)(void)) {
+extern "C" void __msan_set_death_callback(void (*callback)(void)) {
   SetUserDieCallback(callback);
 }
 

@@ -1136,6 +1136,6 @@ void ReportRegisters(const uptr *frame, uptr pc) {
 
 }  // namespace __hwasan
 
-void __hwasan_set_error_report_callback(void (*callback)(const char *)) {
+extern "C" void __hwasan_set_error_report_callback(void (*callback)(const char *)) {
   __hwasan::ScopedReport::SetErrorReportCallback(callback);
 }

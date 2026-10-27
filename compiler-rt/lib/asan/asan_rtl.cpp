@@ -667,7 +667,7 @@ void __asan_handle_vfork(void *sp) {
   PoisonShadow(bottom, (uptr)sp - bottom, 0);
 }
 
-void NOINLINE __asan_set_death_callback(void (*callback)(void)) {
+extern "C" void NOINLINE __asan_set_death_callback(void (*callback)(void)) {
   SetUserDieCallback(callback);
 }
 

@@ -547,7 +547,7 @@ void __asan_report_error(uptr pc, uptr bp, uptr sp, uptr addr, int is_write,
   ReportGenericError(pc, bp, sp, addr, is_write, access_size, exp, fatal);
 }
 
-void NOINLINE __asan_set_error_report_callback(void (*callback)(const char*)) {
+extern "C" void NOINLINE __asan_set_error_report_callback(void (*callback)(const char*)) {
   Lock l(&error_message_buf_mutex);
   error_report_callback = callback;
 }
