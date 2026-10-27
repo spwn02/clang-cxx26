@@ -29,6 +29,52 @@ format and the release process are described in `cxx26/toolchain/README.md`.
 Code written for earlier snapshots of this fork or for stock Clang may need changes; they are
 listed in [`cxx26/MIGRATING.md`](cxx26/MIGRATING.md).
 
+Without `gh`, download the same files from the release page with `curl -LO`. The toolchain needs a
+C library and the GCC runtime on the host (`build-essential` on Debian and Ubuntu, which provides the C
+headers and `crtbeginS.o`/`libgcc`) and `zstd` to unpack the archive. CMake's `import std` additionally
+needs CMake 4.4 or newer and Ninja 1.11 or newer.
+
+Platform: the published toolchain is Linux x86_64 only. The fork is not inherently tied to it, but no
+other platform is built or tested.
+
+## Try it
+
+```cpp
+// reflect.cpp: print the members of a struct with static reflection (P2996)
+#include <meta>
+#include <print>
+
+struct Point { int x; double y; };
+
+int main() {
+  template for (constexpr auto member :
+                std::define_static_array(std::meta::nonstatic_data_members_of(
+                    ^^Point, std::meta::access_context::unchecked()))) {
+    std::println("{}: {}", std::meta::identifier_of(member),
+                 std::meta::display_string_of(std::meta::type_of(member)));
+  }
+}
+```
+
+```cpp
+// contracts.cpp: preconditions and postconditions (P2900)
+int divide(const int a, const int b)
+  pre(b != 0)
+  post(r : r * b <= a)
+{
+  return a / b;
+}
+```
+
+```bash
+$CXX -std=c++26 reflect.cpp -o reflect && ./reflect     # x: int / y: double
+```
+
+A violated contract terminates by default (`-fcontract-evaluation-semantic=` selects the semantic).
+
+More questions are answered in [`cxx26/FAQ.md`](cxx26/FAQ.md). Bugs and questions go to the
+[issue tracker](https://github.com/spwn02/clang-cxx26/issues).
+
 ## Deviations from the standard
 
 The deviations are deliberate and documented in `clang/docs/ReleaseNotes.rst`. The one
