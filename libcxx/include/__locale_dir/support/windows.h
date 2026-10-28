@@ -163,6 +163,20 @@ inline _LIBCPP_HIDE_FROM_ABI char* __setlocale(int __category, const char* __loc
   return __new_locale;
 }
 _LIBCPP_EXPORTED_FROM_ABI __lconv_t* __localeconv(__locale_t& __loc);
+
+// The name of the character encoding of the locale, for std::text_encoding::environment(): the code page of the
+// locale of the calling thread, as the UCRT reports it (65001 is UTF-8, 0 is the "C" locale).
+extern "C" unsigned int __cdecl ___lc_codepage_func(void);
+inline _LIBCPP_HIDE_FROM_ABI const char* __get_locale_encoding([[maybe_unused]] __locale_t __loc) {
+  static thread_local char __name[16];
+  const unsigned int __code_page = ___lc_codepage_func();
+  if (__code_page == 65001)
+    return "UTF-8";
+  if (__code_page == 0)
+    return "US-ASCII";
+  ::snprintf(__name, sizeof(__name), "windows-%u", __code_page);
+  return __name;
+}
 #endif // _LIBCPP_BUILDING_LIBRARY
 
 //
