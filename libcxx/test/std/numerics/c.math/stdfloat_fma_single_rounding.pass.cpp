@@ -15,8 +15,6 @@
 // 16-bit format rounds twice and is wrong when the float result lands exactly between two values of the
 // narrow format. The reference here is exact integer arithmetic, so it knows nothing about floating point.
 
-// REQUIRES: has-int128
-
 #include <bit>
 #include <cassert>
 #include <cmath>
@@ -24,6 +22,8 @@
 #include <stdfloat>
 
 #include "test_macros.h"
+
+#ifdef __SIZEOF_INT128__ // the exact reference needs 128-bit integers
 
 using i128 = __int128;
 using u128 = unsigned __int128;
@@ -140,16 +140,20 @@ void run(bool limit_range) {
   }
 }
 
+#endif // __SIZEOF_INT128__
+
 int main(int, char**) {
-#ifdef __STDCPP_FLOAT16_T__
+#ifdef __SIZEOF_INT128__
+#  ifdef __STDCPP_FLOAT16_T__
   // a * b + c = 2914.9998944..., which rounds to 2914; going through float gives 2915.0 and then ties to 2916
   assert(std::bit_cast<std::uint16_t>(std::fma(std::bit_cast<std::float16_t>(std::uint16_t(0xbea0)),
                                                std::bit_cast<std::float16_t>(std::uint16_t(0xe6e0)),
                                                std::bit_cast<std::float16_t>(std::uint16_t(0x86ec)))) == 0x69b1);
   run<std::float16_t, 10, 5>(false);
-#endif
-#ifdef __STDCPP_BFLOAT16_T__
+#  endif
+#  ifdef __STDCPP_BFLOAT16_T__
   run<std::bfloat16_t, 7, 8>(true);
-#endif
+#  endif
+#endif // __SIZEOF_INT128__
   return 0;
 }
