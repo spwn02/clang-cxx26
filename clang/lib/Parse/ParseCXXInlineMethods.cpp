@@ -564,8 +564,10 @@ void Parser::ParseLexedMethodDeclaration(LateParsedMethodDeclaration &LM) {
   }
 
   if (!LM.ContractTokens.empty())
-    ParseLexedFunctionContracts(LM.ContractTokens, LM.Method,
-                                Parser::CES_Function | Parser::CES_CXXThis);
+    // The cast: MSVC does not find the bitmask operator| of the enumeration, and the int it gets is not an enumeration.
+    ParseLexedFunctionContracts(
+        LM.ContractTokens, LM.Method,
+        static_cast<Parser::ContractEnterScopeKind>(Parser::CES_Function | Parser::CES_CXXThis));
 
   InFunctionTemplateScope.Scopes.Exit();
 
