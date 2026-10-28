@@ -17609,7 +17609,7 @@ OMPClause *SemaOpenMP::ActOnOpenMPOrderClause(
     DSAStack->setRegionHasOrderConcurrent(/*HasOrderConcurrent=*/true);
     if (DSAStack->getCurScope()) {
       // mark the current scope with 'order' flag
-      unsigned existingFlags = DSAStack->getCurScope()->getFlags();
+      Scope::FlagsType existingFlags = DSAStack->getCurScope()->getFlags();
       DSAStack->getCurScope()->setFlags(existingFlags |
                                         Scope::OpenMPOrderClauseScope);
     }

@@ -14654,8 +14654,8 @@ void Sema::DiagnoseCommaOperator(const Expr *LHS, SourceLocation Loc) {
       getLangOpts().C99 || getLangOpts().CPlusPlus
           ? Scope::ControlScope | Scope::ContinueScope | Scope::BreakScope
           : Scope::ContinueScope | Scope::BreakScope;
-  const unsigned ForInitFlags = Scope::ControlScope | Scope::DeclScope;
-  const unsigned ScopeFlags = getCurScope()->getFlags();
+  const Scope::FlagsType ForInitFlags = Scope::ControlScope | Scope::DeclScope;
+  const Scope::FlagsType ScopeFlags = getCurScope()->getFlags();
   if ((ScopeFlags & ForIncrementFlags) == ForIncrementFlags ||
       (ScopeFlags & ForInitFlags) == ForInitFlags)
     return;

@@ -21,6 +21,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/iterator_range.h"
 #include <cassert>
+#include <cstdint>
 #include <optional>
 
 namespace llvm {
@@ -41,9 +42,13 @@ class VarDecl;
 /// declaration.
 class Scope {
 public:
+  /// The type of the scope flags: 64 bits on every platform. ContractAssertScope and ExpansionStmtScope do not fit in 32
+  /// bits, which is all that 'unsigned long' has on LLP64 targets (Windows).
+  using FlagsType = uint64_t;
+
   /// ScopeFlags - These are bitfields that are or'd together when creating a
   /// scope, which defines the sorts of things the scope contains.
-  enum ScopeFlags : unsigned long {
+  enum ScopeFlags : FlagsType {
     // A bitfield value representing no scopes.
     NoScope = 0,
 
@@ -180,6 +185,8 @@ public:
   };
   using UT = std::underlying_type_t<ScopeFlags>;
   static_assert(std::is_unsigned_v<UT>, "ScopeFlags must be an unsigned type");
+  static_assert(std::is_same_v<UT, FlagsType> && sizeof(FlagsType) == 8,
+                "the scope flags need 64 bits on every platform");
 
 private:
   /// The parent scope for this scope.  This is null for the translation-unit
@@ -188,7 +195,7 @@ private:
 
   /// Flags - This contains a set of ScopeFlags, which indicates how the scope
   /// interrelates with other control flow statements.
-  unsigned long Flags;
+  FlagsType Flags;
 
   /// Depth - This is the depth of this scope.  The translation-unit scope has
   /// depth 0.
@@ -272,18 +279,18 @@ private:
   /// directly precedes it, if any.
   LabelDecl *PrecedingLabel;
 
-  void setFlags(Scope *Parent, unsigned long F);
+  void setFlags(Scope *Parent, FlagsType F);
 
 public:
-  Scope(Scope *Parent, unsigned long ScopeFlags, DiagnosticsEngine &Diag)
+  Scope(Scope *Parent, FlagsType ScopeFlags, DiagnosticsEngine &Diag)
       : ErrorTrap(Diag) {
     Init(Parent, ScopeFlags);
   }
 
   /// getFlags - Return the flags for this scope.
-  unsigned long getFlags() const { return Flags; }
+  FlagsType getFlags() const { return Flags; }
 
-  void setFlags(unsigned long F) { setFlags(getParent(), F); }
+  void setFlags(FlagsType F) { setFlags(getParent(), F); }
 
   /// Get the label that precedes this scope.
   LabelDecl *getPrecedingLabel() const { return PrecedingLabel; }
@@ -682,11 +689,11 @@ public:
   void applyNRVO();
 
   /// Init - This is used by the parser to implement scope caching.
-  void Init(Scope *parent, unsigned long flags);
+  void Init(Scope *parent, FlagsType flags);
 
   /// Sets up the specified scope flags and adjusts the scope state
   /// variables accordingly.
-  void AddFlags(unsigned long Flags);
+  void AddFlags(FlagsType Flags);
 
   void dumpImpl(raw_ostream &OS) const;
   void dump() const;

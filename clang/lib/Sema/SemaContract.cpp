@@ -1639,21 +1639,22 @@ Sema::ContractScopeRAII::~ContractScopeRAII() {
 void Sema::PushContractScope(ContractKind Kind, ContractScopeOffset ScopeOffset, SourceLocation Loc) {
 //  assert(!FunctionScopes.empty());
 
+  // Positional initialization, in the order of the members: designated initializers are C++20, and the MSVC build of
+  // these C++17 sources does not accept them.
   ContractScopeRecord Record{
-         .Index = static_cast<unsigned>(ContractScopeStack.size()),
-         .Kind = Kind,
-         .ScopeOffset = ScopeOffset,
-         .KeywordLoc = Loc,
-         .ContextAtPush = CurContext,
-         .PreviousCXXThisType = CXXThisTypeOverride,
-         .FunctionIndex = static_cast<unsigned>(
-             FunctionScopes.empty() ? 0ul : FunctionScopes.size() - 1),
-         .StartFunctionIndex = FunctionScopesStart,
-         .FunctionScopeAtPush = getCurFunction(),
-         .AddedConstToCXXThis = false,
-         .WasInContractContext = ExprEvalContexts.back().InContractAssertion,
-         .HadNoFunctionScope = FunctionScopes.empty(),
-         .FunctionScopeStartAtPush = FunctionScopesStart};
+      /*Index=*/static_cast<unsigned>(ContractScopeStack.size()),
+      /*Kind=*/Kind,
+      /*ScopeOffset=*/ScopeOffset,
+      /*KeywordLoc=*/Loc,
+      /*ContextAtPush=*/CurContext,
+      /*PreviousCXXThisType=*/CXXThisTypeOverride,
+      /*FunctionIndex=*/static_cast<unsigned>(FunctionScopes.empty() ? 0ul : FunctionScopes.size() - 1),
+      /*StartFunctionIndex=*/FunctionScopesStart,
+      /*FunctionScopeAtPush=*/getCurFunction(),
+      /*AddedConstToCXXThis=*/false,
+      /*WasInContractContext=*/ExprEvalContexts.back().InContractAssertion,
+      /*HadNoFunctionScope=*/FunctionScopes.empty(),
+      /*FunctionScopeStartAtPush=*/FunctionScopesStart};
 
     // Setup the constification context when building declref expressions.
     ExprEvalContexts.back().InContractAssertion = true;

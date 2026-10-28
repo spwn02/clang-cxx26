@@ -450,14 +450,16 @@ void CodeGenFunction::EmitContractStmtAsFullStmt(const ContractStmt &S) {
                         .getPointer();
   }
 
+  // Positional initialization, in the order of the members (designated initializers are C++20, which the MSVC build of
+  // these C++17 sources does not accept); EHPredicateStore keeps its default.
   CurrentContractRAII CurContractRAII(*this,
-                                      {.Contract = &S,
-                                       .Style = Style,
-                                       .Checkpoint = EmittingContract,
-                                       .Semantic = Semantic,
-                                       .Violation = Violation,
-                                       .End = End,
-                                       .ViolationInfoGV = ViolationInfo});
+                                      {/*Contract=*/&S,
+                                       /*Style=*/Style,
+                                       /*Checkpoint=*/EmittingContract,
+                                       /*Semantic=*/Semantic,
+                                       /*Violation=*/Violation,
+                                       /*End=*/End,
+                                       /*ViolationInfoGV=*/ViolationInfo});
 
   llvm::Value *BranchOn;
   if (getLangOpts().Exceptions && StmtCanThrow(S.getCond())) {

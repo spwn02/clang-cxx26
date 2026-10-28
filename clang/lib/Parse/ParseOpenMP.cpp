@@ -461,7 +461,7 @@ Parser::ParseOpenMPDeclareMapperDirective(AccessSpecifier AS) {
   // Enter scope.
   DeclarationNameInfo DirName;
   SourceLocation Loc = Tok.getLocation();
-  unsigned ScopeFlags = Scope::FnScope | Scope::DeclScope |
+  Scope::FlagsType ScopeFlags = Scope::FnScope | Scope::DeclScope |
                         Scope::CompoundStmtScope | Scope::OpenMPDirectiveScope;
   ParseScope OMPDirectiveScope(this, ScopeFlags);
   Actions.OpenMP().StartOpenMPDSABlock(OMPD_declare_mapper, DirName,
@@ -2297,7 +2297,7 @@ StmtResult Parser::ParseOpenMPExecutableDirective(
   llvm::SmallBitVector SeenClauses(llvm::omp::Clause_enumSize + 1);
   DeclarationNameInfo DirName;
   OpenMPDirectiveKind CancelRegion = OMPD_unknown;
-  unsigned ScopeFlags = Scope::FnScope | Scope::DeclScope |
+  Scope::FlagsType ScopeFlags = Scope::FnScope | Scope::DeclScope |
                         Scope::CompoundStmtScope | Scope::OpenMPDirectiveScope;
 
   // Special processing for flush and depobj clauses.
@@ -2457,7 +2457,7 @@ StmtResult Parser::ParseOpenMPInformationalDirective(
   SmallVector<OMPClause *, 5> Clauses;
   llvm::SmallBitVector SeenClauses(llvm::omp::Clause_enumSize + 1);
   DeclarationNameInfo DirName;
-  unsigned ScopeFlags = Scope::FnScope | Scope::DeclScope |
+  Scope::FlagsType ScopeFlags = Scope::FnScope | Scope::DeclScope |
                         Scope::CompoundStmtScope | Scope::OpenMPDirectiveScope;
   ParseScope OMPDirectiveScope(this, ScopeFlags);
 
