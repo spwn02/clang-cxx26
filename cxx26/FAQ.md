@@ -50,6 +50,14 @@ A published snapshot (`cxx26-YYYY.MM.DD[.N]`) is immutable: its tag and assets n
 snapshot. The `cxx26` branch is a moving development branch. See `cxx26/toolchain/README.md` for the snapshot format
 and the manifest each release carries.
 
+## Which parts of the standard library are there?
+
+All of the C++26 library, as libc++ tracks it: every row in `libcxx/docs/Status/Cxx2cPapers.csv` and
+`Cxx2cIssues.csv` is Complete or Nothing To Do. That includes `std::execution` (senders and receivers, the parallel
+scheduler, `async_scope`, `task`), `<simd>`, `<linalg>`, `<mdspan>`, `<inplace_vector>` and the execution-policy
+overloads of the range algorithms (`std::ranges::sort(std::execution::par, r)`). The README lists the papers and has
+examples. Status tables record that a paper's wording is implemented; they say nothing about how fast it runs.
+
 ## Does it have everything in the C++26 draft?
 
 That is the aim. A fork-wide conformance audit against the draft (issue #116, closed) classified every defect-report row
