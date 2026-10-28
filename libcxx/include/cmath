@@ -693,7 +693,7 @@ using ::lgamma _LIBCPP_USING_IF_EXISTS;
 using ::lgammaf _LIBCPP_USING_IF_EXISTS;
 #  if _LIBCPP_STD_VER >= 23
 using __math::llrint;
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr long long llrint(double __x) _NOEXCEPT {
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI long long llrint(double __x) _NOEXCEPT {
   return __builtin_llrint(__x);
 }
 #  else
@@ -722,7 +722,7 @@ using ::logb _LIBCPP_USING_IF_EXISTS;
 using ::logbf _LIBCPP_USING_IF_EXISTS;
 #  if _LIBCPP_STD_VER >= 23
 using __math::lrint;
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr long lrint(double __x) _NOEXCEPT { return __builtin_lrint(__x); }
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI long lrint(double __x) _NOEXCEPT { return __builtin_lrint(__x); }
 #  else
 using ::lrint _LIBCPP_USING_IF_EXISTS;
 #  endif
@@ -742,7 +742,7 @@ using ::nanf _LIBCPP_USING_IF_EXISTS;
 
 #  if _LIBCPP_STD_VER >= 23
 using __math::nearbyint;
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double nearbyint(double __x) _NOEXCEPT {
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI double nearbyint(double __x) _NOEXCEPT {
   return __builtin_nearbyint(__x);
 }
 #  else
@@ -804,7 +804,7 @@ using ::remquo _LIBCPP_USING_IF_EXISTS;
 using ::remquof _LIBCPP_USING_IF_EXISTS;
 #  if _LIBCPP_STD_VER >= 23
 using __math::rint;
-[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI constexpr double rint(double __x) _NOEXCEPT { return __builtin_rint(__x); }
+[[__nodiscard__]] inline _LIBCPP_HIDE_FROM_ABI double rint(double __x) _NOEXCEPT { return __builtin_rint(__x); }
 #  else
 using ::rint _LIBCPP_USING_IF_EXISTS;
 #  endif

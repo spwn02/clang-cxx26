@@ -10,6 +10,7 @@
 #define _LIBCPP___MATH_STDFLOAT_H
 
 #include <__config>
+#include <__type_traits/conditional.h>
 #include <__type_traits/enable_if.h>
 #include <__type_traits/is_same.h>
 #include <__type_traits/promote.h>
@@ -52,6 +53,85 @@ inline constexpr bool __is_stdfloat64_v =
 #  else
     false; // NOLINT(readability-simplify-boolean-expr): the terms above are preprocessor-conditional
 #  endif
+
+// The IEEE interchange formats order their finite values by the sign-magnitude bit pattern, so the next representable
+// value is one step of the magnitude. That is exact for every precision, which a detour through float is not: the next
+// float after a float16_t value is much closer than one float16_t step and converts back to the same value.
+#  ifdef __SIZEOF_INT128__
+using __stdfloat_bits_16 _LIBCPP_NODEBUG = __uint128_t;
+#  else
+struct __stdfloat_bits_16 {};
+#  endif
+
+template <class _Float>
+using __stdfloat_bits_t _LIBCPP_NODEBUG =
+    __conditional_t<sizeof(_Float) == 2,
+                    unsigned short,
+                    __conditional_t<sizeof(_Float) == 4,
+                                    unsigned int,
+                                    __conditional_t<sizeof(_Float) == 8, unsigned long long, __stdfloat_bits_16>>>;
+
+// Moves __x one representable step toward +infinity (__up) or -infinity. __x is not a NaN. An infinity stays where it
+// is when the step leads away from zero; a step toward zero keeps the sign, so the last one ends at a signed zero.
+template <class _Float>
+_LIBCPP_HIDE_FROM_ABI constexpr _Float __stdfloat_step(_Float __x, bool __up) _NOEXCEPT {
+  using _Bits                = __stdfloat_bits_t<_Float>;
+  constexpr _Bits __sign_bit = static_cast<_Bits>(_Bits(1) << (sizeof(_Bits) * __CHAR_BIT__ - 1));
+  const _Bits __bits         = __builtin_bit_cast(_Bits, __x);
+  const bool __negative      = (__bits & __sign_bit) != 0;
+  if (static_cast<_Bits>(__bits & static_cast<_Bits>(~__sign_bit)) == 0) // +-0: the smallest subnormal of the requested sign
+    return __builtin_bit_cast(_Float, static_cast<_Bits>((__up ? _Bits(0) : __sign_bit) | _Bits(1)));
+  if (__up != __negative) { // away from zero
+    if (__builtin_isinf(__x))
+      return __x;
+    return __builtin_bit_cast(_Float, static_cast<_Bits>(__bits + 1));
+  }
+  return __builtin_bit_cast(_Float, static_cast<_Bits>(__bits - 1)); // toward zero
+}
+
+// nextafter and nexttoward of a 16-bit format (float16_t, bfloat16_t).
+template <class _Float>
+_LIBCPP_HIDE_FROM_ABI constexpr _Float __stdfloat_nextafter(_Float __x, _Float __y) _NOEXCEPT {
+  if (__x != __x)
+    return __x;
+  if (__y != __y)
+    return __y;
+  if (__x == __y)
+    return __y;
+  return __math::__stdfloat_step(__x, __x < __y);
+}
+
+template <class _Float>
+_LIBCPP_HIDE_FROM_ABI constexpr _Float __stdfloat_nexttoward(_Float __x, long double __y) _NOEXCEPT {
+  if (__x != __x)
+    return __x;
+  if (__y != __y)
+    return static_cast<_Float>(__y);
+  const long double __lx = static_cast<long double>(__x);
+  if (__lx == __y)
+    return static_cast<_Float>(__y);
+  return __math::__stdfloat_step(__x, __lx < __y);
+}
+
+// fma of a 16-bit format with a single rounding. The product of two such values is exact in double, and TwoSum gives
+// the exact error of the addition, so product + addend == __sum + __error. Rounding __sum to odd when the sum is not
+// exact keeps all the information that matters, and the one conversion to the 16-bit format (the double has more than
+// two bits beyond the target) then rounds correctly. Converting a rounded float, as before, rounds twice.
+template <class _Float>
+_LIBCPP_HIDE_FROM_ABI constexpr _Float __stdfloat16_fma(_Float __x, _Float __y, _Float __z) _NOEXCEPT {
+  const double __a = static_cast<double>(__x);
+  const double __b = static_cast<double>(__y);
+  const double __c = static_cast<double>(__z);
+  if (!__builtin_isfinite(__a) || !__builtin_isfinite(__b) || !__builtin_isfinite(__c))
+    return static_cast<_Float>(__builtin_fma(__a, __b, __c)); // NaNs, infinities and their invalid-operation rules
+  const double __product = __a * __b;                         // exact
+  double __sum           = __product + __c;
+  const double __virtual = __sum - __product;
+  const double __error   = (__product - (__sum - __virtual)) + (__c - __virtual);
+  if (__error != 0 && (__builtin_bit_cast(unsigned long long, __sum) & 1) == 0)
+    __sum = __builtin_nextafter(__sum, __error > 0 ? __builtin_inf() : -__builtin_inf());
+  return static_cast<_Float>(__sum);
+}
 
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float acos(_Float __value) _NOEXCEPT {
@@ -238,7 +318,7 @@ _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float floor(_Float _
 }
 
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float nearbyint(_Float __value) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _Float nearbyint(_Float __value) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>)
     return static_cast<_Float>(__builtin_nearbyint(static_cast<double>(__value)));
   else
@@ -246,7 +326,7 @@ _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float nearbyint(_Flo
 }
 
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float rint(_Float __value) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _Float rint(_Float __value) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>)
     return static_cast<_Float>(__builtin_rint(static_cast<double>(__value)));
   else
@@ -359,7 +439,9 @@ _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float hypot(_Float _
 
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float nextafter(_Float __left, _Float __right) _NOEXCEPT {
-  if constexpr (__is_stdfloat64_v<_Float>)
+  if constexpr (sizeof(_Float) == 2)
+    return __math::__stdfloat_nextafter(__left, __right);
+  else if constexpr (__is_stdfloat64_v<_Float>)
     return static_cast<_Float>(__builtin_nextafter(static_cast<double>(__left), static_cast<double>(__right)));
   else
     return static_cast<_Float>(__builtin_nextafterf(static_cast<float>(__left), static_cast<float>(__right)));
@@ -453,7 +535,7 @@ _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 int ilogb(_Float __va
     return __builtin_ilogbf(static_cast<float>(__value));
 }
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 long lrint(_Float __value) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline long lrint(_Float __value) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>)
     return __builtin_lrint(static_cast<double>(__value));
   else
@@ -467,7 +549,7 @@ _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 long lround(_Float __
     return __builtin_lroundf(static_cast<float>(__value));
 }
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 long long llrint(_Float __value) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline long long llrint(_Float __value) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>)
     return __builtin_llrint(static_cast<double>(__value));
   else
@@ -532,7 +614,9 @@ _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _Float remquo(_Float 
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float
 fma(_Float __left, _Float __right, _Float __addend) _NOEXCEPT {
-  if constexpr (__is_stdfloat64_v<_Float>)
+  if constexpr (sizeof(_Float) == 2)
+    return __math::__stdfloat16_fma(__left, __right, __addend);
+  else if constexpr (__is_stdfloat64_v<_Float>)
     return static_cast<_Float>(
         __builtin_fma(static_cast<double>(__left), static_cast<double>(__right), static_cast<double>(__addend)));
   else
@@ -542,11 +626,26 @@ fma(_Float __left, _Float __right, _Float __addend) _NOEXCEPT {
 
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
 _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _Float nexttoward(_Float __left, long double __right) _NOEXCEPT {
-  if constexpr (__is_stdfloat64_v<_Float>)
+  if constexpr (sizeof(_Float) == 2)
+    return __math::__stdfloat_nexttoward(__left, __right);
+  else if constexpr (__is_stdfloat64_v<_Float>)
     return static_cast<_Float>(__builtin_nexttoward(static_cast<double>(__left), __right));
   else
     return static_cast<_Float>(__builtin_nexttowardf(static_cast<float>(__left), __right));
 }
+
+#  if _LIBCPP_STD_VER >= 26
+// [cmath.syn]: nextup and nextdown have an overload for every floating-point type, the extended ones included.
+template <class _Float, __enable_if_t<__is_extended_floating_point_v<_Float>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI inline constexpr _Float nextup(_Float __x) _NOEXCEPT {
+  return __x != __x ? __x : __math::__stdfloat_step(__x, true);
+}
+
+template <class _Float, __enable_if_t<__is_extended_floating_point_v<_Float>, int> = 0>
+_LIBCPP_HIDE_FROM_ABI inline constexpr _Float nextdown(_Float __x) _NOEXCEPT {
+  return __x != __x ? __x : __math::__stdfloat_step(__x, false);
+}
+#  endif // _LIBCPP_STD_VER >= 26
 
 // glibc exposes the IEEE binary128 libm ABI with an `f128` suffix. Clang has
 // no corresponding builtins, so declare and call those ABI entry points.

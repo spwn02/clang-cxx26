@@ -103,6 +103,12 @@ Improvements and New Features
 - Multiple internal types have been refactored to use ``[[no_unique_address]]``, resulting in faster compile times and
   reduced debug information.
 
+- ``std::nextafter`` and ``std::nexttoward`` of ``float16_t`` and ``bfloat16_t`` returned their argument unchanged,
+  ``std::fma`` of these types rounded twice, ``std::nextup`` and ``std::nextdown`` had no overloads for the extended
+  floating-point types (they were ambiguous or returned ``float`` and ``double``), and ``<simd>`` rejected
+  ``float32_t`` and ``float64_t`` although [simd.general] lists them as vectorizable. They are fixed; the 16-bit
+  functions are checked over every value of both formats.
+
 Deprecations and Removals
 -------------------------
 
@@ -110,6 +116,10 @@ Deprecations and Removals
 
 Potentially breaking changes
 ----------------------------
+
+- ``std::nearbyint``, ``std::rint``, ``std::lrint`` and ``std::llrint`` are no longer ``constexpr``. P0533R9 excludes
+  them (they depend on the rounding mode) and [constexpr.functions] forbids an implementation to declare a function
+  ``constexpr`` that the standard does not.
 
 - The mathematical special functions of ``<cmath>`` now report a domain error ([sf.cmath.general]) for every argument
   outside the domain their description specifies and wherever the function is not mathematically defined: the result
