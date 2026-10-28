@@ -649,7 +649,14 @@ _LIBCPP_HIDE_FROM_ABI inline constexpr _Float nextdown(_Float __x) _NOEXCEPT {
 
 // glibc exposes the IEEE binary128 libm ABI with an `f128` suffix. Clang has
 // no corresponding builtins, so declare and call those ABI entry points.
-#  if defined(__STDCPP_FLOAT128_T__) && defined(__GLIBC__) && __GLIBC_PREREQ(2, 26)
+// __GLIBC_PREREQ is a function-like macro that only glibc defines, and the preprocessor cannot skip over a use of one
+// that is not defined (not even in the operand of a && that is false), so it is only mentioned where glibc has it.
+#  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
+#    if __GLIBC_PREREQ(2, 26)
+#      define _LIBCPP_STDFLOAT_GLIBC_HAS_F128 1
+#    endif
+#  endif
+#  if defined(__STDCPP_FLOAT128_T__) && defined(_LIBCPP_STDFLOAT_GLIBC_HAS_F128)
 extern "C" {
 #    define _LIBCPP_F128_UNARY_DECL(__name) __float128 __name##f128(__float128) noexcept;
 _LIBCPP_F128_UNARY_DECL(acos)
@@ -774,6 +781,7 @@ _LIBCPP_HIDE_FROM_ABI inline long long llround(__float128 __value) noexcept { re
 // [c.math.syn]: nexttoward(x, y) with a long double y; every long double value is representable as a float128_t.
 _LIBCPP_HIDE_FROM_ABI inline __float128 nexttoward(__float128 __left, long double __right) noexcept { return nextafterf128(__left, static_cast<__float128>(__right)); }
 #  endif
+#  undef _LIBCPP_STDFLOAT_GLIBC_HAS_F128
 } // namespace __math
 _LIBCPP_END_NAMESPACE_STD
 #endif // _LIBCPP_STD_VER >= 23
