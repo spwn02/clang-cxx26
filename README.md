@@ -125,10 +125,7 @@ the [Contributing to LLVM](https://llvm.org/docs/Contributing.html) guide.
 
 ## Getting in touch
 
-Join the [LLVM Discourse forums](https://discourse.llvm.org/), [Discord
-chat](https://discord.gg/xS7Z362),
-[LLVM Office Hours](https://llvm.org/docs/GettingInvolved.html#office-hours) or
-[Regular sync-ups](https://llvm.org/docs/GettingInvolved.html#online-sync-ups).
-
-The LLVM project has adopted a [code of conduct](https://llvm.org/docs/CodeOfConduct.html) for
-participants to all modes of communication within the project.
+Questions, bug reports and mismatches with the C++26 draft for this fork go to its
+[issue tracker](https://github.com/spwn02/clang-cxx26/issues). The LLVM Discourse forums, Discord chat and
+office hours are LLVM's channels and do not support this fork. Code in this repository that comes from LLVM is
+still governed by the [LLVM code of conduct](https://llvm.org/docs/CodeOfConduct.html).
