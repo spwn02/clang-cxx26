@@ -10,6 +10,7 @@
 #define _LIBCPP___CSTDLIB_CALLBACKS_H
 
 #include <__config>
+#include <__type_traits/enable_if.h>
 #include <stdlib.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -36,26 +37,41 @@ inline _LIBCPP_HIDE_FROM_ABI int atexit(void (*__func)()) _NOEXCEPT {
 
 #      if !defined(_LIBCPP_CXX03_LANG)
 // Some C libraries declare at_quick_exit for a callback with C language linkage, others (glibc) for one with C++
-// language linkage; the function is called with whichever kind the C library accepts.
+// language linkage, and some (Apple's before macOS 15) not at all. The function is called with whichever kind the C
+// library accepts, and the overloads below exist only when it accepts one: the call is not qualified, so that a
+// missing ::at_quick_exit is a substitution failure (the argument is dependent, and only ADL looks again) and not an
+// error where the template is defined.
 template <class _Target, class _Fn>
 struct __libcpp_at_quick_exit_arg {
   typedef _Target type;
 };
 template <class _Fn>
 _LIBCPP_HIDE_FROM_ABI auto __libcpp_at_quick_exit(_Fn* __func, int) _NOEXCEPT
-    -> decltype(::at_quick_exit(reinterpret_cast<typename __libcpp_at_quick_exit_arg<__libcpp_c_atexit_handler, _Fn>::type*>(__func))) {
-  return ::at_quick_exit(reinterpret_cast<typename __libcpp_at_quick_exit_arg<__libcpp_c_atexit_handler, _Fn>::type*>(__func));
+    -> decltype(at_quick_exit(reinterpret_cast<typename __libcpp_at_quick_exit_arg<__libcpp_c_atexit_handler, _Fn>::type*>(__func))) {
+  return at_quick_exit(reinterpret_cast<typename __libcpp_at_quick_exit_arg<__libcpp_c_atexit_handler, _Fn>::type*>(__func));
 }
 template <class _Fn>
 _LIBCPP_HIDE_FROM_ABI auto __libcpp_at_quick_exit(_Fn* __func, long) _NOEXCEPT
-    -> decltype(::at_quick_exit(reinterpret_cast<typename __libcpp_at_quick_exit_arg<void(), _Fn>::type*>(__func))) {
-  return ::at_quick_exit(reinterpret_cast<typename __libcpp_at_quick_exit_arg<void(), _Fn>::type*>(__func));
+    -> decltype(at_quick_exit(reinterpret_cast<typename __libcpp_at_quick_exit_arg<void(), _Fn>::type*>(__func))) {
+  return at_quick_exit(reinterpret_cast<typename __libcpp_at_quick_exit_arg<void(), _Fn>::type*>(__func));
 }
+
+template <class _Fn, class = void>
+inline constexpr bool __libcpp_has_at_quick_exit_for = false;
+template <class _Fn>
+inline constexpr bool
+    __libcpp_has_at_quick_exit_for<_Fn, decltype((void)std::__libcpp_at_quick_exit(static_cast<_Fn*>(nullptr), 0))> =
+        true;
+
+// The parameter types are not dependent, so an argument converts implicitly as it does for a plain function (a lambda
+// without captures, for example); only the enabling condition depends on the template parameter.
+template <class _Fn = __libcpp_c_atexit_handler, __enable_if_t<__libcpp_has_at_quick_exit_for<_Fn>, int> = 0>
 inline _LIBCPP_HIDE_FROM_ABI int at_quick_exit(__libcpp_c_atexit_handler* __func) _NOEXCEPT {
-  return std::__libcpp_at_quick_exit(__func, 0);
+  return std::__libcpp_at_quick_exit(static_cast<_Fn*>(__func), 0); // dependent, so that it is not checked when disabled
 }
+template <class _Fn = void(), __enable_if_t<__libcpp_has_at_quick_exit_for<_Fn>, int> = 0>
 inline _LIBCPP_HIDE_FROM_ABI int at_quick_exit(void (*__func)()) _NOEXCEPT {
-  return std::__libcpp_at_quick_exit(__func, 0);
+  return std::__libcpp_at_quick_exit(static_cast<_Fn*>(__func), 0);
 }
 #      endif
 
