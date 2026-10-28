@@ -49,12 +49,19 @@ inline constexpr bool __vectorizable_floating_point<float> = true;
 template <>
 inline constexpr bool __vectorizable_floating_point<double> = true;
 
-// Extension point for the extended floating-point types. libc++ does not currently provide
-// <stdfloat>, so std::float16_t and friends do not exist; when they do, enable them here and
-// the whole of <simd> follows without further change.
+// The extended floating-point types: std::float16_t, std::float32_t and std::float64_t, when <stdfloat> defines them
+// (clang spells them _Float16, __float32 and __float64). std::bfloat16_t and std::float128_t are not vectorizable.
 #  if defined(__STDCPP_FLOAT16_T__) && __has_include(<stdfloat>)
 template <>
 inline constexpr bool __vectorizable_floating_point<_Float16> = true;
+#  endif
+#  if defined(__STDCPP_FLOAT32_T__) && __has_include(<stdfloat>)
+template <>
+inline constexpr bool __vectorizable_floating_point<__float32> = true;
+#  endif
+#  if defined(__STDCPP_FLOAT64_T__) && __has_include(<stdfloat>)
+template <>
+inline constexpr bool __vectorizable_floating_point<__float64> = true;
 #  endif
 
 template <class _Tp>

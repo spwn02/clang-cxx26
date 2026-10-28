@@ -155,6 +155,21 @@ inline constexpr int __floating_point_conversion_rank<double> = 2;
 template <>
 inline constexpr int __floating_point_conversion_rank<long double> = 3;
 
+// [conv.rank]: an extended floating-point type has the conversion rank of the standard type with the same set of
+// values, so float32_t ranks with float and float64_t with double, and float16_t ranks below float.
+#  if defined(__STDCPP_FLOAT16_T__) && __has_include(<stdfloat>)
+template <>
+inline constexpr int __floating_point_conversion_rank<_Float16> = 0;
+#  endif
+#  if defined(__STDCPP_FLOAT32_T__) && __has_include(<stdfloat>)
+template <>
+inline constexpr int __floating_point_conversion_rank<__float32> = 1;
+#  endif
+#  if defined(__STDCPP_FLOAT64_T__) && __has_include(<stdfloat>)
+template <>
+inline constexpr int __floating_point_conversion_rank<__float64> = 2;
+#  endif
+
 } // namespace simd
 
 #endif // _LIBCPP_STD_VER >= 26
