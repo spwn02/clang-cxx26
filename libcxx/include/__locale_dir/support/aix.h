@@ -79,6 +79,10 @@ inline _LIBCPP_HIDE_FROM_ABI __lconv_t* __localeconv(__locale_t& __loc) {
   __locale_guard __current(__loc);
   return std::localeconv();
 }
+
+// There is no way to ask the C library of this platform for the encoding of a locale, so std::text_encoding::environment()
+// has no answer here: a null name makes it text_encoding::id::unknown.
+inline _LIBCPP_HIDE_FROM_ABI const char* __get_locale_encoding(__locale_t) { return nullptr; }
 #endif // _LIBCPP_BUILDING_LIBRARY
 
 // The following structure is a quick-and-dirty workaround for routines that AIX

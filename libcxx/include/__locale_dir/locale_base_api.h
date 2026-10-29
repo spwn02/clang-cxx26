@@ -177,6 +177,10 @@ inline _LIBCPP_HIDE_FROM_ABI char* __setlocale(int __category, char const* __loc
 inline _LIBCPP_HIDE_FROM_ABI void __freelocale(__locale_t __loc) { freelocale(__loc); }
 
 inline _LIBCPP_HIDE_FROM_ABI __lconv_t* __localeconv(__locale_t& __loc) { return __libcpp_localeconv_l(__loc); }
+
+// There is no way to ask the C library of these platforms for the encoding of a locale, so
+// std::text_encoding::environment() has no answer here: a null name makes it text_encoding::id::unknown.
+inline _LIBCPP_HIDE_FROM_ABI const char* __get_locale_encoding(__locale_t) { return nullptr; }
 #    endif // _LIBCPP_BUILDING_LIBRARY
 
 //

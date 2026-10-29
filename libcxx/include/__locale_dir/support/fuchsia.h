@@ -12,6 +12,7 @@
 #include <__config>
 #include <__utility/forward.h>
 #include <clocale> // uselocale & friends
+#include <langinfo.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cwchar>
@@ -67,6 +68,11 @@ inline _LIBCPP_HIDE_FROM_ABI char* __setlocale(int __category, char const* __loc
 inline _LIBCPP_HIDE_FROM_ABI __lconv_t* __localeconv(__locale_t& __loc) {
   __locale_guard __current(__loc);
   return std::localeconv();
+}
+
+// The name of the character encoding of the locale, for std::text_encoding::environment().
+inline _LIBCPP_HIDE_FROM_ABI const char* __get_locale_encoding(__locale_t __loc) {
+  return ::nl_langinfo_l(CODESET, __loc);
 }
 
 //

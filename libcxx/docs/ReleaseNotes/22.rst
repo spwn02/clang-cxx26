@@ -117,6 +117,10 @@ Improvements and New Features
 - ``std::frexp``, ``std::modf``, ``std::remquo`` and ``std::nexttoward`` of the extended floating-point types are
   ``constexpr`` since C++23 as for ``double`` (they were ``constexpr`` only since C++26).
 
+- ``std::text_encoding::environment()`` is implemented through ``nl_langinfo_l`` on Linux, Apple's platforms, FreeBSD,
+  NetBSD and Fuchsia, through the code page of the locale on Windows, and is always ``text_encoding::id::unknown`` on
+  AIX, newlib and the platforms that use the generic fallback of the locale base API, whose C libraries have no way to
+  ask for the encoding of a locale (before, ``text_encoding.cpp`` did not compile there).
 - With the MSVC ABI the members of ``std::exception_ptr`` (and ``operator==``, ``swap``, ``current_exception`` and
   ``rethrow_exception``) are defined inline in ``<exception>`` in every language mode, and they are ``constexpr`` in C++26.
   Before, the library defined them out of line, so that a C++26 program had two definitions of the same symbols, which the
