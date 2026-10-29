@@ -111,7 +111,8 @@ struct Rng {
   }
 };
 
-// float16_t: every finite pattern, with the exponents spread over the whole range. bfloat16_t has the exponent range of
+// float16_t: a million random triples of finite patterns, with exponents over the whole range of the format (the
+// exhaustive check of three 16-bit operands is 2^48 triples). bfloat16_t has the exponent range of
 // float, so the exact reference (128-bit integers) cannot hold operands that are that far apart. It is run in windows
 // instead: the exponents of the factors are around ctr, the exponent of the addend around 2 * ctr (where the product is), so
 // that the sums and the rounding at the end of the range are covered: ctr = -66 gives results in the subnormal range,
@@ -188,7 +189,7 @@ int main(int, char**) {
   assert(std::bit_cast<std::uint16_t>(std::fma(std::bit_cast<std::float16_t>(std::uint16_t(0xbea0)),
                                                std::bit_cast<std::float16_t>(std::uint16_t(0xe6e0)),
                                                std::bit_cast<std::float16_t>(std::uint16_t(0x86ec)))) == 0x69b1);
-  run<std::float16_t, 10, 5>(-20, 20, -40, 40); // the whole exponent range of the format (-24 to 15), in one window
+  run<std::float16_t, 10, 5>(-20, 20, -40, 40); // random triples over the whole exponent range of the format (-24 to 15)
 #  endif
 #  ifdef __STDCPP_BFLOAT16_T__
   for (int ctr : {-66, -40, 0, 40, 64})
