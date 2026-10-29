@@ -148,7 +148,7 @@ struct __when_all_multiple_value {};  // 2+ set_value_t signatures.
 template <class... _Args>
 struct __when_all_single_value {
   using __tuple _LIBCPP_NODEBUG   = __decayed_tuple<_Args...>;
-  static constexpr bool __nothrow = is_nothrow_constructible_v<__tuple, _Args...>;
+  static constexpr bool __is_nothrow_list = is_nothrow_constructible_v<__tuple, _Args...>;
 };
 
 template <class _Acc, class _Fn>

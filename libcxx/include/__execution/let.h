@@ -226,8 +226,8 @@ public:
     using __cont_sndr _LIBCPP_NODEBUG = invoke_result_t<_Fn, decay_t<_Args>&...>;
     using __cont_list _LIBCPP_NODEBUG =
         typename __sigs_to_list<completion_signatures_of_t<__cont_sndr, __cont_env>>::type;
-    static constexpr bool __nothrow = __nothrow_for<_Args...>;
-    using type = __conditional_t<__nothrow,
+    static constexpr bool __is_nothrow_list = __nothrow_for<_Args...>;
+    using type = __conditional_t<__is_nothrow_list,
                                   __cont_list,
                                   typename __concat_type_lists<__cont_list, __exec_type_list<set_error_t(exception_ptr)>>::type>;
   };
@@ -409,8 +409,8 @@ class __let_opstate {
     // __let_sig_transform::__nothrow_for) if decay-copying __args, invoking __fn_ or connecting the continuation
     // sender can throw.
     using __transform_t      = __let_sig_transform<__set_cpo, _Fn, _Sndr, env_of_t<_Rcvr>>;
-    constexpr bool __nothrow = __transform_t::template __nothrow_for<_Args...>;
-    if constexpr (__nothrow) {
+    constexpr bool __is_nothrow_list = __transform_t::template __nothrow_for<_Args...>;
+    if constexpr (__is_nothrow_list) {
       __start_continuation(std::forward<_Args>(__args)...);
     } else {
 #if _LIBCPP_HAS_EXCEPTIONS

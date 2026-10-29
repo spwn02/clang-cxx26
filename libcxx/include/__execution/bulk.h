@@ -212,8 +212,8 @@ struct __bulk_sig_transform {
 
   template <class... _Args>
   struct __one<set_value_t(_Args...)> {
-    static constexpr bool __nothrow = __bulk_nothrow_invocable<_Chunked, _Func, _Shape, _Args...>::value;
-    using type = __conditional_t<__nothrow, __exec_type_list<set_value_t(_Args...)>,
+    static constexpr bool __is_nothrow_list = __bulk_nothrow_invocable<_Chunked, _Func, _Shape, _Args...>::value;
+    using type = __conditional_t<__is_nothrow_list, __exec_type_list<set_value_t(_Args...)>,
                                   __exec_type_list<set_value_t(_Args...), set_error_t(exception_ptr)>>;
   };
 
@@ -262,8 +262,8 @@ public:
 
   template <class... _Args>
   _LIBCPP_HIDE_FROM_ABI constexpr void set_value(_Args&&... __args) && noexcept {
-    constexpr bool __nothrow = __bulk_nothrow_invocable<_Chunked, _Func, _Shape, _Args...>::value;
-    if constexpr (__nothrow) {
+    constexpr bool __is_nothrow_list = __bulk_nothrow_invocable<_Chunked, _Func, _Shape, _Args...>::value;
+    if constexpr (__is_nothrow_list) {
       __invoke_and_set_value(std::forward<_Args>(__args)...);
     } else {
 #if _LIBCPP_HAS_EXCEPTIONS

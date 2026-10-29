@@ -728,12 +728,12 @@ public:
 private:
   template <class _Cpo, class... _Args>
   _LIBCPP_HIDE_FROM_ABI void __set_complete(_Args&&... __args) noexcept {
-    [[maybe_unused]] constexpr bool __nothrow = (is_nothrow_constructible_v<decay_t<_Args>, _Args> && ...);
+    [[maybe_unused]] constexpr bool __is_nothrow_list = (is_nothrow_constructible_v<decay_t<_Args>, _Args> && ...);
 #if _LIBCPP_HAS_EXCEPTIONS
     try {
       __state->__result.template emplace<__decayed_tuple<_Cpo, _Args...>>(_Cpo{}, std::forward<_Args>(__args)...);
     } catch (...) {
-      if constexpr (!__nothrow) {
+      if constexpr (!__is_nothrow_list) {
         using __tuple_t = __decayed_tuple<set_error_t, exception_ptr>;
         __state->__result.template emplace<__tuple_t>(set_error_t{}, std::current_exception());
       }
@@ -970,7 +970,7 @@ public:
   __spawn_future_opstate& operator=(const __spawn_future_opstate&) = delete;
 
   _LIBCPP_HIDE_FROM_ABI void start() & noexcept {
-    [[maybe_unused]] constexpr bool __nothrow = is_nothrow_constructible_v<__stop_callback_t, __stop_token_t, __callback>;
+    [[maybe_unused]] constexpr bool __is_nothrow_list = is_nothrow_constructible_v<__stop_callback_t, __stop_token_t, __callback>;
 #if _LIBCPP_HAS_EXCEPTIONS
     try {
       // The draft writes get_stop_token(rcvr) here, which is ill-formed against its own stop-token-t =
@@ -980,7 +980,7 @@ public:
       // for throwing datums (dead code for the standard stop tokens).
       __stop_cb_.emplace(std::get_stop_token(execution::get_env(__rcvr_)), __callback{__raw_});
     } catch (...) {
-      if constexpr (!__nothrow) {
+      if constexpr (!__is_nothrow_list) {
         execution::set_error(std::move(__rcvr_), std::current_exception());
         return;
       }
