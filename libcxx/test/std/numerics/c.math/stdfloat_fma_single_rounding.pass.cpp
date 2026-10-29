@@ -19,6 +19,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
 #include <stdfloat>
 
 #include "test_macros.h"
@@ -110,34 +111,72 @@ struct Rng {
   }
 };
 
-// float16_t: every finite pattern. bfloat16_t: the exponent range is limited so that the exact sum fits in 128 bits.
+// float16_t: every finite pattern, with the exponents spread over the whole range. bfloat16_t has the exponent range of
+// float, so the exact reference (128-bit integers) cannot hold operands that are that far apart. It is run in windows
+// instead: the exponents of the factors are around ctr, the exponent of the addend around 2 * ctr (where the product is), so
+// that the sums and the rounding at the end of the range are covered: ctr = -66 gives results in the subnormal range,
+// ctr = 64 gives overflow to infinity, the others the normal range. Exponents are unbiased; a field below 1 is
+// subnormal or zero.
 template <class T, int Mant, int ExpBits>
-void run(bool limit_range) {
+void run(int a_lo, int a_hi, int c_lo, int c_hi) {
   using F = Fmt<Mant, ExpBits>;
   auto bits = [](T v) { return std::bit_cast<std::uint16_t>(v); };
   auto from = [](unsigned u) { return std::bit_cast<T>(static_cast<std::uint16_t>(u)); };
+  const int max_field = (1 << ExpBits) - 2;
   Rng rng;
-  auto pick = [&] {
-    const unsigned inf = ((1u << ExpBits) - 1) << Mant;
-    for (;;) {
-      unsigned u = static_cast<unsigned>(rng.next()) & 0xffff;
-      if ((u & 0x7fff) >= inf)
-        continue; // infinity and NaN
-      if (limit_range && (u & 0x7fff) != 0) {
-        const int e = (u >> Mant) & ((1 << ExpBits) - 1);
-        if (e < F::bias - 10 || e > F::bias + 9)
-          continue;
-      }
-      return u;
-    }
+  auto pick = [&](int lo, int hi) {
+    const int e     = lo + static_cast<int>(rng.next() % static_cast<unsigned>(hi - lo + 1));
+    int field       = e + F::bias;
+    field           = field < 0 ? 0 : (field > max_field ? max_field : field);
+    const unsigned m = static_cast<unsigned>(rng.next()) & ((1u << Mant) - 1);
+    const unsigned s = static_cast<unsigned>(rng.next() >> 7) & 1u;
+    return (s << 15) | (static_cast<unsigned>(field) << Mant) | m;
   };
-  for (int i = 0; i < 4000000; ++i) {
-    const unsigned a = pick(), b = pick(), c = pick();
+  for (int i = 0; i < 1000000; ++i) {
+    const unsigned a = pick(a_lo, a_hi), b = pick(a_lo, a_hi), c = pick(c_lo, c_hi);
     unsigned want;
     if (!F::exact_fma(a, b, c, want))
       continue;
     assert(bits(std::fma(from(a), from(b), from(c))) == want);
   }
+}
+
+// A product that lies exactly halfway between two values of the format, plus an addend that is much smaller (50 or more
+// binades below), is above the tie, and must round up (or down for a negative sum). An implementation that adds in double
+// loses the addend (a double has 53 bits, bfloat16_t spans 260 binades) and rounds the tie to even: wrong half of the time.
+template <class T, int Mant, int ExpBits>
+void run_ties(int a_lo, int a_hi, int c_lo, int c_hi) {
+  using F = Fmt<Mant, ExpBits>;
+  auto bits = [](T v) { return std::bit_cast<std::uint16_t>(v); };
+  auto from = [](unsigned u) { return std::bit_cast<T>(static_cast<std::uint16_t>(u)); };
+  const int max_field = (1 << ExpBits) - 2;
+  Rng rng;
+  auto pick = [&](int lo, int hi) {
+    const int e      = lo + static_cast<int>(rng.next() % static_cast<unsigned>(hi - lo + 1));
+    const int field  = e + F::bias < 1 ? 1 : (e + F::bias > max_field ? max_field : e + F::bias);
+    const unsigned m = static_cast<unsigned>(rng.next()) & ((1u << Mant) - 1);
+    const unsigned s = static_cast<unsigned>(rng.next() >> 7) & 1u;
+    return (s << 15) | (static_cast<unsigned>(field) << Mant) | m;
+  };
+  int hits = 0;
+  for (long i = 0; i < 20000000 && hits < 20000; ++i) {
+    const unsigned a = pick(a_lo, a_hi), b = pick(a_lo, a_hi);
+    const auto A = F::unpack(a), B = F::unpack(b);
+    const long long pm = A.mant * B.mant;
+    int len = 0;
+    for (long long t = pm; t != 0; t >>= 1)
+      ++len;
+    const int drop = len - (Mant + 1); // the bits that rounding to the format drops
+    if (drop <= 0 || (pm & ((1ll << drop) - 1)) != (1ll << (drop - 1)))
+      continue; // the product is not halfway between two values of the format
+    const unsigned c = pick(c_lo, c_hi);
+    unsigned want;
+    if (!F::exact_fma(a, b, c, want))
+      continue;
+    ++hits;
+    assert(bits(std::fma(from(a), from(b), from(c))) == want);
+  }
+  assert(hits >= 5000);
 }
 
 #endif // __SIZEOF_INT128__
@@ -149,10 +188,13 @@ int main(int, char**) {
   assert(std::bit_cast<std::uint16_t>(std::fma(std::bit_cast<std::float16_t>(std::uint16_t(0xbea0)),
                                                std::bit_cast<std::float16_t>(std::uint16_t(0xe6e0)),
                                                std::bit_cast<std::float16_t>(std::uint16_t(0x86ec)))) == 0x69b1);
-  run<std::float16_t, 10, 5>(false);
+  run<std::float16_t, 10, 5>(-20, 20, -40, 40); // the whole exponent range of the format (-24 to 15), in one window
 #  endif
 #  ifdef __STDCPP_BFLOAT16_T__
-  run<std::bfloat16_t, 7, 8>(true);
+  for (int ctr : {-66, -40, 0, 40, 64})
+    run<std::bfloat16_t, 7, 8>(ctr - 5, ctr + 4, 2 * ctr - 12, 2 * ctr + 12);
+  for (int ctr : {-30, 0, 30, 60})
+    run_ties<std::bfloat16_t, 7, 8>(ctr - 5, ctr + 4, 2 * ctr - 100, 2 * ctr - 55);
 #  endif
 #endif // __SIZEOF_INT128__
   return 0;
