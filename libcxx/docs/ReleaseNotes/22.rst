@@ -109,6 +109,11 @@ Improvements and New Features
   ``float32_t`` and ``float64_t`` although [simd.general] lists them as vectorizable. They are fixed; the 16-bit
   functions are checked over every value of both formats.
 
+- The ``<cmath>`` overloads for ``float128_t`` are ``constexpr`` as [cmath.syn] requires (the exact functions since
+  C++23, the transcendental ones since C++26): they call the compiler's ``__builtin_*f128`` functions, which the compiler
+  evaluates (the transcendental ones with MPFR, ``CLANG_ENABLE_MPFR_CONSTEXPR_MATH``), and which are calls of the same
+  entry points of the C library at run time. ``std::fma`` of ``float128_t`` is not ``constexpr`` yet.
+
 Deprecations and Removals
 -------------------------
 

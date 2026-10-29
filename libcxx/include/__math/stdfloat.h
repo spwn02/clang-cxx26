@@ -647,8 +647,7 @@ _LIBCPP_HIDE_FROM_ABI inline constexpr _Float nextdown(_Float __x) _NOEXCEPT {
 }
 #  endif // _LIBCPP_STD_VER >= 26
 
-// glibc exposes the IEEE binary128 libm ABI with an `f128` suffix. Clang has
-// no corresponding builtins, so declare and call those ABI entry points.
+// glibc exposes the IEEE binary128 libm ABI with an `f128` suffix, which is what the builtins of Clang call at run time.
 // __GLIBC_PREREQ is a function-like macro that only glibc defines, and the preprocessor cannot skip over a use of one
 // that is not defined (not even in the operand of a && that is false), so it is only mentioned where glibc has it.
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
@@ -719,67 +718,72 @@ long lroundf128(__float128) noexcept;
 long long llroundf128(__float128) noexcept;
 }
 
-#    define _LIBCPP_F128_UNARY(__name) \
-      _LIBCPP_HIDE_FROM_ABI inline __float128 __name(__float128 __value) noexcept { return __name##f128(__value); }
-_LIBCPP_F128_UNARY(acos)
-_LIBCPP_F128_UNARY(asin)
-_LIBCPP_F128_UNARY(atan)
-_LIBCPP_F128_UNARY(acosh)
-_LIBCPP_F128_UNARY(asinh)
-_LIBCPP_F128_UNARY(atanh)
-_LIBCPP_F128_UNARY(cos)
-_LIBCPP_F128_UNARY(cosh)
-_LIBCPP_F128_UNARY(sin)
-_LIBCPP_F128_UNARY(sinh)
-_LIBCPP_F128_UNARY(tan)
-_LIBCPP_F128_UNARY(tanh)
-_LIBCPP_F128_UNARY(exp)
-_LIBCPP_F128_UNARY(exp2)
-_LIBCPP_F128_UNARY(expm1)
-_LIBCPP_F128_UNARY(log)
-_LIBCPP_F128_UNARY(log2)
-_LIBCPP_F128_UNARY(log10)
-_LIBCPP_F128_UNARY(log1p)
-_LIBCPP_F128_UNARY(cbrt)
-_LIBCPP_F128_UNARY(ceil)
-_LIBCPP_F128_UNARY(floor)
-_LIBCPP_F128_UNARY(round)
-_LIBCPP_F128_UNARY(trunc)
-_LIBCPP_F128_UNARY(nearbyint)
-_LIBCPP_F128_UNARY(rint)
-_LIBCPP_F128_UNARY(erf)
-_LIBCPP_F128_UNARY(erfc)
-_LIBCPP_F128_UNARY(tgamma)
-_LIBCPP_F128_UNARY(lgamma)
-_LIBCPP_F128_UNARY(logb)
+// The functions below call the builtins, not the entry points of the C library, so that the compiler evaluates them in
+// a constant expression ([cmath.syn]: the overloads for floating-point types are constexpr; the exact functions since
+// C++23 (P0533R9), the others since C++26 (P1383R2)). At run time the builtin is a call of the same entry point.
+#    define _LIBCPP_F128_UNARY(__name, __constexpr) \
+      _LIBCPP_HIDE_FROM_ABI inline __constexpr __float128 __name(__float128 __value) noexcept { return __builtin_##__name##f128(__value); }
+_LIBCPP_F128_UNARY(acos, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(asin, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(atan, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(acosh, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(asinh, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(atanh, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(cos, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(cosh, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(sin, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(sinh, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(tan, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(tanh, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(exp, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(exp2, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(expm1, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(log, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(log2, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(log10, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(log1p, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(cbrt, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(erf, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(erfc, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(tgamma, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(lgamma, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_UNARY(ceil, _LIBCPP_CONSTEXPR_SINCE_CXX23)
+_LIBCPP_F128_UNARY(floor, _LIBCPP_CONSTEXPR_SINCE_CXX23)
+_LIBCPP_F128_UNARY(round, _LIBCPP_CONSTEXPR_SINCE_CXX23)
+_LIBCPP_F128_UNARY(trunc, _LIBCPP_CONSTEXPR_SINCE_CXX23)
+_LIBCPP_F128_UNARY(logb, _LIBCPP_CONSTEXPR_SINCE_CXX23)
 #    undef _LIBCPP_F128_UNARY
-#    define _LIBCPP_F128_BINARY(__name) \
-      _LIBCPP_HIDE_FROM_ABI inline __float128 __name(__float128 __left, __float128 __right) noexcept { return __name##f128(__left, __right); }
-_LIBCPP_F128_BINARY(atan2)
-_LIBCPP_F128_BINARY(hypot)
-_LIBCPP_F128_BINARY(pow)
-_LIBCPP_F128_BINARY(fmod)
-_LIBCPP_F128_BINARY(remainder)
-_LIBCPP_F128_BINARY(copysign)
-_LIBCPP_F128_BINARY(fdim)
-_LIBCPP_F128_BINARY(fmax)
-_LIBCPP_F128_BINARY(fmin)
-_LIBCPP_F128_BINARY(nextafter)
-#    undef _LIBCPP_F128_BINARY
-_LIBCPP_HIDE_FROM_ABI inline __float128 fma(__float128 __x, __float128 __y, __float128 __z) noexcept { return fmaf128(__x, __y, __z); }
-_LIBCPP_HIDE_FROM_ABI inline __float128 frexp(__float128 __value, int* __exponent) noexcept { return frexpf128(__value, __exponent); }
-_LIBCPP_HIDE_FROM_ABI inline __float128 modf(__float128 __value, __float128* __integer) noexcept { return modff128(__value, __integer); }
-_LIBCPP_HIDE_FROM_ABI inline __float128 ldexp(__float128 __value, int __exponent) noexcept { return ldexpf128(__value, __exponent); }
-_LIBCPP_HIDE_FROM_ABI inline __float128 scalbn(__float128 __value, int __exponent) noexcept { return scalbnf128(__value, __exponent); }
-_LIBCPP_HIDE_FROM_ABI inline __float128 remquo(__float128 __value, __float128 __denominator, int* __quotient) noexcept { return remquof128(__value, __denominator, __quotient); }
-_LIBCPP_HIDE_FROM_ABI inline __float128 scalbln(__float128 __value, long __exponent) noexcept { return scalblnf128(__value, __exponent); }
-_LIBCPP_HIDE_FROM_ABI inline int ilogb(__float128 __value) noexcept { return ilogbf128(__value); }
+// The functions that depend on the rounding mode are not constexpr (P0533R9).
+_LIBCPP_HIDE_FROM_ABI inline __float128 nearbyint(__float128 __value) noexcept { return nearbyintf128(__value); }
+_LIBCPP_HIDE_FROM_ABI inline __float128 rint(__float128 __value) noexcept { return rintf128(__value); }
 _LIBCPP_HIDE_FROM_ABI inline long lrint(__float128 __value) noexcept { return lrintf128(__value); }
 _LIBCPP_HIDE_FROM_ABI inline long long llrint(__float128 __value) noexcept { return llrintf128(__value); }
-_LIBCPP_HIDE_FROM_ABI inline long lround(__float128 __value) noexcept { return lroundf128(__value); }
-_LIBCPP_HIDE_FROM_ABI inline long long llround(__float128 __value) noexcept { return llroundf128(__value); }
+#    define _LIBCPP_F128_BINARY(__name, __constexpr) \
+      _LIBCPP_HIDE_FROM_ABI inline __constexpr __float128 __name(__float128 __left, __float128 __right) noexcept { return __builtin_##__name##f128(__left, __right); }
+_LIBCPP_F128_BINARY(atan2, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_BINARY(hypot, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_BINARY(pow, _LIBCPP_CONSTEXPR_SINCE_CXX26)
+_LIBCPP_F128_BINARY(fmod, _LIBCPP_CONSTEXPR_SINCE_CXX23)
+_LIBCPP_F128_BINARY(remainder, _LIBCPP_CONSTEXPR_SINCE_CXX23)
+_LIBCPP_F128_BINARY(copysign, _LIBCPP_CONSTEXPR_SINCE_CXX23)
+_LIBCPP_F128_BINARY(fdim, _LIBCPP_CONSTEXPR_SINCE_CXX23)
+_LIBCPP_F128_BINARY(fmax, _LIBCPP_CONSTEXPR_SINCE_CXX23)
+_LIBCPP_F128_BINARY(fmin, _LIBCPP_CONSTEXPR_SINCE_CXX23)
+_LIBCPP_F128_BINARY(nextafter, _LIBCPP_CONSTEXPR_SINCE_CXX23)
+#    undef _LIBCPP_F128_BINARY
+// The compiler does not evaluate fmaf128 in a constant expression (fma is not constexpr for float128_t yet).
+_LIBCPP_HIDE_FROM_ABI inline __float128 fma(__float128 __x, __float128 __y, __float128 __z) noexcept { return fmaf128(__x, __y, __z); }
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 __float128 frexp(__float128 __value, int* __exponent) noexcept { return __builtin_frexpf128(__value, __exponent); }
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 __float128 modf(__float128 __value, __float128* __integer) noexcept { return __builtin_modff128(__value, __integer); }
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 __float128 ldexp(__float128 __value, int __exponent) noexcept { return __builtin_ldexpf128(__value, __exponent); }
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 __float128 scalbn(__float128 __value, int __exponent) noexcept { return __builtin_scalbnf128(__value, __exponent); }
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 __float128 remquo(__float128 __value, __float128 __denominator, int* __quotient) noexcept { return __builtin_remquof128(__value, __denominator, __quotient); }
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 __float128 scalbln(__float128 __value, long __exponent) noexcept { return __builtin_scalblnf128(__value, __exponent); }
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 int ilogb(__float128 __value) noexcept { return __builtin_ilogbf128(__value); }
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 long lround(__float128 __value) noexcept { return __builtin_lroundf128(__value); }
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 long long llround(__float128 __value) noexcept { return __builtin_llroundf128(__value); }
 // [c.math.syn]: nexttoward(x, y) with a long double y; every long double value is representable as a float128_t.
-_LIBCPP_HIDE_FROM_ABI inline __float128 nexttoward(__float128 __left, long double __right) noexcept { return nextafterf128(__left, static_cast<__float128>(__right)); }
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 __float128 nexttoward(__float128 __left, long double __right) noexcept { return __builtin_nextafterf128(__left, static_cast<__float128>(__right)); }
 #  endif
 #  undef _LIBCPP_STDFLOAT_GLIBC_HAS_F128
 } // namespace __math
