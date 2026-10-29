@@ -68,7 +68,10 @@ __cxa_init_primary_exception(void*, std::type_info*, __cxa_exception_cleanup_fn)
 
 _LIBCPP_BEGIN_UNVERSIONED_NAMESPACE_STD
 
+// The exception_ptr of the MSVC ABI is defined out of line by the library (and by msvcprt); inline definitions in a
+// client translation unit would define the same symbols a second time, which the linker of COFF rejects.
 #if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_BUILDING_LIBRARY) && _LIBCPP_HAS_EXCEPTIONS &&                           \
+    !defined(_LIBCPP_ABI_MICROSOFT) &&                                                                                 \
     __has_builtin(__builtin_constexpr_exception_capture) && __has_builtin(__builtin_constexpr_exception_retain) &&     \
     __has_builtin(__builtin_constexpr_exception_release) && __has_builtin(__builtin_constexpr_exception_rethrow)
 #  define _LIBCPP_HAS_CONSTEXPR_EXCEPTION_PTR 1
