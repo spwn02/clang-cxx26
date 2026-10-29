@@ -14,8 +14,16 @@ See the [README](../README.md#release). A release is a Linux x86_64 archive: unp
 
 ## Which platforms are supported?
 
-Only Linux x86_64 is built and tested today. The host needs a C library and the GCC runtime (on Debian and Ubuntu,
-`build-essential`). The fork is not inherently tied to Linux or x86, but no other platform is validated.
+The release is a Linux x86_64 archive, and Linux x86_64 is the platform where the whole test suite runs. The host needs
+a C library and the GCC runtime (on Debian and Ubuntu, `build-essential`).
+
+The compiler and libc++ also build from source on two more platforms, checked on GitHub-hosted runners: macOS arm64
+(Apple Silicon, Xcode 15.4) and Windows x64 with the MSVC ABI (`clang-cl`, Visual Studio 2022). On both, the examples of the README
+(hello, reflection, expansion statements, contracts, `std::execution`, `<simd>`) compile and run, and on macOS three of the new
+libc++ tests do. There are no binary releases for them, and their test suites have not been run. Known issues:
+on macOS, Apple's `ld` crashes when the libc++ of the toolchain is on the library path, so link with
+`-fuse-ld=lld` ([#350](https://github.com/spwn02/clang-cxx26/issues/350)); on Windows `std::exception_ptr` is
+not constexpr ([#351](https://github.com/spwn02/clang-cxx26/issues/351)).
 
 ## Is this the same as Bloomberg's `clang-p2996`?
 
