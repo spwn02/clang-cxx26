@@ -125,6 +125,9 @@ Improvements and New Features
   ``rethrow_exception``) are defined inline in ``<exception>`` in every language mode, and they are ``constexpr`` in C++26.
   Before, the library defined them out of line, so that a C++26 program had two definitions of the same symbols, which the
   linker of COFF rejects. The library no longer defines or exports them.
+- The same holds with the MSVC ABI for the overloads of ``to_string`` and ``to_wstring`` for integers and for the members
+  of ``bad_weak_ptr``, ``bad_optional_access``, ``bad_variant_access`` and ``bad_expected_access<void>``: they are inline
+  in every mode and ``libc++.lib`` does not define them. Other platforms are unchanged.
 
 Deprecations and Removals
 -------------------------

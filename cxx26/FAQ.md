@@ -23,7 +23,7 @@ The compiler and libc++ also build from source on two more platforms, checked on
 libc++ tests do. There are no binary releases for them, and their test suites have not been run. Constant evaluation of the transcendental functions of `<cmath>`
 (`constexpr double s = std::sin(0.5);`, P1383R2) needs GMP and MPFR when the compiler is built: the Linux archive is built with
 them, and a build from source finds them if they are installed (otherwise those functions are not usable in a constant
-expression, and everything else works). Two problems of the 10.27 sources are fixed on the `cxx26` branch: Apple's `ld` crashed when linking against the libc++
+expression, and everything else works; the Windows runner has neither, so that check is skipped there). On Windows the modes C++11 to C++26 are checked; C++03 is not one, because the headers of Visual Studio themselves need `noexcept`. Two problems of the 10.27 sources are fixed on the `cxx26` branch: Apple's `ld` crashed when linking against the libc++
 of the toolchain ([#350](https://github.com/spwn02/clang-cxx26/issues/350)), and `std::exception_ptr` was not constexpr
 with the MSVC ABI ([#351](https://github.com/spwn02/clang-cxx26/issues/351)).
 
