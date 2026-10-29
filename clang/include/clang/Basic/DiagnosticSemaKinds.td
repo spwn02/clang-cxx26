@@ -9305,8 +9305,8 @@ def ext_function_pointer_language_linkage_conversion : ExtWarn<
   "([dcl.link]p1)">,
   InGroup<FunctionTypeLanguageLinkage>, DefaultError;
 def note_function_language_linkage_declare_extern_c : Note<
-  "give %0 C language linkage by declaring it 'extern \"C\"' so that its type "
-  "matches">;
+  "give %0 C language linkage by declaring it %select{'extern \"C\"'|"
+  "inside an 'extern \"C\"' block}1 so that its type matches">;
 // In an unevaluated operand (type trait, requires-expression, decltype) the
 // conversion is an error, so that SFINAE and traits report the types as not
 // convertible.
