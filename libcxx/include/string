@@ -3871,7 +3871,7 @@ stoull(const string& __str, size_t* __idx = nullptr, int __base = 10);
 #  if _LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
 // The digits of an integer, in a buffer of char, without std::to_chars (which does not exist before C++17).
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 char* __integral_digits(char* __end, _Tp __val) {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 char* __integral_digits(char* __end, _Tp __val) {
   typedef typename make_unsigned<_Tp>::type _Up;
   const bool __negative = __val < 0;
   _Up __magnitude       = __negative ? static_cast<_Up>(_Up(0) - static_cast<_Up>(__val)) : static_cast<_Up>(__val);
@@ -3886,28 +3886,28 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 char* __integral_digits(char
 }
 
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 string __to_string_integral(_Tp __val) {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 string __to_string_integral(_Tp __val) {
   char __buf[numeric_limits<_Tp>::digits10 + 3];
   char* __end = __buf + sizeof(__buf);
   return string(std::__integral_digits(__end, __val), __end);
 }
 
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 string to_string(int __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline string to_string(int __val) {
   return __to_string_integral(__val);
 }
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 string to_string(unsigned __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline string to_string(unsigned __val) {
   return __to_string_integral(__val);
 }
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 string to_string(long __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline string to_string(long __val) {
   return __to_string_integral(__val);
 }
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 string to_string(unsigned long __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline string to_string(unsigned long __val) {
   return __to_string_integral(__val);
 }
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 string to_string(long long __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline string to_string(long long __val) {
   return __to_string_integral(__val);
 }
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 string to_string(unsigned long long __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline string to_string(unsigned long long __val) {
   return __to_string_integral(__val);
 }
 #  else
@@ -3938,7 +3938,7 @@ stoull(const wstring& __str, size_t* __idx = nullptr, int __base = 10);
 
 #  if _LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 wstring __to_wstring_integral(_Tp __val) {
+inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 wstring __to_wstring_integral(_Tp __val) {
   char __buf[numeric_limits<_Tp>::digits10 + 3];
   char* __end = __buf + sizeof(__buf);
   wstring __result;
@@ -3947,22 +3947,22 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 wstring __to_wstring_integra
   return __result;
 }
 
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 wstring to_wstring(int __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline wstring to_wstring(int __val) {
   return __to_wstring_integral(__val);
 }
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 wstring to_wstring(unsigned __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline wstring to_wstring(unsigned __val) {
   return __to_wstring_integral(__val);
 }
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 wstring to_wstring(long __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline wstring to_wstring(long __val) {
   return __to_wstring_integral(__val);
 }
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 wstring to_wstring(unsigned long __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline wstring to_wstring(unsigned long __val) {
   return __to_wstring_integral(__val);
 }
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 wstring to_wstring(long long __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline wstring to_wstring(long long __val) {
   return __to_wstring_integral(__val);
 }
-[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 wstring to_wstring(unsigned long long __val) {
+[[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX26 inline wstring to_wstring(unsigned long long __val) {
   return __to_wstring_integral(__val);
 }
 #  else

@@ -14,7 +14,11 @@
 // The frozen C++03 headers do not have the form.
 // UNSUPPORTED: c++03
 
-// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_FORCE_INLINE_CXX26_DEFINITIONS
+// Two translation units define the functions: the form must be inline, or the linker rejects the second definition.
+// RUN: %{cxx} %s %{flags} %{compile_flags} -D_LIBCPP_FORCE_INLINE_CXX26_DEFINITIONS -c -o %t.1.o
+// RUN: %{cxx} %s %{flags} %{compile_flags} -D_LIBCPP_FORCE_INLINE_CXX26_DEFINITIONS -DSECOND_TU -c -o %t.2.o
+// RUN: %{cxx} %t.1.o %t.2.o %{flags} %{link_flags} -o %t.exe
+// RUN: %{exec} %t.exe
 
 #include <cassert>
 #include <climits>
@@ -28,7 +32,13 @@
 #  include <variant>
 #endif
 
+#ifdef SECOND_TU
+std::string second() { return std::to_string(42) + "x"; }
+#else
+std::string second();
+
 int main(int, char**) {
+  assert(second() == "42x");
   assert(std::to_string(0) == "0");
   assert(std::to_string(-1) == "-1");
   assert(std::to_string(INT_MIN) == "-2147483648");
@@ -53,3 +63,4 @@ int main(int, char**) {
 #endif
   return 0;
 }
+#endif
