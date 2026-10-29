@@ -49,7 +49,9 @@ Potentially Breaking Changes
   ``-Wfunction-type-language-linkage`` (an error by default, ``-Wno-error=function-type-language-linkage`` or
   ``-Wno-function-type-language-linkage`` downgrade or silence it; in an unevaluated operand it stays an error, so
   traits and ``requires`` expressions still see the types as distinct), or write an ``extern "C" typedef`` for the
-  type. A function type written in a template argument still matches a class template partial specialization
+  type. When the argument is a function with C++ language linkage, the diagnostic is followed by a note on the function
+  with a fix-it that inserts ``extern "C"`` in front of its declaration (editors offer it as a quick fix; ``-fixit`` does
+  not apply fix-its of notes). A function type written in a template argument still matches a class template partial specialization
   written outside the linkage-specification (``WrapperFunction<int()>`` in an ``extern "C"`` block).
   The runtimes of compiler-rt are built with the warning off, and its ``safestack`` interceptor and the XRay
   interface definitions no longer rely on the old rules. The mangling of such a type is ``Y`` ahead of the function type, as the
