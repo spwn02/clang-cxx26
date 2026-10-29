@@ -10,6 +10,8 @@
 
 namespace std {
 
+#if !_LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
 const char* bad_variant_access::what() const noexcept { return "bad_variant_access"; }
+#endif
 
 } // namespace std

@@ -295,6 +295,10 @@ public:
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr const char* what() const _NOEXCEPT override {
     return "bad_variant_access";
   }
+#    elif _LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL const char* what() const _NOEXCEPT override {
+    return "bad_variant_access";
+  }
 #    else
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
 #    endif

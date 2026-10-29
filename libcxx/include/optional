@@ -359,9 +359,16 @@ public:
   _LIBCPP_HIDE_FROM_ABI bad_optional_access() _NOEXCEPT                                      = default;
   _LIBCPP_HIDE_FROM_ABI bad_optional_access(const bad_optional_access&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI bad_optional_access& operator=(const bad_optional_access&) _NOEXCEPT = default;
+#      if _LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL ~bad_optional_access() _NOEXCEPT override {}
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL const char* what() const _NOEXCEPT override {
+    return "bad_optional_access";
+  }
+#      else
   // Get the key function ~bad_optional_access() into the dylib
   ~bad_optional_access() _NOEXCEPT override;
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
+#      endif
 #    endif
 };
 _LIBCPP_DIAGNOSTIC_POP

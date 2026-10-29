@@ -287,20 +287,24 @@ S i_to_string(V v) {
 
 } // unnamed namespace
 
+#if !_LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
 string to_string(int val) { return i_to_string< string>(val); }
 string to_string(long val) { return i_to_string< string>(val); }
 string to_string(long long val) { return i_to_string< string>(val); }
 string to_string(unsigned val) { return i_to_string< string>(val); }
 string to_string(unsigned long val) { return i_to_string< string>(val); }
 string to_string(unsigned long long val) { return i_to_string< string>(val); }
+#endif
 
 #if _LIBCPP_HAS_WIDE_CHARACTERS
+#  if !_LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
 wstring to_wstring(int val) { return i_to_string<wstring>(val); }
 wstring to_wstring(long val) { return i_to_string<wstring>(val); }
 wstring to_wstring(long long val) { return i_to_string<wstring>(val); }
 wstring to_wstring(unsigned val) { return i_to_string<wstring>(val); }
 wstring to_wstring(unsigned long val) { return i_to_string<wstring>(val); }
 wstring to_wstring(unsigned long long val) { return i_to_string<wstring>(val); }
+#  endif
 #endif
 
 // [string.conversions]/9-10: Returns: format("{}", val).

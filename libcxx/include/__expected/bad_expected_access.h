@@ -49,7 +49,7 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr const char* what() const noexcept override {
     return "bad access to std::expected";
   }
-#  elif _LIBCPP_AVAILABILITY_HAS_BAD_EXPECTED_ACCESS_KEY_FUNCTION
+#  elif _LIBCPP_AVAILABILITY_HAS_BAD_EXPECTED_ACCESS_KEY_FUNCTION && !_LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
   [[nodiscard]] const char* what() const noexcept override;
 #  else
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL const char* what() const noexcept override {

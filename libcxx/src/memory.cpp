@@ -28,9 +28,11 @@
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
+#if !_LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
 bad_weak_ptr::~bad_weak_ptr() noexcept {}
 
 const char* bad_weak_ptr::what() const noexcept { return "bad_weak_ptr"; }
+#endif
 
 // The destructors of __shared_count and __shared_weak_count are inline in __memory/shared_count.h (they are constexpr
 // since C++26). The library still defines and exports them, as every earlier version did: a program or a library that

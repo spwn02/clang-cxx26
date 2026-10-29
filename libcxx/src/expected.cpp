@@ -9,5 +9,7 @@
 #include <expected>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
+#if _LIBCPP_AVAILABILITY_HAS_BAD_EXPECTED_ACCESS_KEY_FUNCTION && !_LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
 const char* bad_expected_access<void>::what() const noexcept { return "bad access to std::expected"; }
+#endif
 _LIBCPP_END_NAMESPACE_STD

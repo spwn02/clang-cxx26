@@ -11,9 +11,11 @@
 
 namespace std {
 
+#if !_LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
 bad_optional_access::~bad_optional_access() noexcept = default;
 
 const char* bad_optional_access::what() const noexcept { return "bad_optional_access"; }
+#endif
 
 } // namespace std
 

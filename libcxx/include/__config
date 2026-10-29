@@ -1111,4 +1111,14 @@ typedef __char32_t char32_t;
 #  define _LIBCPP_HAS_INLINE_EXCEPTION_MEMBERS 0
 #endif
 
+// With the MSVC ABI the linker of COFF rejects an out-of-line definition in libc++.lib and an inline definition of the same
+// function in a translation unit (the mangled names do not carry the abi_tag that tells them apart on ELF). The
+// functions that are inline since C++26 are therefore inline in every mode there, and the library does not define them.
+// _LIBCPP_FORCE_INLINE_CXX26_DEFINITIONS selects that form anywhere (it is how the tests exercise it).
+#if _LIBCPP_STD_VER >= 26 || defined(_LIBCPP_ABI_MICROSOFT) || defined(_LIBCPP_FORCE_INLINE_CXX26_DEFINITIONS)
+#  define _LIBCPP_HAS_INLINE_CXX26_DEFINITIONS 1
+#else
+#  define _LIBCPP_HAS_INLINE_CXX26_DEFINITIONS 0
+#endif
+
 #endif // _LIBCPP___CONFIG

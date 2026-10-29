@@ -94,8 +94,13 @@ public:
   _LIBCPP_HIDE_FROM_ABI bad_weak_ptr() _NOEXCEPT                               = default;
   _LIBCPP_HIDE_FROM_ABI bad_weak_ptr(const bad_weak_ptr&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI bad_weak_ptr& operator=(const bad_weak_ptr&) _NOEXCEPT = default;
+#  if _LIBCPP_HAS_INLINE_CXX26_DEFINITIONS
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL ~bad_weak_ptr() _NOEXCEPT override {}
+  [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL const char* what() const _NOEXCEPT override { return "bad_weak_ptr"; }
+#  else
   ~bad_weak_ptr() _NOEXCEPT override;
   [[__nodiscard__]] const char* what() const _NOEXCEPT override;
+#  endif
 #endif
 };
 _LIBCPP_DIAGNOSTIC_POP
