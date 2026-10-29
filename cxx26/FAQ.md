@@ -20,7 +20,10 @@ a C library and the GCC runtime (on Debian and Ubuntu, `build-essential`).
 The compiler and libc++ also build from source on two more platforms, checked on GitHub-hosted runners: macOS arm64
 (Apple Silicon, Xcode 15.4) and Windows x64 with the MSVC ABI (`clang-cl`, Visual Studio 2022). On both, six small programs
 (hello world, reflection, expansion statements, contracts, `std::execution`, `<simd>`) compile and run, and on macOS three of the new
-libc++ tests do. There are no binary releases for them, and their test suites have not been run. Two problems of the 10.27 sources are fixed on the `cxx26` branch: Apple's `ld` crashed when linking against the libc++
+libc++ tests do. There are no binary releases for them, and their test suites have not been run. Constant evaluation of the transcendental functions of `<cmath>`
+(`constexpr double s = std::sin(0.5);`, P1383R2) needs GMP and MPFR when the compiler is built: the Linux archive is built with
+them, and a build from source finds them if they are installed (otherwise those functions are not usable in a constant
+expression, and everything else works). Two problems of the 10.27 sources are fixed on the `cxx26` branch: Apple's `ld` crashed when linking against the libc++
 of the toolchain ([#350](https://github.com/spwn02/clang-cxx26/issues/350)), and `std::exception_ptr` was not constexpr
 with the MSVC ABI ([#351](https://github.com/spwn02/clang-cxx26/issues/351)).
 
