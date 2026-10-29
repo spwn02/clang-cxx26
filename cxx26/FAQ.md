@@ -31,9 +31,10 @@ of LLVM: Apache-2.0 with the LLVM exception (`LICENSE.TXT`).
 ## What does "C++26" mean here?
 
 The N5050 working draft with the defect reports applied (core and library issues the committee has adopted). Where the
-fork deliberately differs from the draft the difference is listed in "Potentially Breaking Changes" in
-`clang/docs/ReleaseNotes.rst`; the README summarizes the one that affects ordinary code (function types and language
-linkage in system headers).
+fork is stricter than stock Clang, because it implements a rule of the standard that other compilers do not, the change
+is listed in "Potentially Breaking Changes" in `clang/docs/ReleaseNotes.rst`; the README summarizes the one that affects
+ordinary code (function types with C and C++ language linkage are distinct types, [dcl.link]). The only leniency
+beyond the standard is that a system header does not tell the two linkages apart.
 
 ## Will my existing code build?
 

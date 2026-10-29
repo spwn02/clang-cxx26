@@ -133,14 +133,18 @@ int main() {
 }
 ```
 
-## Deviations from the standard
+## Differences from stock Clang
 
-The deviations are deliberate and documented in `clang/docs/ReleaseNotes.rst`. The one
-that affects ordinary code: function types with C and C++ language linkage are distinct
-types ([dcl.link]), as the standard requires, but converting between pointers to such
-functions is diagnosed with `-Wfunction-type-language-linkage`, an error by default that
-`-Wno-error=function-type-language-linkage` downgrades, and a use inside a system header
-does not tell the linkages apart, so the headers of the host C++ library keep compiling.
+The differences are deliberate and documented in `clang/docs/ReleaseNotes.rst`. The one
+that affects ordinary code is the language linkage of function types. [dcl.link] says that
+function types with C and C++ language linkage are distinct types, so a pointer to a C++
+function does not convert to a pointer to an `extern "C"` function (`atexit`, `qsort`,
+`sigaction`, `pthread_create` and the like). GCC, MSVC and stock Clang accept that code; this
+fork follows the standard and diagnoses it with `-Wfunction-type-language-linkage`, an error by
+default. `-Wno-error=function-type-language-linkage` downgrades it to a warning, which is still
+a diagnostic. The one place where the fork accepts more than the standard does is a system
+header: there the two linkages are not told apart, so that the headers of the host C++ library,
+which assume the old behavior, keep compiling.
 
 This fork preserves upstream LLVM history and the history of its Bloomberg-originated
 reflection implementation. That provenance does not imply Bloomberg endorsement
