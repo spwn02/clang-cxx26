@@ -67,6 +67,36 @@ def declarations(text):
     return result
 
 
+def plain_declarations(text):
+    """(returns, name, [param types]) of the function declarations of a synopsis that are not constexpr."""
+    text = re.sub(r"@\\placeholder(?:nc)?\{floating-point-type\}@", "FPT", text)
+    text = re.sub(r"@[^@]*@", "", text)
+    text = re.sub(r"//[^\n]*", "", text)
+    text = "\n".join(l for l in text.split("\n") if not l.lstrip().startswith("#"))
+    result = []
+    for stmt in text.split(";"):
+        stmt = " ".join(stmt.split())
+        if not stmt or "constexpr" in stmt or stmt.startswith(("namespace", "using", "template", "\\")):
+            continue
+        m = re.search(r"([\w:<>\s*]+?) (\w+)\((.*)\)(?: noexcept)?$", stmt)
+        if not m:
+            continue
+        ret, name, params = m.group(1).strip(), m.group(2), m.group(3)
+        ret = ret.split()[-1] if ret.split()[-1] in ("float", "double", "FPT", "int", "bool", "long") else ret
+        types = []
+        for p in [x.strip() for x in params.split(",") if x.strip()]:
+            p = re.sub(r"\bconst\b", "", p)
+            words = p.replace("*", " * ").split()
+            tw = {"int", "long", "unsigned", "float", "double", "short", "char", "FPT", "*", "intmax_t", "size_t"}
+            if len(words) > 1 and words[-1] not in tw:
+                words = words[:-1]
+            elif len(words) == 1 and words[0] not in tw:
+                words = words[:-1]
+            types.append(" ".join(words).replace(" *", "*"))
+        result.append((ret, name, tuple(types)))
+    return result
+
+
 def argument(t, name, ptype):
     """An expression for a parameter of type t, T is the type that stands for floating-point-type."""
     if t == "FPT":
@@ -76,6 +106,7 @@ def argument(t, name, ptype):
     if t == "long double": return f"{DOMAIN.get(name, 0.5)}L"
     if t == "int*": return "&_i"
     if t in ("FPT*",): return "&_f"
+    if t == "char*" or t == "char *": return '""'
     if t == "float*": return "&_pf"
     if t == "double*": return "&_pd"
     if t == "long double*": return "&_pl"
@@ -116,8 +147,9 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         gen = os.path.join(tmp, "generated")
         os.mkdir(gen)
-        for f in ("__config_site", "__assertion_handler"):
-            shutil.copy(os.path.join(args.generated, f), gen)
+        for f in ("__config_site", "__assertion_handler", "__log_hardening_failure"):
+            if os.path.exists(os.path.join(args.generated, f)):
+                shutil.copy(os.path.join(args.generated, f), gen)
         inc = ["-isystem", args.headers, "-isystem", gen]
         src = os.path.join(tmp, "t.cpp")
         for std in (23, 26):
@@ -160,6 +192,64 @@ def main():
                         ln = int(l.split(":")[1]) if l.split(":")[1].isdigit() else 0
                         label = text[ln - 1].split("//")[-1].strip() if 0 < ln <= len(text) else l[:80]
                         bad.setdefault((f"c++{std}", label + "  [does not exist: " + l.split("error:")[1][:60].strip() + "]"), []).append(typename)
+    # The other direction: [constexpr.functions] forbids a library function to be constexpr unless the draft says so, so
+    # every function that the synopsis of <cmath> of n5050 declares without constexpr must fail in a constant expression.
+    plain = {}
+    for ret, name, params in plain_declarations(synopsis(args.draft, args.tag26, "cmath.syn")):
+        plain[(name, params)] = ret
+    reverse_bad = {}
+    reverse_calls = 0
+    with tempfile.TemporaryDirectory() as tmp2:
+        gen2 = os.path.join(tmp2, "generated")
+        os.mkdir(gen2)
+        for f in ("__config_site", "__assertion_handler", "__log_hardening_failure"):
+            if os.path.exists(os.path.join(args.generated, f)):
+                shutil.copy(os.path.join(args.generated, f), gen2)
+        inc2 = ["-isystem", args.headers, "-isystem", gen2]
+        src2 = os.path.join(tmp2, "t.cpp")
+        for typename, (lit, feats) in TYPES.items():
+            lines = ["#include <cmath>", "#include <stdfloat>"]
+            if feats:
+                lines.append("#if " + " && ".join(f"defined({f})" for f in feats))
+            labels = {}
+            for i, ((name, params), ret) in enumerate(sorted(plain.items())):
+                generic = ret == "FPT" or any("FPT" in p for p in params)
+                if not generic and typename != "float":
+                    continue
+                try:
+                    a2 = ", ".join(argument(p, name, typename) for p in params)
+                except ValueError as e:
+                    print("cannot build a call:", e, file=sys.stderr); sys.exit(2)
+                label = f"{name}({', '.join(params)})"
+                lines.append(f"constexpr auto v{i} = []{{ int _i = 0; {typename} _f = 0; float _pf = 0; double _pd = 0; "
+                             f"long double _pl = 0; (void)_i; (void)_f; (void)_pf; (void)_pd; (void)_pl; "
+                             f"return std::{name}({a2}); }}(); // {label}")
+                labels[len(lines)] = label
+                reverse_calls += 1
+            if feats:
+                lines.append("#endif")
+            open(src2, "w").write("\n".join(lines) + "\n")
+            r = subprocess.run([args.clang, "-std=c++26", "-fsyntax-only", "-ferror-limit=0", "-nostdinc++"] + inc2 + [src2],
+                               capture_output=True, text=True)
+            failing = set()
+            for line in r.stderr.splitlines():
+                if "error:" not in line:
+                    continue
+                ln = int(line.split(":")[1]) if line.split(":")[1].isdigit() else 0
+                if "must be initialized by a constant expression" in line:
+                    failing.add(ln)
+                elif ln in labels:
+                    print("the reverse probe", labels[ln], "for", typename, "does not compile:", line[:200], file=sys.stderr)
+                    sys.exit(2)
+            for ln, label in labels.items():
+                if ln not in failing:
+                    reverse_bad.setdefault(label, []).append(typename)
+    for label, ts in sorted(reverse_bad.items()):
+        print("c++26", label, ": is constexpr, the draft does not make it so, for", ", ".join(sorted(set(ts))))
+    print(f"audit-cmath-constexpr (reverse): {reverse_calls} calls from {len(plain)} declarations that are not constexpr, "
+          f"{len(reverse_bad)} of them can be evaluated in a constant expression")
+    bad.update({("c++26", "[reverse] " + k): v for k, v in reverse_bad.items()})
+
     for (s, n), ts in sorted(bad.items()):
         print(s, n, ":", ", ".join(sorted(set(ts))))
     print(f"audit-cmath-constexpr: {tested} calls from {total} constexpr declarations of the draft, "

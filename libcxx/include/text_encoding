@@ -603,11 +603,9 @@ public:
 #    if _LIBCPP_HAS_LOCALIZATION
   [[nodiscard]]
   _LIBCPP_HIDE_FROM_ABI _LIBCPP_AVAILABILITY_TEXT_ENCODING_ENVIRONMENT static text_encoding environment() {
-#      if defined(_LIBCPP_WIN32API)
-    return __get_locale_encoding(nullptr);
-#      else
+    // The locale of the environment (the empty name), on Windows too: the null locale is the one of the calling thread,
+    // which is the "C" locale until the program sets another.
     return __get_locale_encoding("");
-#      endif
   }
 
   template <id _Id>

@@ -56,6 +56,15 @@ void run() {
   s::unchecked_store(l + a, out);
   assert(out[0] == static_cast<T>(6) && out[3] == static_cast<T>(12));
   assert(s::permute(a, [](auto i) { return 3 - i; })[0] == static_cast<T>(4));
+
+  // more of the math functions
+  V h([](auto i) { return static_cast<T>(i) + static_cast<T>(0.5); }); // 0.5 1.5 2.5 3.5
+  assert(s::floor(h)[1] == static_cast<T>(1) && s::ceil(h)[1] == static_cast<T>(2) && s::round(h)[0] == static_cast<T>(1));
+  assert(s::exp(V(static_cast<T>(0)))[0] == static_cast<T>(1) && s::sin(V(static_cast<T>(0)))[0] == static_cast<T>(0));
+  assert(s::pow(V(static_cast<T>(2)), V(static_cast<T>(3)))[0] == static_cast<T>(8));
+  assert(s::fma(h, V(static_cast<T>(2)), V(static_cast<T>(1)))[0] == static_cast<T>(2));
+  assert(s::hypot(V(static_cast<T>(3)), V(static_cast<T>(4)))[0] == static_cast<T>(5));
+  assert(s::copysign(V(static_cast<T>(2)), V(static_cast<T>(-1)))[0] == static_cast<T>(-2));
 }
 
 int main(int, char**) {

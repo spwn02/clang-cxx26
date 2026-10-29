@@ -38,6 +38,14 @@ C++26, defect reports, libc++). That history does not imply Bloomberg endorses t
 No. It is an independent fork, not an LLVM release, and the LLVM project does not support it. The license is the one
 of LLVM: Apache-2.0 with the LLVM exception (`LICENSE.TXT`).
 
+## Is the libc++ of the toolchain ABI-compatible with the stock libc++?
+
+No. The library keeps the inline namespace and the names, but some classes differ in layout (the comparison with the ABI
+list of stock libc++ shows larger vtables for `basic_streambuf`, `basic_filebuf`, `basic_stringbuf`, `strstreambuf` and
+`__assoc_sub_state`). Use the toolchain's libc++ for programs that are built with the toolchain, and do not mix it with
+objects or libraries that were built against another libc++ (`activate.sh` puts the toolchain's library first on
+`LD_LIBRARY_PATH`).
+
 ## What does "C++26" mean here?
 
 The N5050 working draft with the defect reports applied (core and library issues the committee has adopted). Where the
