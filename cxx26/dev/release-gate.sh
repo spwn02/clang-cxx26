@@ -8,8 +8,9 @@
 #                (build-nyx) and cxx-tidy, cxx-test-depends (build-libcxx); both must exit 0
 #   clang        check-clang (the whole clang test suite) and check-clang-tools (clang-tidy and the other tools)
 #   clangd       check-clangd (lit) and the ClangdTests unit binary
-#   audit-constexpr every floating-point-type function of <cmath> is constexpr for every floating-point type in the
-#                language mode that [cmath.syn] requires (cxx26/dev/audit-cmath-constexpr.py); a minute or two
+#   audit-constexpr every function that the synopses of <cmath>, <cstdlib> and <cinttypes> declare constexpr (tags
+#                n4950 for C++23 and n5050 for C++26 of DRAFT_DIR) is constant-evaluable for every floating-point
+#                type it covers (cxx26/dev/audit-cmath-constexpr.py); seconds
 #   libcxx-<std> the libc++ suite at that -std, one lit run per test directory
 #                (cxx26/dev/sweep-libcxx-std.sh), tallied by sweep-summary.py. <std> is each of
 #                STDS (default: c++26 c++23 c++20 c++17 c++14 c++11 c++03)
@@ -80,8 +81,9 @@ step_clangd() {
   run ClangdTests "$out/ClangdTests.log" "$nyx/tools/clang/tools/extra/clangd/unittests/ClangdTests"
 }
 step_audit_constexpr() {
+  if [[ -z "$draft_dir" || ! -d "$draft_dir/source" ]]; then record audit-constexpr FAIL "DRAFT_DIR is not a cplusplus/draft checkout"; return; fi
   run audit-constexpr "$out/audit-constexpr.log" python3 -I cxx26/dev/audit-cmath-constexpr.py \
-    --clang "$nyx/bin/clang++" --headers libcxx/include --generated "$lcx/include/c++/v1"
+    --clang "$nyx/bin/clang++" --headers libcxx/include --generated "$lcx/include/c++/v1" --draft "$draft_dir"
 }
 step_libcxx() {
   local std="$1" log="$out/sweep-$1.log"
