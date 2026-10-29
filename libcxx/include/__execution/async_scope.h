@@ -952,12 +952,12 @@ private:
 // registration of the receiver's stop callback (a stop request cancels the future: try-cancel).
 template <class _State, class _Rcvr>
 class __spawn_future_opstate final : public __spawn_future_consume_sink<typename _State::__sigs_t> {
-  struct __callback {
+  struct __cancel_callback {
     __try_cancelable* __state_;
     _LIBCPP_HIDE_FROM_ABI void operator()() noexcept { __state_->__try_cancel(); }
   };
   using __stop_token_t _LIBCPP_NODEBUG    = stop_token_of_t<env_of_t<_Rcvr>>;
-  using __stop_callback_t _LIBCPP_NODEBUG = stop_callback_for_t<__stop_token_t, __callback>;
+  using __stop_callback_t _LIBCPP_NODEBUG = stop_callback_for_t<__stop_token_t, __cancel_callback>;
 
 public:
   using operation_state_concept = operation_state_tag;
@@ -970,7 +970,7 @@ public:
   __spawn_future_opstate& operator=(const __spawn_future_opstate&) = delete;
 
   _LIBCPP_HIDE_FROM_ABI void start() & noexcept {
-    [[maybe_unused]] constexpr bool __is_nothrow_list = is_nothrow_constructible_v<__stop_callback_t, __stop_token_t, __callback>;
+    [[maybe_unused]] constexpr bool __is_nothrow_list = is_nothrow_constructible_v<__stop_callback_t, __stop_token_t, __cancel_callback>;
 #if _LIBCPP_HAS_EXCEPTIONS
     try {
       // The draft writes get_stop_token(rcvr) here, which is ill-formed against its own stop-token-t =
@@ -978,7 +978,7 @@ public:
       // run_loop's literal get_stop_token(REC(o)), which compiles and is kept as written). Like the draft, a throwing
       // callback construction completes with set_error(exception_ptr) even though the signatures only advertise it
       // for throwing datums (dead code for the standard stop tokens).
-      __stop_cb_.emplace(std::get_stop_token(execution::get_env(__rcvr_)), __callback{__raw_});
+      __stop_cb_.emplace(std::get_stop_token(execution::get_env(__rcvr_)), __cancel_callback{__raw_});
     } catch (...) {
       if constexpr (!__is_nothrow_list) {
         execution::set_error(std::move(__rcvr_), std::current_exception());
@@ -992,7 +992,7 @@ public:
       // run_loop's literal get_stop_token(REC(o)), which compiles and is kept as written). Like the draft, a throwing
       // callback construction completes with set_error(exception_ptr) even though the signatures only advertise it
       // for throwing datums (dead code for the standard stop tokens).
-      __stop_cb_.emplace(std::get_stop_token(execution::get_env(__rcvr_)), __callback{__raw_});
+      __stop_cb_.emplace(std::get_stop_token(execution::get_env(__rcvr_)), __cancel_callback{__raw_});
     }
 #endif
     __state_.release()->__consume(this);

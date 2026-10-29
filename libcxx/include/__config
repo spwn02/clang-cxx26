@@ -94,6 +94,11 @@
 // a MS compatibility version is specified.
 #    if defined(_MSC_VER) && !defined(__MINGW32__)
 #      define _LIBCPP_MSVCRT // Using Microsoft's C Runtime library
+// The library is built with the ISO conforming behavior of the printf and scanf conversions of the wide strings, and
+// the UCRT headers record the setting in the object file, where the linker rejects a program that has another one.
+#      ifndef _CRT_STDIO_ISO_WIDE_SPECIFIERS
+#        define _CRT_STDIO_ISO_WIDE_SPECIFIERS 1
+#      endif
 #    endif
 #    if (defined(_M_AMD64) || defined(__x86_64__)) || (defined(_M_ARM) || defined(__arm__))
 #      define _LIBCPP_HAS_BITSCAN64 1
