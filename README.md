@@ -35,8 +35,9 @@ headers and `crtbeginS.o`/`libgcc`) and `zstd` to unpack the archive. CMake's `i
 needs CMake 4.4 or newer and Ninja 1.11 or newer.
 
 Platform: the published toolchain is a Linux x86_64 archive. The compiler and libc++ also build from source on
-macOS arm64 (Apple Silicon, linked with `-fuse-ld=lld`) and on Windows with the MSVC ABI (`clang-cl`), where the
-examples above compile and run; there are no binary releases for them yet. See the
+macOS arm64 (Apple Silicon, linked with `-fuse-ld=lld`) and on Windows with the MSVC ABI (`clang-cl`), where six small
+programs (hello world, reflection, expansion statements, contracts, `std::execution` and `<simd>`) compile and run; there are
+no binary releases for them yet. See the
 [FAQ](cxx26/FAQ.md#which-platforms-are-supported) for what was checked and the known issues.
 
 ## Try it
