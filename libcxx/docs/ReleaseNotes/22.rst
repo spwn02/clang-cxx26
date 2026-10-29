@@ -114,6 +114,11 @@ Improvements and New Features
   evaluates (the transcendental ones with MPFR, ``CLANG_ENABLE_MPFR_CONSTEXPR_MATH``), and which are calls of the same
   entry points of the C library at run time. ``std::fma`` of ``float128_t`` is not ``constexpr`` yet.
 
+- With the MSVC ABI the members of ``std::exception_ptr`` (and ``operator==``, ``swap``, ``current_exception`` and
+  ``rethrow_exception``) are defined inline in ``<exception>`` in every language mode, and they are ``constexpr`` in C++26.
+  Before, the library defined them out of line, so that a C++26 program had two definitions of the same symbols, which the
+  linker of COFF rejects. The library no longer defines or exports them.
+
 Deprecations and Removals
 -------------------------
 

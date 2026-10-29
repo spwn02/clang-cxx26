@@ -24,30 +24,9 @@ _LIBCPP_CRT_FUNC void __cdecl __ExceptionPtrCopyException(void*, const void*, co
 
 namespace std {
 
-exception_ptr::exception_ptr() noexcept { __ExceptionPtrCreate(this); }
-exception_ptr::exception_ptr(nullptr_t) noexcept { __ExceptionPtrCreate(this); }
-
-exception_ptr::exception_ptr(const exception_ptr& __other) noexcept { __ExceptionPtrCopy(this, &__other); }
-exception_ptr& exception_ptr::operator=(const exception_ptr& __other) noexcept {
-  __ExceptionPtrAssign(this, &__other);
-  return *this;
-}
-
-exception_ptr& exception_ptr::operator=(nullptr_t) noexcept {
-  exception_ptr dummy;
-  __ExceptionPtrAssign(this, &dummy);
-  return *this;
-}
-
-exception_ptr::~exception_ptr() noexcept { __ExceptionPtrDestroy(this); }
-
-exception_ptr::operator bool() const noexcept { return __ExceptionPtrToBool(this); }
-
-bool operator==(const exception_ptr& __x, const exception_ptr& __y) noexcept {
-  return __ExceptionPtrCompare(&__x, &__y);
-}
-
-void swap(exception_ptr& lhs, exception_ptr& rhs) noexcept { __ExceptionPtrSwap(&rhs, &lhs); }
+// The members of exception_ptr, operator==, swap, current_exception and rethrow_exception are inline in <exception>
+// (they call the __exception_ptr_*_runtime functions of exception.cpp), so that every translation unit has the one
+// definition of them whatever its language mode.
 
 exception_ptr __copy_exception_ptr(void* __except, const void* __ptr) {
   exception_ptr __ret = nullptr;
@@ -55,14 +34,6 @@ exception_ptr __copy_exception_ptr(void* __except, const void* __ptr) {
     __ExceptionPtrCopyException(&__ret, __except, __ptr);
   return __ret;
 }
-
-exception_ptr current_exception() noexcept {
-  exception_ptr __ret;
-  __ExceptionPtrCurrentException(&__ret);
-  return __ret;
-}
-
-[[noreturn]] void rethrow_exception(exception_ptr p) { __ExceptionPtrRethrow(&p); }
 
 nested_exception::nested_exception() noexcept : __ptr_(current_exception()) {}
 

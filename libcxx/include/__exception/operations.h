@@ -41,7 +41,7 @@ class _LIBCPP_EXPORTED_FROM_ABI exception_ptr;
     __has_builtin(__builtin_constexpr_exception_release) && \
     __has_builtin(__builtin_constexpr_exception_rethrow)
 // The C++26 constexpr declarations are made after exception_ptr is complete.
-#else
+#elif !defined(_LIBCPP_ABI_MICROSOFT) // the MSVC ABI defines them inline in <__exception/exception_ptr.h>
 [[__nodiscard__]] _LIBCPP_EXPORTED_FROM_ABI exception_ptr current_exception() _NOEXCEPT;
 [[__noreturn__]] _LIBCPP_EXPORTED_FROM_ABI void rethrow_exception(exception_ptr);
 #endif
