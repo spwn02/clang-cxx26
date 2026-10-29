@@ -20,10 +20,10 @@ a C library and the GCC runtime (on Debian and Ubuntu, `build-essential`).
 The compiler and libc++ also build from source on two more platforms, checked on GitHub-hosted runners: macOS arm64
 (Apple Silicon, Xcode 15.4) and Windows x64 with the MSVC ABI (`clang-cl`, Visual Studio 2022). On both, six small programs
 (hello world, reflection, expansion statements, contracts, `std::execution`, `<simd>`) compile and run, and on macOS three of the new
-libc++ tests do. There are no binary releases for them, and their test suites have not been run. Known issues:
-on macOS, Apple's `ld` crashes when linking a program against the libc++ of the toolchain, so link with
-`-fuse-ld=lld` ([#350](https://github.com/spwn02/clang-cxx26/issues/350)); on Windows `std::exception_ptr` is
-not constexpr ([#351](https://github.com/spwn02/clang-cxx26/issues/351)).
+libc++ tests do. There are no binary releases for them, and their test suites have not been run. Known issue:
+on Windows `std::exception_ptr` is not constexpr ([#351](https://github.com/spwn02/clang-cxx26/issues/351)). Linking
+with Apple's `ld` works on macOS since the `cxx26` branch exported the destructors of `__shared_count` again
+([#350](https://github.com/spwn02/clang-cxx26/issues/350)).
 
 ## Is this the same as Bloomberg's `clang-p2996`?
 
