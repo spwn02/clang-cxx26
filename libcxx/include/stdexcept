@@ -10,6 +10,14 @@
 #ifndef _LIBCPP_STDEXCEPT
 #define _LIBCPP_STDEXCEPT
 
+// On Apple's platforms libc++.dylib re-exports libc++abi.dylib, which defines the exception classes. The linker rejects
+// a symbol that is re-exported and also defined in an object file of libc++ itself, as the inline constexpr destructors
+// of C++26 would be wherever a translation unit of the library uses an exception class: those translation units only
+// declare the members, as stdexcept.cpp and libc++abi (which define the macro themselves) provide them.
+#if defined(__APPLE__) && defined(_LIBCPP_BUILDING_LIBRARY) && !defined(_LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS)
+#  define _LIBCPP_STDEXCEPT_DEFINE_LEGACY_FUNCTIONS
+#endif
+
 /*
     stdexcept synopsis
 
