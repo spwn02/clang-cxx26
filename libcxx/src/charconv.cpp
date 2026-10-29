@@ -22,7 +22,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace {
 
-#if defined(__x86_64__) || defined(__i386__)
+#if (defined(__x86_64__) || defined(__i386__)) && __LDBL_MANT_DIG__ == 64 // the x87 long double (not MSVC, where it is a double)
 // glibc prints the x87 80-bit long double with "%La" using the explicit integer bit as the leading
 // hexit ("0xd.5ep-3" for 0x1.abcp+0), but [charconv.to.chars] requires the normalized form with a single
 // leading "1" (or "0" for zero and subnormals), exactly like the float and double implementations.
@@ -74,15 +74,15 @@ to_chars_result __to_chars_x87_hex(char* __first, char* __last, long double __va
   const int __padding = __has_precision && __precision > 16 ? __precision - 16 : 0;
 
   char __head[32];
-  char* __out = __head;
+  char* __dst_pos = __head;
   if (__negative)
-    *__out++ = '-';
-  *__out++ = "0123456789abcdef"[__lead];
+    *__dst_pos++ = '-';
+  *__dst_pos++ = "0123456789abcdef"[__lead];
   const bool __point = __hexits > 0 || __padding > 0;
   if (__point)
-    *__out++ = '.';
+    *__dst_pos++ = '.';
   for (int __i = __hexits - 1; __i >= 0; --__i)
-    *__out++ = "0123456789abcdef"[(__frac >> (4 * __i)) & 0xf];
+    *__dst_pos++ = "0123456789abcdef"[(__frac >> (4 * __i)) & 0xf];
 
   char __tail[16];
   char* __tail_out = __tail;
@@ -98,7 +98,7 @@ to_chars_result __to_chars_x87_hex(char* __first, char* __last, long double __va
   while (__ndigits > 0)
     *__tail_out++ = __digits[--__ndigits];
 
-  const ptrdiff_t __head_length = __out - __head;
+  const ptrdiff_t __head_length = __dst_pos - __head;
   const ptrdiff_t __tail_length = __tail_out - __tail;
   const ptrdiff_t __capacity    = __last - __first;
   if (static_cast<ptrdiff_t>(__padding) + __head_length + __tail_length > __capacity)
@@ -161,49 +161,49 @@ to_chars_result __to_chars_long_double_shortest(char* __first, char* __last, lon
     __fmt = (-4 <= __sci_exponent && __sci_exponent < 6) ? chars_format::fixed : chars_format::scientific;
   }
 
-  string __out;
+  string __dst_pos;
   if (__negative)
-    __out.push_back('-');
+    __dst_pos.push_back('-');
   if (__fmt == chars_format::fixed) {
     if (__abs == 0) {
-      __out.push_back('0');
+      __dst_pos.push_back('0');
     } else if (__ryu_exponent >= 0) {
-      __out += __digits;
-      __out.append(static_cast<size_t>(__ryu_exponent), '0');
+      __dst_pos += __digits;
+      __dst_pos.append(static_cast<size_t>(__ryu_exponent), '0');
     } else if (__sci_exponent >= 0) {
-      __out.append(__digits, 0, static_cast<size_t>(__sci_exponent + 1));
-      __out.push_back('.');
-      __out.append(__digits, static_cast<size_t>(__sci_exponent + 1), string::npos);
+      __dst_pos.append(__digits, 0, static_cast<size_t>(__sci_exponent + 1));
+      __dst_pos.push_back('.');
+      __dst_pos.append(__digits, static_cast<size_t>(__sci_exponent + 1), string::npos);
     } else {
-      __out += "0.";
-      __out.append(static_cast<size_t>(-__sci_exponent - 1), '0');
-      __out += __digits;
+      __dst_pos += "0.";
+      __dst_pos.append(static_cast<size_t>(-__sci_exponent - 1), '0');
+      __dst_pos += __digits;
     }
   } else { // scientific
-    __out.push_back(__digits[0]);
+    __dst_pos.push_back(__digits[0]);
     if (__length > 1) {
-      __out.push_back('.');
-      __out.append(__digits, 1, string::npos);
+      __dst_pos.push_back('.');
+      __dst_pos.append(__digits, 1, string::npos);
     }
     const int __exp = __abs == 0 ? 0 : __sci_exponent;
-    __out.push_back('e');
-    __out.push_back(__exp < 0 ? '-' : '+');
+    __dst_pos.push_back('e');
+    __dst_pos.push_back(__exp < 0 ? '-' : '+');
     const int __abs_exp = __exp < 0 ? -__exp : __exp;
     if (__abs_exp < 10)
-      __out.push_back('0');
-    __out += to_string(__abs_exp);
+      __dst_pos.push_back('0');
+    __dst_pos += to_string(__abs_exp);
   }
 
-  if (static_cast<ptrdiff_t>(__out.size()) > __last - __first)
+  if (static_cast<ptrdiff_t>(__dst_pos.size()) > __last - __first)
     return {__last, errc::value_too_large};
-  ::memcpy(__first, __out.data(), __out.size());
-  return {__first + __out.size(), errc{}};
+  ::memcpy(__first, __dst_pos.data(), __dst_pos.size());
+  return {__first + __dst_pos.size(), errc{}};
 }
 
 
 to_chars_result __to_chars_long_double(
     char* __first, char* __last, long double __value, chars_format __fmt, int __precision, bool __has_precision) {
-#if defined(__x86_64__) || defined(__i386__)
+#if (defined(__x86_64__) || defined(__i386__)) && __LDBL_MANT_DIG__ == 64 // the x87 long double (not MSVC, where it is a double)
   if (__fmt == chars_format::hex && numeric_limits<long double>::digits == 64 && __builtin_isfinite(__value)) {
     if (__has_precision && __precision >= 1'000'000'000)
       return {__last, errc::value_too_large};

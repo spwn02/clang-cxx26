@@ -83,10 +83,10 @@ __exception_ptr_default_runtime(exception_ptr* __ptr) noexcept {
 _LIBCPP_EXPORTED_FROM_ABI void
 __exception_ptr_assign_null_runtime(exception_ptr* __ptr) noexcept {
 #if defined(_LIBCPP_ABI_MICROSOFT)
-  exception_ptr __null;
-  __ExceptionPtrCreate(&__null);
-  __ExceptionPtrAssign(__ptr, &__null);
-  __ExceptionPtrDestroy(&__null);
+  exception_ptr __null_exception_ptr;
+  __ExceptionPtrCreate(&__null_exception_ptr);
+  __ExceptionPtrAssign(__ptr, &__null_exception_ptr);
+  __ExceptionPtrDestroy(&__null_exception_ptr);
 #else
   *__ptr = nullptr;
 #endif
