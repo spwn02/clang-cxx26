@@ -8,6 +8,8 @@
 #                (build-nyx) and cxx-tidy, cxx-test-depends (build-libcxx); both must exit 0
 #   clang        check-clang (the whole clang test suite) and check-clang-tools (clang-tidy and the other tools)
 #   clangd       check-clangd (lit) and the ClangdTests unit binary
+#   audit-constexpr every floating-point-type function of <cmath> is constexpr for every floating-point type in the
+#                language mode that [cmath.syn] requires (cxx26/dev/audit-cmath-constexpr.py); a minute or two
 #   libcxx-<std> the libc++ suite at that -std, one lit run per test directory
 #                (cxx26/dev/sweep-libcxx-std.sh), tallied by sweep-summary.py. <std> is each of
 #                STDS (default: c++26 c++23 c++20 c++17 c++14 c++11 c++03)
@@ -36,7 +38,7 @@ draft_tag="${DRAFT_TAG:-n5050}"
 nyx="$repo_root/build-nyx"
 lcx="$repo_root/build-libcxx"
 
-default_steps="build clang clangd"
+default_steps="build clang clangd audit-constexpr"
 for s in $stds; do default_steps="$default_steps libcxx-$s"; done
 default_steps="$default_steps modules audit-modes audit"
 steps="${STEPS:-$default_steps}"
@@ -76,6 +78,10 @@ step_clang() {
 step_clangd() {
   run check-clangd "$out/check-clangd.log" ninja -C "$nyx" -j"$jobs" check-clangd
   run ClangdTests "$out/ClangdTests.log" "$nyx/tools/clang/tools/extra/clangd/unittests/ClangdTests"
+}
+step_audit_constexpr() {
+  run audit-constexpr "$out/audit-constexpr.log" python3 -I cxx26/dev/audit-cmath-constexpr.py \
+    --clang "$nyx/bin/clang++" --headers libcxx/include --generated "$lcx/include/c++/v1"
 }
 step_libcxx() {
   local std="$1" log="$out/sweep-$1.log"
@@ -121,6 +127,7 @@ for s in $steps; do
     build) step_build ;;
     clang) step_clang ;;
     clangd) step_clangd ;;
+    audit-constexpr) step_audit_constexpr ;;
     libcxx-*) step_libcxx "${s#libcxx-}" ;;
     modules) step_modules ;;
     audit-modes) step_audit_modes ;;

@@ -112,7 +112,10 @@ Improvements and New Features
 - The ``<cmath>`` overloads for ``float128_t`` are ``constexpr`` as [cmath.syn] requires (the exact functions since
   C++23, the transcendental ones since C++26): they call the compiler's ``__builtin_*f128`` functions, which the compiler
   evaluates (the transcendental ones with MPFR, ``CLANG_ENABLE_MPFR_CONSTEXPR_MATH``), and which are calls of the same
-  entry points of the C library at run time. ``std::fma`` of ``float128_t`` is not ``constexpr`` yet.
+  entry points of the C library at run time (``std::fma`` of ``float128_t`` too: the compiler evaluates
+  ``__builtin_fmaf128`` with a single rounding).
+- ``std::frexp``, ``std::modf``, ``std::remquo`` and ``std::nexttoward`` of the extended floating-point types are
+  ``constexpr`` since C++23 as for ``double`` (they were ``constexpr`` only since C++26).
 
 - With the MSVC ABI the members of ``std::exception_ptr`` (and ``operator==``, ``swap``, ``current_exception`` and
   ``rethrow_exception``) are defined inline in ``<exception>`` in every language mode, and they are ``constexpr`` in C++26.

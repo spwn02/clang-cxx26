@@ -584,14 +584,14 @@ _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float scalbln(_Float
     return static_cast<_Float>(__builtin_scalblnf(static_cast<float>(__value), __exponent));
 }
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _Float frexp(_Float __value, int* __exponent) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float frexp(_Float __value, int* __exponent) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>)
     return static_cast<_Float>(__builtin_frexp(static_cast<double>(__value), __exponent));
   else
     return static_cast<_Float>(__builtin_frexpf(static_cast<float>(__value), __exponent));
 }
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _Float modf(_Float __value, _Float* __integral) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float modf(_Float __value, _Float* __integral) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>) {
     double __int_part;
     double __result = __builtin_modf(static_cast<double>(__value), &__int_part);
@@ -605,7 +605,7 @@ _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _Float modf(_Float __
   }
 }
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _Float remquo(_Float __left, _Float __right, int* __quotient) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float remquo(_Float __left, _Float __right, int* __quotient) _NOEXCEPT {
   if constexpr (__is_stdfloat64_v<_Float>)
     return static_cast<_Float>(__builtin_remquo(static_cast<double>(__left), static_cast<double>(__right), __quotient));
   else
@@ -625,7 +625,7 @@ fma(_Float __left, _Float __right, _Float __addend) _NOEXCEPT {
 }
 
 template <class _Float, __enable_if_t<__is_stdfloat_math_v<_Float>, int> = 0>
-_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX26 _Float nexttoward(_Float __left, long double __right) _NOEXCEPT {
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 _Float nexttoward(_Float __left, long double __right) _NOEXCEPT {
   if constexpr (sizeof(_Float) == 2)
     return __math::__stdfloat_nexttoward(__left, __right);
   else if constexpr (__is_stdfloat64_v<_Float>)
@@ -771,8 +771,7 @@ _LIBCPP_F128_BINARY(fmax, _LIBCPP_CONSTEXPR_SINCE_CXX23)
 _LIBCPP_F128_BINARY(fmin, _LIBCPP_CONSTEXPR_SINCE_CXX23)
 _LIBCPP_F128_BINARY(nextafter, _LIBCPP_CONSTEXPR_SINCE_CXX23)
 #    undef _LIBCPP_F128_BINARY
-// The compiler does not evaluate fmaf128 in a constant expression (fma is not constexpr for float128_t yet).
-_LIBCPP_HIDE_FROM_ABI inline __float128 fma(__float128 __x, __float128 __y, __float128 __z) noexcept { return fmaf128(__x, __y, __z); }
+_LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 __float128 fma(__float128 __x, __float128 __y, __float128 __z) noexcept { return __builtin_fmaf128(__x, __y, __z); }
 _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 __float128 frexp(__float128 __value, int* __exponent) noexcept { return __builtin_frexpf128(__value, __exponent); }
 _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 __float128 modf(__float128 __value, __float128* __integer) noexcept { return __builtin_modff128(__value, __integer); }
 _LIBCPP_HIDE_FROM_ABI inline _LIBCPP_CONSTEXPR_SINCE_CXX23 __float128 ldexp(__float128 __value, int __exponent) noexcept { return __builtin_ldexpf128(__value, __exponent); }
