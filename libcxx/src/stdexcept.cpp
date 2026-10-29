@@ -21,8 +21,6 @@
 #  include "support/runtime/stdexcept_default.ipp"
 #endif
 
-// The MSVC ABI uses the exception classes of vcruntime, which have no __libcpp_refstring.
-#ifndef _LIBCPP_ABI_VCRUNTIME
 // Entry points the non-legacy, header-inline <stdexcept> constructors (used
 // by ordinary C++26 client TUs, e.g. libcxx/src/string.cpp's format_error,
 // system_error.cpp, future.cpp, regex.cpp, ...) call into. Defined exactly
@@ -33,6 +31,8 @@
 // fuzzer runtime). libcxxabi's copy never calls these itself.
 _LIBCPP_BEGIN_NAMESPACE_STD
 
+// The MSVC ABI uses the exception classes of vcruntime, which have no __libcpp_refstring.
+#ifndef _LIBCPP_ABI_VCRUNTIME
 _LIBCPP_EXPORTED_FROM_ABI void __libcpp_refstring_init(__libcpp_refstring& __s, const char* __msg) {
   size_t __len     = strlen(__msg);
   auto* __rep      = static_cast<__refstring_imp::_Rep_base*>(::operator new(sizeof(__refstring_imp::_Rep_base) + __len + 1));
@@ -70,6 +70,8 @@ _LIBCPP_EXPORTED_FROM_ABI void __libcpp_refstring_destroy(__libcpp_refstring& __
   }
 }
 
+#endif // !_LIBCPP_ABI_VCRUNTIME
+
 void __throw_runtime_error(const char* msg) {
 #if _LIBCPP_HAS_EXCEPTIONS
   throw runtime_error(msg);
@@ -79,4 +81,3 @@ void __throw_runtime_error(const char* msg) {
 }
 
 _LIBCPP_END_NAMESPACE_STD
-#endif // !_LIBCPP_ABI_VCRUNTIME
