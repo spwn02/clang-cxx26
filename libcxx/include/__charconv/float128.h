@@ -707,12 +707,12 @@ _LIBCPP_HIDE_FROM_ABI inline bool __digits_round_trip(
     const char* __digs, int __n, int __x, __u128 __magnitude_bits, const __fp_format& __f = __binary128) {
   __u128 __bits;
   bool __uz;
-  bool __valid;
+  bool __parse_ok;
   if (__f.__p == __binary128.__p)
-    __valid = __decimal_to_bits<2100>(__f, false, __digs, __n, false, static_cast<long>(__x) - (__n - 1), __bits, __uz);
+    __parse_ok = __decimal_to_bits<2100>(__f, false, __digs, __n, false, static_cast<long>(__x) - (__n - 1), __bits, __uz);
   else
-    __valid = __decimal_to_bits<128>(__f, false, __digs, __n, false, static_cast<long>(__x) - (__n - 1), __bits, __uz);
-  if (!__valid)
+    __parse_ok = __decimal_to_bits<128>(__f, false, __digs, __n, false, static_cast<long>(__x) - (__n - 1), __bits, __uz);
+  if (!__parse_ok)
     return false;
   return !__uz && __bits == __magnitude_bits;
 }
@@ -1166,14 +1166,14 @@ __from_chars(const char* __first, const char* __last, __fmt_kind __kind, const _
     __u128 __h = 0;
     int __kept_bits = 0; // significant bits accumulated in h (leading zeros skipped)
     bool __sticky   = false;
-    bool __valid    = false;
+    bool __parse_ok    = false;
     bool __fraction = false;
     long __exp2     = 0;
     const char* __q = __p;
     for (; __q < __last; ++__q) {
       int __hv = __hex_value(*__q);
       if (__hv >= 0) {
-        __valid = true;
+        __parse_ok = true;
         if (__h == 0 && __hv == 0) {
           if (__fraction)
             __exp2 -= 4;
@@ -1196,7 +1196,7 @@ __from_chars(const char* __first, const char* __last, __fmt_kind __kind, const _
         break;
       }
     }
-    if (!__valid)
+    if (!__parse_ok)
       return {__first, __fc_status::__invalid, 0};
     __exponent_parse __ep = __parse_exponent(__q, __last, 'p');
     __q                 = __ep.__ptr;
@@ -1226,13 +1226,13 @@ __from_chars(const char* __first, const char* __last, __fmt_kind __kind, const _
   int __count   = 0;
   long __e10    = 0;
   bool __sticky = false;
-  bool __valid  = false;
+  bool __parse_ok  = false;
   bool __fraction = false;
   const char* __q = __p;
   for (; __q < __last; ++__q) {
     char __c = *__q;
     if (__ascii_digit(__c)) {
-      __valid = true;
+      __parse_ok = true;
       int __dv = __c - '0';
       if (__count == 0 && __dv == 0) {
         if (__fraction)
@@ -1255,7 +1255,7 @@ __from_chars(const char* __first, const char* __last, __fmt_kind __kind, const _
       break;
     }
   }
-  if (!__valid)
+  if (!__parse_ok)
     return {__first, __fc_status::__invalid, 0};
   long __exp10 = 0;
   if (__kind != __fmt_kind::__fixed) {

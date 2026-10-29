@@ -128,14 +128,14 @@ struct __task_error_types_detect<_Environment, __task_void_t<typename _Environme
   using type _LIBCPP_NODEBUG = typename _Environment::error_types;
 };
 template <class _Sig>
-struct __task_error_sig { static constexpr bool __valid = false; using type = monostate; };
+struct __task_error_sig { static constexpr bool __is_valid_list = false; using type = monostate; };
 template <class _Error>
-struct __task_error_sig<set_error_t(_Error)> { static constexpr bool __valid = true; using type = _Error; };
+struct __task_error_sig<set_error_t(_Error)> { static constexpr bool __is_valid_list = true; using type = _Error; };
 template <class _Signatures>
-struct __task_errors { static constexpr bool __valid = false; };
+struct __task_errors { static constexpr bool __is_valid_list = false; };
 template <class... _Sigs>
 struct __task_errors<completion_signatures<_Sigs...>> {
-  static constexpr bool __valid = (__task_error_sig<_Sigs>::__valid && ...);
+  static constexpr bool __is_valid_list = (__task_error_sig<_Sigs>::__is_valid_list && ...);
   using __types _LIBCPP_NODEBUG = tuple<typename __task_error_sig<_Sigs>::type...>;
   static constexpr bool __has_exception = (same_as<_Sigs, set_error_t(exception_ptr)> || ...);
   template <class _Value>
@@ -379,7 +379,7 @@ public:
   using stop_source_type  = __task_stop_source_type_t<_Environment>;
   using stop_token_type   = decltype(std::declval<stop_source_type&>().get_token());
   using error_types = typename __task_error_types_detect<_Environment>::type;
-  static_assert(__task_errors<error_types>::__valid, "task error_types must contain only set_error_t(E) signatures.");
+  static_assert(__task_errors<error_types>::__is_valid_list, "task error_types must contain only set_error_t(E) signatures.");
 
   class promise_type;
 
