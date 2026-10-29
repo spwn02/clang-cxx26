@@ -81,11 +81,22 @@ qsort(void* __base, size_t __nmemb, size_t __size, int (*__compar)(const void*, 
   ::qsort(__base, __nmemb, __size, reinterpret_cast<__libcpp_c_compare_pred*>(__compar));
 }
 
+// The mangling of the MSVC ABI does not tell function types with C and C++ language linkage apart, so the overloads of
+// bsearch for a callback of each kind would have the same mangled name (and the compiler rejects the second
+// definition). There the overloads for a callback of C++ language linkage are templates, which mangle differently; their
+// parameter types are not dependent, so an argument converts as it does for a plain function.
+#      if defined(_LIBCPP_ABI_MICROSOFT)
+#        define _LIBCPP_CXX_CALLBACK_OVERLOAD template <class _Unused = void>
+#      else
+#        define _LIBCPP_CXX_CALLBACK_OVERLOAD
+#      endif
+
 // bsearch returns a pointer with the constness of the array searched; the C library declares one function.
 inline _LIBCPP_HIDE_FROM_ABI void*
 bsearch(const void* __key, void* __base, size_t __nmemb, size_t __size, __libcpp_c_compare_pred* __compar) {
   return ::bsearch(__key, __base, __nmemb, __size, __compar);
 }
+_LIBCPP_CXX_CALLBACK_OVERLOAD
 inline _LIBCPP_HIDE_FROM_ABI void*
 bsearch(const void* __key, void* __base, size_t __nmemb, size_t __size, int (*__compar)(const void*, const void*)) {
   return ::bsearch(__key, __base, __nmemb, __size, reinterpret_cast<__libcpp_c_compare_pred*>(__compar));
@@ -94,10 +105,13 @@ inline _LIBCPP_HIDE_FROM_ABI const void*
 bsearch(const void* __key, const void* __base, size_t __nmemb, size_t __size, __libcpp_c_compare_pred* __compar) {
   return ::bsearch(__key, __base, __nmemb, __size, __compar);
 }
+_LIBCPP_CXX_CALLBACK_OVERLOAD
 inline _LIBCPP_HIDE_FROM_ABI const void*
 bsearch(const void* __key, const void* __base, size_t __nmemb, size_t __size, int (*__compar)(const void*, const void*)) {
   return ::bsearch(__key, __base, __nmemb, __size, reinterpret_cast<__libcpp_c_compare_pred*>(__compar));
 }
+
+#      undef _LIBCPP_CXX_CALLBACK_OVERLOAD
 
 _LIBCPP_END_NAMESPACE_STD
 
