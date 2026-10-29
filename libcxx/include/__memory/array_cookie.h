@@ -76,7 +76,7 @@ struct [[__gnu__::__aligned__(_LIBCPP_ALIGNOF(_Tp))]] __arm_array_cookie {
 //
 //    struct array_cookie {
 //      std::size_t element_size; // element_size != 0
-//      std::size_t element_count;
+//      std::size_t __element_count;
 //    };
 //
 // Assuming elements of size and alignment 32 bytes, this gives us the following layout:
@@ -106,7 +106,7 @@ _LIBCPP_HIDE_FROM_ABI _LIBCPP_NO_SANITIZE("address") size_t __get_array_cookie([
 #else
   static_assert(false, "The array cookie layout is unknown on this ABI");
   struct _ArrayCookie { // dummy definition required to make the function parse
-    size_t element_count;
+    size_t __element_count;
   };
 #endif
 
