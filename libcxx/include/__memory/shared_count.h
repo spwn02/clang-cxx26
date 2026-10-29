@@ -60,7 +60,11 @@ public:
 
 protected:
   long __shared_owners_;
+#if defined(_LIBCPP_SHARED_PTR_DEFINE_LEGACY_INLINE_FUNCTIONS)
+  virtual ~__shared_count();
+#else
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 virtual ~__shared_count() {}
+#endif
 
 private:
   _LIBCPP_CONSTEXPR_SINCE_CXX26 virtual void __on_zero_shared() _NOEXCEPT = 0;
@@ -108,7 +112,11 @@ public:
         __shared_weak_owners_(__refs) {}
 
 protected:
+#if defined(_LIBCPP_SHARED_PTR_DEFINE_LEGACY_INLINE_FUNCTIONS)
+  ~__shared_weak_count() override;
+#else
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL _LIBCPP_CONSTEXPR_SINCE_CXX26 ~__shared_weak_count() override {}
+#endif
 
 public:
 #if defined(_LIBCPP_SHARED_PTR_DEFINE_LEGACY_INLINE_FUNCTIONS)
