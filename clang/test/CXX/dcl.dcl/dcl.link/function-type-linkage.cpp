@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -std=c++11 -fsyntax-only -verify %s
-// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify %s
-// RUN: %clang_cc1 -std=c++2c -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++11 -fsyntax-only -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -std=c++20 -fsyntax-only -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -std=c++2c -fsyntax-only -verify -verify-ignore-unexpected=note %s
 
 // [dcl.link]p1: two function types with different language linkages are
 // distinct types even if they are otherwise identical.

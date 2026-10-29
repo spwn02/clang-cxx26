@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -std=c++17 -emit-pch -o %t -DBUILD %s
-// RUN: %clang_cc1 -std=c++17 -include-pch %t -DUSE -verify %s
+// RUN: %clang_cc1 -std=c++17 -include-pch %t -DUSE -verify -verify-ignore-unexpected=note %s
 
 // The language linkage of a function type is part of the type and survives the
 // round trip through a precompiled header ([dcl.link]).

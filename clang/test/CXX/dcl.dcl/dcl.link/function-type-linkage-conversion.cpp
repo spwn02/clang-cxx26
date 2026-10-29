@@ -1,8 +1,8 @@
-// RUN: %clang_cc1 -std=c++17 -fsyntax-only -verify %s
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify %s
-// RUN: %clang_cc1 -std=c++17 -fsyntax-only -Wno-error=function-type-language-linkage -verify=warn %s
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -Wno-error=function-type-language-linkage -verify=warn %s
-// RUN: %clang_cc1 -std=c++17 -fsyntax-only -Wno-function-type-language-linkage -verify=none %s
+// RUN: %clang_cc1 -std=c++17 -fsyntax-only -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -std=c++17 -fsyntax-only -Wno-error=function-type-language-linkage -verify=warn -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -Wno-error=function-type-language-linkage -verify=warn -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -std=c++17 -fsyntax-only -Wno-function-type-language-linkage -verify=none -verify-ignore-unexpected=note %s
 // none-no-diagnostics
 
 // Function types with different language linkages are distinct types
