@@ -1092,4 +1092,18 @@ typedef __char32_t char32_t;
 
 #endif // __cplusplus
 
+// In C++26 the members of the exception classes that libc++abi defines (exception, bad_exception, bad_alloc,
+// bad_array_new_length, bad_cast, bad_typeid) are inline constexpr. On Apple's platforms libc++.dylib re-exports
+// libc++abi.dylib, and the linker rejects a symbol that is re-exported and also defined in an object file of libc++:
+// the translation units of the library there use the declarations that libc++abi defines.
+// _LIBCPP_DISABLE_INLINE_EXCEPTION_MEMBERS selects that form anywhere (it is how the test exercises it).
+#if defined(__APPLE__) && defined(_LIBCPP_BUILDING_LIBRARY) && !defined(_LIBCPP_DISABLE_INLINE_EXCEPTION_MEMBERS)
+#  define _LIBCPP_DISABLE_INLINE_EXCEPTION_MEMBERS
+#endif
+#if _LIBCPP_STD_VER >= 26 && !defined(_LIBCPP_DISABLE_INLINE_EXCEPTION_MEMBERS)
+#  define _LIBCPP_HAS_INLINE_EXCEPTION_MEMBERS 1
+#else
+#  define _LIBCPP_HAS_INLINE_EXCEPTION_MEMBERS 0
+#endif
+
 #endif // _LIBCPP___CONFIG

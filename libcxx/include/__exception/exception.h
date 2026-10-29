@@ -75,7 +75,7 @@ _LIBCPP_DIAGNOSTIC_PUSH
 _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class _LIBCPP_EXPORTED_FROM_ABI exception {
 public:
-#  if _LIBCPP_STD_VER >= 26
+#  if _LIBCPP_HAS_INLINE_EXCEPTION_MEMBERS
   _LIBCPP_HIDE_FROM_ABI constexpr exception() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI constexpr exception(const exception&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI constexpr exception& operator=(const exception&) _NOEXCEPT = default;
@@ -85,7 +85,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI exception& operator=(const exception&) _NOEXCEPT = default;
 #  endif
 
-#  if _LIBCPP_STD_VER >= 26
+#  if _LIBCPP_HAS_INLINE_EXCEPTION_MEMBERS
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual constexpr ~exception() _NOEXCEPT {}
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual constexpr const char* what() const _NOEXCEPT {
     return "std::exception";
@@ -101,7 +101,7 @@ _LIBCPP_DIAGNOSTIC_PUSH
 _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class _LIBCPP_EXPORTED_FROM_ABI bad_exception : public exception {
 public:
-#  if _LIBCPP_STD_VER >= 26
+#  if _LIBCPP_HAS_INLINE_EXCEPTION_MEMBERS
   _LIBCPP_HIDE_FROM_ABI constexpr bad_exception() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI constexpr bad_exception(const bad_exception&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI constexpr bad_exception& operator=(const bad_exception&) _NOEXCEPT = default;
@@ -110,7 +110,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI bad_exception(const bad_exception&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI bad_exception& operator=(const bad_exception&) _NOEXCEPT = default;
 #  endif
-#  if _LIBCPP_STD_VER >= 26
+#  if _LIBCPP_HAS_INLINE_EXCEPTION_MEMBERS
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr ~bad_exception() _NOEXCEPT override {}
   [[__nodiscard__]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL constexpr const char* what() const _NOEXCEPT override {
     return "std::bad_exception";

@@ -30,7 +30,7 @@ _LIBCPP_DIAGNOSTIC_PUSH
 _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class _LIBCPP_EXPORTED_FROM_ABI bad_alloc : public exception {
 public:
-#  if _LIBCPP_STD_VER >= 26
+#  if _LIBCPP_HAS_INLINE_EXCEPTION_MEMBERS
   _LIBCPP_HIDE_FROM_ABI constexpr bad_alloc() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI constexpr bad_alloc(const bad_alloc&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI constexpr bad_alloc& operator=(const bad_alloc&) _NOEXCEPT = default;
@@ -52,7 +52,7 @@ _LIBCPP_DIAGNOSTIC_PUSH
 _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class _LIBCPP_EXPORTED_FROM_ABI bad_array_new_length : public bad_alloc {
 public:
-#  if _LIBCPP_STD_VER >= 26
+#  if _LIBCPP_HAS_INLINE_EXCEPTION_MEMBERS
   _LIBCPP_HIDE_FROM_ABI constexpr bad_array_new_length() _NOEXCEPT {}
   _LIBCPP_HIDE_FROM_ABI constexpr bad_array_new_length(const bad_array_new_length&) _NOEXCEPT            = default;
   _LIBCPP_HIDE_FROM_ABI constexpr bad_array_new_length& operator=(const bad_array_new_length&) _NOEXCEPT = default;
