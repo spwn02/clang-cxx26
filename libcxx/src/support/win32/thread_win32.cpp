@@ -117,6 +117,8 @@ int __libcpp_condvar_destroy(__libcpp_condvar_t* __cv) {
 }
 
 // Execute Once
+// The callbacks that are passed to the Windows API have C language linkage, as the function types of that API.
+extern "C" {
 static inline _LIBCPP_HIDE_FROM_ABI BOOL CALLBACK
 __libcpp_init_once_execute_once_thunk(PINIT_ONCE __init_once, PVOID __parameter, PVOID* __context) {
   static_cast<void>(__init_once);
@@ -126,6 +128,7 @@ __libcpp_init_once_execute_once_thunk(PINIT_ONCE __init_once, PVOID __parameter,
   init_routine();
   return TRUE;
 }
+} // extern "C"
 
 int __libcpp_execute_once(__libcpp_exec_once_flag* __flag, void (*__init_routine)(void)) {
   if (!InitOnceExecuteOnce(
@@ -145,6 +148,7 @@ struct __libcpp_beginthreadex_thunk_data {
   void* __arg;
 };
 
+extern "C" {
 static inline _LIBCPP_HIDE_FROM_ABI unsigned WINAPI __libcpp_beginthreadex_thunk(void* __raw_data) {
   auto* __data = static_cast<__libcpp_beginthreadex_thunk_data*>(__raw_data);
   auto* __func = __data->__func;
@@ -152,6 +156,7 @@ static inline _LIBCPP_HIDE_FROM_ABI unsigned WINAPI __libcpp_beginthreadex_thunk
   delete __data;
   return static_cast<unsigned>(reinterpret_cast<uintptr_t>(__func(__arg)));
 }
+} // extern "C"
 
 bool __libcpp_thread_isnull(const __libcpp_thread_t* __t) { return *__t == 0; }
 
@@ -196,7 +201,7 @@ void __libcpp_thread_sleep_for(const chrono::nanoseconds& __ns) {
 
 // Thread Local Storage
 int __libcpp_tls_create(__libcpp_tls_key* __key, void(_LIBCPP_TLS_DESTRUCTOR_CC* __at_exit)(void*)) {
-  DWORD index = FlsAlloc(__at_exit);
+  DWORD index = FlsAlloc(reinterpret_cast<PFLS_CALLBACK_FUNCTION>(__at_exit));
   if (index == FLS_OUT_OF_INDEXES)
     return GetLastError();
   *__key = index;

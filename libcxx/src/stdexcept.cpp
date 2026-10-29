@@ -21,6 +21,8 @@
 #  include "support/runtime/stdexcept_default.ipp"
 #endif
 
+// The MSVC ABI uses the exception classes of vcruntime, which have no __libcpp_refstring.
+#ifndef _LIBCPP_ABI_VCRUNTIME
 // Entry points the non-legacy, header-inline <stdexcept> constructors (used
 // by ordinary C++26 client TUs, e.g. libcxx/src/string.cpp's format_error,
 // system_error.cpp, future.cpp, regex.cpp, ...) call into. Defined exactly
@@ -77,3 +79,4 @@ void __throw_runtime_error(const char* msg) {
 }
 
 _LIBCPP_END_NAMESPACE_STD
+#endif // !_LIBCPP_ABI_VCRUNTIME

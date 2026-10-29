@@ -263,6 +263,13 @@ if (APPLE AND LIBCXX_CXX_ABI MATCHES "libcxxabi$"
     "-Wl,-force_symbols_weak_list,${CMAKE_CURRENT_SOURCE_DIR}/../lib/weak.exp")
 endif()
 
+# contracts.cpp refers to the replaceable ::handle_contract_violation as a weak undefined symbol ([basic.contract.handler]),
+# which the program may define. On Mach-O a dylib does not link with an undefined symbol unless the linker is told that
+# it is looked up at run time.
+if (APPLE)
+  target_link_libraries(cxx_shared PRIVATE "-Wl,-U,__Z25handle_contract_violationRKNSt9contracts18contract_violationE")
+endif()
+
 # Generate a linker script in place of a libc++.so symlink.
 if (LIBCXX_ENABLE_ABI_LINKER_SCRIPT)
   set(link_libraries)

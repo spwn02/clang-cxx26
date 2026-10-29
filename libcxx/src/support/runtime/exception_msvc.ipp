@@ -29,9 +29,12 @@ int __cdecl __uncaught_exceptions();
 
 namespace std {
 
-unexpected_handler set_unexpected(unexpected_handler func) noexcept { return ::set_unexpected(func); }
+// The handler types of the C runtime have C language linkage, which makes them types distinct from those of std.
+unexpected_handler set_unexpected(unexpected_handler func) noexcept {
+  return reinterpret_cast<unexpected_handler>(::set_unexpected(reinterpret_cast< ::unexpected_handler>(func)));
+}
 
-unexpected_handler get_unexpected() noexcept { return ::_get_unexpected(); }
+unexpected_handler get_unexpected() noexcept { return reinterpret_cast<unexpected_handler>(::_get_unexpected()); }
 
 [[noreturn]] void unexpected() {
   (*get_unexpected())();
@@ -39,9 +42,11 @@ unexpected_handler get_unexpected() noexcept { return ::_get_unexpected(); }
   terminate();
 }
 
-terminate_handler set_terminate(terminate_handler func) noexcept { return ::set_terminate(func); }
+terminate_handler set_terminate(terminate_handler func) noexcept {
+  return reinterpret_cast<terminate_handler>(::set_terminate(reinterpret_cast< ::terminate_handler>(func)));
+}
 
-terminate_handler get_terminate() noexcept { return ::_get_terminate(); }
+terminate_handler get_terminate() noexcept { return reinterpret_cast<terminate_handler>(::_get_terminate()); }
 
 [[noreturn]] void terminate() noexcept {
 #if _LIBCPP_HAS_EXCEPTIONS
