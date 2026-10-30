@@ -45,6 +45,8 @@ template <class _Target, class _Fn>
 struct __libcpp_at_quick_exit_arg {
   typedef _Target type;
 };
+// The unqualified calls are deliberate (see above).
+// NOLINTBEGIN(libcpp-robust-against-adl)
 template <class _Fn>
 _LIBCPP_HIDE_FROM_ABI auto __libcpp_at_quick_exit(_Fn* __func, int) _NOEXCEPT
     -> decltype(at_quick_exit(reinterpret_cast<typename __libcpp_at_quick_exit_arg<__libcpp_c_atexit_handler, _Fn>::type*>(__func))) {
@@ -55,6 +57,7 @@ _LIBCPP_HIDE_FROM_ABI auto __libcpp_at_quick_exit(_Fn* __func, long) _NOEXCEPT
     -> decltype(at_quick_exit(reinterpret_cast<typename __libcpp_at_quick_exit_arg<void(), _Fn>::type*>(__func))) {
   return at_quick_exit(reinterpret_cast<typename __libcpp_at_quick_exit_arg<void(), _Fn>::type*>(__func));
 }
+// NOLINTEND(libcpp-robust-against-adl)
 
 template <class _Fn, class = void>
 inline constexpr bool __libcpp_has_at_quick_exit_for = false;
