@@ -1097,6 +1097,9 @@ typedef __char32_t char32_t;
 
 #endif // __cplusplus
 
+// Both macros are used by C++ headers only; <__config> is also included when compiling as C, where _LIBCPP_STD_VER does not exist.
+#ifdef __cplusplus
+
 // In C++26 the members of the exception classes that libc++abi defines (exception, bad_exception, bad_alloc,
 // bad_array_new_length, bad_cast, bad_typeid) are inline constexpr. On Apple's platforms libc++.dylib re-exports
 // libc++abi.dylib, and the linker rejects a symbol that is re-exported and also defined in an object file of libc++:
@@ -1120,5 +1123,7 @@ typedef __char32_t char32_t;
 #else
 #  define _LIBCPP_HAS_INLINE_CXX26_DEFINITIONS 0
 #endif
+
+#endif // __cplusplus
 
 #endif // _LIBCPP___CONFIG
