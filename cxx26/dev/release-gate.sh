@@ -68,6 +68,17 @@ run() {
   if "$@" >"$log" 2>&1; then record "$step" PASS "$((SECONDS - t0))s, log $log"; else record "$step" FAIL "exit $?, $((SECONDS - t0))s, log $log"; fi
 }
 
+# clean_lit_cache: empty the persistent probe cache of the libc++ lit configuration. It is only ever appended to and killed
+# runs leave multi-hundred-MB .tmp.<pid> files in it: at 3.5 GB every libcxx-lit call spent about 3.5 minutes on startup
+# (a sweep took 4.2 hours instead of 2.8). Nothing else runs lit while the gate does, so wiping it between steps is safe;
+# the probes are recomputed once.
+clean_lit_cache() {
+  local d
+  for d in "$repo_root"/build-libcxx*/libcxx/test/__config_cache__; do
+    [ -d "$d" ] && find "$d" -mindepth 1 -maxdepth 1 -type f -delete
+  done
+}
+
 step_build() {
   run build-nyx "$out/build-nyx.log" ninja -C "$nyx" -j"$jobs" clang clang-tidy clang-query clang-scan-deps clangd clang-extdef-mapping c-index-test
   run build-libcxx "$out/build-libcxx.log" ninja -C "$lcx" -j"$jobs" cxx-tidy cxx-test-depends
@@ -87,6 +98,7 @@ step_audit_constexpr() {
 }
 step_libcxx() {
   local std="$1" log="$out/sweep-$1.log"
+  clean_lit_cache
   if bash cxx26/dev/sweep-libcxx-std.sh "$std" "$log" >"$out/sweep-$std.out" 2>&1 \
      && python3 cxx26/dev/sweep-summary.py "$log" >"$out/sweep-$std.summary" 2>&1; then
     record "libcxx-$std" PASS "$(head -1 "$out/sweep-$std.summary" | sed 's/^[^:]*: //')"
@@ -95,6 +107,7 @@ step_libcxx() {
   fi
 }
 step_modules() {
+  clean_lit_cache
   for std in c++23 c++26; do
     run "modules-$std" "$out/modules-$std.log" libcxx/utils/libcxx-lit "$lcx" -sv -j"$jobs" --param std="$std" \
       libcxx/test/libcxx/module_std.gen.py libcxx/test/libcxx/module_std_compat.gen.py libcxx/test/std/modules

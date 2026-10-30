@@ -6,6 +6,8 @@
 cd /home/spawn/dev/toolchains/clang-cxx26
 export CCACHE_DIR=/tmp/cxx26-scratch/ccache
 std="$1"; out="$2"; : > "$out"
+# The probe cache of the lit configuration only grows (3.5 GB made every libcxx-lit call take 3.5 minutes longer): start clean.
+find build-libcxx*/libcxx/test/__config_cache__ -mindepth 1 -maxdepth 1 -type f -delete 2>/dev/null
 # The main headers are not C++03-clean (upstream neither); C++03 is tested against the frozen C++03 headers.
 extra=(); [ "$std" = c++03 ] && extra=(--param test_frozen_cxx03_headers=True)
 for d in libcxx/test/std/* libcxx/test/libcxx/* libcxx/test/extensions/gnu libcxx/test/extensions/libcxx libcxx/test/extensions/all libcxx/test/extensions/msvc libcxx/test/extensions/posix libcxx/test/extensions/clang/thread libcxx/test/support; do
