@@ -1,6 +1,6 @@
-# Migrating to `cxx26-2026.10.27`
+# Migrating to `cxx26-2026.10.30`
 
-This page lists what existing C++ code has to change to build with the `cxx26-2026.10.27`
+This page lists what existing C++ code has to change to build with the `cxx26-2026.10.30`
 toolchain. Each item is a deliberate change: it follows the C++26 draft (N5050 plus the applied
 defect reports) or removes a fork-specific spelling. The complete list is "Potentially Breaking
 Changes" in `clang/docs/ReleaseNotes.rst`.
