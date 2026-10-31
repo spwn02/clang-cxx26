@@ -54,6 +54,12 @@ is listed in "Potentially Breaking Changes" in `clang/docs/ReleaseNotes.rst`; th
 ordinary code (function types with C and C++ language linkage are distinct types, [dcl.link]). The only leniency
 beyond the standard is that a system header does not tell the two linkages apart.
 
+## Are features locked behind experimental flags?
+
+Not the ones of C++26: a release has no experimental flag for a feature of the standard version the fork has completed.
+If a feature leaves that version (for example, contracts, if the committee delays them to C++29), it goes behind an
+experimental flag until the fork has completed the next standard and WG21 has accepted it.
+
 ## Will my existing code build?
 
 Usually yes. Code that used the old experimental spellings or relied on pre-C++26 leniencies needs small changes; they

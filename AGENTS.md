@@ -153,6 +153,8 @@ repeated runs.
 
 Reflection (P2996 and companions), parameter reflection, annotations, expansion statements (`template for`) and contracts (P2900) are part of `-std=c++26`; there are no feature flags and nothing that is not in the C++ draft is available (the vocabulary audit of the release build enforces it, issue #283). The only contract option is `-fcontract-evaluation-semantic=` (ignore, observe, enforce, quick_enforce), the way the draft requires an implementation to select the evaluation semantic. P3385 attribute reflection, entity proxies and P4033 `define_enum` are not in the C++26 draft: their flags and library interfaces were removed (issue #283; the dead compiler code is tracked by #284).
 
+**Experimental flags.** A release has no experimental flag for a feature of the standard version the fork has completed (C++26 now). A feature that leaves that version, for example contracts if the committee delays them to C++29, is no longer part of it: it goes behind an experimental flag until the fork has completed the next standard (C++29) and WG21 has accepted it. Do not add a flag for a feature of the completed version, and do not remove the flag of a feature that is not in it.
+
 ## Code Organization
 
 - Reflection core (`clang/lib/AST/`): `ExprConstantMeta.cpp`, `Metafunction.h`; parsing via `CXXReflectExpr`, `CXXSpliceSpecifierExpr`, and `CXXMetafunctionExpr`.
