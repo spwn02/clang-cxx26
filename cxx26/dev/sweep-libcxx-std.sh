@@ -3,8 +3,8 @@
 # libcxx/test/libcxx file), deleting Output between.
 # libcxx-lit reinstalls headers from the working tree on every call: do not edit libcxx/include while a
 # sweep runs (use a worktree). The clang_tidy.gen.py tests need the plugin, see check-module-exports.sh.
-cd /home/spawn/dev/toolchains/clang-cxx26
-export CCACHE_DIR=/tmp/cxx26-scratch/ccache
+cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit 1
+export CCACHE_DIR="${SCRATCH:-/tmp/cxx26-scratch}/ccache"
 std="$1"; out="$2"; : > "$out"
 # The probe cache of the lit configuration only grows (3.5 GB made every libcxx-lit call take 3.5 minutes longer): start clean.
 find build-libcxx*/libcxx/test/__config_cache__ -mindepth 1 -maxdepth 1 -type f -delete 2>/dev/null

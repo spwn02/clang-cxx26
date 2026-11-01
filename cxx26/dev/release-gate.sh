@@ -19,7 +19,8 @@
 #                (cxx26/dev/audit-older-modes.sh); restores DRAFT_DIR to DRAFT_TAG
 #   audit        vocabulary audit and overload audit (#283) against the draft tag in DRAFT_DIR; run last on purpose
 #
-# Env: JOBS (default nproc), STDS, STEPS, OUT (default $HOME/.local/share/cxx26-release-gate/<HEAD>),
+# Env: GATE_STD (c++26 default, or c++29: adds c++29 to STDS and the module step, draft n5054, output cxx29-release-gate),
+#      JOBS (default nproc), STDS, STEPS, OUT (default $HOME/.local/share/cxx26-release-gate/<HEAD>),
 #      DRAFT_DIR (a cplusplus/draft checkout that has the tag DRAFT_TAG, default n5050).
 # Never run it while another build or lit run uses the build trees, and do not edit the sources while it
 # runs (the lit runs reinstall the headers from the working tree on every call). Needs about 3 GB of
@@ -31,11 +32,18 @@ ulimit -c 0
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 jobs="${JOBS:-$(nproc)}"
-stds="${STDS:-c++26 c++23 c++20 c++17 c++14 c++11 c++03}"
+# GATE_STD selects the line being gated: c++26 (default, branch cxx26, draft n5050) or c++29 (branch cxx29, draft n5054).
+gate_std="${GATE_STD:-c++26}"
+case "$gate_std" in
+  c++26) default_stds="c++26 c++23 c++20 c++17 c++14 c++11 c++03"; default_tag="n5050"; module_stds="c++23 c++26"; gate_name="cxx26" ;;
+  c++29) default_stds="c++29 c++26 c++23 c++20 c++17 c++14 c++11 c++03"; default_tag="n5054"; module_stds="c++23 c++26 c++29"; gate_name="cxx29" ;;
+  *) echo "GATE_STD must be c++26 or c++29 (got $gate_std)" >&2; exit 2 ;;
+esac
+stds="${STDS:-$default_stds}"
 head_rev="$(git rev-parse --short HEAD)"
-out="${OUT:-$HOME/.local/share/cxx26-release-gate/$head_rev}"
+out="${OUT:-$HOME/.local/share/$gate_name-release-gate/$head_rev}"
 draft_dir="${DRAFT_DIR:-}"
-draft_tag="${DRAFT_TAG:-n5050}"
+draft_tag="${DRAFT_TAG:-$default_tag}"
 nyx="$repo_root/build-nyx"
 lcx="$repo_root/build-libcxx"
 
@@ -108,7 +116,7 @@ step_libcxx() {
 }
 step_modules() {
   clean_lit_cache
-  for std in c++23 c++26; do
+  for std in $module_stds; do
     run "modules-$std" "$out/modules-$std.log" libcxx/utils/libcxx-lit "$lcx" -sv -j"$jobs" --param std="$std" \
       libcxx/test/libcxx/module_std.gen.py libcxx/test/libcxx/module_std_compat.gen.py libcxx/test/std/modules
   done
