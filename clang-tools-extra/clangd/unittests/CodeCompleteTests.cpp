@@ -170,6 +170,50 @@ TEST(CompletionTest, ReflectionOperatorOperand) {
                     Contains(named("evaluation_ns"))));
 }
 
+TEST(CompletionTest, DoExpressions) {
+  // P2806 do expressions (#366): the keyword in an expression, what may follow
+  // it, and `do_return` only where it is legal.
+  clangd::CodeCompleteOptions Opts;
+  Opts.EnableSnippets = true;
+  auto Complete = [&](llvm::StringRef Code, llvm::StringRef Std = "-std=c++2d") {
+    Annotations Test(Code);
+    auto TU = TestTU::withCode(Test.code());
+    TU.ExtraArgs = {Std.str()};
+    return completions(TU, Test.point(), /*IndexSymbols=*/{}, Opts);
+  };
+
+  EXPECT_THAT(Complete("int f() { int a = d^; }").Completions,
+              Contains(AllOf(named("do"), snippetSuffix(" {\n$0\n}"))));
+  // The introducer after `do`.
+  EXPECT_THAT(Complete("int f() { int a = do ^ { do_return 1; }; }").Completions,
+              AllOf(Contains(named("[")), Contains(named("->")),
+                    Contains(named("{"))));
+  EXPECT_THAT(Complete("int f() { int a = do [k = 1] ^ { do_return k; }; }")
+                  .Completions,
+              AllOf(Not(Contains(named("["))), Contains(named("->")),
+                    Contains(named("{"))));
+  // `do_return` in the body, also in a nested block ...
+  EXPECT_THAT(Complete("int f() { int a = do { do_r^ }; }").Completions,
+              Contains(named("do_return")));
+  EXPECT_THAT(Complete("int f(int n) { int a = do { if (n) { do_r^ } "
+                       "do_return 1; }; }")
+                  .Completions,
+              Contains(named("do_return")));
+  // ... but not in a lambda in the body, outside a do expression, or where the
+  // feature is off.
+  EXPECT_THAT(
+      Complete("int f() { int a = do { auto l = [] { do_r^ }; do_return 1; }; }")
+          .Completions,
+      Not(Contains(named("do_return"))));
+  EXPECT_THAT(Complete("int f() { do_r^ }").Completions,
+              Not(Contains(named("do_return"))));
+  EXPECT_THAT(Complete("int f() { int a = do { do_r^ }; }", "-std=c++26")
+                  .Completions,
+              Not(Contains(named("do_return"))));
+  EXPECT_THAT(Complete("int f() { int a = d^; }", "-std=c++26").Completions,
+              Not(Contains(AllOf(named("do"), snippetSuffix(" {\n$0\n}")))));
+}
+
 // Runs code completion without the clang parser.
 CodeCompleteResult completionsNoCompile(llvm::StringRef Text,
                                         std::vector<Symbol> IndexSymbols = {},
