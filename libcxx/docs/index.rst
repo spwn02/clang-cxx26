@@ -49,6 +49,7 @@ Getting Started with libc++
    Status/Cxx20
    Status/Cxx23
    Status/Cxx2c
+   Status/Cxx29
    Status/Format
    Status/PSTL
 

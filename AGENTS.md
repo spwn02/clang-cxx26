@@ -7,9 +7,11 @@ C++ standards, including static reflection (metafunctions, reflection
 operators, splice expressions — see `clang/lib/AST/ExprConstantMeta.cpp`,
 `clang/include/clang/AST/Metafunction.h`) and contracts (P2900R14). As of
 2026-09-30, every C++26 paper/library facility has either landed or has a
-GitHub issue tracking its remaining gap; the one open issue is **#116**,
-the fork-wide final-review conformance audit that precedes the first
-release. See the Trackers section below.
+GitHub issue tracking its remaining gap. As of 2026-11-01 every C++26 issue
+(#1-#352, including the final-review audit #116) is closed and the C++26
+release is `cxx26-2026.10.30`; the open issues are the C++29 program
+(label `cxx29`, issues #353-#485, milestones starting with `C++29`). See the
+Trackers section and the C++29 line section below.
 
 This repository preserves the Apache-2.0 WITH LLVM-exception license, upstream
 source headers and Git authorship, and the history of the Bloomberg-originated
@@ -18,7 +20,7 @@ not imply Bloomberg endorses this fork.
 
 ## Command Dispatch
 
-- `Continue`: GitHub Issues (`gh issue list --repo spwn02/clang-cxx26 --state open`) is the living tracker — as of 2026-09-30 the only open issue is **#116** (fork-wide final-review conformance audit) plus whatever it has since spawned under its "Final Review Audit" milestone (`gh issue list --repo spwn02/clang-cxx26 --milestone "Final Review Audit"`). Resume that work; do not create a new parallel tracking doc. (All prior epic-specific tracking docs under `docs/` — `LLVM22_SYNC.md`, `CONTRACTS_PORT.md`, `REFLECTION.md`/`REFLECTION_GAPS.md`/`REFLECTION_CLOSEUP.md`, and finally `CXX26_GAPS.md` itself — were deleted at their epics' close-outs once GitHub Issues fully absorbed their content; see `git log -- docs/` for that history if needed.)
+- `Continue`: GitHub Issues (`gh issue list --repo spwn02/clang-cxx26 --state open`) is the living tracker — as of 2026-11-01 all C++26 issues are closed and the open ones are the C++29 program (`--label cxx29`; start from the epic of the milestone being worked, and from "C++29 Foundation" for shared dependencies). Resume that work; do not create a new parallel tracking doc. (All prior epic-specific tracking docs under `docs/` — `LLVM22_SYNC.md`, `CONTRACTS_PORT.md`, `REFLECTION.md`/`REFLECTION_GAPS.md`/`REFLECTION_CLOSEUP.md`, and finally `CXX26_GAPS.md` itself — were deleted at their epics' close-outs once GitHub Issues fully absorbed their content; see `git log -- docs/` for that history if needed.)
 - `Begin PXXXX`: search `gh issue list --repo spwn02/clang-cxx26 --state all --search "P<number>"` for the paper; if an issue exists, resume it. If none exists, this is new-paper triage: fetch the adopted wording from wg21.link/eel.is, research its requirements, implement autonomously, run focused tests, and commit — filing a fresh issue only if the work spans more than one session or needs to be handed off. Begin work without introductory narration.
 
 ## Build Architecture
@@ -154,6 +156,16 @@ repeated runs.
 Reflection (P2996 and companions), parameter reflection, annotations, expansion statements (`template for`) and contracts (P2900) are part of `-std=c++26`; there are no feature flags and nothing that is not in the C++ draft is available (the vocabulary audit of the release build enforces it, issue #283). The only contract option is `-fcontract-evaluation-semantic=` (ignore, observe, enforce, quick_enforce), the way the draft requires an implementation to select the evaluation semantic. P3385 attribute reflection, entity proxies and P4033 `define_enum` are not in the C++26 draft: their flags and library interfaces were removed (issue #283; the dead compiler code is tracked by #284).
 
 **Experimental flags.** A release has no experimental flag for a feature of the standard version the fork has completed (C++26 now). A feature that leaves that version, for example contracts if the committee delays them to C++29, is no longer part of it: it goes behind an experimental flag until the fork has completed the next standard (C++29) and WG21 has accepted it. Do not add a flag for a feature of the completed version, and do not remove the flag of a feature that is not in it.
+
+## C++29 line (branch `cxx29`)
+
+C++29 work lives on the long-lived branch `cxx29`, branched from `cxx26`; `cxx26` stays the default branch, the release line and the tag family (`cxx26-YYYY.MM.DD`). Merge `cxx26` into `cxx29` periodically; never merge `cxx29` into `cxx26`. `origin/cxx29-staging` is a stale snapshot that is being folded into `cxx29` and deleted (issue #354). The base stays LLVM 22.1.8: fork prototypes (brevzin/llvm-project for P2806/P4380, mpark/llvm-project for P2688) are backported commit by commit, not rebased onto. The `-std=c++29` mode (`c++2d` alias) sets `_LIBCPP_STD_VER 29`; C++29 features also have per-feature opt-in flags usable in older modes while the standard is incomplete (for example `-fdo-expressions`), consistent with the experimental-flag policy above. The C++29 baseline draft is N5054 (2026-07-16); re-survey after every WG21 meeting (issue #358; next meeting Búzios, 2026-11-16 to 2026-11-21).
+
+Tracking: milestones `C++29 Foundation` (shared dependencies and P2806 do expressions), `C++29: Token Sequence Injection (P4380)`, `C++29: Pattern Matching (P2688)`, `C++29: Networking (P4100/P4048)` and `C++29: Staged library papers`; every issue carries the label `cxx29`. A shared dependency is filed once in `C++29 Foundation` (label `shared-dependency`) and linked from each epic with `Blocked by #N`. Library status is in `libcxx/docs/Status/Cxx29Papers.csv` and `Cxx29Issues.csv`.
+
+**A C++29 feature is not complete until the whole Clang toolchain understands it.** Every feature epic carries the 15-item done-checklist (issue #359): keyword/flag/`-std` plumbing; AST nodes and `RecursiveASTVisitor`; parser, Sema and `TreeTransform`; serialization and PCH/modules (issue #360); dependence, constant evaluation and CodeGen; `StmtPrinter`/`TextNodeDumper`/`JSONNodeDumper`/`StmtProfile`; CFG and static analyzer `ExprEngine`; `ASTImporter`, ASTMatchers (and the Dynamic registry) and Syntax trees; libclang, `c-index-test` and the Python bindings; clangd (completion contract for every semantic of the feature, hover, go-to-definition, references/rename, semantic tokens, folding); clang-tidy; clang-format; the feature-test macro; docs; and tests at every layer plus `check-clang`, `check-clang-tools`, `ClangdTests`, a libc++ regression run in c++26 and one older mode, and advisor validation. The do-expression port is the measured baseline (compiler core done, toolchain wiring open: issues in the P2806 epic).
+
+The C++26 rule "close every issue before the final gate" counts only issues **without** the `cxx29` label.
 
 ## Code Organization
 
