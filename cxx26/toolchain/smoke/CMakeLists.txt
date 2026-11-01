@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 4.4 FATAL_ERROR)
 
+# The cxx29 line cannot use CMake's `import std` (CMake does not know C++29 yet): its smoke test is a plain
+# <print> program using a do expression, compiled with the -std=c++29 that the packaged toolchain file adds.
+if(SMOKE_LINE STREQUAL "cxx29")
+  project(CXX29ReferenceToolchainSmoke LANGUAGES CXX)
+  add_executable(CXX29ReferenceToolchainSmoke main29.cxx)
+  target_compile_options(CXX29ReferenceToolchainSmoke PRIVATE -Wall -Wextra -Werror)
+  return()
+endif()
+
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

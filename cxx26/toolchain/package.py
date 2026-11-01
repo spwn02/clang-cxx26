@@ -14,8 +14,26 @@ import tempfile
 from typing import NoReturn
 
 
-RELEASE_ID = re.compile(r"^cxx26-\d{4}\.\d{2}\.\d{2}(?:\.\d+)?$")
-DEV_ID = re.compile(r"^cxx26-dev-[0-9a-f]{7,40}$")
+LINES = ("cxx26", "cxx29")
+
+
+def release_id(line: str) -> "re.Pattern[str]":
+    return re.compile(rf"^{line}-\d{{4}}\.\d{{2}}\.\d{{2}}(?:\.\d+)?$")
+
+
+def dev_id(line: str) -> "re.Pattern[str]":
+    return re.compile(rf"^{line}-dev-[0-9a-f]{{7,40}}$")
+
+
+def for_line(text: str, line: str) -> str:
+    """The metadata templates are written for the cxx26 line; the cxx29 line renames them (the cxx26 output is unchanged)."""
+    if line == "cxx26":
+        return text
+    return (
+        text.replace("cxx26", line)
+        .replace("CXX26", line.upper())
+        .replace("c++26", "c++" + line[3:])
+    )
 
 
 def fail(message: str) -> NoReturn:
@@ -107,6 +125,8 @@ def main() -> int:
     parser.add_argument("--stage", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--snapshot", required=True)
+    parser.add_argument("--line", choices=LINES, default="cxx26",
+                        help="release line of the snapshot (default cxx26); selects the id pattern, branch and metadata names")
     parser.add_argument("--revision", required=True)
     parser.add_argument("--source-date-epoch", required=True, type=int)
     args = parser.parse_args()
@@ -114,10 +134,11 @@ def main() -> int:
     stage = args.stage.resolve()
     output = args.output.resolve()
 
-    if not RELEASE_ID.fullmatch(args.snapshot) and not DEV_ID.fullmatch(args.snapshot):
+    line = args.line
+    if not release_id(line).fullmatch(args.snapshot) and not dev_id(line).fullmatch(args.snapshot):
         fail(
-            "snapshot id must be cxx26-YYYY.MM.DD[.N] or "
-            "cxx26-dev-<7..40 lowercase hex characters>"
+            f"snapshot id must be {line}-YYYY.MM.DD[.N] or "
+            f"{line}-dev-<7..40 lowercase hex characters>"
         )
 
     if not re.fullmatch(r"[0-9a-f]{40}", args.revision):
@@ -154,12 +175,12 @@ def main() -> int:
     sha512_file = output / f"{asset_stem}.SHA512SUMS"
     root_name = f"clang-{args.snapshot}"
 
-    with tempfile.TemporaryDirectory(prefix="clang-cxx26-package-") as temporary:
+    with tempfile.TemporaryDirectory(prefix=f"clang-{line}-package-") as temporary:
         package_parent = Path(temporary)
         package_root = package_parent / root_name
         shutil.copytree(stage, package_root, symlinks=True)
 
-        metadata_dir = package_root / "share" / "clang-cxx26"
+        metadata_dir = package_root / "share" / f"clang-{line}"
         metadata_dir.mkdir(parents=True, exist_ok=True)
 
         cmake_rpath = ";".join(
@@ -171,16 +192,16 @@ def main() -> int:
 
         template_dir = Path(__file__).resolve().parent
 
-        toolchain = render_template(
+        toolchain = for_line(render_template(
             template_dir / "toolchain.cmake.in",
             {"CXX26_BUILD_RPATH": cmake_rpath},
-        )
+        ), line)
         (metadata_dir / "toolchain.cmake").write_text(toolchain, encoding="utf-8")
 
-        activation = render_template(
+        activation = for_line(render_template(
             template_dir / "activate.sh.in",
             {"CXX26_LIBRARY_PATH": library_path},
-        )
+        ), line)
         activation_path = metadata_dir / "activate.sh"
         activation_path.write_text(activation, encoding="utf-8")
         activation_path.chmod(0o755)
@@ -190,7 +211,7 @@ def main() -> int:
             "snapshot": args.snapshot,
             "source": {
                 "repository": "https://github.com/spwn02/clang-cxx26",
-                "branch": "cxx26",
+                "branch": line,
                 "revision": args.revision,
             },
             "platform": {
@@ -199,7 +220,7 @@ def main() -> int:
                 "target": "x86_64-unknown-linux-gnu",
             },
             "compiler": {
-                "name": "clang-cxx26",
+                "name": f"clang-{line}",
                 "version": clang_version,
             },
             "standardLibrary": {
@@ -221,9 +242,9 @@ def main() -> int:
             ],
             "cmake": {
                 "minimumConsumerVersion": "4.4",
-                "toolchainFile": "share/clang-cxx26/toolchain.cmake",
+                "toolchainFile": f"share/clang-{line}/toolchain.cmake",
             },
-            "activationScript": "share/clang-cxx26/activate.sh",
+            "activationScript": f"share/clang-{line}/activate.sh",
             "sourceDateEpoch": args.source_date_epoch,
         }
 
