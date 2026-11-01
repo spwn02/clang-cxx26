@@ -187,6 +187,9 @@ public:
 
   void CodeCompleteLambdaIntroducer(Scope *S, LambdaIntroducer &Intro,
                                     bool AfterAmpersand);
+  /// Completion right after `do` or after its init-captures: the pieces of the
+  /// do-expression that may follow (`[captures]`, `-> type`, the body).
+  void CodeCompleteDoExprIntroducer(Scope *S, bool AfterCaptures);
   void CodeCompleteAfterFunctionEquals(Declarator &D);
 
   void CodeCompleteObjCAtDirective(Scope *S);

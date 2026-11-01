@@ -2661,6 +2661,29 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
       Results.AddResult(Result(Builder.TakeString()));
     }
 
+    // "do_return expression ;" or "do_return ;" in the body of a do-expression.
+    // 'do_return' yields the value of the innermost enclosing do-expression, so
+    // it is offered only in its body (not in a lambda nested in the body), and
+    // only in the forms its result type allows.
+    if (SemaRef.getLangOpts().DoExpressions && !SemaRef.DoExprStack.empty() &&
+        SemaRef.FunctionScopes.size() ==
+            SemaRef.DoExprStack.back().FunctionScopeDepth) {
+      QualType Explicit = SemaRef.DoExprStack.back().ExplicitType;
+      bool Deduced = Explicit.isNull() || Explicit->getContainedAutoType();
+      if (Deduced || Explicit->isVoidType()) {
+        Builder.AddTypedTextChunk("do_return");
+        Builder.AddChunk(CodeCompletionString::CK_SemiColon);
+        Results.AddResult(Result(Builder.TakeString()));
+      }
+      if (Deduced || !Explicit->isVoidType()) {
+        Builder.AddTypedTextChunk("do_return");
+        Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+        Builder.AddPlaceholderChunk("expression");
+        Builder.AddChunk(CodeCompletionString::CK_SemiColon);
+        Results.AddResult(Result(Builder.TakeString()));
+      }
+    }
+
     // "return expression ;" or "return ;", depending on the return type.
     QualType ReturnType;
     if (const auto *Function = dyn_cast<FunctionDecl>(SemaRef.CurContext))
@@ -2779,6 +2802,21 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
       Builder.AddResultTypeChunk("bool");
       Builder.AddTypedTextChunk("false");
       Results.AddResult(Result(Builder.TakeString()));
+
+      // do { statements }  (a do-expression; P2806). Not offered where a
+      // statement may start: there 'do' begins a do-while statement.
+      if (SemaRef.getLangOpts().DoExpressions &&
+          (CCC == SemaCodeCompletion::PCC_Expression ||
+           CCC == SemaCodeCompletion::PCC_ParenthesizedExpression)) {
+        Builder.AddTypedTextChunk("do");
+        Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+        Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
+        Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+        Builder.AddPlaceholderChunk("statements");
+        Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+        Builder.AddChunk(CodeCompletionString::CK_RightBrace);
+        Results.AddResult(Result(Builder.TakeString()));
+      }
 
       if (SemaRef.getLangOpts().RTTI) {
         // dynamic_cast < type-id > ( expression )
@@ -7391,6 +7429,41 @@ static bool isNamespaceScope(Scope *S) {
     return false;
 
   return DC->isFileContext();
+}
+
+void SemaCodeCompletion::CodeCompleteDoExprIntroducer(Scope *S,
+                                                      bool AfterCaptures) {
+  ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
+                        CodeCompleter->getCodeCompletionTUInfo(),
+                        CodeCompletionContext::CCC_Other);
+  Results.EnterNewScope();
+  CodeCompletionBuilder Builder(Results.getAllocator(),
+                                Results.getCodeCompletionTUInfo());
+
+  // do [name = init, ...] -> type { statements }: the init-captures come
+  // first, then the result type, then the body. (After the type the parser is
+  // still completing the declarator, so there is no hook for the `{`.)
+  if (!AfterCaptures) {
+    Builder.AddTypedTextChunk("[");
+    Builder.AddPlaceholderChunk("name = init");
+    Builder.AddChunk(CodeCompletionString::CK_RightBracket);
+    Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+  }
+  Builder.AddTypedTextChunk("->");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddPlaceholderChunk("type");
+  Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+  Builder.AddTypedTextChunk("{");
+  Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+  Builder.AddPlaceholderChunk("statements");
+  Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+  Builder.AddChunk(CodeCompletionString::CK_RightBrace);
+  Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+
+  Results.ExitScope();
+  HandleCodeCompleteResults(&SemaRef, CodeCompleter,
+                            Results.getCompletionContext(), Results.data(),
+                            Results.size());
 }
 
 void SemaCodeCompletion::CodeCompleteLambdaIntroducer(Scope *S,

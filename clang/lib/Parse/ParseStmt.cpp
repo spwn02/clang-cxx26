@@ -2829,6 +2829,13 @@ ExprResult Parser::ParseDoExpression() {
   assert(Tok.is(tok::kw_do) && "Not a do-expression!");
   SourceLocation DoLoc = ConsumeToken(); // eat 'do'
 
+  if (Tok.is(tok::code_completion)) {
+    cutOffParsing();
+    Actions.CodeCompletion().CodeCompleteDoExprIntroducer(
+        getCurScope(), /*AfterCaptures=*/false);
+    return ExprError();
+  }
+
   // Push a do-expression context before parsing either the optional
   // parenthesized init statements or the body. At namespace scope this creates
   // the synthetic function context that makes those declarations local to the
@@ -2933,6 +2940,14 @@ ExprResult Parser::ParseDoExpression() {
                                              LifetimeExtendTemps);
   }
 
+  if (Tok.is(tok::code_completion)) {
+    cutOffParsing();
+    Actions.CodeCompletion().CodeCompleteDoExprIntroducer(
+        getCurScope(), /*AfterCaptures=*/true);
+    Actions.ActOnDoExprError();
+    return ExprError();
+  }
+
   TypeSourceInfo *ExplicitTSI = nullptr;
   QualType ExplicitType;
   if (Tok.is(tok::arrow)) {
@@ -2993,6 +3008,15 @@ ExprResult Parser::ParseDoExpression() {
 StmtResult Parser::ParseDoReturnStatement() {
   assert(Tok.is(tok::kw_do_return) && "Not a do_return statement!");
   SourceLocation DoReturnLoc = ConsumeToken();
+
+  // The operand converts to the result type of the do-expression when the
+  // user wrote one (`do -> T { ... }`); enterTypeCast is only a way of saying
+  // "prefer this type" to code completion.
+  if (!Actions.DoExprStack.empty() &&
+      !Actions.DoExprStack.back().ExplicitType.isNull() &&
+      !Actions.DoExprStack.back().ExplicitType->getContainedAutoType())
+    PreferredType.enterTypeCast(Tok.getLocation(),
+                                Actions.DoExprStack.back().ExplicitType);
 
   ExprResult R;
   if (Tok.isNot(tok::semi)) {
