@@ -136,6 +136,10 @@ int main() {
 }
 ```
 
+## C++29 (work in progress)
+
+C++29 work is developed on the branch `cxx29`, which is branched from `cxx26` and is not part of any release yet. `-std=c++29` (alias `-std=c++2d`) is the language mode, with `_LIBCPP_STD_VER 29`; the baseline draft is N5054. Planned and in progress: `do` expressions (P2806, the compiler part is ported), token sequence injection (P4380), pattern matching (P2688) and the networking work (P4048, P4100), each wired through clangd, clang-tidy, clang-format and the other tools before it counts as done. The plan is tracked in the GitHub milestones whose names start with `C++29`. The release line stays `cxx26`; C++29 snapshots, when they exist, are tagged `cxx29-YYYY.MM.DD` and installed separately.
+
 ## Differences from stock Clang
 
 The differences are deliberate and documented in `clang/docs/ReleaseNotes.rst`. The one
