@@ -81,7 +81,11 @@ _warningFlags = [
     "-flax-vector-conversions=none",
 ]
 
-_allStandards = ["c++03", "c++11", "c++14", "c++17", "c++20", "c++23", "c++26"]
+_allStandards = ["c++03", "c++11", "c++14", "c++17", "c++20", "c++23", "c++26", "c++29"]
+
+# The standard used when the std= parameter is not given: the newest completed one. c++29 (a work in progress in
+# this fork, see AGENTS.md) must be asked for explicitly with --param std=c++29.
+_defaultStandards = [s for s in _allStandards if s != "c++29"]
 
 
 def getStdFlag(cfg, std):
@@ -91,7 +95,7 @@ def getStdFlag(cfg, std):
 
 
 def getDefaultStdValue(cfg):
-    viable = [s for s in reversed(_allStandards) if getStdFlag(cfg, s)]
+    viable = [s for s in reversed(_defaultStandards) if getStdFlag(cfg, s)]
 
     if not viable:
         raise RuntimeError(

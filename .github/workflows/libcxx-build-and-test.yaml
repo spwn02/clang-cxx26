@@ -45,6 +45,7 @@ jobs:
           'frozen-cxx03-headers',
           'generic-cxx03',
           'generic-cxx26',
+          'generic-cxx29',
           'generic-modules'
         ]
         cc: [  'clang-22' ]

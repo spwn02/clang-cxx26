@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14, c++17, c++26
+// UNSUPPORTED: c++03, c++11, c++14, c++17, c++26, c++29
 // The deprecated shared_ptr atomic access functions are removed in C++26 (P2869R4).
 // ADDITIONAL_COMPILE_FLAGS: -Wno-deprecated-declarations
 

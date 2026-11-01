@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14, c++17, c++26
+// UNSUPPORTED: c++03, c++11, c++14, c++17, c++26, c++29
 
 // P3179R9 adds the execution-policy overloads of the ranges algorithms in C++26: before that, they must not exist,
 // while the sequential overloads keep working.
