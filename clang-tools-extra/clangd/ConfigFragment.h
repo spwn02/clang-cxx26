@@ -178,6 +178,13 @@ struct Fragment {
     /// fallback if no query driver is supplied or if the query driver regex
     /// string fails to match the compiler used in the CDB.
     std::optional<Located<std::string>> BuiltinHeaders;
+
+    /// Read the module files of the compile command into memory instead of
+    /// memory-mapping them (default: map). A mapped module file that another
+    /// process rewrites in place (a build that is killed halfway) kills clangd
+    /// with SIGBUS; a copy survives, at the price of private memory per open
+    /// file of about twice the size of the module files it imports.
+    std::optional<Located<bool>> CopyModuleFiles;
   };
   CompileFlagsBlock CompileFlags;
 

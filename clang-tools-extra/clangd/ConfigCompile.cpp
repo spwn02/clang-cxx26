@@ -291,6 +291,11 @@ struct FragmentCompiler {
       });
     }
 
+    if (F.CopyModuleFiles)
+      Out.Apply.push_back([Val(**F.CopyModuleFiles)](const Params &, Config &C) {
+        C.CompileFlags.CopyModuleFiles = Val;
+      });
+
     if (F.BuiltinHeaders) {
       if (auto Val =
               compileEnum<Config::BuiltinHeaderPolicy>("BuiltinHeaders",

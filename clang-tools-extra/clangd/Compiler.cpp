@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Compiler.h"
+#include "Config.h"
 #include "support/Logger.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Driver/CreateInvocationFromArgs.h"
@@ -120,10 +121,11 @@ buildCompilerInvocation(const ParseInputs &Inputs, clang::DiagnosticConsumer &D,
     return nullptr;
   // createInvocationFromCommandLine sets DisableFree.
   CI->getFrontendOpts().DisableFree = false;
-  // The build system rewrites the module files that clangd reads while the
-  // editor is open; a mapped file that is rewritten in place kills the process
-  // (SIGBUS), a copy in memory does not (#487).
-  CI->getHeaderSearchOpts().ReadModuleFilesIntoMemory = true;
+  // A module file that the build system rewrites in place while it is mapped
+  // kills the process (SIGBUS); a copy in memory survives but costs private
+  // memory, so it is opt-in (CompileFlags: CopyModuleFiles, #487).
+  CI->getHeaderSearchOpts().ReadModuleFilesIntoMemory =
+      Config::current().CompileFlags.CopyModuleFiles;
   CI->getLangOpts().CommentOpts.ParseAllComments = true;
   CI->getLangOpts().RetainCommentsFromSystemHeaders = true;
 

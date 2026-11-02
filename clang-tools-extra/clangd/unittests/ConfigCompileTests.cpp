@@ -132,6 +132,16 @@ TEST_F(ConfigCompileTests, CompileCommands) {
   EXPECT_THAT(Argv, ElementsAre("tpc.exe", "-foo", "--", "a.cc"));
 }
 
+TEST_F(ConfigCompileTests, CopyModuleFiles) {
+  // Default: module files are mapped.
+  EXPECT_FALSE(Conf.CompileFlags.CopyModuleFiles);
+  Frag = {};
+  Frag.CompileFlags.CopyModuleFiles = true;
+  EXPECT_TRUE(compileAndApply());
+  EXPECT_TRUE(Conf.CompileFlags.CopyModuleFiles);
+  EXPECT_THAT(Diags.Diagnostics, IsEmpty());
+}
+
 TEST_F(ConfigCompileTests, CompilationDatabase) {
   Frag.CompileFlags.CompilationDatabase.emplace("None");
   EXPECT_TRUE(compileAndApply());
