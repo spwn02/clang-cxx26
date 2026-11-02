@@ -51,5 +51,11 @@ export namespace std {
   using std::submdspan_mapping_result;
   using std::submdspan;
 #  endif // _LIBCPP_STD_VER >= 26
+
+#  if _LIBCPP_STD_VER >= 29
+  // [mdspan.copy], multidimensional copy algorithms (P3242R4)
+  using std::copy;
+  using std::fill;
+#  endif // _LIBCPP_STD_VER >= 29
 #endif // _LIBCPP_STD_VER >= 23
 } // namespace std
