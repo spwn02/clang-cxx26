@@ -23301,6 +23301,54 @@ TEST_F(FormatTest, FormatsWithWebKitStyle) {
                Style);
 }
 
+TEST_F(FormatTest, FormatsDoExpressions) {
+  // P2806 do expressions: `do` in operand position is not a do-while.
+  verifyFormat("int x = do {\n"
+               "  if (b)\n"
+               "    do_return 1;\n"
+               "  do_return 2;\n"
+               "};");
+  verifyFormat("int x = do { do_return 1; };");
+  verifyFormat("int y = do [k = 1] -> int { do_return k + 1; };");
+  verifyFormat("int y = do -> int { do_return 1; };");
+  verifyFormat("return do { do_return 0; };");
+  // The expression goes on after the closing brace.
+  verifyFormat("int z = do {\n"
+               "  int t = do { do_return 5; };\n"
+               "  do_return t * 2;\n"
+               "} + 1;");
+  verifyFormat("int d = 1 + do { do_return 2; } * 3;");
+  verifyFormat("int c = foo(do { do_return 1; }, do [x = 2] -> int { do_return x; });");
+  verifyFormat("int a = b ? do { do_return 1; } : do { do_return 2; };");
+  verifyFormat("if (do { do_return b; })\n"
+               "  return 0;");
+  verifyFormat("for (int i = 0; i < 3; ++i)\n"
+               "  x += do { do_return i; };");
+  // Real do-while statements are unaffected, also as the body of a statement.
+  verifyFormat("do {\n"
+               "  n++;\n"
+               "} while (n < 10);");
+  verifyFormat("if (b)\n"
+               "  do {\n"
+               "    --n;\n"
+               "  } while (n > 0);\n"
+               "else\n"
+               "  do {\n"
+               "    ++n;\n"
+               "  } while (n < 5);");
+  verifyFormat("void f() {\n"
+               "label:\n"
+               "  do {\n"
+               "    n--;\n"
+               "  } while (n);\n"
+               "}");
+  // Idempotent on already wrapped long captures.
+  verifyFormat("auto very_long_variable_name =\n"
+               "    do [captured_value = compute(first_argument, second_argument)]\n"
+               "    -> long { do_return captured_value + 1; };",
+               getLLVMStyleWithColumns(80));
+}
+
 TEST_F(FormatTest, FormatsLambdas) {
   verifyFormat("int c = [b]() mutable { return [&b] { return b++; }(); }();");
   verifyFormat(

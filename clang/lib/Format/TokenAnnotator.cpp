@@ -2454,6 +2454,10 @@ private:
       // not auto operator->() -> xxx;
       Current.setType(TT_TrailingReturnArrow);
     } else if (Current.is(tok::arrow) && Current.Previous &&
+               isDoExpressionResultArrow(Current)) {
+      // `do [captures] -> type { ... }` (P2806).
+      Current.setType(TT_TrailingReturnArrow);
+    } else if (Current.is(tok::arrow) && Current.Previous &&
                Current.Previous->is(tok::r_brace) &&
                Current.Previous->is(BK_Block)) {
       // Concept implicit conversion constraint needs to be treated like
@@ -2978,6 +2982,16 @@ private:
         return false;
 
     return true;
+  }
+
+  /// Whether \p Arrow is the `->` of a do expression's result type (P2806):
+  /// `do -> T { ... }` or `do [captures] -> T { ... }`.
+  static bool isDoExpressionResultArrow(const FormatToken &Arrow) {
+    const FormatToken *Prev = Arrow.Previous;
+    if (Prev && Prev->is(tok::r_square) && Prev->MatchingParen)
+      Prev = Prev->MatchingParen->Previous;
+    return Prev && Prev->is(tok::kw_do) &&
+           doFollowsOperandPosition(Prev->getPreviousNonComment());
   }
 
   /// Returns true if the token is used as a unary operator.
@@ -4597,11 +4611,22 @@ bool TokenAnnotator::spaceRequiredBeforeParens(const FormatToken &Right) const {
   return false;
 }
 
+static bool isDoExpressionKeyword(const FormatToken &Tok) {
+  return Tok.is(tok::kw_do) &&
+         doFollowsOperandPosition(Tok.getPreviousNonComment());
+}
+
 bool TokenAnnotator::spaceRequiredBetween(const AnnotatedLine &Line,
                                           const FormatToken &Left,
                                           const FormatToken &Right) const {
   if (Left.is(tok::kw_return) &&
       Right.isNoneOf(tok::semi, tok::r_paren, tok::hashhash)) {
+    return true;
+  }
+  // `do [captures] -> T { ... }` and `do { ... }` in operand position.
+  if (isDoExpressionKeyword(Left) &&
+      Right.isOneOf(tok::l_square, tok::l_brace, tok::arrow,
+                    TT_TrailingReturnArrow)) {
     return true;
   }
   if (Left.is(tok::kw_throw) && Right.is(tok::l_paren) && Right.MatchingParen &&

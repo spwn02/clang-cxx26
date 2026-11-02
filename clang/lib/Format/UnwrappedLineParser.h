@@ -130,6 +130,8 @@ private:
                           bool KeepBraces = true, IfStmtKind *IfKind = nullptr,
                           bool UnindentWhitesmithsBraces = false);
   void parseChildBlock();
+  /// Whether the `{` about to be parsed is the body of a do expression.
+  bool lbraceStartsDoExpression() const;
   void parsePPDirective();
   void parsePPDefine();
   void parsePPIf(bool IfDef);

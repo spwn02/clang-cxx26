@@ -973,6 +973,57 @@ static bool ShouldBreakBeforeBrace(const FormatStyle &Style,
   }
 }
 
+bool UnwrappedLineParser::lbraceStartsDoExpression() const {
+  // Matches `do {`, `do [captures] {`, `do -> type {` and
+  // `do [captures] -> type {`, where `do` is in operand position. Only the
+  // tail of the line matters.
+  SmallVector<const FormatToken *, 40> Toks;
+  for (auto It = Line->Tokens.rbegin(), E = Line->Tokens.rend();
+       It != E && Toks.size() < 40; ++It) {
+    Toks.push_back(It->Tok);
+  }
+  // Toks[0] is the token just before the `{`.
+  int I = 0;
+  const int N = static_cast<int>(Toks.size());
+  // Skip an optional result type up to the `->`.
+  for (int J = 0; J < N && J < 32; ++J) {
+    if (Toks[J]->isOneOf(tok::semi, tok::l_brace, tok::r_brace, tok::equal,
+                         tok::kw_do)) {
+      break;
+    }
+    if (Toks[J]->is(tok::arrow)) {
+      I = J + 1;
+      break;
+    }
+  }
+  if (I >= N)
+    return false;
+  // Skip optional init-captures.
+  if (Toks[I]->is(tok::r_square)) {
+    int Depth = 0;
+    for (; I < N; ++I) {
+      if (Toks[I]->is(tok::r_square))
+        ++Depth;
+      else if (Toks[I]->is(tok::l_square) && --Depth == 0)
+        break;
+    }
+    if (I + 1 >= N)
+      return false;
+    ++I;
+  }
+  if (Toks[I]->isNot(tok::kw_do) || I + 1 >= N)
+    return false;
+  // Annotation has not run yet, so a colon is a ternary's when the line has a
+  // `?` before the `do`.
+  if (Toks[I + 1]->is(tok::colon)) {
+    return llvm::any_of(llvm::ArrayRef(Toks).drop_front(I + 1),
+                        [](const FormatToken *T) {
+                          return T->is(tok::question);
+                        });
+  }
+  return doFollowsOperandPosition(Toks[I + 1]);
+}
+
 void UnwrappedLineParser::parseChildBlock() {
   assert(FormatTok->is(tok::l_brace));
   FormatTok->setBlockKind(BK_Block);
@@ -1918,6 +1969,12 @@ void UnwrappedLineParser::parseStructuralElement(
     case tok::l_brace:
       if (InRequiresExpression)
         FormatTok->setFinalizedType(TT_BracedListLBrace);
+      if (lbraceStartsDoExpression()) {
+        // The body of a do expression is an operand: the line goes on after
+        // the closing brace.
+        parseChildBlock();
+        break;
+      }
       if (!tryToParsePropertyAccessor() && !tryToParseBracedList()) {
         IsDecltypeAutoFunction = Line->SeenDecltypeAuto;
         // A block outside of parentheses must be the last part of a

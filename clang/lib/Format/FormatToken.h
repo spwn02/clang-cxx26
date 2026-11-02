@@ -2079,6 +2079,25 @@ inline bool continuesLineComment(const FormatToken &FormatTok,
 // Returns \c true if \c Current starts a new parameter.
 bool startsNextParameter(const FormatToken &Current, const FormatStyle &Style);
 
+/// Whether a `do` that follows \p Prev starts a do expression (P2806) rather
+/// than a do-while statement. A do expression can only appear where an
+/// operand is expected.
+inline bool doFollowsOperandPosition(const FormatToken *Prev) {
+  if (!Prev)
+    return false;
+  // A colon is an operand position only as the second half of `?:`; after a
+  // label or `case` a do-while statement follows.
+  if (Prev->is(tok::colon))
+    return Prev->is(TT_ConditionalExpr);
+  if (Prev->isOneOf(tok::equal, tok::kw_return, tok::kw_co_return,
+                    tok::kw_co_yield, tok::kw_co_await, tok::kw_throw,
+                    tok::l_paren, tok::l_square, tok::comma, tok::question,
+                    TT_ConditionalExpr, TT_UnaryOperator, TT_BinaryOperator)) {
+    return true;
+  }
+  return Prev->isBinaryOperator();
+}
+
 } // namespace format
 } // namespace clang
 
