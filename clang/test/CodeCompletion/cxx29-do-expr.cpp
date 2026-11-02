@@ -80,3 +80,13 @@ void operand() {
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -code-completion-at=%s:6:11 %s | FileCheck -check-prefix=CHECK-OFF %s
 // CHECK-OFF-NOT: COMPLETION: Pattern : do {
 // RUN: %clang_cc1 -std=c++26 -fdo-expressions -fsyntax-only -code-completion-at=%s:6:11 %s | FileCheck -check-prefix=CHECK-EXPR %s
+
+void resulttype() {
+  int t = do -> int  { do_return 0; };
+}
+
+// After the result type the body `{` is offered along with the declarator
+// continuations.
+// RUN: %clang_cc1 -std=c++2d -fsyntax-only -code-completion-at=%s:85:21 %s | FileCheck -check-prefix=CHECK-AFTER-TYPE %s
+// CHECK-AFTER-TYPE: COMPLETION: Pattern : {
+// CHECK-AFTER-TYPE-NEXT: <#statements#>

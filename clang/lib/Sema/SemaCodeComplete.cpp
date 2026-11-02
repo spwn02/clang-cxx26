@@ -2155,6 +2155,8 @@ static void AddContractAssertResult(CodeCompletionBuilder &Builder,
   Results.AddResult(CodeCompletionResult(Builder.TakeString()));
 }
 
+static void AddDoExprBodyResult(Sema &S, ResultBuilder &Results);
+
 /// Add the `pre`/`post` function-contract-specifiers. Unlike
 /// `contract_assert` these are not statements: they attach to a declarator, so
 /// they are offered from the function-qualifier position and from the contract
@@ -4891,6 +4893,8 @@ void SemaCodeCompletion::CodeCompleteDeclSpec(Scope *S, DeclSpec &DS,
                                     Results.getCodeCompletionTUInfo());
       AddContractSpecifierResults(Builder, Results, getLangOpts());
     }
+    if (IsTrailingReturnType)
+      AddDoExprBodyResult(SemaRef, Results);
 
     if (AllowNonIdentifiers) {
       Results.AddResult(Result("operator"));
@@ -6259,12 +6263,29 @@ static void AddTypeQualifierResults(DeclSpec &DS, ResultBuilder &Results,
     Results.AddResult("__unaligned");
 }
 
+/// While completing the `-> type` of a do expression, `{` (the start of the
+/// body) is a valid continuation wherever a type may end.
+static void AddDoExprBodyResult(Sema &S, ResultBuilder &Results) {
+  if (!S.getLangOpts().DoExpressions || S.DoExprStack.empty() ||
+      !S.DoExprStack.back().ParsingResultType)
+    return;
+  CodeCompletionBuilder Builder(Results.getAllocator(),
+                                Results.getCodeCompletionTUInfo());
+  Builder.AddTypedTextChunk("{");
+  Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+  Builder.AddPlaceholderChunk("statements");
+  Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+  Builder.AddChunk(CodeCompletionString::CK_RightBrace);
+  Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+}
+
 void SemaCodeCompletion::CodeCompleteTypeQualifiers(DeclSpec &DS) {
   ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
                         CodeCompleter->getCodeCompletionTUInfo(),
                         CodeCompletionContext::CCC_TypeQualifiers);
   Results.EnterNewScope();
   AddTypeQualifierResults(DS, Results, getLangOpts());
+  AddDoExprBodyResult(SemaRef, Results);
   Results.ExitScope();
   HandleCodeCompleteResults(&SemaRef, CodeCompleter,
                             Results.getCompletionContext(), Results.data(),
@@ -6278,6 +6299,7 @@ void SemaCodeCompletion::CodeCompleteTrailingReturnTypeQualifiers(
                         CodeCompletionContext::CCC_TypeQualifiers);
   Results.EnterNewScope();
   AddTypeQualifierResults(DS, Results, getLangOpts());
+  AddDoExprBodyResult(SemaRef, Results);
   if (getLangOpts().CPlusPlus11) {
     Results.AddResult("noexcept");
     if (getLangOpts().CPlusPlus20)
@@ -6299,6 +6321,7 @@ void SemaCodeCompletion::CodeCompleteFunctionQualifiers(
                         CodeCompletionContext::CCC_TypeQualifiers);
   Results.EnterNewScope();
   AddTypeQualifierResults(DS, Results, getLangOpts());
+  AddDoExprBodyResult(SemaRef, Results);
   if (getLangOpts().CPlusPlus11) {
     Results.AddResult("noexcept");
     if (getLangOpts().CPlusPlus20)

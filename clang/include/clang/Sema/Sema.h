@@ -7909,6 +7909,9 @@ public:
     bool HasDependentDoReturn = false; ///< True iff some yielded type is deferred.
     bool TypeIsExplicit;              ///< True iff ExplicitType was given.
     bool DeductionFailed = false;     ///< Tracks irrecoverable deduction error.
+    /// True while the parser is inside the `-> type` of this do-expression;
+    /// code completion then also offers the `{` that ends the type.
+    bool ParsingResultType = false;
     /// Function-scope depth at which the do-expression body began. Used to
     /// reject `do_return` that crosses a lambda/function-scope boundary.
     unsigned FunctionScopeDepth;

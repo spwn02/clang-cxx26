@@ -2952,8 +2952,14 @@ ExprResult Parser::ParseDoExpression() {
   QualType ExplicitType;
   if (Tok.is(tok::arrow)) {
     SourceRange Range;
+    // Completion inside the type should also offer the `{` that ends it.
+    size_t DoDepth = Actions.DoExprStack.size();
+    if (DoDepth)
+      Actions.DoExprStack.back().ParsingResultType = true;
     TypeResult TR =
         ParseTrailingReturnType(Range, /*MayBeFollowedByDirectInit=*/false);
+    if (Actions.DoExprStack.size() == DoDepth && DoDepth)
+      Actions.DoExprStack.back().ParsingResultType = false;
     if (TR.isInvalid()) {
       SkipUntil(tok::r_brace, StopAtSemi | StopBeforeMatch);
       Actions.ActOnDoExprError();
