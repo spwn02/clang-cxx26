@@ -84,10 +84,10 @@ try:
         shutil.move(build(), pcm)    # what it does now: write a new file, rename over
     time.sleep(0.5)
 
-    send({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {"textDocument": {"uri": uri, "version": 2},
-          "contentChanges": [{"text": use + "// edit\n"}]}})
     ok = True
     try:
+      send({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {"textDocument": {"uri": uri, "version": 2},
+            "contentChanges": [{"text": use + "// edit\n"}]}})
       for pos in ((1, 32), (1, 38), (1, 15), (1, 50), (1, 63)):
           r = hover(*pos)
           if r is None or p.poll() is not None:
