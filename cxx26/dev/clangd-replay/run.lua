@@ -20,6 +20,28 @@ local function run_step(i)
     if s.show then require("blink.cmp").show() end
     vim.defer_fn(function()
       if s.report then items(s.report) end
+      if s.request then
+        -- {"request": "textDocument/hover|references|documentHighlight", "report": label}: the answer of the server
+        local pos = vim.lsp.util.make_position_params(0, "utf-16")
+        local params = { textDocument = pos.textDocument, position = pos.position, context = { includeDeclaration = true } }
+        local res = vim.lsp.buf_request_sync(0, s.request, params, 5000) or {}
+        local parts = {}
+        for _, r in pairs(res) do
+          local v = r.result
+          if type(v) == "table" and v.contents then
+            local c = v.contents
+            local txt = (type(c) == "table" and (c.value or vim.inspect(c)) or tostring(c)):gsub("%s+", " ")
+            table.insert(parts, txt)
+          elseif type(v) == "table" then
+            table.insert(parts, #v .. " results")
+            for _, x in ipairs(v) do
+              local rg = x.range or (x.location and x.location.range)
+              if rg then table.insert(parts, rg.start.line + 1 .. ":" .. rg.start.character + 1) end
+            end
+          end
+        end
+        log((s.label or s.request) .. " [lsp request]: " .. table.concat(parts, " | "))
+      end
       run_step(i + 1)
     end, s.wait or 1500)
   end, s.pre or 300)

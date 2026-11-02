@@ -1,0 +1,5 @@
+[
+ {"line":2,"col":14,"request":"textDocument/hover","label":"hover-capture","pre":2500,"wait":300},
+ {"line":4,"col":12,"request":"textDocument/documentHighlight","label":"highlight-do-return","pre":300,"wait":300},
+ {"line":4,"col":18,"request":"textDocument/references","label":"refs-capture","pre":300,"wait":300}
+]

@@ -1,0 +1,7 @@
+hover-capture       must-contain  Type: `int`
+highlight-do-return must-contain  2:10
+highlight-do-return must-contain  4:7
+highlight-do-return must-contain  5:5
+refs-capture        must-contain  2:14
+refs-capture        must-contain  3:9
+refs-capture        must-contain  4:17
