@@ -588,6 +588,14 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     K = CXCursor_PackIndexingExpr;
     break;
 
+  case Stmt::DoExprClass:
+    K = CXCursor_DoExpr;
+    break;
+
+  case Stmt::DoReturnStmtClass:
+    K = CXCursor_DoReturnStmt;
+    break;
+
   case Stmt::DeclRefExprClass:
     if (const ImplicitParamDecl *IPD = dyn_cast_or_null<ImplicitParamDecl>(
             cast<DeclRefExpr>(S)->getDecl())) {

@@ -1109,6 +1109,9 @@ class CursorKind(BaseEnumeration):
     # Represents a C++26 pack indexing expression.
     PACK_INDEXING_EXPR = 156
 
+    # Represents a C++29 do expression (P2806).
+    DO_EXPR = 157
+
     # A statement whose specific kind is not exposed via this interface.
     #
     # Unexposed statements have the same operations as any other kind of
@@ -1490,6 +1493,9 @@ class CursorKind(BaseEnumeration):
 
     # OpenACC cache Construct.
     OPEN_ACC_CACHE_CONSTRUCT = 333
+
+    # Represents a C++29 do_return statement (P2806).
+    DO_RETURN_STMT = 334
 
     ###
     # Other Kinds

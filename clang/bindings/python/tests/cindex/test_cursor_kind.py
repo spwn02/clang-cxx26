@@ -1,5 +1,7 @@
 from clang.cindex import CursorKind
 
+from .util import get_tu
+
 
 import unittest
 
@@ -63,3 +65,16 @@ class TestCursorKind(unittest.TestCase):
                 self.assertEqual(len(group), 0)
             else:
                 self.assertEqual(len(group), 1)
+
+    def test_do_expression(self):
+        """Do expressions (C++29, P2806) and do_return are exposed."""
+        tu = get_tu(
+            "int f(bool b) { return do { if (b) do_return 1; do_return 2; }; }",
+            lang="cpp",
+            flags=["-std=c++29", "-fdo-expressions"],
+        )
+        kinds = [c.kind for c in tu.cursor.walk_preorder()]
+        self.assertIn(CursorKind.DO_EXPR, kinds)
+        self.assertEqual(kinds.count(CursorKind.DO_RETURN_STMT), 2)
+        self.assertTrue(CursorKind.DO_EXPR.is_expression())
+        self.assertTrue(CursorKind.DO_RETURN_STMT.is_statement())

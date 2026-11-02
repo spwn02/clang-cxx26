@@ -1082,6 +1082,10 @@ clang-format
 
 libclang
 --------
+- Added ``CXCursor_DoExpr`` (157) and ``CXCursor_DoReturnStmt`` (334) for C++29 do
+  expressions (P2806), and ``CursorKind.DO_EXPR`` / ``CursorKind.DO_RETURN_STMT``
+  in the Python bindings. The numbers are fork-local; a future upstream kind may
+  claim them, in which case they move.
 
 Code Completion
 ---------------

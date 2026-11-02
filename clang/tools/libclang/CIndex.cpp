@@ -6072,6 +6072,10 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("SizeOfPackExpr");
   case CXCursor_PackIndexingExpr:
     return cxstring::createRef("PackIndexingExpr");
+  case CXCursor_DoExpr:
+    return cxstring::createRef("DoExpr");
+  case CXCursor_DoReturnStmt:
+    return cxstring::createRef("DoReturnStmt");
   case CXCursor_LambdaExpr:
     return cxstring::createRef("LambdaExpr");
   case CXCursor_UnexposedExpr:

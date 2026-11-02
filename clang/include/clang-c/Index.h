@@ -1691,7 +1691,12 @@ enum CXCursorKind {
    */
   CXCursor_PackIndexingExpr = 156,
 
-  CXCursor_LastExpr = CXCursor_PackIndexingExpr,
+  /**
+   * A C++29 do expression (P2806), `do { ... do_return value; }`.
+   */
+  CXCursor_DoExpr = 157,
+
+  CXCursor_LastExpr = CXCursor_DoExpr,
 
   /* Statements */
   CXCursor_FirstStmt = 200,
@@ -2222,7 +2227,12 @@ enum CXCursorKind {
    */
   CXCursor_OpenACCCacheConstruct = 333,
 
-  CXCursor_LastStmt = CXCursor_OpenACCCacheConstruct,
+  /**
+   * A C++29 `do_return` statement (P2806) inside a do expression.
+   */
+  CXCursor_DoReturnStmt = 334,
+
+  CXCursor_LastStmt = CXCursor_DoReturnStmt,
 
   /**
    * Cursor that represents the translation unit itself.
