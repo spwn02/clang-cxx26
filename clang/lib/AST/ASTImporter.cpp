@@ -652,6 +652,8 @@ namespace clang {
     ExpectedStmt VisitParenExpr(ParenExpr *E);
     ExpectedStmt VisitParenListExpr(ParenListExpr *E);
     ExpectedStmt VisitStmtExpr(StmtExpr *E);
+    ExpectedStmt VisitDoExpr(DoExpr *E);
+    ExpectedStmt VisitDoReturnStmt(DoReturnStmt *S);
     ExpectedStmt VisitUnaryOperator(UnaryOperator *E);
     ExpectedStmt VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr *E);
     ExpectedStmt VisitBinaryOperator(BinaryOperator *E);
@@ -8081,6 +8083,38 @@ ExpectedStmt ASTNodeImporter::VisitStmtExpr(StmtExpr *E) {
   return new (Importer.getToContext())
       StmtExpr(ToSubStmt, ToType, ToLParenLoc, ToRParenLoc,
                E->getTemplateDepth());
+}
+
+ExpectedStmt ASTNodeImporter::VisitDoExpr(DoExpr *E) {
+  Error Err = Error::success();
+  auto ToInitStmt = importChecked(Err, E->getInitStmt());
+  auto ToBody = importChecked(Err, static_cast<Stmt *>(E->getBody()));
+  auto ToType = importChecked(Err, E->getType());
+  auto ToExplicitType = importChecked(Err, E->getExplicitType());
+  auto ToDoLoc = importChecked(Err, E->getDoLoc());
+  auto ToLBraceLoc = importChecked(Err, E->getLBraceLoc());
+  auto ToRBraceLoc = importChecked(Err, E->getRBraceLoc());
+  auto ToNRVOCandidate = importChecked(Err, E->getNRVOCandidate());
+  if (Err)
+    return std::move(Err);
+
+  auto *ToE = new (Importer.getToContext())
+      DoExpr(ToInitStmt, cast<CompoundStmt>(ToBody), ToType,
+             E->getValueKind(), ToExplicitType, ToDoLoc, ToLBraceLoc,
+             ToRBraceLoc, E->getTemplateDepth(),
+             E->containsUnexpandedParameterPack());
+  ToE->setNRVOCandidate(ToNRVOCandidate);
+  return ToE;
+}
+
+ExpectedStmt ASTNodeImporter::VisitDoReturnStmt(DoReturnStmt *S) {
+  Error Err = Error::success();
+  auto ToKeywordLoc = importChecked(Err, S->getKeywordLoc());
+  auto ToOperand = importChecked(Err, S->getOperand());
+  if (Err)
+    return std::move(Err);
+
+  return new (Importer.getToContext()) DoReturnStmt(ToKeywordLoc, ToOperand);
 }
 
 ExpectedStmt ASTNodeImporter::VisitUnaryOperator(UnaryOperator *E) {

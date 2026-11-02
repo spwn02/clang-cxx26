@@ -12,6 +12,7 @@
 
 #include "clang/AST/ExprConcepts.h"
 #include "clang/AST/RecordLayout.h"
+#include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Testing/CommandLineArgs.h"
 #include "llvm/Support/SmallVectorMemoryBuffer.h"
@@ -3606,6 +3607,74 @@ TEST_P(ASTImporterOptionSpecificTestBase, ImportBitfields) {
   ASSERT_EQ(BuiltinType::Int, FromBT->getKind());
   EXPECT_TRUE(ToBT);
   EXPECT_EQ(BuiltinType::Int, ToBT->getKind());
+}
+
+struct ImportDoExpr : ASTImporterOptionSpecificTestBase {};
+
+namespace {
+struct DoNodes : RecursiveASTVisitor<DoNodes> {
+  std::vector<DoExpr *> Exprs;
+  std::vector<DoReturnStmt *> Returns;
+  bool VisitDoExpr(DoExpr *E) {
+    Exprs.push_back(E);
+    return true;
+  }
+  bool VisitDoReturnStmt(DoReturnStmt *S) {
+    Returns.push_back(S);
+    return true;
+  }
+};
+} // namespace
+
+TEST_P(ImportDoExpr, ImportDoExpressionWithCapturesAndExplicitType) {
+  Decl *From, *To;
+  std::tie(From, To) = getImportedDecl(R"(
+      int declToImport(bool b) {
+        return do [k = 1] -> long {
+          if (b)
+            do_return k;
+          int local = k + 1;
+          do_return local;
+        };
+      })",
+                                       Lang_CXX26, "", Lang_CXX26);
+  ASSERT_TRUE(To);
+  DoNodes F, T;
+  F.TraverseDecl(From);
+  T.TraverseDecl(To);
+  ASSERT_EQ(T.Exprs.size(), 1u);
+  ASSERT_EQ(T.Returns.size(), 2u);
+  DoExpr *E = T.Exprs[0];
+  EXPECT_NE(E, F.Exprs[0]);
+  EXPECT_TRUE(E->hasInitStmt());
+  EXPECT_TRUE(E->hasExplicitType());
+  EXPECT_EQ(E->getType().getAsString(), "long");
+  EXPECT_NE(E->getExplicitType(), F.Exprs[0]->getExplicitType());
+  // The do_return operands live in the destination context.
+  EXPECT_NE(T.Returns[0]->getOperand(), F.Returns[0]->getOperand());
+  EXPECT_EQ(T.Returns[0]->getKeywordLoc().isValid(), true);
+}
+
+TEST_P(ImportDoExpr, ImportNestedDoExpressionWithNRVOCandidate) {
+  Decl *From, *To;
+  std::tie(From, To) = getImportedDecl(R"(
+      struct S { S(); S(const S &); };
+      S declToImport() {
+        return do { S s; do_return s; };
+      }
+      int outer() {
+        return do { int y = do { do_return 5; }; do_return y; };
+      })",
+                                       Lang_CXX26, "", Lang_CXX26);
+  ASSERT_TRUE(To);
+  DoNodes T;
+  T.TraverseDecl(To);
+  ASSERT_EQ(T.Exprs.size(), 1u);
+  ASSERT_EQ(T.Returns.size(), 1u);
+  const VarDecl *Cand = T.Exprs[0]->getNRVOCandidate();
+  ASSERT_TRUE(Cand);
+  EXPECT_EQ(Cand->getName(), "s");
+  EXPECT_EQ(&Cand->getASTContext(), &To->getASTContext());
 }
 
 struct ImportBlock : ASTImporterOptionSpecificTestBase {};
@@ -10847,6 +10916,12 @@ INSTANTIATE_TEST_SUITE_P(ParameterizedTests, ImportFixedPointExpr,
                          ExtendWithOptions(DefaultTestArrayForRunOptions,
                                            std::vector<std::string>{
                                                "-ffixed-point"}));
+
+INSTANTIATE_TEST_SUITE_P(ParameterizedTests, ImportDoExpr,
+                         ExtendWithOptions(DefaultTestArrayForRunOptions,
+                                           std::vector<std::string>{
+                                               "-std=c++29",
+                                               "-fdo-expressions"}));
 
 INSTANTIATE_TEST_SUITE_P(ParameterizedTests, ImportBlock,
                          ExtendWithOptions(DefaultTestArrayForRunOptions,

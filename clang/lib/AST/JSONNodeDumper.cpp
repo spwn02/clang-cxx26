@@ -1611,6 +1611,13 @@ void JSONNodeDumper::VisitLambdaExpr(const LambdaExpr *LE) {
   JOS.attribute("hasExplicitParameters", LE->hasExplicitParameters());
 }
 
+void JSONNodeDumper::VisitDoExpr(const DoExpr *DE) {
+  attributeOnlyIfTrue("hasExplicitType", DE->hasExplicitType());
+  attributeOnlyIfTrue("hasInitStmt", DE->hasInitStmt());
+  if (const VarDecl *Cand = DE->getNRVOCandidate())
+    JOS.attribute("nrvoCandidate", createBareDeclRef(Cand));
+}
+
 void JSONNodeDumper::VisitCXXDependentScopeMemberExpr(
     const CXXDependentScopeMemberExpr *DSME) {
   JOS.attribute("isArrow", DSME->isArrow());
