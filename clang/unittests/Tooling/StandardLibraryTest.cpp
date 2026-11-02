@@ -113,6 +113,7 @@ TEST(StdlibTest, Cxx26Facilities) {
       {"std::linalg::", "matrix_product", "<linalg>"},
       {"std::", "hazard_pointer", "<hazard_pointer>"},
       {"std::", "constant_wrapper", "<utility>"},
+      {"std::", "apply_result", "<type_traits>"},
       {"std::", "exception_ptr_cast", "<exception>"},
   };
   for (const auto &C : Cases) {
