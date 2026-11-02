@@ -9,7 +9,8 @@ clangd="${1:-$here/../../../build-nyx/bin/clangd}"
 status=0
 for dir in "$here"/scenarios/*/; do
   name="$(basename "$dir")"
-  out="$("$here/replay.sh" "$clangd" "$dir/t.cpp" "$(cat "$dir/steps.json")" $(cat "$dir/flags"))"
+  extra_env=(); [[ -f "$dir/env" ]] && mapfile -t extra_env < "$dir/env"
+  out="$(env "${extra_env[@]}" "$here/replay.sh" "$clangd" "$dir/t.cpp" "$(cat "$dir/steps.json")" $(cat "$dir/flags"))"
   while read -r label verb text; do
     [[ -z "${label:-}" || "$label" == \#* ]] && continue
     line="$(grep -F "$label [" <<<"$out" | head -1 | sed 's/^[^:]*: //')"

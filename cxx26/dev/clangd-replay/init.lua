@@ -11,7 +11,7 @@ require("blink.cmp").setup({
 })
 vim.lsp.config("clangd", {
   cmd = { vim.env.REPLAY_CLANGD, "--background-index=false", "--completion-style=detailed",
-          "--header-insertion=never", "--log=error" },
+          "--header-insertion=" .. (vim.env.REPLAY_HEADER_INSERTION or "never"), "--log=error" },
   root_markers = { "compile_commands.json" },
   filetypes = { "cpp" },
   capabilities = require("blink.cmp").get_lsp_capabilities(),

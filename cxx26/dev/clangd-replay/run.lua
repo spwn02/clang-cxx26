@@ -23,8 +23,26 @@ local function run_step(i)
       if s.request then
         -- {"request": "textDocument/hover|references|documentHighlight", "report": label}: the answer of the server
         local pos = vim.lsp.util.make_position_params(0, "utf-16")
-        local params = { textDocument = pos.textDocument, position = pos.position, context = { includeDeclaration = true } }
+        local params = { textDocument = pos.textDocument, position = pos.position, context = { includeDeclaration = true, triggerKind = 1 } }
         local res = vim.lsp.buf_request_sync(0, s.request, params, 5000) or {}
+        if s.request == "textDocument/completion" then
+          -- {"match": "<label>"}: print the item with that label and the text its additionalTextEdits insert
+          local parts = {}
+          for _, r in pairs(res) do
+            local list = r.result and (r.result.items or r.result) or {}
+            for _, it in ipairs(list) do
+              if it.label and it.label:find(s.match, 1, true) then
+                local edits = {}
+                for _, e in ipairs(it.additionalTextEdits or {}) do table.insert(edits, (e.newText:gsub("%s+", " "))) end
+                table.insert(parts, it.label:gsub("^%s+", "") .. " edits=" .. table.concat(edits, ";"))
+              end
+            end
+          end
+          local n = 0; for _, r in pairs(res) do if r.err then log("err: " .. vim.inspect(r.err)) end end
+          for _, r in pairs(res) do n = n + #(r.result and (r.result.items or r.result) or {}) end
+          log((s.label or s.request) .. " [lsp request, " .. n .. " items]: " .. table.concat(parts, " | "))
+          return run_step(i + 1)
+        end
         local parts = {}
         for _, r in pairs(res) do
           local v = r.result

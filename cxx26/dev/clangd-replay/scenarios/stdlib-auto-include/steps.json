@@ -1,0 +1,3 @@
+[
+ {"line":2,"col":16,"request":"textDocument/completion","match":"info","label":"auto-include-info","pre":25000,"wait":300}
+]
