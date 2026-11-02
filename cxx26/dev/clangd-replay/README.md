@@ -16,3 +16,12 @@ timers; type `<lt>` for `<`; wait for the first DiagnosticChanged (done by the s
 before typing, or the preamble does not exist yet; type the opening brace in a separate
 step from the prefix that is completed afterwards. Set `CLANGD_DEV=1` in the owner's
 own config to try the tree's clangd in the daily editor.
+
+## Scenarios
+
+`run-all.sh [clangd]` runs every `scenarios/<name>/` (`t.cpp`, `flags`, `steps.json`,
+`expect`) and checks that, at the step with a given `report` label, an item is (`must`)
+or is not (`never`) among the LSP items blink received. Every C++29 feature that adds
+completions ships one scenario directory (do expressions: `scenarios/do-expr`); the
+close-out gate runs the script against `build-nyx/bin/clangd` (done-checklist item 10,
+issue #359).

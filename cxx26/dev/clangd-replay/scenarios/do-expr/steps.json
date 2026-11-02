@@ -1,0 +1,8 @@
+[
+ {"input":"ggjO<Esc>","pre":200,"wait":300},
+ {"input":"iint a = d","show":true,"report":"expr","wait":3000},
+ {"input":"<Esc>0Dint b = do ","show":true,"pre":200,"report":"after-do","wait":3000},
+ {"input":"<Esc>0Dint c = do -> int ","show":true,"pre":200,"report":"after-type","wait":3000},
+ {"input":"<Esc>0Dint e = do { do_r","show":true,"pre":200,"report":"in-body","wait":3000},
+ {"input":"<Esc>0Dint g = n; do_r","show":true,"pre":200,"report":"outside","wait":3000}
+]
