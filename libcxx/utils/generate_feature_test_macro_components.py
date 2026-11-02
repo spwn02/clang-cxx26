@@ -1263,6 +1263,11 @@ feature_test_macros = [
             "headers": ["memory"],
         },
         {
+            "name": "__cpp_lib_map_lookup",
+            "values": {"c++29": 202606},  # P3091R6 Better Lookups for map, unordered_map, and flat_map
+            "headers": ["flat_map", "map", "unordered_map"],
+        },
+        {
             "name": "__cpp_lib_map_try_emplace",
             "values": {"c++17": 201411},
             "headers": ["map"],
