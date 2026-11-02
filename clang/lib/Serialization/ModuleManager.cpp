@@ -15,6 +15,7 @@
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Lex/HeaderSearch.h"
+#include "clang/Lex/HeaderSearchOptions.h"
 #include "clang/Lex/ModuleMap.h"
 #include "clang/Serialization/GlobalModuleIndex.h"
 #include "clang/Serialization/InMemoryModuleCache.h"
@@ -209,6 +210,12 @@ ModuleManager::addModule(StringRef FileName, ModuleKind Type,
     auto Buf = FileMgr.getBufferForFile(NewModule->File,
                                         /*IsVolatile=*/true,
                                         /*RequiresNullTerminator=*/false);
+
+    // When the client asked for it, keep a copy in memory instead of the
+    // mapping, which a process rewriting the file in place cannot pull away.
+    if (Buf && HeaderSearchInfo.getHeaderSearchOpts().ReadModuleFilesIntoMemory)
+      Buf = llvm::MemoryBuffer::getMemBufferCopy((*Buf)->getBuffer(),
+                                                 (*Buf)->getBufferIdentifier());
 
     if (!Buf) {
       ErrorStr = Buf.getError().message();

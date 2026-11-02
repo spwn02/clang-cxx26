@@ -120,6 +120,10 @@ buildCompilerInvocation(const ParseInputs &Inputs, clang::DiagnosticConsumer &D,
     return nullptr;
   // createInvocationFromCommandLine sets DisableFree.
   CI->getFrontendOpts().DisableFree = false;
+  // The build system rewrites the module files that clangd reads while the
+  // editor is open; a mapped file that is rewritten in place kills the process
+  // (SIGBUS), a copy in memory does not (#487).
+  CI->getHeaderSearchOpts().ReadModuleFilesIntoMemory = true;
   CI->getLangOpts().CommentOpts.ParseAllComments = true;
   CI->getLangOpts().RetainCommentsFromSystemHeaders = true;
 
