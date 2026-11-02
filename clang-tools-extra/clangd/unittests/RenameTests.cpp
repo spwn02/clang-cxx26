@@ -914,6 +914,65 @@ TEST(RenameTest, WithinFileRename) {
   }
 }
 
+TEST(RenameTest, DoExpressions) {
+  // Names declared by a do expression (init-captures, locals of the body) and
+  // names used by its init-captures and its do_return operands are renamed
+  // together with all their uses.
+  llvm::StringRef Tests[] = {
+      // An init-capture, from its declaration and from its use.
+      R"cpp(
+        int f() {
+          return do [ [[ca^p]] = 1 ] { do_return [[cap]] + [[cap]]; };
+        }
+      )cpp",
+      R"cpp(
+        int f() {
+          return do [ [[cap]] = 1 ] { do_return [[c^ap]] + [[cap]]; };
+        }
+      )cpp",
+      // A local of the body, used by do_return.
+      R"cpp(
+        int f() {
+          return do { int [[lo^cal]] = 2; do_return [[local]] * 2; };
+        }
+      )cpp",
+      // The variable an init-capture is initialized from.
+      R"cpp(
+        int f() {
+          int [[outer]] = 3;
+          return do [ cap = [[ou^ter]] ] { do_return cap + [[outer]]; };
+        }
+      )cpp",
+      // Through a nested do expression.
+      R"cpp(
+        int f() {
+          int [[x^]] = 1;
+          return do { do_return do { do_return [[x]]; }; };
+        }
+      )cpp",
+  };
+  llvm::StringRef NewName = "NewName";
+  for (llvm::StringRef T : Tests) {
+    SCOPED_TRACE(T);
+    Annotations Code(T);
+    auto TU = TestTU::withCode(Code.code());
+    TU.ExtraArgs.push_back("-std=c++29");
+    TU.ExtraArgs.push_back("-fdo-expressions");
+    auto AST = TU.build();
+    auto Index = TU.index();
+    for (const auto &RenamePos : Code.points()) {
+      auto RenameResult =
+          rename({RenamePos, NewName, AST, testPath(TU.Filename),
+                  getVFSFromAST(AST), Index.get()});
+      ASSERT_TRUE(bool(RenameResult)) << RenameResult.takeError();
+      ASSERT_EQ(1u, RenameResult->GlobalChanges.size());
+      EXPECT_EQ(
+          applyEdits(std::move(RenameResult->GlobalChanges)).front().second,
+          expectedResult(Code, NewName));
+    }
+  }
+}
+
 TEST(RenameTest, ObjCWithinFileRename) {
   struct TestCase {
     /// Annotated source code that should be renamed. Every point (indicated by

@@ -1305,6 +1305,35 @@ TEST(TypeHints, Lambda) {
                   ExpectedHint{"-> int", "ret"});
 }
 
+TEST(TypeHints, DoExpression) {
+  Config Cfg;
+  Cfg.InlayHints.DeducedTypes = true;
+  WithContextValue WithCfg(Config::Key, std::move(Cfg));
+  auto Check = [](llvm::StringRef Code, auto... Expected) {
+    Annotations Source(Code);
+    TestTU TU = TestTU::withCode(Source.code());
+    TU.ExtraArgs.push_back("-std=c++29");
+    TU.ExtraArgs.push_back("-fdo-expressions");
+    auto AST = TU.build();
+    EXPECT_THAT(hintsOfKind(AST, InlayHintKind::Type, DefaultOptsForTests),
+                ElementsAre(HintMatcher(Expected, Source)...));
+  };
+  // The deduced result type is shown in front of the body, also after captures.
+  Check(R"cpp(
+    int f(bool b) {
+      int x = do $d[[{]] if (b) do_return 1; do_return 2; };
+      long y = do [c = 4L] $e[[{]] do_return c; };
+      return x + (int)y;
+    }
+  )cpp",
+        ExpectedHint{"-> int ", "d"}, ExpectedHint{"-> long ", "e"});
+  // Nothing for a spelled result type or a dependent one.
+  Check(R"cpp(
+    int g() { return do -> int { do_return 1; }; }
+    template <class T> T h(T v) { return do { do_return v; }; }
+  )cpp");
+}
+
 // Structured bindings tests.
 // Note, we hint the individual bindings, not the aggregate.
 

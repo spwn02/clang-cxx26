@@ -595,6 +595,17 @@ public:
     return true;
   }
 
+  // The deduced result type of a do expression (P2806), shown where `-> T`
+  // would be spelled: in front of the body.
+  bool VisitDoExpr(DoExpr *E) {
+    if (!E->hasExplicitType() && !E->isTypeDependent() &&
+        E->getLBraceLoc().isValid()) {
+      addTypeHint(SourceRange(E->getLBraceLoc()), E->getType(), /*Prefix=*/"-> ",
+                  HintSide::Left, /*Suffix=*/" ");
+    }
+    return true;
+  }
+
   bool VisitLambdaExpr(LambdaExpr *E) {
     FunctionDecl *D = E->getCallOperator();
     if (!E->hasExplicitResultType()) {
@@ -1079,7 +1090,9 @@ private:
                  sourceLocToPosition(SM, Spelled->back().endLocation())};
   }
 
-  void addTypeHint(SourceRange R, QualType T, llvm::StringRef Prefix) {
+  void addTypeHint(SourceRange R, QualType T, llvm::StringRef Prefix,
+                   HintSide Side = HintSide::Right,
+                   llvm::StringRef Suffix = "") {
     if (!Cfg.InlayHints.DeducedTypes || T.isNull())
       return;
 
@@ -1093,8 +1106,7 @@ private:
       TypeName = T.getAsString(TypeHintPolicy);
     }
     if (shouldPrintTypeHint(TypeName))
-      addInlayHint(R, HintSide::Right, InlayHintKind::Type, Prefix, TypeName,
-                   /*Suffix=*/"");
+      addInlayHint(R, Side, InlayHintKind::Type, Prefix, TypeName, Suffix);
   }
 
   void addDesignatorHint(SourceRange R, llvm::StringRef Text) {
