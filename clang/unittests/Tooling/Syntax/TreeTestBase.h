@@ -40,6 +40,9 @@ protected:
   syntax::Node *nodeByRange(llvm::Annotations::Range R, syntax::Node *Root);
 
   // Data fields.
+  /// Extra compiler flags appended after the ones of the test config (for
+  /// language features that are not part of any standard mode yet).
+  std::vector<std::string> ExtraArgs;
   DiagnosticOptions DiagOpts;
   IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
       llvm::makeIntrusiveRefCnt<DiagnosticsEngine>(DiagnosticIDs::create(),

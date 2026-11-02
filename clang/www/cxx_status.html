@@ -36,6 +36,11 @@
   <th>Available in Clang?</th>
  </tr>
  <tr>
+  <td><a href="#cxx29">C++2d</a></td>
+  <td><tt>-std=c++2d</tt> / <tt>-std=c++29</tt></td>
+  <td class="none" align="center">Experimental (<tt>cxx29</tt> branch of this fork)</td>
+ </tr>
+ <tr>
   <td><a href="#cxx26">C++2c</a></td>
   <td><tt>-std=c++2c</tt></td>
   <td class="unreleased" align="center">Clang 22</td>
@@ -84,6 +89,39 @@ language.</p>
 <p>The <a href="https://github.com/llvm/llvm-project/issues/">LLVM bug tracker</a> uses
 the "c++" label, as well as mode-specific labels such as "c++11", "c++14",
 and so on, to track known bugs with Clang's language conformance.</p>
+
+<h2 id="cxx29">C++2d implementation status</h2>
+
+<p>The <code>cxx29</code> branch of this fork has a C++29 mode
+(<code>-std=c++29</code>, also spelled <code>-std=c++2d</code>) for features
+of the standard after C++26 that are not adopted yet. Nothing here is part of a
+published standard, and nothing is in the C++26 releases.</p>
+
+<details open>
+<summary>List of features with support</summary>
+<table width="689" border="1" cellspacing="0">
+ <tr>
+    <th>Language Feature</th>
+    <th>C++29 Proposal</th>
+    <th>Available in Clang?</th>
+ </tr>
+ <tr>
+  <td>do expressions</td>
+  <td><a href="https://wg21.link/P2806R5">P2806R5</a></td>
+  <td class="full" align="center">cxx29 branch (<tt>-fdo-expressions</tt>, <tt>__cpp_do_expressions</tt>)</td>
+ </tr>
+ <tr>
+  <td>Token sequence injection</td>
+  <td><a href="https://wg21.link/P4380R1">P4380R1</a></td>
+  <td class="none" align="center">No</td>
+ </tr>
+ <tr>
+  <td>Pattern matching</td>
+  <td><a href="https://wg21.link/P2688R6">P2688R6</a></td>
+  <td class="none" align="center">No</td>
+ </tr>
+</table>
+</details>
 
 <h2 id="cxx26">C++2c implementation status</h2>
 

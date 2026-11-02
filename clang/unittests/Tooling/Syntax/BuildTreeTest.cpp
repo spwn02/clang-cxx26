@@ -95,6 +95,50 @@ INSTANTIATE_TEST_SUITE_P(
       return Info.param.toShortString();
     });
 
+// C++29 do expressions (P2806) have no dedicated syntax node yet: they must
+// not break the tree. The expression is an UnknownExpression whose body is a
+// regular CompoundStatement, and each do_return is an UnknownStatement.
+class BuildSyntaxTreeDoExprTest : public BuildSyntaxTreeTest {
+public:
+  BuildSyntaxTreeDoExprTest() {
+    ExtraArgs = {"-std=c++29", "-fdo-expressions"};
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    SyntaxTreeTests, BuildSyntaxTreeDoExprTest,
+    testing::Values([] {
+      TestClangConfig Config;
+      Config.Language = Lang_CXX26;
+      Config.Target = "x86_64-pc-linux-gnu";
+      return Config;
+    }()),
+    [](const testing::TestParamInfo<TestClangConfig> &Info) {
+      return Info.param.toShortString();
+    });
+
+TEST_P(BuildSyntaxTreeDoExprTest, DoExpression) {
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
+      R"cpp(
+int test(int a) {
+  return [[do { do_return a; }]];
+}
+)cpp",
+      {R"txt(
+UnknownExpression ReturnValue
+|-'do'
+`-CompoundStatement
+  |-'{' OpenParen
+  |-UnknownStatement Statement
+  | |-'do_return'
+  | |-IdExpression
+  | | `-UnqualifiedId UnqualifiedId
+  | |   `-'a'
+  | `-';'
+  `-'}' CloseParen
+)txt"}));
+}
+
 TEST_P(BuildSyntaxTreeTest, Simple) {
   EXPECT_TRUE(treeDumpEqual(
       R"cpp(

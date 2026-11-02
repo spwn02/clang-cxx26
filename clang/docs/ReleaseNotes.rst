@@ -265,6 +265,14 @@ C++ Language Changes
   ``<=>``. This makes it possible to optimize certain facilities by using the ``<=>`` operation directly instead of
   doing multiple comparisons.
 
+C++2d (C++29) Feature Support
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Added ``-std=c++29`` (alias ``-std=c++2d``). It enables do expressions
+  (P2806) by default; ``-fdo-expressions`` enables them in any other language
+  mode as an extension. ``__cpp_do_expressions`` is defined as ``1`` while the
+  paper is not adopted. See :ref:`do expressions <do_expressions>`.
+
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 

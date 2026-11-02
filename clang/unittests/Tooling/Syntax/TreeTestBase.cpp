@@ -137,6 +137,7 @@ SyntaxTreeTest::buildTree(StringRef Code, const TestClangConfig &ClangConfig) {
       "-fsyntax-only",
   };
   llvm::copy(ClangConfig.getCommandLineArgs(), std::back_inserter(Args));
+  llvm::copy(ExtraArgs, std::back_inserter(Args));
   Args.push_back(FileName);
 
   std::vector<const char *> ArgsCStr;
