@@ -66,11 +66,13 @@ using namespace clang::driver::tools;
 using namespace clang;
 using namespace llvm::opt;
 
-/// Whether the last -std= selects C++26 (reflection, expansion statements,
-/// annotations and contracts are part of that mode).
+/// Whether the last -std= selects C++26 or the C++29 mode that builds on it
+/// (reflection, expansion statements, annotations and contracts are part of
+/// that mode).
 static bool isCXX26Std(const ArgList &Args) {
   if (const Arg *StdArg = Args.getLastArg(options::OPT_std_EQ))
-    return llvm::is_contained({"c++26", "c++2c", "gnu++26", "gnu++2c"},
+    return llvm::is_contained({"c++26", "c++2c", "gnu++26", "gnu++2c", "c++29",
+                               "c++2d", "gnu++29", "gnu++2d"},
                               StringRef(StdArg->getValue()));
   return false;
 }
@@ -7333,7 +7335,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
        Std->containsValue("c++23") || Std->containsValue("gnu++23") ||
        Std->containsValue("c++23preview") || Std->containsValue("c++2c") ||
        Std->containsValue("gnu++2c") || Std->containsValue("c++26") ||
-       Std->containsValue("gnu++26") || Std->containsValue("c++latest") ||
+       Std->containsValue("gnu++26") || Std->containsValue("c++29") ||
+       Std->containsValue("gnu++29") || Std->containsValue("c++2d") ||
+       Std->containsValue("gnu++2d") || Std->containsValue("c++latest") ||
        Std->containsValue("gnu++latest"));
   bool HaveModules =
       RenderModulesOptions(C, D, Args, Input, Output, HaveCxx20, CmdArgs);
