@@ -78,3 +78,29 @@ class TestCursorKind(unittest.TestCase):
         self.assertEqual(kinds.count(CursorKind.DO_RETURN_STMT), 2)
         self.assertTrue(CursorKind.DO_EXPR.is_expression())
         self.assertTrue(CursorKind.DO_RETURN_STMT.is_statement())
+
+    def test_do_expression_references(self):
+        """do_return is a plain statement like return/break: it has no
+        referenced or definition cursor, and an init-capture is an ordinary
+        VAR_DECL inside the DO_EXPR's init-capture child; its uses refer to it."""
+        tu = get_tu(
+            "int f() { return do [k = 1] { do_return k; }; }",
+            lang="cpp",
+            flags=["-std=c++29", "-fdo-expressions"],
+        )
+        cursors = list(tu.cursor.walk_preorder())
+        do_ret = [c for c in cursors if c.kind == CursorKind.DO_RETURN_STMT][0]
+        self.assertIsNone(do_ret.referenced)
+        self.assertIsNone(do_ret.get_definition())
+        do_expr = [c for c in cursors if c.kind == CursorKind.DO_EXPR][0]
+        # The init-captures are the first child, a COMPOUND_STMT holding
+        # DECL_STMTs (it mirrors the AST); the body is the second child.
+        children = list(do_expr.get_children())
+        self.assertEqual(
+            [c.kind for c in children],
+            [CursorKind.COMPOUND_STMT, CursorKind.COMPOUND_STMT],
+        )
+        decl = [c for c in children[0].walk_preorder() if c.kind == CursorKind.VAR_DECL]
+        self.assertEqual([d.spelling for d in decl], ["k"])
+        use = [c for c in cursors if c.kind == CursorKind.DECL_REF_EXPR][0]
+        self.assertEqual(use.referenced, decl[0])
