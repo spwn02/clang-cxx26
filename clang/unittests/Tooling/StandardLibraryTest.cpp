@@ -112,6 +112,8 @@ TEST(StdlibTest, Cxx26Facilities) {
       {"std::simd::", "vec", "<simd>"},
       {"std::linalg::", "matrix_product", "<linalg>"},
       {"std::", "hazard_pointer", "<hazard_pointer>"},
+      {"std::", "constant_wrapper", "<utility>"},
+      {"std::", "exception_ptr_cast", "<exception>"},
   };
   for (const auto &C : Cases) {
     auto Symbol = stdlib::Symbol::named(C.Scope, C.Name);
