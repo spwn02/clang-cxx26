@@ -13002,6 +13002,12 @@ Decl *Sema::ActOnUsingDeclaration(Scope *S, AccessSpecifier AS,
   if (!TargetName)
     return nullptr;
 
+  // The nested-name-specifier may have been invalidated while the name was
+  // parsed (the component names of a conversion-function-id are looked up in
+  // the class it names, which has to be complete): there is nothing to build.
+  if (SS.isInvalid())
+    return nullptr;
+
   // Warn about access declarations.
   if (UsingLoc.isInvalid()) {
     Diag(Name.getBeginLoc(), getLangOpts().CPlusPlus11
