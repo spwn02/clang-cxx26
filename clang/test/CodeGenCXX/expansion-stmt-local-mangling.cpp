@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -triple x86_64-linux-gnu -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++26 -triple x86_64-linux-gnu -emit-llvm -o - %s | FileCheck %s
 // Copyright 2026 Jump Trading, LLC
 
 // Each expansion of an expansion statement is a distinct entity, so static
