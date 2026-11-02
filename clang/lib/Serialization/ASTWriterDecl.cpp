@@ -1392,7 +1392,8 @@ void ASTDeclWriter::VisitVarDecl(VarDecl *D) {
       D->getDeclName().getNameKind() == DeclarationName::Identifier &&
       !D->hasExtInfo() && D->getFirstDecl() == D->getMostRecentDecl() &&
       D->getKind() == Decl::Var && !D->isInline() && !D->isConstexpr() &&
-      !D->isInitCapture() && !D->isPreviousDeclInSameBlockScope() &&
+      !D->isInitCapture() && !D->isDoExprInitCapture() &&
+      !D->isPreviousDeclInSameBlockScope() &&
       !D->hasInitWithSideEffects() && !D->isEscapingByref() &&
       !HasDeducedType && D->getStorageDuration() != SD_Static &&
       !D->getDescribedVarTemplate() && !D->getMemberSpecializationInfo() &&
