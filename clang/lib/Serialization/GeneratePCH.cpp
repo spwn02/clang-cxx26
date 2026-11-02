@@ -19,6 +19,8 @@
 #include "clang/Sema/SemaConsumer.h"
 #include "clang/Serialization/ASTWriter.h"
 #include "llvm/Bitstream/BitstreamWriter.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 
@@ -127,16 +129,19 @@ void CXX20ModulesGenerator::HandleTranslationUnit(ASTContext &Ctx) {
   if (!isComplete())
     return;
 
-  std::error_code EC;
-  auto OS = std::make_unique<llvm::raw_fd_ostream>(getOutputFile(), EC);
-  if (EC) {
+  // Write to a temporary file next to the destination and rename it into
+  // place. Overwriting an existing module file in place (truncating the same
+  // inode) pulls the file out from under any process that has it
+  // memory-mapped, such as clangd reading the build system's module files
+  // while a rebuild replaces them: the reader then dies with SIGBUS.
+  if (llvm::Error Err = llvm::writeToOutput(
+          getOutputFile(), [this](llvm::raw_ostream &OS) -> llvm::Error {
+            OS << getBufferPtr()->Data;
+            return llvm::Error::success();
+          })) {
     getDiagnostics().Report(diag::err_fe_unable_to_open_output)
-        << getOutputFile() << EC.message() << "\n";
-    return;
+        << getOutputFile() << llvm::toString(std::move(Err)) << "\n";
   }
-
-  *OS << getBufferPtr()->Data;
-  OS->flush();
 }
 
 void CXX20ModulesGenerator::anchor() {}
