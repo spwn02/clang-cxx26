@@ -165,6 +165,8 @@ Tracking: milestones `C++29 Foundation` (shared dependencies and P2806 do expres
 
 **A C++29 feature is not complete until the whole Clang toolchain understands it.** Every feature epic carries the 15-item done-checklist (issue #359): keyword/flag/`-std` plumbing; AST nodes and `RecursiveASTVisitor`; parser, Sema and `TreeTransform`; serialization and PCH/modules (issue #360); dependence, constant evaluation and CodeGen; `StmtPrinter`/`TextNodeDumper`/`JSONNodeDumper`/`StmtProfile`; CFG and static analyzer `ExprEngine`; `ASTImporter`, ASTMatchers (and the Dynamic registry) and Syntax trees; libclang, `c-index-test` and the Python bindings; clangd (completion contract for every semantic of the feature, hover, go-to-definition, references/rename, semantic tokens, folding); clang-tidy; clang-format; the feature-test macro; docs; and tests at every layer plus `check-clang`, `check-clang-tools`, `ClangdTests`, a libc++ regression run in c++26 and one older mode, and advisor validation. The do-expression port is the measured baseline (compiler core done, toolchain wiring open: issues in the P2806 epic).
 
+**Release policy.** C++29 is published as pre-releases only (`cxx29-YYYY.MM.DD` snapshots, always `--prerelease`, never "latest") until every major C++29 milestone is finished; only then is there an actual C++29 release. Only the `cxx26` line gets full releases. (Owner decision 2026-11-02.)
+
 The C++26 rule "close every issue before the final gate" counts only issues **without** the `cxx29` label.
 
 ## Code Organization
