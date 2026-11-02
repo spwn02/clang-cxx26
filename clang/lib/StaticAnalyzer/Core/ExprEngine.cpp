@@ -2435,6 +2435,62 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
       Bldr.addNodes(Dst);
       break;
 
+    case Stmt::DoReturnStmtClass: {
+      // The operand has been evaluated by the preceding elements and the CFG
+      // jumps to the end of the do-expression, which picks the value up from
+      // this block.
+      Bldr.takeNodes(Pred);
+      ExplodedNodeSet PreVisit;
+      getCheckerManager().runCheckersForPreStmt(PreVisit, Pred, S, *this);
+      StmtNodeBuilder B(PreVisit, Dst, *currBldrCtx);
+      for (ExplodedNode *N : PreVisit)
+        B.generateNode(S, N, N->getState());
+      Bldr.addNodes(Dst);
+      break;
+    }
+
+    case Stmt::DoExprClass: {
+      // Like '?:', the value is the one produced on the path that got here: the
+      // operand of the do_return that ended the predecessor block.
+      const auto *DE = cast<DoExpr>(S);
+      Bldr.takeNodes(Pred);
+      ExplodedNodeSet PreVisit, PostVisit;
+      getCheckerManager().runCheckersForPreStmt(PreVisit, Pred, DE, *this);
+      StmtNodeBuilder B(PreVisit, PostVisit, *currBldrCtx);
+      for (ExplodedNode *N : PreVisit) {
+        ProgramStateRef State = N->getState();
+        const LocationContext *LCtx = N->getLocationContext();
+        if (!DE->getType()->isVoidType()) {
+          const CFGBlock *SrcBlock = nullptr;
+          ProgramStateRef SrcState = State;
+          for (const ExplodedNode *P = N; P; P = *P->pred_begin()) {
+            if (auto Edge = P->getLocationAs<BlockEdge>()) {
+              SrcBlock = Edge->getSrc();
+              SrcState = P->getState();
+              break;
+            }
+          }
+          const Expr *Operand = nullptr;
+          if (SrcBlock)
+            for (CFGElement CE : llvm::reverse(*SrcBlock))
+              if (std::optional<CFGStmt> CS = CE.getAs<CFGStmt>()) {
+                if (const auto *DR = dyn_cast<DoReturnStmt>(CS->getStmt()))
+                  Operand = DR->getOperand();
+                break;
+              }
+          SVal V = Operand ? SrcState->getSVal(Operand, LCtx)
+                           : svalBuilder.conjureSymbolVal(
+                                 nullptr, getCFGElementRef(), LCtx,
+                                 currBldrCtx->blockCount());
+          State = State->BindExpr(DE, LCtx, V);
+        }
+        B.generateNode(DE, N, State);
+      }
+      getCheckerManager().runCheckersForPostStmt(Dst, PostVisit, DE, *this);
+      Bldr.addNodes(Dst);
+      break;
+    }
+
     case Stmt::OffsetOfExprClass: {
       Bldr.takeNodes(Pred);
       ExplodedNodeSet PreVisit;

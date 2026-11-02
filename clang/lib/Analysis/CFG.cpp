@@ -522,6 +522,10 @@ class CFGBuilder {
   JumpTarget ContinueJumpTarget;
   JumpTarget BreakJumpTarget;
   JumpTarget SEHLeaveJumpTarget;
+  // Where a `do_return` of the innermost enclosing do-expression continues
+  // (the block holding the do-expression itself). Null outside a do-expression
+  // that is part of the CFG being built.
+  JumpTarget DoReturnJumpTarget;
   CFGBlock *SwitchTerminatedBlock = nullptr;
   CFGBlock *DefaultCaseBlock = nullptr;
 
@@ -4349,39 +4353,88 @@ CFGBlock *CFGBuilder::VisitCXXTypeidExpr(CXXTypeidExpr *S, AddStmtChoice asc) {
 }
 
 CFGBlock *CFGBuilder::VisitDoExpr(DoExpr *E, AddStmtChoice asc) {
-  // A nested do-expression is opaque to the reachability of the enclosing
-  // do-expression body: for fall-off-the-end analysis it is a value-producing
-  // expression that completes normally. Its own do_return/return/break/continue
-  // and init statements belong to it, so we do not descend into its body.
-  // Outside do-expression-body analysis we keep the default behavior of walking
-  // the children.
-  if (!BuildOpts.DoExpressionBody)
+  // When the statement being analyzed is itself a do-expression body, a nested
+  // do-expression is opaque to the reachability of the enclosing body: for
+  // fall-off-the-end analysis it is a value-producing expression that
+  // completes normally. Its own do_return/return/break/continue and init
+  // statements belong to it, so we do not descend into its body.
+  if (BuildOpts.DoExpressionBody) {
+    if (asc.alwaysAdd(*this, E)) {
+      autoCreateBlock();
+      appendStmt(Block, E);
+    }
+    return Block;
+  }
+
+  // Otherwise the do-expression is part of the function's control flow. The
+  // do-expression element sits in a block of its own that every `do_return`
+  // of the body jumps to; the value of the do-expression is the operand of the
+  // `do_return` that reached it (as for the branches of `?:`). The body falls
+  // into the same block when it is left without a `do_return`, which is
+  // ill-formed and diagnosed elsewhere. `return`, `break`, `continue` and
+  // `goto` in the body refer to the enclosing function and loops and keep
+  // working through the ordinary jump targets.
+  if (E->isTypeDependent())
     return VisitStmt(E, asc);
 
-  if (asc.alwaysAdd(*this, E)) {
-    autoCreateBlock();
+  SaveAndRestore save_scope_pos(ScopePos);
+  const LocalScope::const_iterator DoScopePos = ScopePos;
+
+  autoCreateBlock();
+  if (badCFG)
+    return nullptr;
+  if (asc.alwaysAdd(*this, E))
     appendStmt(Block, E);
+  CFGBlock *AfterBlock = Block;
+  Succ = AfterBlock;
+  Block = nullptr;
+
+  if (Stmt *Init = E->getInitStmt())
+    addLocalScopeForStmt(Init);
+
+  CFGBlock *BodyBlock;
+  {
+    SaveAndRestore save_target(DoReturnJumpTarget,
+                               JumpTarget(AfterBlock, DoScopePos));
+    BodyBlock = addStmt(E->getBody());
+    if (badCFG)
+      return nullptr;
   }
-  return Block;
+  if (!BodyBlock)
+    BodyBlock = AfterBlock;
+  Succ = Block ? Block : BodyBlock;
+
+  if (Stmt *Init = E->getInitStmt()) {
+    if (CFGBlock *InitBlock = addStmt(Init))
+      BodyBlock = InitBlock;
+    if (badCFG)
+      return nullptr;
+  }
+  return Block ? Block : BodyBlock;
 }
 
 CFGBlock *CFGBuilder::VisitDoReturnStmt(DoReturnStmt *S) {
-  // Outside do-expression-body analysis, do_return is treated as an ordinary
-  // statement (its transfer to the do-expression's end is not modeled here).
-  if (!BuildOpts.DoExpressionBody)
-    return VisitStmt(S, AddStmtChoice::AlwaysAdd);
-
   // Within a do-expression body, `do_return` yields the do-expression's value
   // and leaves the body, transferring control to the do-expression's end.
-  // Model it like a return: the current block ends here and flows to the exit
-  // block.
+  // Model it like a return: the current block ends here and flows to that end.
+  // When the do-expression is the statement being analyzed, the end is the exit
+  // block. Without a do-expression to return to (a stray do_return), it is an
+  // ordinary statement.
+  if (!BuildOpts.DoExpressionBody && !DoReturnJumpTarget.block)
+    return VisitStmt(S, AddStmtChoice::AlwaysAdd);
+
   if (badCFG)
     return nullptr;
 
   Block = createBlock(false);
-  addAutomaticObjHandling(ScopePos, LocalScope::const_iterator(), S);
+  addAutomaticObjHandling(ScopePos,
+                          BuildOpts.DoExpressionBody
+                              ? LocalScope::const_iterator()
+                              : DoReturnJumpTarget.scopePosition,
+                          S);
   if (!Block->hasNoReturnElement())
-    addSuccessor(Block, &cfg->getExit());
+    addSuccessor(Block, BuildOpts.DoExpressionBody ? &cfg->getExit()
+                                                   : DoReturnJumpTarget.block);
   appendStmt(Block, S);
 
   if (Expr *O = S->getOperand())

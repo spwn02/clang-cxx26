@@ -234,6 +234,22 @@ static void AddAllConditionalTerms(llvm::ImmutableSet<const Expr *> &Set,
   }
 }
 
+/// Add the operands of the `do_return` statements that end the body of a
+/// do-expression. They are the values the do-expression can take, so they stay
+/// live until the do-expression itself. Nested do-expressions own the
+/// `do_return`s within them.
+static void AddDoReturnOperands(llvm::ImmutableSet<const Expr *> &Set,
+                                llvm::ImmutableSet<const Expr *>::Factory &F,
+                                const Stmt *S) {
+  if (!S || isa<DoExpr>(S))
+    return;
+  if (const auto *DR = dyn_cast<DoReturnStmt>(S))
+    if (const Expr *O = DR->getOperand())
+      AddLiveExpr(Set, F, O);
+  for (const Stmt *Child : S->children())
+    AddDoReturnOperands(Set, F, Child);
+}
+
 void TransferFunctions::Visit(Stmt *S) {
   if (observer)
     observer->observeStmt(S, currentBlock, val);
@@ -331,6 +347,14 @@ void TransferFunctions::Visit(Stmt *S) {
       // it will be bad if we mark it as live at the terminator of the loop
       // (i.e., immediately after the condition expression).
       AddLiveExpr(val.liveExprs, LV.ESetFact, cast<ForStmt>(S)->getCond());
+      return;
+    }
+    case Stmt::DoExprClass: {
+      // The value of a do-expression is the operand of the do_return that left
+      // its body, so those operands stay live until the do-expression (the
+      // way the branches of a conditional operator do).
+      const auto *DE = cast<DoExpr>(S);
+      AddDoReturnOperands(val.liveExprs, LV.ESetFact, DE->getBody());
       return;
     }
     case Stmt::ConditionalOperatorClass: {
