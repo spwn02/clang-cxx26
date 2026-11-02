@@ -19,6 +19,17 @@ every `using std::[ns::]name;` in <header>.inc is a name that <header> provides.
 import argparse, os, re, sys
 
 USING = re.compile(r"^\s*using\s+(?:std::)((?:[A-Za-z_]\w*::)*)([A-Za-z_]\w*)\s*;")
+# Names that libc++ exports from another header's .inc than the one the standard declares them in
+# (checked against the synopses of N5054): <type_traits> declares the apply_result family.
+HEADER_OVERRIDES = {
+    "apply_result": "<type_traits>",
+    "apply_result_t": "<type_traits>",
+    "is_applicable": "<type_traits>",
+    "is_applicable_v": "<type_traits>",
+    "is_nothrow_applicable": "<type_traits>",
+    "is_nothrow_applicable_v": "<type_traits>",
+}
+
 SYM = re.compile(r"^SYMBOL\((\w+), (None|std::(?:\w+::)*), (<[^>]+>|/\*no headers\*/)")
 
 
@@ -53,10 +64,11 @@ def main():
             if name.startswith("_") or name.startswith("operator"):
                 continue
             ns = "std::" + "".join(p + "::" for p in parts)
+            hdr = HEADER_OVERRIDES.get(name, header) if ns == "std::" else header
             q = ns + name
             if q in known:
                 continue
-            found[(q, header)] = (name, ns, header)
+            found[(q, hdr)] = (name, ns, hdr)
 
     # A name directly in std:: that several headers export (std::move is in <algorithm> and
     # <utility>) was left out of the cppreference map on purpose: the include-cleaner choice would
