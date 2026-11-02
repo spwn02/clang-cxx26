@@ -553,6 +553,45 @@ TEST_F(PrerequisiteModulesTests, BuildSystemModulesOlderThanTheirSourcesAreNotUs
   EXPECT_NE(HSOpts.PrebuiltModuleFiles["M"], Built.Path);
 }
 
+// A do expression (P2806) in a module file: the module is built with the
+// feature, the importer reads the function from the module file (as AST read
+// from a file, with the do expression in its body) and uses its own do
+// expressions next to it, without a diagnostic.
+TEST_F(PrerequisiteModulesTests, ModuleWithADoExpression) {
+  MockDirectoryCompilationDatabase CDB(TestDir, FS);
+  CDB.ExtraClangFlags.push_back("-std=c++29");
+  CDB.ExtraClangFlags.push_back("-fdo-expressions");
+  CDB.addFile("M.cppm", R"cpp(export module M;
+export inline int twice(int x) {
+  return do [t = x] -> int {
+    if (t < 0)
+      do_return 0;
+    do_return t * 2;
+  };
+}
+)cpp");
+  CDB.addFile("Use.cpp", R"cpp(import M;
+int g(int n) { return twice(n) + do { do_return n; }; }
+)cpp");
+
+  ModulesBuilder Builder(CDB);
+  ParseInputs Inputs = getInputs("Use.cpp", CDB);
+  Inputs.ModulesManager = &Builder;
+  std::unique_ptr<CompilerInvocation> CI =
+      buildCompilerInvocation(Inputs, DiagConsumer);
+  ASSERT_TRUE(CI);
+  auto Preamble = buildPreamble(getFullPath("Use.cpp"), *CI, Inputs,
+                                /*InMemory=*/true, /*Callback=*/nullptr);
+  ASSERT_TRUE(Preamble);
+  ASSERT_TRUE(Preamble->RequiredModules);
+  auto AST = ParsedAST::build(getFullPath("Use.cpp"), Inputs, std::move(CI), {},
+                              Preamble);
+  ASSERT_TRUE(AST);
+  EXPECT_TRUE(findDecl(*AST, "twice").isFromASTFile());
+  for (const auto &D : AST->getDiagnostics())
+    EXPECT_NE(D.Severity, DiagnosticsEngine::Error) << D.Message;
+}
+
 TEST_F(PrerequisiteModulesTests, StandardLibraryModulesFromTheManifest) {
   // A toolchain with the manifest libc++ installs; the project does not have
   // the module unit of std in its compilation database.
