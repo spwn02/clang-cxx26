@@ -71,6 +71,7 @@ static int countSymbols(Lang Language) {
 #include "StdSpecialSymbolMap.inc"
 #include "StdSymbolMap.inc"
 #include "StdTsSymbolMap.inc"
+#include "StdCxx26SymbolMap.inc"
     };
     Symbols = CXXSymbols;
     break;
@@ -160,6 +161,7 @@ static int initialize(Lang Language) {
 #include "StdSpecialSymbolMap.inc"
 #include "StdSymbolMap.inc"
 #include "StdTsSymbolMap.inc"
+#include "StdCxx26SymbolMap.inc"
     };
     for (const Symbol &S : CXXSymbols)
       Add(S.QName, S.NSLen, S.HeaderName);
