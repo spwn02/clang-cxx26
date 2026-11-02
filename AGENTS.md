@@ -167,6 +167,8 @@ Tracking: milestones `C++29 Foundation` (shared dependencies and P2806 do expres
 
 **Serialization recipe for a new AST node or flag (done-checklist item 4, issue #360).** Copy `clang/test/PCH/cxx29-do-expr.cpp` and `clang/test/Modules/cxx29-do-expr.cppm` (write, read back, print/dump equal) and the clangd test `PrerequisiteModulesTests.ModuleWithADoExpression`. Writer and reader must push and read fields in the same order (`ASTWriterStmt.cpp`/`ASTReaderStmt.cpp`); a new `BitsPacker` flag needs the abbreviation width checked (`fitsFixedAbbrevOperand` falls back to the unabbreviated record, never overflows) and the flag excluded from an abbreviation's use-condition when it can be set; packed bits that are set by default must be re-checked for the total width. Register the node in `ASTBitCodes.h` (`STMT_*`/`EXPR_*`) and `ASTReader::ReadStmtFromStream`.
 
+**Library facilities and the symbol map.** A new standard library facility (C++29 papers, networking) must be in `libcxx/modules/std/<header>.inc` (module export rule) and then in clangd/include-cleaner's symbol map: rerun `clang/tools/include-mapping/gen_libcxx_modules.py` (command in its docstring; output `clang/lib/Tooling/Inclusions/Stdlib/StdCxx26SymbolMap.inc`) and add the name to `StdlibTest.Cxx26Facilities`.
+
 **Release policy.** C++29 is published as pre-releases only (`cxx29-YYYY.MM.DD` snapshots, always `--prerelease`, never "latest") until every major C++29 milestone is finished; only then is there an actual C++29 release. Only the `cxx26` line gets full releases. (Owner decision 2026-11-02.)
 
 The C++26 rule "close every issue before the final gate" counts only issues **without** the `cxx29` label.
