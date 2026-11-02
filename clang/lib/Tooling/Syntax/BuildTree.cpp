@@ -1499,6 +1499,23 @@ public:
     return true;
   }
 
+  bool WalkUpFromDoReturnStmt(DoReturnStmt *S) {
+    Builder.markChildToken(S->getKeywordLoc(),
+                           syntax::NodeRole::IntroducerKeyword);
+    Builder.markExprChild(S->getOperand(), syntax::NodeRole::ReturnValue);
+    Builder.foldNode(Builder.getStmtRange(S),
+                     new (allocator()) syntax::DoReturnStatement, S);
+    return true;
+  }
+
+  bool WalkUpFromDoExpr(DoExpr *E) {
+    Builder.markChildToken(E->getDoLoc(), syntax::NodeRole::IntroducerKeyword);
+    Builder.markStmtChild(E->getBody(), syntax::NodeRole::BodyStatement);
+    Builder.foldNode(Builder.getExprRange(E),
+                     new (allocator()) syntax::DoExpression, E);
+    return true;
+  }
+
   bool WalkUpFromCXXForRangeStmt(CXXForRangeStmt *S) {
     Builder.markChildToken(S->getForLoc(), syntax::NodeRole::IntroducerKeyword);
     Builder.markStmtChild(S->getBody(), syntax::NodeRole::BodyStatement);

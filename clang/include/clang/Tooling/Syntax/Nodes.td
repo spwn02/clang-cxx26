@@ -231,9 +231,27 @@ def WhileStatement : External<Statement> {}
 def ContinueStatement : External<Statement> {}
 def BreakStatement : External<Statement> {}
 def ReturnStatement : External<Statement> {}
+/// do_return <expr>;  (P2806, C++29)
+def DoReturnStatement : External<Statement> {}
 def RangeBasedForStatement : External<Statement> {}
 def ExpressionStatement : External<Statement> {}
 def CompoundStatement : External<Statement> {}
+
+// Defined here because its body is a CompoundStatement.
+def DoExpression : Sequence<Expression> {
+  let documentation = [{
+    Models a do expression (P2806, C++29): a block of statements that yields a
+    value through its `do_return` statements.
+    e.g. `do { do_return 1; }` or `do [k = 1] -> int { do_return k; }`
+    The init-captures and the result type are not modelled yet: the captures
+    appear as a bracketed CompoundStatement (the compiler's own init statement)
+    and `-> T` as unclassified tokens, between the keyword and the body.
+  }];
+  let children = [
+    Role<"IntroducerKeyword", Keyword<"do">>,
+    Role<"BodyStatement", CompoundStatement>,
+  ];
+}
 
 // Declarations.
 def Declaration : External<Tree> {}

@@ -318,6 +318,17 @@ public:
   Expression *getReturnValue();
 };
 
+/// do_return <expr>;
+/// do_return;
+/// Ends the body of a do expression and gives its value (P2806, C++29).
+class DoReturnStatement final : public Statement {
+public:
+  DoReturnStatement() : Statement(NodeKind::DoReturnStatement) {}
+  static bool classof(const Node *N);
+  Leaf *getDoReturnKeyword();
+  Expression *getReturnValue();
+};
+
 /// for (<decl> : <init>) <body>
 class RangeBasedForStatement final : public Statement {
 public:

@@ -95,9 +95,7 @@ INSTANTIATE_TEST_SUITE_P(
       return Info.param.toShortString();
     });
 
-// C++29 do expressions (P2806) have no dedicated syntax node yet: they must
-// not break the tree. The expression is an UnknownExpression whose body is a
-// regular CompoundStatement, and each do_return is an UnknownStatement.
+// C++29 do expressions (P2806): DoExpression and DoReturnStatement nodes.
 class BuildSyntaxTreeDoExprTest : public BuildSyntaxTreeTest {
 public:
   BuildSyntaxTreeDoExprTest() {
@@ -125,18 +123,92 @@ int test(int a) {
 }
 )cpp",
       {R"txt(
-UnknownExpression ReturnValue
-|-'do'
-`-CompoundStatement
+DoExpression ReturnValue
+|-'do' IntroducerKeyword
+`-CompoundStatement BodyStatement
   |-'{' OpenParen
-  |-UnknownStatement Statement
-  | |-'do_return'
-  | |-IdExpression
+  |-DoReturnStatement Statement
+  | |-'do_return' IntroducerKeyword
+  | |-IdExpression ReturnValue
   | | `-UnqualifiedId UnqualifiedId
   | |   `-'a'
   | `-';'
   `-'}' CloseParen
 )txt"}));
+}
+
+TEST_P(BuildSyntaxTreeDoExprTest, CapturesResultTypeAndVoid) {
+  // The init-captures are the compiler's own bracketed init statement and show
+  // up as a CompoundStatement; `->` and the result type are not modelled and are
+  // unclassified tokens between the keyword and the body.
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
+      R"cpp(
+void test() {
+  (void)([[do [k = 1] -> int { do_return k; }]]);
+  (void)([[do { do_return; }]]);
+}
+)cpp",
+      {R"txt(
+DoExpression SubExpression
+|-'do' IntroducerKeyword
+|-CompoundStatement
+| |-'[' OpenParen
+| |-DeclarationStatement Statement
+| | `-SimpleDeclaration
+| |   `-DeclaratorList Declarators
+| |     `-SimpleDeclarator ListElement
+| |       |-'k'
+| |       |-'='
+| |       `-IntegerLiteralExpression
+| |         `-'1' LiteralToken
+| `-']' CloseParen
+|-'->'
+|-'int'
+`-CompoundStatement BodyStatement
+  |-'{' OpenParen
+  |-DoReturnStatement Statement
+  | |-'do_return' IntroducerKeyword
+  | |-IdExpression ReturnValue
+  | | `-UnqualifiedId UnqualifiedId
+  | |   `-'k'
+  | `-';'
+  `-'}' CloseParen
+)txt",
+       R"txt(
+DoExpression SubExpression
+|-'do' IntroducerKeyword
+`-CompoundStatement BodyStatement
+  |-'{' OpenParen
+  |-DoReturnStatement Statement
+  | |-'do_return' IntroducerKeyword
+  | `-';'
+  `-'}' CloseParen
+)txt"}));
+}
+
+TEST_P(BuildSyntaxTreeDoExprTest, Accessors) {
+  auto *Root = buildTree("int f() { return do { do_return 1; }; }", GetParam());
+  // Find the nodes by walking the tree.
+  syntax::DoExpression *DE = nullptr;
+  syntax::DoReturnStatement *DR = nullptr;
+  std::vector<syntax::Node *> Work = {Root};
+  while (!Work.empty()) {
+    auto *N = Work.back();
+    Work.pop_back();
+    if (auto *E = llvm::dyn_cast<syntax::DoExpression>(N))
+      DE = E;
+    if (auto *R = llvm::dyn_cast<syntax::DoReturnStatement>(N))
+      DR = R;
+    if (auto *T = llvm::dyn_cast<syntax::Tree>(N))
+      for (auto &C : T->getChildren())
+        Work.push_back(&C);
+  }
+  ASSERT_NE(DE, nullptr);
+  ASSERT_NE(DR, nullptr);
+  EXPECT_NE(DE->getIntroducerKeyword(), nullptr);
+  EXPECT_NE(DE->getBodyStatement(), nullptr);
+  EXPECT_NE(DR->getDoReturnKeyword(), nullptr);
+  EXPECT_NE(DR->getReturnValue(), nullptr);
 }
 
 TEST_P(BuildSyntaxTreeTest, Simple) {

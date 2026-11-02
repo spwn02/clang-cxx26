@@ -312,6 +312,16 @@ syntax::Expression *syntax::ReturnStatement::getReturnValue() {
       findChild(syntax::NodeRole::ReturnValue));
 }
 
+syntax::Leaf *syntax::DoReturnStatement::getDoReturnKeyword() {
+  return cast_or_null<syntax::Leaf>(
+      findChild(syntax::NodeRole::IntroducerKeyword));
+}
+
+syntax::Expression *syntax::DoReturnStatement::getReturnValue() {
+  return cast_or_null<syntax::Expression>(
+      findChild(syntax::NodeRole::ReturnValue));
+}
+
 syntax::Leaf *syntax::RangeBasedForStatement::getForKeyword() {
   return cast_or_null<syntax::Leaf>(
       findChild(syntax::NodeRole::IntroducerKeyword));
