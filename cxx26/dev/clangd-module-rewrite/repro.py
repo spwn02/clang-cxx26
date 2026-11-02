@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Does clangd survive a build rewriting a module file it has open? (issue #487)
 
-usage: repro.py <clangd> <clang++> [--in-place | --truncate] [--workaround]
+usage: repro.py <clangd> <clang++> [--in-place | --truncate] [--workaround | --copy]
 
 Builds module M with <clang++>, opens Use.cpp (import M) in clangd with a compile
 database that lists the module file via -fmodule-file=M=..., then rewrites M.pcm
@@ -15,6 +15,7 @@ import json, os, shutil, subprocess, sys, tempfile, time
 clangd, clangxx = sys.argv[1], sys.argv[2]
 in_place = "--in-place" in sys.argv
 workaround = "--workaround" in sys.argv  # response file as CMake writes it + .clangd Remove: "@*"
+copy = "--copy" in sys.argv  # .clangd: CompileFlags: CopyModuleFiles: true
 truncate = "--truncate" in sys.argv  # leave the file half written (a compiler killed mid-write)
 
 work = tempfile.mkdtemp(prefix="clangd-module-rewrite-")
@@ -39,6 +40,8 @@ try:
     else:
         flags = f"-std=c++20 -fmodule-file=M={pcm} -fsyntax-only {work}/Use.cpp"
         db = [{"directory": work, "command": f"{clangxx} {flags}", "file": f"{work}/Use.cpp"}]
+    if copy:
+        open(f"{work}/.clangd", "w").write("CompileFlags:\n  CopyModuleFiles: true\n")
     json.dump(db, open(f"{work}/compile_commands.json", "w"))
 
     p = subprocess.Popen([clangd, "--log=error", f"--compile-commands-dir={work}"],

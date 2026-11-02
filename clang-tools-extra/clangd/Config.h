@@ -71,6 +71,8 @@ struct Config {
     /// Whether to use clangd's own builtin headers, or ones from the system
     /// include extractor, if available.
     BuiltinHeaderPolicy BuiltinHeaders = BuiltinHeaderPolicy::Clangd;
+    /// Copy module files into memory instead of mapping them.
+    bool CopyModuleFiles = false;
   } CompileFlags;
 
   enum class BackgroundPolicy { Build, Skip };

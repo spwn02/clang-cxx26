@@ -106,6 +106,10 @@ private:
       if (auto Values = scalarValues(N))
         F.Remove = std::move(*Values);
     });
+    Dict.handle("CopyModuleFiles", [&](Node &N) {
+      if (auto Value = boolValue(N, "CopyModuleFiles"))
+        F.CopyModuleFiles = *Value;
+    });
     Dict.handle("BuiltinHeaders", [&](Node &N) {
       if (auto BuiltinHeaders = scalarValue(N, "BuiltinHeaders"))
         F.BuiltinHeaders = *BuiltinHeaders;
