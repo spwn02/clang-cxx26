@@ -85,9 +85,9 @@ namespace std {
 #    include <__bit/bit_cast.h>
 #    include <__bit/bit_ceil.h>
 #    include <__bit/bit_floor.h>
+#    include <__bit/bit_log2.h>
 #    include <__bit/bit_permutations.h>
 #    include <__bit/bit_shift.h>
-#    include <__bit/bit_log2.h>
 #    include <__bit/bit_width.h>
 #    include <__bit/countl.h>
 #    include <__bit/countr.h>

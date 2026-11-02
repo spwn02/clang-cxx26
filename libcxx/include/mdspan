@@ -478,6 +478,7 @@ namespace std {
 #  if _LIBCPP_STD_VER >= 23
 #    include <__fwd/mdspan.h>
 #    include <__fwd/span.h>
+#    include <__mdspan/copy_fill.h>
 #    include <__mdspan/default_accessor.h>
 #    include <__mdspan/extents.h>
 #    include <__mdspan/layout_left.h>
@@ -488,7 +489,6 @@ namespace std {
 #    include <__mdspan/mdspan.h>
 #    include <__mdspan/submdspan.h>
 #    include <__mdspan/submdspan_mapping.h>
-#    include <__mdspan/copy_fill.h>
 #  endif
 
 #  include <version>

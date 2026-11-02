@@ -15,9 +15,9 @@
 #include <__condition_variable/condition_variable.h>
 #include <__config>
 #include <__exception/terminate.h>
-#include <__fwd/string.h>
 #include <__functional/hash.h>
 #include <__functional/unary_function.h>
+#include <__fwd/string.h>
 #include <__locale>
 #include <__memory/addressof.h>
 #include <__memory/unique_ptr.h>
