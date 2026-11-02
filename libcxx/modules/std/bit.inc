@@ -39,6 +39,10 @@ export namespace std {
   using std::bit_expand;
   using std::bit_repeat;
   using std::bit_reverse;
+
+  // [bit.shift], shifting
+  using std::shl;
+  using std::shr;
 #endif
 
   // [bit.endian], endian
