@@ -328,8 +328,7 @@ __cpp_lib_shared_ptr_weak_type                          201606L <memory>
 __cpp_lib_shared_timed_mutex                            201402L <shared_mutex>
 __cpp_lib_shift                                         202202L <algorithm>
                                                         201806L // C++20
-__cpp_lib_simd                                          202606L <simd>
-                                                        202603L // C++26
+__cpp_lib_simd                                          202603L <simd>
 __cpp_lib_simd_bitops                                   202607L <simd>
 __cpp_lib_simd_complex                                  202502L <simd>
 __cpp_lib_simd_permutations                             202506L <simd>
@@ -904,8 +903,6 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_hazard_pointer                       202606L
 # define __cpp_lib_map_lookup                           202606L
 # define __cpp_lib_mdspan_copy                          202606L
-# undef  __cpp_lib_simd
-# define __cpp_lib_simd                                 202606L
 # define __cpp_lib_simd_bitops                          202607L
 # if _LIBCPP_HAS_THREADS
 #   define __cpp_lib_thread_attributes                  202606L

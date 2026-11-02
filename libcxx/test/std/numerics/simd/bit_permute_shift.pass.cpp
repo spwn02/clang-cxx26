@@ -24,8 +24,9 @@
 #if __cpp_lib_simd_bitops != 202607L
 #  error __cpp_lib_simd_bitops should have the value 202607L
 #endif
-#if __cpp_lib_simd != 202606L
-#  error __cpp_lib_simd should have the value 202606L
+// __cpp_lib_simd stays at 202603L until P3319R6 and the other papers behind the draft's 202606L are implemented.
+#if __cpp_lib_simd != 202603L
+#  error __cpp_lib_simd should have the value 202603L
 #endif
 
 using uvec = std::simd::vec<std::uint32_t, 4>;
