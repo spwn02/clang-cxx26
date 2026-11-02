@@ -68,7 +68,7 @@
 #    error "__cpp_lib_replaceable_contract_violation_handler should not be defined before c++26"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  ifndef __cpp_lib_contracts
 #    error "__cpp_lib_contracts should be defined in c++26"
@@ -84,6 +84,22 @@
 #    error "__cpp_lib_replaceable_contract_violation_handler should have the value 202603L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  ifndef __cpp_lib_contracts
+#    error "__cpp_lib_contracts should be defined in c++29"
+#  endif
+#  if __cpp_lib_contracts != 202502L
+#    error "__cpp_lib_contracts should have the value 202502L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_replaceable_contract_violation_handler
+#    error "__cpp_lib_replaceable_contract_violation_handler should be defined in c++29"
+#  endif
+#  if __cpp_lib_replaceable_contract_violation_handler != 202603L
+#    error "__cpp_lib_replaceable_contract_violation_handler should have the value 202603L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

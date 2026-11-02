@@ -88,7 +88,7 @@
 #    error "__cpp_lib_ranges_generate_random should not be defined before c++26"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  ifndef __cpp_lib_freestanding_random
 #    error "__cpp_lib_freestanding_random should be defined in c++26"
@@ -111,6 +111,29 @@
 #    error "__cpp_lib_ranges_generate_random should have the value 202403L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  ifndef __cpp_lib_freestanding_random
+#    error "__cpp_lib_freestanding_random should be defined in c++29"
+#  endif
+#  if __cpp_lib_freestanding_random != 202502L
+#    error "__cpp_lib_freestanding_random should have the value 202502L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_philox_engine
+#    error "__cpp_lib_philox_engine should be defined in c++29"
+#  endif
+#  if __cpp_lib_philox_engine != 202406L
+#    error "__cpp_lib_philox_engine should have the value 202406L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_generate_random
+#    error "__cpp_lib_ranges_generate_random should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_generate_random != 202403L
+#    error "__cpp_lib_ranges_generate_random should have the value 202403L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

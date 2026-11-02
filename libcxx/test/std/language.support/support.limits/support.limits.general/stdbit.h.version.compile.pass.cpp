@@ -48,7 +48,7 @@
 #    error "__cpp_lib_stdbit_h should not be defined before c++26"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  ifndef __cpp_lib_stdbit_h
 #    error "__cpp_lib_stdbit_h should be defined in c++26"
@@ -57,6 +57,15 @@
 #    error "__cpp_lib_stdbit_h should have the value 202603L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  ifndef __cpp_lib_stdbit_h
+#    error "__cpp_lib_stdbit_h should be defined in c++29"
+#  endif
+#  if __cpp_lib_stdbit_h != 202603L
+#    error "__cpp_lib_stdbit_h should have the value 202603L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

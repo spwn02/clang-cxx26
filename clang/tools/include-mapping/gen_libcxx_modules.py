@@ -29,14 +29,12 @@ def main():
     args = ap.parse_args()
 
     known = set()
-    known_headers = set()
     for path in args.existing:
         for line in open(path):
             m = SYM.match(line)
             if m:
                 ns = "" if m.group(2) == "None" else m.group(2)
                 known.add(ns + m.group(1))
-                known_headers.add(m.group(3))
 
     found = {}  # (qualified name) -> (name, ns, header)
     mod_dir = os.path.join(args.libcxx, "modules", "std")
@@ -58,13 +56,15 @@ def main():
             q = ns + name
             if q in known:
                 continue
-            # A name directly in std:: that an existing header lacks was left
-            # out of the cppreference map on purpose (std::move is in both
-            # <algorithm> and <utility>); only the headers that are new, and
-            # the names in namespaces, are added.
-            if ns == "std::" and header in known_headers:
-                continue
             found[(q, header)] = (name, ns, header)
+
+    # A name directly in std:: that several headers export (std::move is in <algorithm> and
+    # <utility>) was left out of the cppreference map on purpose: the include-cleaner choice would
+    # be arbitrary. Only the unambiguous ones are added.
+    by_name = {}
+    for (q, header) in found:
+        by_name.setdefault(q, set()).add(header)
+    found = {k: v for k, v in found.items() if not (v[1] == "std::" and len(by_name[k[0]]) > 1)}
 
     out = sys.stdout
     out.write("""//===-- gen_libcxx_modules.py generated file ---------------------*- C++ -*-===//

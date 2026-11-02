@@ -314,7 +314,7 @@
 #    error "__cpp_lib_ssize should have the value 201902L in c++23"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  ifndef __cpp_lib_array_constexpr
 #    error "__cpp_lib_array_constexpr should be defined in c++26"
@@ -405,6 +405,97 @@
 #    error "__cpp_lib_ssize should have the value 201902L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  ifndef __cpp_lib_array_constexpr
+#    error "__cpp_lib_array_constexpr should be defined in c++29"
+#  endif
+#  if __cpp_lib_array_constexpr != 201811L
+#    error "__cpp_lib_array_constexpr should have the value 201811L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_constexpr_iterator
+#    error "__cpp_lib_constexpr_iterator should be defined in c++29"
+#  endif
+#  if __cpp_lib_constexpr_iterator != 201811L
+#    error "__cpp_lib_constexpr_iterator should have the value 201811L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_iterator
+#    error "__cpp_lib_freestanding_iterator should be defined in c++29"
+#  endif
+#  if __cpp_lib_freestanding_iterator != 202306L
+#    error "__cpp_lib_freestanding_iterator should have the value 202306L in c++29"
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_common_iterator
+#      error "__cpp_lib_hardened_common_iterator should be defined in c++29"
+#    endif
+#    if __cpp_lib_hardened_common_iterator != 202506L
+#      error "__cpp_lib_hardened_common_iterator should have the value 202506L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_common_iterator
+#      error "__cpp_lib_hardened_common_iterator should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_counted_iterator
+#      error "__cpp_lib_hardened_counted_iterator should be defined in c++29"
+#    endif
+#    if __cpp_lib_hardened_counted_iterator != 202506L
+#      error "__cpp_lib_hardened_counted_iterator should have the value 202506L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_counted_iterator
+#      error "__cpp_lib_hardened_counted_iterator should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  ifndef __cpp_lib_make_reverse_iterator
+#    error "__cpp_lib_make_reverse_iterator should be defined in c++29"
+#  endif
+#  if __cpp_lib_make_reverse_iterator != 201402L
+#    error "__cpp_lib_make_reverse_iterator should have the value 201402L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_move_iterator_concept
+#    error "__cpp_lib_move_iterator_concept should be defined in c++29"
+#  endif
+#  if __cpp_lib_move_iterator_concept != 202207L
+#    error "__cpp_lib_move_iterator_concept should have the value 202207L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_nonmember_container_access
+#    error "__cpp_lib_nonmember_container_access should be defined in c++29"
+#  endif
+#  if __cpp_lib_nonmember_container_access != 201411L
+#    error "__cpp_lib_nonmember_container_access should have the value 201411L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_null_iterators
+#    error "__cpp_lib_null_iterators should be defined in c++29"
+#  endif
+#  if __cpp_lib_null_iterators != 201304L
+#    error "__cpp_lib_null_iterators should have the value 201304L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges
+#    error "__cpp_lib_ranges should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges != 202406L
+#    error "__cpp_lib_ranges should have the value 202406L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ssize
+#    error "__cpp_lib_ssize should be defined in c++29"
+#  endif
+#  if __cpp_lib_ssize != 201902L
+#    error "__cpp_lib_ssize should have the value 201902L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

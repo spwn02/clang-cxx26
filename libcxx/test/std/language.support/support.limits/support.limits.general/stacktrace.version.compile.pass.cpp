@@ -100,7 +100,7 @@
 #    error "__cpp_lib_stacktrace should have the value 202011L in c++23"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
 #    ifndef __cpp_lib_formatters
@@ -135,6 +135,41 @@
 #    error "__cpp_lib_stacktrace should have the value 202011L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
+#    ifndef __cpp_lib_formatters
+#      error "__cpp_lib_formatters should be defined in c++29"
+#    endif
+#    if __cpp_lib_formatters != 202302L
+#      error "__cpp_lib_formatters should have the value 202302L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_formatters
+#      error "__cpp_lib_formatters should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_basic_stacktrace
+#      error "__cpp_lib_hardened_basic_stacktrace should be defined in c++29"
+#    endif
+#    if __cpp_lib_hardened_basic_stacktrace != 202506L
+#      error "__cpp_lib_hardened_basic_stacktrace should have the value 202506L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_basic_stacktrace
+#      error "__cpp_lib_hardened_basic_stacktrace should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  ifndef __cpp_lib_stacktrace
+#    error "__cpp_lib_stacktrace should be defined in c++29"
+#  endif
+#  if __cpp_lib_stacktrace != 202011L
+#    error "__cpp_lib_stacktrace should have the value 202011L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

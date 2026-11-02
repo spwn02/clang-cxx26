@@ -155,7 +155,7 @@
 #    error "__cpp_lib_math_special_functions should have the value 201603L in c++23"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  ifndef __cpp_lib_constexpr_cmath
 #    error "__cpp_lib_constexpr_cmath should be defined in c++26"
@@ -192,6 +192,43 @@
 #    error "__cpp_lib_math_special_functions should have the value 201603L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  ifndef __cpp_lib_constexpr_cmath
+#    error "__cpp_lib_constexpr_cmath should be defined in c++29"
+#  endif
+#  if __cpp_lib_constexpr_cmath != 202306L
+#    error "__cpp_lib_constexpr_cmath should have the value 202306L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_cstdlib
+#    error "__cpp_lib_freestanding_cstdlib should be defined in c++29"
+#  endif
+#  if __cpp_lib_freestanding_cstdlib != 202306L
+#    error "__cpp_lib_freestanding_cstdlib should have the value 202306L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_hypot
+#    error "__cpp_lib_hypot should be defined in c++29"
+#  endif
+#  if __cpp_lib_hypot != 201603L
+#    error "__cpp_lib_hypot should have the value 201603L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_interpolate
+#    error "__cpp_lib_interpolate should be defined in c++29"
+#  endif
+#  if __cpp_lib_interpolate != 201902L
+#    error "__cpp_lib_interpolate should have the value 201902L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_math_special_functions
+#    error "__cpp_lib_math_special_functions should be defined in c++29"
+#  endif
+#  if __cpp_lib_math_special_functions != 201603L
+#    error "__cpp_lib_math_special_functions should have the value 201603L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

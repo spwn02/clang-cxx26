@@ -263,7 +263,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_bitops",
-            "values": {"c++20": 201907},
+            "values": {"c++20": 201907, "c++29": 202607},  # P3104R6 Bit permutations
             "headers": ["bit"],
         },
         {
@@ -1286,6 +1286,11 @@ feature_test_macros = [
             "headers": ["mdspan"],
         },
         {
+            "name": "__cpp_lib_mdspan_copy",
+            "values": {"c++29": 202606},  # P3242R4 Copy and fill for mdspan
+            "headers": ["mdspan"],
+        },
+        {
             "name": "__cpp_lib_memory_resource",
             "values": {"c++17": 201603},
             "headers": ["memory_resource"],
@@ -1819,6 +1824,13 @@ feature_test_macros = [
             "headers": ["text_encoding"],
         },
         {
+            "name": "__cpp_lib_thread_attributes",
+            "values": {"c++29": 202606},  # P2019R9 Thread attributes
+            "headers": ["thread"],
+            "test_suite_guard": "_LIBCPP_HAS_THREADS",
+            "libcxx_guard": "_LIBCPP_HAS_THREADS",
+        },
+        {
             "name": "__cpp_lib_three_way_comparison",
             "values": {"c++20": 201907},
             "headers": ["compare"],
@@ -1977,7 +1989,7 @@ lit_markup = {
 
 
 def get_std_dialects():
-    std_dialects = ["c++14", "c++17", "c++20", "c++23", "c++26"]
+    std_dialects = ["c++14", "c++17", "c++20", "c++23", "c++26", "c++29"]
     return list(std_dialects)
 
 

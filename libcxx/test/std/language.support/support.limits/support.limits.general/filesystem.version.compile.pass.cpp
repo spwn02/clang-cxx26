@@ -135,7 +135,7 @@
 #    error "__cpp_lib_format_path should not be defined before c++26"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  if defined(__cpp_char8_t)
 #    ifndef __cpp_lib_char8_t
@@ -170,6 +170,41 @@
 #    error "__cpp_lib_format_path should have the value 202506L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  if defined(__cpp_char8_t)
+#    ifndef __cpp_lib_char8_t
+#      error "__cpp_lib_char8_t should be defined in c++29"
+#    endif
+#    if __cpp_lib_char8_t != 201907L
+#      error "__cpp_lib_char8_t should have the value 201907L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_char8_t
+#      error "__cpp_lib_char8_t should not be defined when the requirement 'defined(__cpp_char8_t)' is not met!"
+#    endif
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_FILESYSTEM
+#    ifndef __cpp_lib_filesystem
+#      error "__cpp_lib_filesystem should be defined in c++29"
+#    endif
+#    if __cpp_lib_filesystem != 201703L
+#      error "__cpp_lib_filesystem should have the value 201703L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_filesystem
+#      error "__cpp_lib_filesystem should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_FILESYSTEM' is not met!"
+#    endif
+#  endif
+
+#  ifndef __cpp_lib_format_path
+#    error "__cpp_lib_format_path should be defined in c++29"
+#  endif
+#  if __cpp_lib_format_path != 202506L
+#    error "__cpp_lib_format_path should have the value 202506L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

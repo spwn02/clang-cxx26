@@ -68,7 +68,7 @@
 #    error "__cpp_lib_valarray should not be defined before c++26"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
 #    ifndef __cpp_lib_hardened_valarray
@@ -90,6 +90,28 @@
 #    error "__cpp_lib_valarray should have the value 202511L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_valarray
+#      error "__cpp_lib_hardened_valarray should be defined in c++29"
+#    endif
+#    if __cpp_lib_hardened_valarray != 202502L
+#      error "__cpp_lib_hardened_valarray should have the value 202502L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_valarray
+#      error "__cpp_lib_hardened_valarray should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  ifndef __cpp_lib_valarray
+#    error "__cpp_lib_valarray should be defined in c++29"
+#  endif
+#  if __cpp_lib_valarray != 202511L
+#    error "__cpp_lib_valarray should have the value 202511L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

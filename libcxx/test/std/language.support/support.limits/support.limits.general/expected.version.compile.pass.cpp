@@ -131,7 +131,7 @@
 #    error "__cpp_lib_hardened_expected should not be defined before c++26"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  if __has_builtin(__builtin_constexpr_exception_capture)
 #    ifndef __cpp_lib_constexpr_exceptions
@@ -180,6 +180,55 @@
 #    endif
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  if __has_builtin(__builtin_constexpr_exception_capture)
+#    ifndef __cpp_lib_constexpr_exceptions
+#      error "__cpp_lib_constexpr_exceptions should be defined in c++29"
+#    endif
+#    if __cpp_lib_constexpr_exceptions != 202502L
+#      error "__cpp_lib_constexpr_exceptions should have the value 202502L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_constexpr_exceptions
+#      error "__cpp_lib_constexpr_exceptions should not be defined when the requirement '__has_builtin(__builtin_constexpr_exception_capture)' is not met!"
+#    endif
+#  endif
+
+#  ifndef __cpp_lib_constrained_equality
+#    error "__cpp_lib_constrained_equality should be defined in c++29"
+#  endif
+#  if __cpp_lib_constrained_equality != 202411L
+#    error "__cpp_lib_constrained_equality should have the value 202411L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_expected
+#    error "__cpp_lib_expected should be defined in c++29"
+#  endif
+#  if __cpp_lib_expected != 202211L
+#    error "__cpp_lib_expected should have the value 202211L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_expected
+#    error "__cpp_lib_freestanding_expected should be defined in c++29"
+#  endif
+#  if __cpp_lib_freestanding_expected != 202311L
+#    error "__cpp_lib_freestanding_expected should have the value 202311L in c++29"
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_expected
+#      error "__cpp_lib_hardened_expected should be defined in c++29"
+#    endif
+#    if __cpp_lib_hardened_expected != 202502L
+#      error "__cpp_lib_hardened_expected should have the value 202502L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_expected
+#      error "__cpp_lib_hardened_expected should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

@@ -157,7 +157,7 @@
 #    error "__cpp_lib_task should not be defined before c++26"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  ifndef __cpp_lib_counting_scope
 #    error "__cpp_lib_counting_scope should be defined in c++26"
@@ -207,6 +207,56 @@
 #    error "__cpp_lib_task should have the value 202506L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  ifndef __cpp_lib_counting_scope
+#    error "__cpp_lib_counting_scope should be defined in c++29"
+#  endif
+#  if __cpp_lib_counting_scope != 202506L
+#    error "__cpp_lib_counting_scope should have the value 202506L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_execution
+#    error "__cpp_lib_execution should be defined in c++29"
+#  endif
+#  if __cpp_lib_execution != 201902L
+#    error "__cpp_lib_execution should have the value 201902L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_execution
+#    error "__cpp_lib_freestanding_execution should be defined in c++29"
+#  endif
+#  if __cpp_lib_freestanding_execution != 202502L
+#    error "__cpp_lib_freestanding_execution should have the value 202502L in c++29"
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS
+#    ifndef __cpp_lib_parallel_scheduler
+#      error "__cpp_lib_parallel_scheduler should be defined in c++29"
+#    endif
+#    if __cpp_lib_parallel_scheduler != 202506L
+#      error "__cpp_lib_parallel_scheduler should have the value 202506L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_parallel_scheduler
+#      error "__cpp_lib_parallel_scheduler should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HAS_THREADS' is not met!"
+#    endif
+#  endif
+
+#  ifndef __cpp_lib_senders
+#    error "__cpp_lib_senders should be defined in c++29"
+#  endif
+#  if __cpp_lib_senders != 202506L
+#    error "__cpp_lib_senders should have the value 202506L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_task
+#    error "__cpp_lib_task should be defined in c++29"
+#  endif
+#  if __cpp_lib_task != 202506L
+#    error "__cpp_lib_task should have the value 202506L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

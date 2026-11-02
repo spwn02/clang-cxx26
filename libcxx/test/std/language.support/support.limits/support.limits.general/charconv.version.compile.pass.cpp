@@ -100,7 +100,7 @@
 #    error "__cpp_lib_to_chars should have the value 201611L in c++23"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  ifndef __cpp_lib_constexpr_charconv
 #    error "__cpp_lib_constexpr_charconv should be defined in c++26"
@@ -123,6 +123,29 @@
 #    error "__cpp_lib_to_chars should have the value 202306L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  ifndef __cpp_lib_constexpr_charconv
+#    error "__cpp_lib_constexpr_charconv should be defined in c++29"
+#  endif
+#  if __cpp_lib_constexpr_charconv != 202207L
+#    error "__cpp_lib_constexpr_charconv should have the value 202207L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_charconv
+#    error "__cpp_lib_freestanding_charconv should be defined in c++29"
+#  endif
+#  if __cpp_lib_freestanding_charconv != 202306L
+#    error "__cpp_lib_freestanding_charconv should have the value 202306L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_to_chars
+#    error "__cpp_lib_to_chars should be defined in c++29"
+#  endif
+#  if __cpp_lib_to_chars != 202306L
+#    error "__cpp_lib_to_chars should have the value 202306L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

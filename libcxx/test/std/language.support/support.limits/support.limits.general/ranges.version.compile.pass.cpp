@@ -510,7 +510,7 @@
 #    error "__cpp_lib_ranges_zip should have the value 202110L in c++23"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  ifndef __cpp_lib_algorithm_default_value_type
 #    error "__cpp_lib_algorithm_default_value_type should be defined in c++26"
@@ -672,6 +672,168 @@
 #    error "__cpp_lib_ranges_zip should have the value 202110L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  ifndef __cpp_lib_algorithm_default_value_type
+#    error "__cpp_lib_algorithm_default_value_type should be defined in c++29"
+#  endif
+#  if __cpp_lib_algorithm_default_value_type != 202603L
+#    error "__cpp_lib_algorithm_default_value_type should have the value 202603L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_freestanding_ranges
+#    error "__cpp_lib_freestanding_ranges should be defined in c++29"
+#  endif
+#  if __cpp_lib_freestanding_ranges != 202306L
+#    error "__cpp_lib_freestanding_ranges should have the value 202306L in c++29"
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE
+#    ifndef __cpp_lib_hardened_view_interface
+#      error "__cpp_lib_hardened_view_interface should be defined in c++29"
+#    endif
+#    if __cpp_lib_hardened_view_interface != 202506L
+#      error "__cpp_lib_hardened_view_interface should have the value 202506L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_hardened_view_interface
+#      error "__cpp_lib_hardened_view_interface should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_NONE' is not met!"
+#    endif
+#  endif
+
+#  ifndef __cpp_lib_ranges
+#    error "__cpp_lib_ranges should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges != 202406L
+#    error "__cpp_lib_ranges should have the value 202406L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_as_const
+#    error "__cpp_lib_ranges_as_const should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_as_const != 202311L
+#    error "__cpp_lib_ranges_as_const should have the value 202311L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_as_input
+#    error "__cpp_lib_ranges_as_input should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_as_input != 202502L
+#    error "__cpp_lib_ranges_as_input should have the value 202502L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_as_rvalue
+#    error "__cpp_lib_ranges_as_rvalue should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_as_rvalue != 202207L
+#    error "__cpp_lib_ranges_as_rvalue should have the value 202207L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_cache_latest
+#    error "__cpp_lib_ranges_cache_latest should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_cache_latest != 202411L
+#    error "__cpp_lib_ranges_cache_latest should have the value 202411L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_cartesian_product
+#    error "__cpp_lib_ranges_cartesian_product should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_cartesian_product != 202207L
+#    error "__cpp_lib_ranges_cartesian_product should have the value 202207L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_chunk
+#    error "__cpp_lib_ranges_chunk should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_chunk != 202202L
+#    error "__cpp_lib_ranges_chunk should have the value 202202L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_chunk_by
+#    error "__cpp_lib_ranges_chunk_by should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_chunk_by != 202202L
+#    error "__cpp_lib_ranges_chunk_by should have the value 202202L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_concat
+#    error "__cpp_lib_ranges_concat should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_concat != 202403L
+#    error "__cpp_lib_ranges_concat should have the value 202403L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_enumerate
+#    error "__cpp_lib_ranges_enumerate should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_enumerate != 202302L
+#    error "__cpp_lib_ranges_enumerate should have the value 202302L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_filter
+#    error "__cpp_lib_ranges_filter should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_filter != 202603L
+#    error "__cpp_lib_ranges_filter should have the value 202603L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_indices
+#    error "__cpp_lib_ranges_indices should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_indices != 202506L
+#    error "__cpp_lib_ranges_indices should have the value 202506L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_join_with
+#    error "__cpp_lib_ranges_join_with should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_join_with != 202202L
+#    error "__cpp_lib_ranges_join_with should have the value 202202L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_repeat
+#    error "__cpp_lib_ranges_repeat should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_repeat != 202207L
+#    error "__cpp_lib_ranges_repeat should have the value 202207L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_reserve_hint
+#    error "__cpp_lib_ranges_reserve_hint should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_reserve_hint != 202502L
+#    error "__cpp_lib_ranges_reserve_hint should have the value 202502L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_slide
+#    error "__cpp_lib_ranges_slide should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_slide != 202202L
+#    error "__cpp_lib_ranges_slide should have the value 202202L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_stride
+#    error "__cpp_lib_ranges_stride should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_stride != 202207L
+#    error "__cpp_lib_ranges_stride should have the value 202207L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_to_container
+#    error "__cpp_lib_ranges_to_container should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_to_container != 202202L
+#    error "__cpp_lib_ranges_to_container should have the value 202202L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_ranges_zip
+#    error "__cpp_lib_ranges_zip should be defined in c++29"
+#  endif
+#  if __cpp_lib_ranges_zip != 202110L
+#    error "__cpp_lib_ranges_zip should have the value 202110L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

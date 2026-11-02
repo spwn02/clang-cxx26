@@ -155,7 +155,7 @@
 #    error "__cpp_lib_format_uchar should have the value 202311L in c++23"
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  if __has_builtin(__builtin_constexpr_exception_capture)
 #    ifndef __cpp_lib_constexpr_exceptions
@@ -204,6 +204,55 @@
 #    error "__cpp_lib_format_uchar should have the value 202311L in c++26"
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  if __has_builtin(__builtin_constexpr_exception_capture)
+#    ifndef __cpp_lib_constexpr_exceptions
+#      error "__cpp_lib_constexpr_exceptions should be defined in c++29"
+#    endif
+#    if __cpp_lib_constexpr_exceptions != 202502L
+#      error "__cpp_lib_constexpr_exceptions should have the value 202502L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_constexpr_exceptions
+#      error "__cpp_lib_constexpr_exceptions should not be defined when the requirement '__has_builtin(__builtin_constexpr_exception_capture)' is not met!"
+#    endif
+#  endif
+
+#  ifndef __cpp_lib_constexpr_format
+#    error "__cpp_lib_constexpr_format should be defined in c++29"
+#  endif
+#  if __cpp_lib_constexpr_format != 202511L
+#    error "__cpp_lib_constexpr_format should have the value 202511L in c++29"
+#  endif
+
+#  if !defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_TO_CHARS_FLOATING_POINT
+#    ifndef __cpp_lib_format
+#      error "__cpp_lib_format should be defined in c++29"
+#    endif
+#    if __cpp_lib_format != 202603L
+#      error "__cpp_lib_format should have the value 202603L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_format
+#      error "__cpp_lib_format should not be defined when the requirement '!defined(_LIBCPP_VERSION) || _LIBCPP_AVAILABILITY_HAS_TO_CHARS_FLOATING_POINT' is not met!"
+#    endif
+#  endif
+
+#  ifndef __cpp_lib_format_ranges
+#    error "__cpp_lib_format_ranges should be defined in c++29"
+#  endif
+#  if __cpp_lib_format_ranges != 202207L
+#    error "__cpp_lib_format_ranges should have the value 202207L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_format_uchar
+#    error "__cpp_lib_format_uchar should be defined in c++29"
+#  endif
+#  if __cpp_lib_format_uchar != 202311L
+#    error "__cpp_lib_format_uchar should have the value 202311L in c++29"
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

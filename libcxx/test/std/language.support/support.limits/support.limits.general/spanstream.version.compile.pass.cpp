@@ -57,7 +57,7 @@
 #    endif
 #  endif
 
-#elif TEST_STD_VER > 23
+#elif TEST_STD_VER == 26
 
 #  if _LIBCPP_HAS_LOCALIZATION
 #    ifndef __cpp_lib_spanstream
@@ -72,6 +72,21 @@
 #    endif
 #  endif
 
-#endif // TEST_STD_VER > 23
+#elif TEST_STD_VER > 26
+
+#  if _LIBCPP_HAS_LOCALIZATION
+#    ifndef __cpp_lib_spanstream
+#      error "__cpp_lib_spanstream should be defined in c++29"
+#    endif
+#    if __cpp_lib_spanstream != 202106L
+#      error "__cpp_lib_spanstream should have the value 202106L in c++29"
+#    endif
+#  else
+#    ifdef __cpp_lib_spanstream
+#      error "__cpp_lib_spanstream should not be defined when the requirement '_LIBCPP_HAS_LOCALIZATION' is not met!"
+#    endif
+#  endif
+
+#endif // TEST_STD_VER > 26
 
 // clang-format on

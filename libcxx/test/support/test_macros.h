@@ -98,8 +98,10 @@
 # define TEST_STD_VER 20
 #elif __cplusplus <= 202302L
 # define TEST_STD_VER 23
+#elif __cplusplus <= 202400L
+# define TEST_STD_VER 26
 #else
-# define TEST_STD_VER 99    // greater than current standard
+# define TEST_STD_VER 99    // greater than current standard (C++29)
 // This is deliberately different than _LIBCPP_STD_VER to discourage matching them up.
 #endif
 #endif
