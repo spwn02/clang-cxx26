@@ -1047,7 +1047,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_hazard_pointer",
-            "values": {"c++26": 202306},  # P2530R3 Hazard Pointers for C++26
+            "values": {"c++26": 202306, "c++29": 202606},  # P2530R3 Hazard Pointers for C++26, P3428R4 Hazard Pointer Batches (C++29)
             "headers": ["hazard_pointer"],
         },
         {

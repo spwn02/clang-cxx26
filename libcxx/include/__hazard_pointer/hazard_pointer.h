@@ -21,9 +21,11 @@
 #include <__type_traits/is_base_of.h>
 #include <__type_traits/is_class.h>
 #include <__utility/declval.h>
+#include <__utility/exception_guard.h>
 #include <__utility/exchange.h>
 #include <__utility/move.h>
 #include <__utility/swap.h>
+#include <span>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -184,6 +186,10 @@ class hazard_pointer {
 
   _LIBCPP_HIDE_FROM_ABI explicit hazard_pointer(__hazard_pointer::__record* __record) noexcept : __record_(__record) {}
   _LIBCPP_HIDE_FROM_ABI friend hazard_pointer make_hazard_pointer();
+#  if _LIBCPP_STD_VER >= 29
+  _LIBCPP_HIDE_FROM_ABI friend void make_hazard_pointer_batch(span<hazard_pointer>);
+  _LIBCPP_HIDE_FROM_ABI friend void clear_hazard_pointer_batch(span<hazard_pointer>) noexcept;
+#  endif // _LIBCPP_STD_VER >= 29
 
 public:
   _LIBCPP_HIDE_FROM_ABI hazard_pointer() noexcept = default;
@@ -243,6 +249,41 @@ _LIBCPP_HIDE_FROM_ABI inline hazard_pointer make_hazard_pointer() {
 }
 
 _LIBCPP_HIDE_FROM_ABI inline void swap(hazard_pointer& __a, hazard_pointer& __b) noexcept { __a.swap(__b); }
+
+#  if _LIBCPP_STD_VER >= 29
+// [hazard.pointer.batch], P3428R4
+_LIBCPP_HIDE_FROM_ABI inline void make_hazard_pointer_batch(span<hazard_pointer> __batch) {
+  size_t __needed = 0;
+  for (const hazard_pointer& __e : __batch)
+    if (__e.empty())
+      ++__needed;
+  if (__needed == 0)
+    return;
+  // Acquire every record first so that an exception leaves the batch untouched.
+  unique_ptr<__hazard_pointer::__record*[]> __records(new __hazard_pointer::__record*[__needed]);
+  size_t __acquired = 0;
+  auto __rollback   = std::__make_exception_guard([&]() noexcept {
+    for (size_t __i = 0; __i != __acquired; ++__i)
+      __hazard_pointer::__get_domain().__release_record(__records[__i]);
+  });
+  for (; __acquired != __needed; ++__acquired)
+    __records[__acquired] = __hazard_pointer::__get_domain().__acquire_record();
+  __rollback.__complete();
+  size_t __next = 0;
+  for (hazard_pointer& __e : __batch)
+    if (__e.empty())
+      __e.__record_ = __records[__next++];
+}
+
+_LIBCPP_HIDE_FROM_ABI inline void clear_hazard_pointer_batch(span<hazard_pointer> __batch) noexcept {
+  for (hazard_pointer& __e : __batch) {
+    if (!__e.empty()) {
+      __hazard_pointer::__get_domain().__release_record(__e.__record_);
+      __e.__record_ = nullptr;
+    }
+  }
+}
+#  endif // _LIBCPP_STD_VER >= 29
 
 #endif // _LIBCPP_STD_VER >= 26
 

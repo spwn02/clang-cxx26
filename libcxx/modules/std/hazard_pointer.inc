@@ -17,5 +17,11 @@ export namespace std {
   using std::make_hazard_pointer;
   // 4.1.6, Hazard pointer swap
   using std::swap;
+
+#  if _LIBCPP_STD_VER >= 29
+  // [hazard.pointer.batch], P3428R4
+  using std::clear_hazard_pointer_batch;
+  using std::make_hazard_pointer_batch;
+#  endif // _LIBCPP_STD_VER >= 29
 #endif // _LIBCPP_STD_VER >= 26
 } // namespace std
