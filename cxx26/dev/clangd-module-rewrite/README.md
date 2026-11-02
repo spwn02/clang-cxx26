@@ -8,7 +8,7 @@ module file and asks for hovers.
 | mode | clangd before the reader fix | clangd now |
 | --- | --- | --- |
 | `--in-place` (truncate + rewrite the same inode, what the old compiler did) | dies (SIGBUS/SIGSEGV) | survives |
-| `--truncate` (module file left half written) | dies in `ASTIdentifierIterator::Next` | still dies: the half file is read as a module (separate bug, #488) |
+| `--truncate` (module file left half written) | dies in `ASTIdentifierIterator::Next` | survives (#488: a failed module load left no identifier table for typo correction) |
 | `--workaround` (response file as CMake writes it + `.clangd` with `CompileFlags: Remove: "@*"`) | survives | survives |
 
 The fix is two-sided: the compiler writes module files atomically (`92cae3f49dd2` /

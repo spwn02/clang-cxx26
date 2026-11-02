@@ -9300,8 +9300,12 @@ StringRef ASTIdentifierIterator::Next() {
     if (SkipModules && F.isModule())
       continue;
 
+    // A module file whose load failed half way (a truncated file) has no
+    // identifier table.
     ASTIdentifierLookupTable *IdTable =
         (ASTIdentifierLookupTable *)F.IdentifierLookupTable;
+    if (!IdTable)
+      continue;
     Current = IdTable->key_begin();
     End = IdTable->key_end();
   }
