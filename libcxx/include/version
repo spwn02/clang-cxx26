@@ -135,7 +135,8 @@ __cpp_lib_exception_ptr_cast                            202603L <exception>
 __cpp_lib_exchange_function                             201304L <utility>
 __cpp_lib_execution                                     201902L <execution>
                                                         201603L // C++17
-__cpp_lib_expected                                      202211L <expected>
+__cpp_lib_expected                                      202606L <expected>
+                                                        202211L // C++23
 __cpp_lib_filesystem                                    201703L <filesystem>
 __cpp_lib_flat_map                                      202511L <flat_map>
 __cpp_lib_flat_set                                      202511L <flat_set>
@@ -893,6 +894,8 @@ __cpp_lib_void_t                                        201411L <type_traits>
 #if _LIBCPP_STD_VER >= 29
 # undef  __cpp_lib_bitops
 # define __cpp_lib_bitops                               202607L
+# undef  __cpp_lib_expected
+# define __cpp_lib_expected                             202606L
 # define __cpp_lib_mdspan_copy                          202606L
 # if _LIBCPP_HAS_THREADS
 #   define __cpp_lib_thread_attributes                  202606L

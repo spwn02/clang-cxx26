@@ -655,7 +655,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_expected",
-            "values": {"c++23": 202211},
+            "values": {"c++23": 202211, "c++29": 202606},  # P3798R1 The unexpected in std::expected
             "headers": ["expected"],
         },
         {
