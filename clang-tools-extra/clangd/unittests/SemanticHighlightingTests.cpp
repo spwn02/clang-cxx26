@@ -104,6 +104,19 @@ constexpr static uint32_t ScopeModifierMask =
     1 << unsigned(HighlightingModifier::FileScope) |
     1 << unsigned(HighlightingModifier::GlobalScope);
 
+TEST(SemanticHighlighting, DoExpressions) {
+  checkHighlightings(R"cpp(
+    int $Function_def[[f]](bool $Parameter_def[[b]]) {
+      return do [$LocalVariable_def[[cap]] = 1] -> int {
+        int $LocalVariable_def[[x]] = $LocalVariable[[cap]];
+        if ($Parameter[[b]]) do_return $LocalVariable[[x]];
+        do_return $LocalVariable[[x]] $Operator[[+]] 1;
+      };
+    }
+  )cpp",
+                     {}, ~ScopeModifierMask, {"-std=c++29", "-fdo-expressions"});
+}
+
 TEST(SemanticHighlighting, GetsCorrectTokens) {
   const char *TestCases[] = {
       R"cpp(

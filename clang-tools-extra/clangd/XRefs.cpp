@@ -1086,9 +1086,12 @@ class FindControlFlow : public RecursiveASTVisitor<FindControlFlow> {
     Case = 8,
     Throw = 16,
     Goto = 32,
-    All = Break | Continue | Return | Case | Throw | Goto,
+    DoReturn = 64,
+    All = Break | Continue | Return | Case | Throw | Goto | DoReturn,
   };
-  int Ignore = 0;     // bitmask of Target - what are we *not* highlighting?
+  // Bitmask of Target - what are we *not* highlighting? do_return only counts
+  // when the root is the body of a do expression.
+  int Ignore = DoReturn;
   SourceRange Bounds; // Half-open, restricts reported targets.
   std::vector<SourceLocation> &Result;
   const SourceManager &SM;
@@ -1105,6 +1108,8 @@ class FindControlFlow : public RecursiveASTVisitor<FindControlFlow> {
       Ignore |= Continue | Break;
     else if (D.get<SwitchStmt>())
       Ignore |= Break | Case;
+    else if (D.get<DoExpr>())
+      Ignore |= DoReturn; // its do_returns belong to it
     // Prune tree if we're not looking for anything.
     return (Ignore == All) ? true : Delegate();
   }
@@ -1120,8 +1125,13 @@ class FindControlFlow : public RecursiveASTVisitor<FindControlFlow> {
 
 public:
   FindControlFlow(SourceRange Bounds, std::vector<SourceLocation> &Result,
-                  const SourceManager &SM)
-      : Bounds(Bounds), Result(Result), SM(SM) {}
+                  const SourceManager &SM, bool DoBody = false)
+      : Bounds(Bounds), Result(Result), SM(SM) {
+    // Inside a do expression body the only exits that belong to the body are
+    // its do_return statements.
+    if (DoBody)
+      Ignore = All & ~DoReturn;
+  }
 
   // When traversing function or loops, limit targets to those that still
   // refer to the original root.
@@ -1139,6 +1149,10 @@ public:
   // Add leaves that we found and want.
   bool VisitReturnStmt(ReturnStmt *R) {
     found(Return, R->getReturnLoc());
+    return true;
+  }
+  bool VisitDoReturnStmt(DoReturnStmt *R) {
+    found(DoReturn, R->getKeywordLoc());
     return true;
   }
   bool VisitBreakStmt(BreakStmt *B) {
@@ -1215,7 +1229,7 @@ std::vector<SourceLocation> relatedControlFlow(const SelectionTree::Node &N) {
   std::vector<SourceLocation> Result;
 
   // First, check if we're at a node that can resolve to a root.
-  enum class Cur { None, Break, Continue, Return, Case, Throw } Cursor;
+  enum class Cur { None, Break, Continue, Return, Case, Throw, DoReturn } Cursor;
   if (N.ASTNode.get<BreakStmt>()) {
     Cursor = Cur::Break;
   } else if (N.ASTNode.get<ContinueStmt>()) {
@@ -1224,6 +1238,8 @@ std::vector<SourceLocation> relatedControlFlow(const SelectionTree::Node &N) {
     Cursor = Cur::Return;
   } else if (N.ASTNode.get<CXXThrowExpr>()) {
     Cursor = Cur::Throw;
+  } else if (N.ASTNode.get<DoReturnStmt>() || N.ASTNode.get<DoExpr>()) {
+    Cursor = Cur::DoReturn;
   } else if (N.ASTNode.get<SwitchCase>()) {
     Cursor = Cur::Case;
   } else if (const GotoStmt *GS = N.ASTNode.get<GotoStmt>()) {
@@ -1239,7 +1255,20 @@ std::vector<SourceLocation> relatedControlFlow(const SelectionTree::Node &N) {
   const Stmt *Root = nullptr; // Loop or function body to traverse.
   SourceRange Bounds;
   // Look up the tree for a root (or just at this node if we didn't find a leaf)
+  bool DoBody = false;
   for (const auto *P = &N; P; P = P->Parent) {
+    // do_return (or the do keyword) associates with the enclosing do expression.
+    if (Cursor == Cur::DoReturn) {
+      if (const auto *DE = P->ASTNode.get<DoExpr>()) {
+        Result.push_back(DE->getDoLoc());
+        Root = DE->getBody();
+        DoBody = true;
+        break;
+      }
+      if (getFunctionBody(P->ASTNode))
+        break;
+      continue;
+    }
     // return associates with enclosing function
     if (const Stmt *FunctionBody = getFunctionBody(P->ASTNode)) {
       if (Cursor == Cur::Return || Cursor == Cur::Throw) {
@@ -1277,7 +1306,8 @@ std::vector<SourceLocation> relatedControlFlow(const SelectionTree::Node &N) {
   if (Root) {
     if (!Bounds.isValid())
       Bounds = Root->getSourceRange();
-    FindControlFlow(Bounds, Result, SM).TraverseStmt(const_cast<Stmt *>(Root));
+    FindControlFlow(Bounds, Result, SM, DoBody)
+        .TraverseStmt(const_cast<Stmt *>(Root));
   }
   return Result;
 }
@@ -2110,6 +2140,9 @@ static QualType typeForNode(const ASTContext &Ctx, const HeuristicResolver *H,
       }
       QualType VisitReturnStmt(const ReturnStmt *S) {
         return type(S->getRetValue());
+      }
+      QualType VisitDoReturnStmt(const DoReturnStmt *S) {
+        return type(S->getOperand());
       }
       QualType VisitCoreturnStmt(const CoreturnStmt *S) {
         return type(S->getOperand());

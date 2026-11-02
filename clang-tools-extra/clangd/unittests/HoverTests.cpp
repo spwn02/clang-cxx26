@@ -1569,6 +1569,39 @@ class Foo final {})cpp";
   }
 }
 
+TEST(Hover, DoExpressions) {
+  struct {
+    const char *const Code;
+    const char *Name;
+    const char *Type;
+  } Cases[] = {
+      // A variable declared in the do-expression body.
+      {R"cpp(int f() { return do { int lo^cal = 1; do_return local; }; })cpp",
+       "local", "int"},
+      // An init-capture of the do expression.
+      {R"cpp(int f() { return do [ca^p = 4] { do_return cap; }; })cpp",
+       "cap", "int"},
+      // A use of the init-capture in the body.
+      {R"cpp(int f() { return do [cap = 4] { do_return ca^p; }; })cpp",
+       "cap", "int"},
+      // A variable initialized from a do expression.
+      {R"cpp(void f() { auto va^lue = do { do_return 1.5; }; })cpp",
+       "value", "double"},
+  };
+  for (const auto &C : Cases) {
+    Annotations T(C.Code);
+    TestTU TU = TestTU::withCode(T.code());
+    TU.ExtraArgs.push_back("-std=c++29");
+    TU.ExtraArgs.push_back("-fdo-expressions");
+    auto AST = TU.build();
+    auto H = getHover(AST, T.point(), format::getLLVMStyle(), nullptr);
+    ASSERT_TRUE(H) << C.Code;
+    EXPECT_EQ(H->Name, C.Name) << C.Code;
+    ASSERT_TRUE(H->Type) << C.Code;
+    EXPECT_EQ(H->Type->Type, C.Type) << C.Code;
+  }
+}
+
 TEST(Hover, DefinitionLanuage) {
   struct {
     const char *const Code;

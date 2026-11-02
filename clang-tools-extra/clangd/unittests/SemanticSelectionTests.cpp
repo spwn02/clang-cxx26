@@ -366,6 +366,20 @@ TEST(FoldingRanges, PseudoParserWithoutLineFoldings) {
   }
 }
 
+TEST(FoldingRanges, DoExpression) {
+  Annotations Code(R"cpp(
+    int f(bool b) {[[
+      return do {[[
+        if (b) do_return 1;
+        do_return 2;
+      ]]};
+    ]]}
+  )cpp");
+  EXPECT_THAT(gatherFoldingRanges(llvm::cantFail(getFoldingRanges(
+                  Code.code().str(), /*LineFoldingsOnly=*/false))),
+              UnorderedElementsAreArray(Code.ranges()));
+}
+
 TEST(FoldingRanges, PseudoParserLineFoldingsOnly) {
   const char *Tests[] = {
       R"cpp(
