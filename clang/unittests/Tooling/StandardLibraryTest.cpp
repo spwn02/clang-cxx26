@@ -99,6 +99,31 @@ TEST(StdlibTest, Experimental) {
             "std::experimental::filesystem::system_complete");
 }
 
+// Names newer than the cppreference book of StdSymbolMap.inc come from
+// StdCxx26SymbolMap.inc (generated from libc++'s module interface files).
+TEST(StdlibTest, Cxx26Facilities) {
+  struct {
+    const char *Scope, *Name, *Header;
+  } Cases[] = {
+      {"std::meta::", "info", "<meta>"},
+      {"std::meta::", "members_of", "<meta>"},
+      {"std::execution::", "sender", "<execution>"},
+      {"std::execution::", "task", "<execution>"},
+      {"std::simd::", "vec", "<simd>"},
+      {"std::linalg::", "matrix_product", "<linalg>"},
+      {"std::", "hazard_pointer", "<hazard_pointer>"},
+  };
+  for (const auto &C : Cases) {
+    auto Symbol = stdlib::Symbol::named(C.Scope, C.Name);
+    ASSERT_TRUE(Symbol) << C.Scope << C.Name;
+    EXPECT_EQ(Symbol->header(), stdlib::Header::named(C.Header))
+        << C.Scope << C.Name;
+  }
+  // A name the cppreference map already has keeps its entries.
+  EXPECT_EQ(stdlib::Symbol::named("std::", "vector")->header(),
+            stdlib::Header::named("<vector>"));
+}
+
 TEST(StdlibTest, CCompat) {
   EXPECT_THAT(
       stdlib::Symbol::named("", "int16_t", stdlib::Lang::CXX)->headers(),
