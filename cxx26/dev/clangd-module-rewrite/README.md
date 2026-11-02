@@ -8,7 +8,7 @@ module file and asks for hovers.
 | mode | clangd before the reader fix | clangd now |
 | --- | --- | --- |
 | `--in-place` (truncate + rewrite the same inode, what the old compiler did) | dies (SIGBUS/SIGSEGV) | dies unless `--copy` (`.clangd` CopyModuleFiles) |
-| `--truncate` (module file left half written) | dies in `ASTIdentifierIterator::Next` | survives (#488) |
+| `--truncate` (module file left half written) | dies in `ASTIdentifierIterator::Next` | dies with SIGBUS (mapped pages beyond the new end); survives with `--copy`, where the half file is read and the #488 fix matters |
 | `--workaround` (response file as CMake writes it + `.clangd` with `CompileFlags: Remove: "@*"`) | survives | survives |
 
 Mapping is the default again (owner decision 2026-11-02): copying module files into memory

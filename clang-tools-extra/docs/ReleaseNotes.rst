@@ -103,6 +103,12 @@ Compile flags
 - Added proper support for the ``-std=c++latest`` flag, often used by
   Windows users writing C++23 code.
 
+- Added the ``CompileFlags: CopyModuleFiles`` option (default ``false``). Module
+  files are memory-mapped; a build that rewrites a module file in place while
+  clangd has it mapped kills clangd with SIGBUS. With ``CopyModuleFiles: true``
+  clangd keeps a copy in memory instead, at the price of private memory of about
+  twice the size of the imported module files per open file.
+
 Diagnostics
 ^^^^^^^^^^^
 
