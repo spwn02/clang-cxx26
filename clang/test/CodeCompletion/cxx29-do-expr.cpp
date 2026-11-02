@@ -90,3 +90,10 @@ void resulttype() {
 // RUN: %clang_cc1 -std=c++2d -fsyntax-only -code-completion-at=%s:85:21 %s | FileCheck -check-prefix=CHECK-AFTER-TYPE %s
 // CHECK-AFTER-TYPE: COMPLETION: Pattern : {
 // CHECK-AFTER-TYPE-NEXT: <#statements#>
+// No function declarator follows the result type of a do expression.
+// RUN: %clang_cc1 -std=c++2d -fsyntax-only -code-completion-at=%s:85:21 %s | FileCheck -check-prefix=CHECK-NO-DECLARATOR %s
+// CHECK-NO-DECLARATOR-NOT: noexcept
+// CHECK-NO-DECLARATOR-NOT: requires
+// CHECK-NO-DECLARATOR-NOT: operator
+// CHECK-NO-DECLARATOR-NOT: post(
+// CHECK-NO-DECLARATOR-NOT: pre(

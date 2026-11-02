@@ -2157,6 +2157,13 @@ static void AddContractAssertResult(CodeCompletionBuilder &Builder,
 
 static void AddDoExprBodyResult(Sema &S, ResultBuilder &Results);
 
+/// True while completing the `-> type` of a do expression: no function
+/// declarator follows the type there (no noexcept, requires, contracts).
+static bool isInDoExprResultType(Sema &S) {
+  return S.getLangOpts().DoExpressions && !S.DoExprStack.empty() &&
+         S.DoExprStack.back().ParsingResultType;
+}
+
 /// Add the `pre`/`post` function-contract-specifiers. Unlike
 /// `contract_assert` these are not statements: they attach to a declarator, so
 /// they are offered from the function-qualifier position and from the contract
@@ -4885,7 +4892,8 @@ void SemaCodeCompletion::CodeCompleteDeclSpec(Scope *S, DeclSpec &DS,
     // `auto f() -> int <#cursor#>`. This position is reached through
     // ParseTypeName/ParseSpecifierQualifierList rather than through
     // CodeCompleteFunctionQualifiers, so mirror what that function offers.
-    if (IsTrailingReturnType && getLangOpts().CPlusPlus11) {
+    if (IsTrailingReturnType && getLangOpts().CPlusPlus11 &&
+        !isInDoExprResultType(SemaRef)) {
       Results.AddResult(Result("noexcept"));
       if (getLangOpts().CPlusPlus20)
         Results.AddResult(Result("requires"));
@@ -4896,7 +4904,7 @@ void SemaCodeCompletion::CodeCompleteDeclSpec(Scope *S, DeclSpec &DS,
     if (IsTrailingReturnType)
       AddDoExprBodyResult(SemaRef, Results);
 
-    if (AllowNonIdentifiers) {
+    if (AllowNonIdentifiers && !isInDoExprResultType(SemaRef)) {
       Results.AddResult(Result("operator"));
     }
 
@@ -6300,7 +6308,7 @@ void SemaCodeCompletion::CodeCompleteTrailingReturnTypeQualifiers(
   Results.EnterNewScope();
   AddTypeQualifierResults(DS, Results, getLangOpts());
   AddDoExprBodyResult(SemaRef, Results);
-  if (getLangOpts().CPlusPlus11) {
+  if (getLangOpts().CPlusPlus11 && !isInDoExprResultType(SemaRef)) {
     Results.AddResult("noexcept");
     if (getLangOpts().CPlusPlus20)
       Results.AddResult("requires");
@@ -6322,7 +6330,7 @@ void SemaCodeCompletion::CodeCompleteFunctionQualifiers(
   Results.EnterNewScope();
   AddTypeQualifierResults(DS, Results, getLangOpts());
   AddDoExprBodyResult(SemaRef, Results);
-  if (getLangOpts().CPlusPlus11) {
+  if (getLangOpts().CPlusPlus11 && !isInDoExprResultType(SemaRef)) {
     Results.AddResult("noexcept");
     if (getLangOpts().CPlusPlus20)
       Results.AddResult("requires");
