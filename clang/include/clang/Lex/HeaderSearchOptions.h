@@ -187,6 +187,15 @@ public:
   /// The set of user-provided virtual filesystem overlay files.
   std::vector<std::string> VFSOverlayFiles;
 
+  /// Read module files into memory instead of memory-mapping them. A mapped
+  /// module file that another process rewrites in place (a build that is
+  /// killed halfway, a compiler that does not write atomically) faults the
+  /// reader (SIGBUS) when it touches a page that is gone. Long-lived tools that
+  /// read the build system's module files (clangd) set this; the price is the
+  /// memory of the files.
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned ReadModuleFilesIntoMemory : 1;
+
   /// Include the compiler builtin includes.
   LLVM_PREFERRED_TYPE(bool)
   unsigned UseBuiltinIncludes : 1;
@@ -287,7 +296,7 @@ public:
       : Sysroot(_Sysroot), ModuleFormat("raw"), DisableModuleHash(false),
         ImplicitModuleMaps(false), ModuleMapFileHomeIsCwd(false),
         ModuleFileHomeIsCwd(false), EnablePrebuiltImplicitModules(false),
-        UseBuiltinIncludes(true), UseStandardSystemIncludes(true),
+        ReadModuleFilesIntoMemory(false), UseBuiltinIncludes(true), UseStandardSystemIncludes(true),
         UseStandardCXXIncludes(true), UseLibcxx(false), Verbose(false),
         ModulesValidateOncePerBuildSession(false),
         ModulesValidateSystemHeaders(false),
