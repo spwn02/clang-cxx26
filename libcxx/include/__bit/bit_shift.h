@@ -13,11 +13,17 @@
 #include <__config>
 #include <__type_traits/integer_traits.h>
 #include <__type_traits/make_unsigned.h>
-#include <limits>
+
+#if _LIBCPP_STD_VER >= 29
+#  include <limits>
+#endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
 #endif
+
+_LIBCPP_PUSH_MACROS
+#include <__undef_macros>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -59,10 +65,10 @@ _LIBCPP_HIDE_FROM_ABI constexpr unsigned long long __shift_magnitude(_Sp __s) no
   } else {
     __magnitude = __s < 0 ? static_cast<_Us>(_Us(0) - static_cast<_Us>(__s)) : static_cast<_Us>(__s);
   }
-  constexpr unsigned long long __max = numeric_limits<unsigned long long>::max();
+  constexpr unsigned long long __max_count = numeric_limits<unsigned long long>::max();
   if constexpr (numeric_limits<_Us>::digits > numeric_limits<unsigned long long>::digits) {
-    if (__magnitude > static_cast<_Us>(__max))
-      return __max;
+    if (__magnitude > static_cast<_Us>(__max_count))
+      return __max_count;
   }
   return static_cast<unsigned long long>(__magnitude);
 }
@@ -93,5 +99,7 @@ template <class _Tp, class _Sp>
 #endif // _LIBCPP_STD_VER >= 29
 
 _LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
 
 #endif // _LIBCPP___BIT_BIT_SHIFT_H

@@ -21,11 +21,14 @@
 #include <__type_traits/is_base_of.h>
 #include <__type_traits/is_class.h>
 #include <__utility/declval.h>
-#include <__utility/exception_guard.h>
 #include <__utility/exchange.h>
 #include <__utility/move.h>
 #include <__utility/swap.h>
-#include <span>
+
+#if _LIBCPP_STD_VER >= 29
+#  include <__utility/exception_guard.h>
+#  include <span>
+#endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header

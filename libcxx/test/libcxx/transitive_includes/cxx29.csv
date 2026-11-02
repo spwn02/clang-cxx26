@@ -531,6 +531,8 @@ hazard_pointer memory
 hazard_pointer mutex
 hazard_pointer optional
 hazard_pointer ratio
+hazard_pointer span
+hazard_pointer stdexcept
 hazard_pointer tuple
 hazard_pointer typeinfo
 hazard_pointer utility

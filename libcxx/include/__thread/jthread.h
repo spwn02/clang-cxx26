@@ -10,7 +10,6 @@
 #ifndef _LIBCPP___THREAD_JTHREAD_H
 #define _LIBCPP___THREAD_JTHREAD_H
 
-#include <__concepts/same_as.h>
 #include <__config>
 #include <__stop_token/stop_source.h>
 #include <__stop_token/stop_token.h>
@@ -23,10 +22,14 @@
 #include <__type_traits/is_same.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/forward.h>
-#include <__utility/integer_sequence.h>
 #include <__utility/move.h>
 #include <__utility/swap.h>
-#include <tuple>
+
+#if _LIBCPP_STD_VER >= 29
+#  include <__concepts/same_as.h>
+#  include <__utility/integer_sequence.h>
+#  include <tuple>
+#endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -147,27 +150,27 @@ private:
     return __i;
   }
 
-  template <size_t _I, size_t... _Ai, size_t... _Fi, class... _Ts>
+  template <size_t _Idx, size_t... _Ai, size_t... _Fi, class... _Ts>
   _LIBCPP_HIDE_FROM_ABI static thread
   __init_thread(const stop_source& __ss, __index_sequence<_Ai...>, __index_sequence<_Fi...>, tuple<_Ts...>&& __all) {
-    static_assert(_I < sizeof...(_Ts), "Mandates: a function to invoke follows the thread attributes");
-    if constexpr (_I < sizeof...(_Ts)) {
+    static_assert(_Idx < sizeof...(_Ts), "Mandates: a function to invoke follows the thread attributes");
+    if constexpr (_Idx < sizeof...(_Ts)) {
       using _Types = tuple<_Ts...>; // the elements are the (possibly reference) argument types
-      using _Fun   = tuple_element_t<_I, _Types>;
+      using _Fun   = tuple_element_t<_Idx, _Types>;
       static_assert(is_constructible_v<decay_t<_Fun>, _Fun>);
-      static_assert((is_constructible_v<decay_t<tuple_element_t<_I + 1 + _Fi, _Types>>, tuple_element_t<_I + 1 + _Fi, _Types>> &&
+      static_assert((is_constructible_v<decay_t<tuple_element_t<_Idx + 1 + _Fi, _Types>>, tuple_element_t<_Idx + 1 + _Fi, _Types>> &&
                      ...));
-      static_assert(is_invocable_v<decay_t<_Fun>, decay_t<tuple_element_t<_I + 1 + _Fi, _Types>>...> ||
-                    is_invocable_v<decay_t<_Fun>, stop_token, decay_t<tuple_element_t<_I + 1 + _Fi, _Types>>...>);
-      if constexpr (is_invocable_v<decay_t<_Fun>, stop_token, decay_t<tuple_element_t<_I + 1 + _Fi, _Types>>...>) {
+      static_assert(is_invocable_v<decay_t<_Fun>, decay_t<tuple_element_t<_Idx + 1 + _Fi, _Types>>...> ||
+                    is_invocable_v<decay_t<_Fun>, stop_token, decay_t<tuple_element_t<_Idx + 1 + _Fi, _Types>>...>);
+      if constexpr (is_invocable_v<decay_t<_Fun>, stop_token, decay_t<tuple_element_t<_Idx + 1 + _Fi, _Types>>...>) {
         return thread(std::forward<tuple_element_t<_Ai, _Types>>(std::get<_Ai>(std::move(__all)))...,
-                      std::forward<_Fun>(std::get<_I>(std::move(__all))),
+                      std::forward<_Fun>(std::get<_Idx>(std::move(__all))),
                       __ss.get_token(),
-                      std::forward<tuple_element_t<_I + 1 + _Fi, _Types>>(std::get<_I + 1 + _Fi>(std::move(__all)))...);
+                      std::forward<tuple_element_t<_Idx + 1 + _Fi, _Types>>(std::get<_Idx + 1 + _Fi>(std::move(__all)))...);
       } else {
         return thread(std::forward<tuple_element_t<_Ai, _Types>>(std::get<_Ai>(std::move(__all)))...,
-                      std::forward<_Fun>(std::get<_I>(std::move(__all))),
-                      std::forward<tuple_element_t<_I + 1 + _Fi, _Types>>(std::get<_I + 1 + _Fi>(std::move(__all)))...);
+                      std::forward<_Fun>(std::get<_Idx>(std::move(__all))),
+                      std::forward<tuple_element_t<_Idx + 1 + _Fi, _Types>>(std::get<_Idx + 1 + _Fi>(std::move(__all)))...);
       }
     } else {
       return thread(); // diagnosed by the static_assert above

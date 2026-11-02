@@ -66,12 +66,12 @@ template <__unsigned_integer _Tp>
 template <__unsigned_integer _Tp>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp bit_compress(_Tp __x, _Tp __m) noexcept {
   _Tp __result = 0;
-  _Tp __out    = 1;
+  _Tp __out_bit    = 1;
   while (__m != 0) {
     const _Tp __lowest = static_cast<_Tp>(__m & static_cast<_Tp>(-__m)); // the lowest set bit of the mask
     if ((__x & __lowest) != 0)
-      __result = static_cast<_Tp>(__result | __out);
-    __out = static_cast<_Tp>(__out << 1);
+      __result = static_cast<_Tp>(__result | __out_bit);
+    __out_bit = static_cast<_Tp>(__out_bit << 1);
     __m   = static_cast<_Tp>(__m & static_cast<_Tp>(__m - 1));
   }
   return __result;
@@ -81,12 +81,12 @@ template <__unsigned_integer _Tp>
 template <__unsigned_integer _Tp>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _Tp bit_expand(_Tp __x, _Tp __m) noexcept {
   _Tp __result = 0;
-  _Tp __in     = 1;
+  _Tp __in_bit     = 1;
   while (__m != 0) {
     const _Tp __lowest = static_cast<_Tp>(__m & static_cast<_Tp>(-__m)); // the lowest set bit of the mask
-    if ((__x & __in) != 0)
+    if ((__x & __in_bit) != 0)
       __result = static_cast<_Tp>(__result | __lowest);
-    __in = static_cast<_Tp>(__in << 1);
+    __in_bit = static_cast<_Tp>(__in_bit << 1);
     __m  = static_cast<_Tp>(__m & static_cast<_Tp>(__m - 1));
   }
   return __result;

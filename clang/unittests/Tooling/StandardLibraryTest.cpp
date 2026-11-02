@@ -114,6 +114,9 @@ TEST(StdlibTest, Cxx26Facilities) {
       {"std::", "hazard_pointer", "<hazard_pointer>"},
       {"std::", "bit_reverse", "<bit>"},
       {"std::", "constant_wrapper", "<utility>"},
+      {"std::", "shl", "<bit>"},
+      {"std::", "make_hazard_pointer_batch", "<hazard_pointer>"},
+      {"std::simd::", "bit_reverse", "<simd>"},
   };
   for (const auto &C : Cases) {
     auto Symbol = stdlib::Symbol::named(C.Scope, C.Name);

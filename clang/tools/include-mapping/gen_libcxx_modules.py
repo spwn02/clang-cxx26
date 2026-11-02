@@ -64,7 +64,16 @@ def main():
     by_name = {}
     for (q, header) in found:
         by_name.setdefault(q, set()).add(header)
-    found = {k: v for k, v in found.items() if not (v[1] == "std::" and len(by_name[k[0]]) > 1)}
+    # <simd> re-exports the scalar functions it overloads (std::bit_reverse, std::shl, ...) into std::;
+    # the scalar header is the primary one, as cppreference maps bit_ceil to <bit> only.
+    def keep(k, v):
+        if v[1] != "std::":
+            return True
+        headers = by_name[k[0]]
+        if len(headers) > 1:
+            headers = headers - {"<simd>"}
+        return len(headers) == 1 and k[1] in headers
+    found = {k: v for k, v in found.items() if keep(k, v)}
 
     out = sys.stdout
     out.write("""//===-- gen_libcxx_modules.py generated file ---------------------*- C++ -*-===//
