@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# usage: sweep-libcxx-std.sh <std> <outfile>   -- stops at the first directory with a failure (FAIL_FAST=0 disables); runs libc++ lit per test directory (and per top-level
+# usage: [START_AT=<test dir>] sweep-libcxx-std.sh <std> <outfile>   -- START_AT resumes at that directory (earlier ones are skipped, the outfile is appended to); stops at the first directory with a failure (FAIL_FAST=0 disables); runs libc++ lit per test directory (and per top-level
 # libcxx/test/libcxx file), deleting Output between.
 # libcxx-lit reinstalls headers from the working tree on every call: do not edit libcxx/include while a
 # sweep runs (use a worktree). The clang_tidy.gen.py tests need the plugin, see check-module-exports.sh.
 cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit 1
 export CCACHE_DIR="${SCRATCH:-/tmp/cxx26-scratch}/ccache"
-std="$1"; out="$2"; : > "$out"
+std="$1"; out="$2"; [ -n "$START_AT" ] || : > "$out"
 # The probe cache of the lit configuration only grows (3.5 GB made every libcxx-lit call take 3.5 minutes longer): start clean.
 find build-libcxx*/libcxx/test/__config_cache__ -mindepth 1 -maxdepth 1 -type f -delete 2>/dev/null
 # The main headers are not C++03-clean (upstream neither); C++03 is tested against the frozen C++03 headers.
 extra=(); [ "$std" = c++03 ] && extra=(--param test_frozen_cxx03_headers=True)
 for d in libcxx/test/std/* libcxx/test/libcxx/* libcxx/test/extensions/gnu libcxx/test/extensions/libcxx libcxx/test/extensions/all libcxx/test/extensions/msvc libcxx/test/extensions/posix libcxx/test/extensions/clang/thread libcxx/test/support; do
   [ -e "$d" ] || continue
+  if [ -n "$START_AT" ] && [[ "$d" < "$START_AT" ]]; then continue; fi
   case "$d" in *benchmarks*|*.cfg) continue;; esac
   r=$(libcxx/utils/libcxx-lit build-libcxx -sv -j"${JOBS:-$(nproc)}" --param std="$std" ${extra[@]+"${extra[@]}"} "$d" 2>&1 | grep -E "^  (Passed|Failed|Unsupported|Unresolved|Expectedly|XPass)|^FAIL|^XPASS|^UNRESOLVED|Total Discovered" | tr '\n' '|')
   echo "$d :: $r" >> "$out"
