@@ -980,7 +980,8 @@ bool UnwrappedLineParser::lbraceStartsDoExpression() const {
   SmallVector<const FormatToken *, 40> Toks;
   for (auto It = Line->Tokens.rbegin(), E = Line->Tokens.rend();
        It != E && Toks.size() < 40; ++It) {
-    Toks.push_back(It->Tok);
+    if (It->Tok->isNot(tok::comment))
+      Toks.push_back(It->Tok);
   }
   // Toks[0] is the token just before the `{`.
   int I = 0;
@@ -1492,6 +1493,13 @@ void UnwrappedLineParser::parseStructuralElement(
     return;
   }
 
+  // Inside the body of a do expression (P2806) `do_return` is a keyword; it
+  // stays an ordinary identifier everywhere else.
+  if (DoExprBodyDepth > 0 && FormatTok->is(tok::identifier) &&
+      FormatTok->TokenText == "do_return") {
+    FormatTok->Tok.setKind(tok::kw_do_return);
+  }
+
   if (IsCpp) {
     while (FormatTok->is(tok::l_square) && handleCppAttributes()) {
     }
@@ -1972,7 +1980,9 @@ void UnwrappedLineParser::parseStructuralElement(
       if (lbraceStartsDoExpression()) {
         // The body of a do expression is an operand: the line goes on after
         // the closing brace.
+        ++DoExprBodyDepth;
         parseChildBlock();
+        --DoExprBodyDepth;
         break;
       }
       if (!tryToParsePropertyAccessor() && !tryToParseBracedList()) {
@@ -2465,8 +2475,8 @@ bool UnwrappedLineParser::tryToParseLambdaIntroducer() {
         return false;
     }
     if (Previous && Previous->Tok.getIdentifierInfo() &&
-        Previous->isNoneOf(tok::kw_return, tok::kw_co_await, tok::kw_co_yield,
-                           tok::kw_co_return)) {
+        Previous->isNoneOf(tok::kw_return, tok::kw_do_return, tok::kw_co_await,
+                           tok::kw_co_yield, tok::kw_co_return)) {
       return false;
     }
   }

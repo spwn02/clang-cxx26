@@ -2516,6 +2516,25 @@ the configuration (without a prefix: ``Auto``).
         bar();
       });
 
+  * ``bool BeforeDoExpressionBody`` Wrap the opening brace of the body of a do expression (P2806).
+
+    .. code-block:: c++
+
+      true:
+      int x = do
+      {
+        if (b)
+          do_return 1;
+        do_return 2;
+      };
+
+      false:
+      int x = do {
+        if (b)
+          do_return 1;
+        do_return 2;
+      };
+
   * ``bool BeforeWhile`` Wrap before ``while``.
 
     .. code-block:: c++

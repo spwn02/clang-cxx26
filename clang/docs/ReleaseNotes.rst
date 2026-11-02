@@ -1075,6 +1075,10 @@ clang-format
   literals.
 - Add ``Leave`` suboption to ``IndentPPDirectives``.
 - Add ``AllowBreakBeforeQtProperty`` option.
+- Add ``BraceWrapping/BeforeDoExpressionBody`` option for the opening brace of the
+  body of a C++29 do expression (P2806); it is off in every built-in style.
+  Inside a do expression ``do_return`` is now treated like ``return``, so that
+  ``do_return -x;`` and ``do_return (x);`` keep their spacing.
 - Add ``BreakAfterOpenBracketBracedList'', ``BreakAfterOpenBracketFunction'',
   ``BreakAfterOpenBracketIf``, ``BreakAfterOpenBracketLoop``,
   ``BreakAfterOpenBracketSwitch``, ``BreakBeforeCloseBracketBracedList'',

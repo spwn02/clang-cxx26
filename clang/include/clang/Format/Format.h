@@ -1526,6 +1526,24 @@ struct FormatStyle {
     ///   });
     /// \endcode
     bool BeforeLambdaBody;
+    /// Wrap the opening brace of the body of a do expression (P2806).
+    /// \code
+    ///   true:
+    ///   int x = do
+    ///   {
+    ///     if (b)
+    ///       do_return 1;
+    ///     do_return 2;
+    ///   };
+    ///
+    ///   false:
+    ///   int x = do {
+    ///     if (b)
+    ///       do_return 1;
+    ///     do_return 2;
+    ///   };
+    /// \endcode
+    bool BeforeDoExpressionBody;
     /// Wrap before ``while``.
     /// \code
     ///   true:

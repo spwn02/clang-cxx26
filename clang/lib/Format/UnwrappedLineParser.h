@@ -293,6 +293,9 @@ private:
   // outermost expansion.
   bool InExpansion = false;
 
+  /// How many do-expression bodies (P2806) enclose the token being parsed.
+  unsigned DoExprBodyDepth = 0;
+
   // Set while we reconstruct a macro call.
   // For reconstruction, we feed the expanded lines into the reconstructor
   // until it is finished.

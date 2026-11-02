@@ -23320,6 +23320,9 @@ TEST_F(FormatTest, FormatsDoExpressions) {
   verifyFormat("int d = 1 + do { do_return 2; } * 3;");
   verifyFormat("int c = foo(do { do_return 1; }, do [x = 2] -> int { do_return x; });");
   verifyFormat("int a = b ? do { do_return 1; } : do { do_return 2; };");
+  // A comment between the keyword and the body does not change the layout (the
+  // line parser and the annotator must agree on what the brace opens).
+  verifyFormat("int e = do /*c*/ { do_return 1; };");
   verifyFormat("if (do { do_return b; })\n"
                "  return 0;");
   verifyFormat("for (int i = 0; i < 3; ++i)\n"
@@ -23347,6 +23350,57 @@ TEST_F(FormatTest, FormatsDoExpressions) {
                "    do [captured_value = compute(first_argument, second_argument)]\n"
                "    -> long { do_return captured_value + 1; };",
                getLLVMStyleWithColumns(80));
+}
+
+TEST_F(FormatTest, FormatsDoReturn) {
+  // Inside a do expression do_return is a keyword: unary operators and
+  // parentheses after it are formatted like after return.
+  verifyFormat("int a = do { do_return -x; };");
+  verifyFormat("int b = do { do_return +x; };");
+  verifyFormat("int c = do { do_return *p; };");
+  verifyFormat("int d = do { do_return &x != nullptr; };");
+  verifyFormat("int e = do { do_return (x); };");
+  verifyFormat("int g = do { do_return ~x + 1; };");
+  verifyFormat("int h = do {\n"
+               "  if (b)\n"
+               "    do_return -1;\n"
+               "  do_return !b;\n"
+               "};");
+  // Elsewhere it is an ordinary identifier.
+  verifyFormat("int do_return(int x);");
+  verifyFormat("void f() { do_return(x); }");
+  verifyFormat("void f() { do_return - x; }");
+}
+
+TEST_F(FormatTest, BreaksBeforeDoExpressionBody) {
+  FormatStyle Style = getLLVMStyle();
+  Style.BreakBeforeBraces = FormatStyle::BS_Custom;
+  Style.BraceWrapping.BeforeDoExpressionBody = true;
+  verifyFormat("int x = do\n"
+               "{\n"
+               "  if (b)\n"
+               "    do_return 1;\n"
+               "  do_return 2;\n"
+               "};",
+               Style);
+  verifyFormat("int y = do [k = 1] -> int\n"
+               "{\n"
+               "  do_return k;\n"
+               "};",
+               Style);
+  verifyFormat("int z = do\n"
+               "{\n"
+               "  do_return 3;\n"
+               "} + 1;",
+               Style);
+  // A do-while statement is not affected.
+  verifyFormat("do {\n"
+               "  n++;\n"
+               "} while (n < 10);",
+               Style);
+  // Off by default.
+  EXPECT_FALSE(getLLVMStyle().BraceWrapping.BeforeDoExpressionBody);
+  verifyFormat("int x = do { do_return 1; };");
 }
 
 TEST_F(FormatTest, FormatsLambdas) {

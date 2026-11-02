@@ -41,7 +41,8 @@ static bool shouldIndentWrappedSelectorName(const FormatStyle &Style,
 static bool shouldUnindentNextOperator(const FormatToken &Tok) {
   const FormatToken *Previous = Tok.getPreviousNonComment();
   return Previous && (Previous->getPrecedence() == prec::Assignment ||
-                      Previous->isOneOf(tok::kw_return, TT_RequiresClause));
+                      Previous->isOneOf(tok::kw_return, tok::kw_do_return,
+                                        TT_RequiresClause));
 }
 
 // Returns the length of everything up to the first possible line break after
@@ -564,7 +565,8 @@ bool ContinuationIndenter::mustBreak(const LineState &State) {
   if (Style.AlwaysBreakBeforeMultilineStrings &&
       (NewLineColumn == State.FirstIndent + Style.ContinuationIndentWidth ||
        Previous.is(tok::comma) || Current.NestingLevel < 2) &&
-      Previous.isNoneOf(tok::kw_return, tok::lessless, tok::at,
+      Previous.isNoneOf(tok::kw_return, tok::kw_do_return, tok::lessless,
+                        tok::at,
                         Keywords.kw_dollar) &&
       Previous.isNoneOf(TT_InlineASMColon, TT_ConditionalExpr) &&
       nextIsMultilineString(State)) {
@@ -1892,7 +1894,8 @@ void ContinuationIndenter::moveStatePastFakeLParens(LineState &State,
   bool SkipFirstExtraIndent =
       Previous &&
       (Previous->opensScope() ||
-       Previous->isOneOf(tok::semi, tok::kw_return, TT_RequiresClause) ||
+       Previous->isOneOf(tok::semi, tok::kw_return, tok::kw_do_return,
+                         TT_RequiresClause) ||
        (Previous->getPrecedence() == prec::Assignment &&
         Style.AlignOperands != FormatStyle::OAS_DontAlign) ||
        Previous->is(TT_ObjCMethodExpr));
@@ -1918,7 +1921,7 @@ void ContinuationIndenter::moveStatePastFakeLParens(LineState &State,
     if (!Current.isTrailingComment() &&
         (Style.AlignOperands != FormatStyle::OAS_DontAlign ||
          PrecedenceLevel < prec::Assignment) &&
-        (!Previous || Previous->isNot(tok::kw_return) ||
+        (!Previous || Previous->isNoneOf(tok::kw_return, tok::kw_do_return) ||
          (!Style.isJava() && PrecedenceLevel > 0)) &&
         (Style.AlignAfterOpenBracket || PrecedenceLevel > prec::Comma ||
          Current.NestingLevel == 0) &&
