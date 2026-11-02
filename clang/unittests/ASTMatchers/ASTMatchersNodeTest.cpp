@@ -455,6 +455,30 @@ TEST_P(ASTMatchersTest, FlowControl) {
   EXPECT_TRUE(matches("void f() { return; }", returnStmt()));
 }
 
+TEST(ASTMatchersTestDoExpr, DoExprAndDoReturn) {
+  const std::vector<std::string> Args = {"-std=c++29", "-fdo-expressions"};
+  const char *Code = "int f(int a, int b) { return do { do_return a + b; }; }";
+  EXPECT_TRUE(matchesConditionally(Code, doExpr(), true, Args));
+  EXPECT_TRUE(matchesConditionally(Code, doReturnStmt(), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Code, doExpr(has(compoundStmt(has(doReturnStmt())))), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Code, doReturnStmt(hasDoReturnValue(binaryOperator())), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Code, doReturnStmt(hasDoReturnValue(integerLiteral())), false, Args));
+  EXPECT_TRUE(matchesConditionally(Code, returnStmt(hasReturnValue(doExpr())),
+                                   true, Args));
+  EXPECT_TRUE(matchesConditionally(Code, doStmt(), false, Args));
+  EXPECT_TRUE(
+      matchesConditionally(Code, doExpr(hasExplicitResultType()), false, Args));
+  EXPECT_TRUE(matchesConditionally(
+      "int f() { return do -> int { do_return 1; }; }",
+      doExpr(hasExplicitResultType()), true, Args));
+  // A real do-while is not a do expression.
+  EXPECT_TRUE(matchesConditionally("void f() { do {} while (false); }",
+                                   doExpr(), false, Args));
+}
+
 TEST_P(ASTMatchersTest, CXXOperatorCallExpr) {
   if (!GetParam().isCXX()) {
     return;

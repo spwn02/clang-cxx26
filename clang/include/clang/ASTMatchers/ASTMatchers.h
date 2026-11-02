@@ -2345,6 +2345,27 @@ extern const internal::VariadicDynCastAllOfMatcher<Stmt, CoreturnStmt>
 ///   matches 'return 1'
 extern const internal::VariadicDynCastAllOfMatcher<Stmt, ReturnStmt> returnStmt;
 
+/// Matches do expressions (P2806), a C++29 feature.
+///
+/// Given
+/// \code
+///   int x = do { do_return 1; };
+/// \endcode
+/// doExpr()
+///   matches 'do { do_return 1; }'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, DoExpr> doExpr;
+
+/// Matches do_return statements (P2806), a C++29 feature.
+///
+/// Given
+/// \code
+///   int x = do { do_return 1; };
+/// \endcode
+/// doReturnStmt()
+///   matches 'do_return 1'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, DoReturnStmt>
+    doReturnStmt;
+
 /// Matches goto statements.
 ///
 /// Given
@@ -8411,6 +8432,34 @@ AST_MATCHER_P(Decl, hasAttr, attr::Kind, AttrKind) {
   }
   return false;
 }
+
+/// Matches the operand of a do_return statement
+///
+/// Given
+/// \code
+///   int x = do { do_return a + b; };
+/// \endcode
+/// doReturnStmt(hasDoReturnValue(binaryOperator()))
+///   matches 'do_return a + b'
+/// with binaryOperator()
+///   matching 'a + b'
+AST_MATCHER_P(DoReturnStmt, hasDoReturnValue, internal::Matcher<Expr>,
+              InnerMatcher) {
+  if (const auto *Operand = Node.getOperand())
+    return InnerMatcher.matches(*Operand, Finder, Builder);
+  return false;
+}
+
+/// Matches a do expression that spells its result type.
+///
+/// Given
+/// \code
+///   int a = do -> int { do_return 1; };
+///   int b = do { do_return 2; };
+/// \endcode
+/// doExpr(hasExplicitResultType())
+///   matches the first do expression only
+AST_MATCHER(DoExpr, hasExplicitResultType) { return Node.hasExplicitType(); }
 
 /// Matches the return value expression of a return statement
 ///
