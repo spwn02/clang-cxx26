@@ -28,7 +28,7 @@ void NonConstParameterCheck::registerMatchers(MatchFinder *Finder) {
   // Analyse parameter usage in function.
   Finder->addMatcher(stmt(anyOf(unaryOperator(hasAnyOperatorName("++", "--")),
                                 binaryOperator(), callExpr(), returnStmt(),
-                                cxxConstructExpr()))
+                                doReturnStmt(), cxxConstructExpr()))
                          .bind("Mark"),
                      this);
   Finder->addMatcher(varDecl(hasInitializer(anything())).bind("Mark"), this);
@@ -95,6 +95,8 @@ void NonConstParameterCheck::check(const MatchFinder::MatchResult &Result) {
       }
     } else if (const auto *R = dyn_cast<ReturnStmt>(S)) {
       markCanNotBeConst(R->getRetValue(), true);
+    } else if (const auto *DR = dyn_cast<DoReturnStmt>(S)) {
+      markCanNotBeConst(DR->getOperand(), true);
     } else if (const auto *U = dyn_cast<UnaryOperator>(S)) {
       markCanNotBeConst(U, true);
     }

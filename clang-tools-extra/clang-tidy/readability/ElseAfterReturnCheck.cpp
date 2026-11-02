@@ -168,7 +168,8 @@ void ElseAfterReturnCheck::registerPPCallbacks(const SourceManager &SM,
 void ElseAfterReturnCheck::registerMatchers(MatchFinder *Finder) {
   const auto InterruptsControlFlow = stmt(anyOf(
       returnStmt().bind(InterruptingStr), continueStmt().bind(InterruptingStr),
-      breakStmt().bind(InterruptingStr), cxxThrowExpr().bind(InterruptingStr)));
+      breakStmt().bind(InterruptingStr), cxxThrowExpr().bind(InterruptingStr),
+      doReturnStmt().bind(InterruptingStr)));
   Finder->addMatcher(
       compoundStmt(
           forEach(ifStmt(unless(isConstexpr()), unless(isConsteval()),
@@ -229,6 +230,8 @@ static StringRef getControlFlowString(const Stmt &Stmt) {
     return "break";
   if (isa<CXXThrowExpr>(Stmt))
     return "throw";
+  if (isa<DoReturnStmt>(Stmt))
+    return "do_return";
   llvm_unreachable("Unknown control flow interrupter");
 }
 
