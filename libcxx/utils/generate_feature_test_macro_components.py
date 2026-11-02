@@ -1679,7 +1679,12 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_simd",
-            "values": {"c++26": 202603},  # P1928R15 std::simd -- merge data-parallel types from the Parallelism TS 2, P3690R1
+            "values": {"c++26": 202603, "c++29": 202606},  # P1928R15 std::simd -- merge data-parallel types from the Parallelism TS 2, P3690R1; C++29: P3772R2 bit permutations, P3793R2 shl/shr
+            "headers": ["simd"],
+        },
+        {
+            "name": "__cpp_lib_simd_bitops",
+            "values": {"c++29": 202607},  # P3772R2 std::simd overloads for bit permutations, P3793R2 shl/shr
             "headers": ["simd"],
         },
         {

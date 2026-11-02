@@ -68,7 +68,19 @@ using simd::atan2;
 using simd::atanh;
 using simd::beta;
 using simd::bit_ceil;
+#if _LIBCPP_STD_VER >= 29
+using simd::bit_compress;
+#endif
+#if _LIBCPP_STD_VER >= 29
+using simd::bit_expand;
+#endif
 using simd::bit_floor;
+#if _LIBCPP_STD_VER >= 29
+using simd::bit_repeat;
+#endif
+#if _LIBCPP_STD_VER >= 29
+using simd::bit_reverse;
+#endif
 using simd::bit_width;
 using simd::byteswap;
 using simd::cbrt;
@@ -154,6 +166,12 @@ using simd::riemann_zeta;
 using simd::rint;
 using simd::rotl;
 using simd::rotr;
+#if _LIBCPP_STD_VER >= 29
+using simd::shl;
+#endif
+#if _LIBCPP_STD_VER >= 29
+using simd::shr;
+#endif
 using simd::round;
 using simd::scalbln;
 using simd::scalbn;

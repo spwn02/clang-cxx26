@@ -28,7 +28,19 @@ export namespace std::simd {
   using std::simd::basic_vec;
   using std::simd::beta;
   using std::simd::bit_ceil;
+#  if _LIBCPP_STD_VER >= 29
+  using std::simd::bit_compress;
+#  endif
+#  if _LIBCPP_STD_VER >= 29
+  using std::simd::bit_expand;
+#  endif
   using std::simd::bit_floor;
+#  if _LIBCPP_STD_VER >= 29
+  using std::simd::bit_repeat;
+#  endif
+#  if _LIBCPP_STD_VER >= 29
+  using std::simd::bit_reverse;
+#  endif
   using std::simd::bit_width;
   using std::simd::byteswap;
   using std::simd::cat;
@@ -140,6 +152,12 @@ export namespace std::simd {
   using std::simd::rint;
   using std::simd::rotl;
   using std::simd::rotr;
+#  if _LIBCPP_STD_VER >= 29
+  using std::simd::shl;
+#  endif
+#  if _LIBCPP_STD_VER >= 29
+  using std::simd::shr;
+#  endif
   using std::simd::round;
   using std::simd::scalbln;
   using std::simd::scalbn;
@@ -181,7 +199,15 @@ export namespace std {
   using std::atanh;
   using std::beta;
   using std::bit_ceil;
+#  if _LIBCPP_STD_VER >= 29
+  using std::bit_compress;
+  using std::bit_expand;
+#  endif
   using std::bit_floor;
+#  if _LIBCPP_STD_VER >= 29
+  using std::bit_repeat;
+  using std::bit_reverse;
+#  endif
   using std::bit_width;
   using std::byteswap;
   using std::cbrt;
@@ -267,6 +293,10 @@ export namespace std {
   using std::rint;
   using std::rotl;
   using std::rotr;
+#  if _LIBCPP_STD_VER >= 29
+  using std::shl;
+  using std::shr;
+#  endif
   using std::round;
   using std::scalbln;
   using std::scalbn;
