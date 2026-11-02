@@ -38,7 +38,7 @@ Paper Status
 Library Working Group Issues Status
 ====================================
 
-.. csv-table::
-   :file: Cxx29Issues.csv
-   :header-rows: 1
-   :widths: auto
+No C++29 LWG issues are tracked yet; they are added to ``Cxx29Issues.csv`` (and the
+table below is enabled) when the first ones are adopted, see the re-survey issue
+after the Búzios meeting.
+
