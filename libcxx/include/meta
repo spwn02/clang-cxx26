@@ -75,8 +75,6 @@ consteval auto static_data_members_of(info class_type,
                                       access_context ctx) -> vector<info>;
 consteval auto nonstatic_data_members_of(info class_type,
                                          access_context ctx) -> vector<info>;
-consteval auto subobjects_of(info class_type,
-                             access_context ctx) -> vector<info>;
 consteval auto enumerators_of(info enum_type) -> vector<info>;
 
 // substitute
@@ -1306,13 +1304,6 @@ consteval auto subobjects_of(info __r, access_context __ctx) -> vector<info> try
 } catch (exception& __e) {
   __set_exception_from(__e, current_function());
   throw;
-}
-
-consteval auto subobjects_of(info r, access_context ctx) -> vector<info> {
-  auto result = bases_of(r, ctx);
-  auto nsdms = nonstatic_data_members_of(r, ctx);
-  result.insert(result.end(), nsdms.begin(), nsdms.end());
-  return result;
 }
 
 // Returns true if the reflected entity is an enumerable type.

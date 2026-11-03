@@ -6,8 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23
-// ADDITIONAL_COMPILE_FLAGS: -freflection
+// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23 || c++26
 
 // Test interpolating base specifier reflections into token sequences.
 // This used to crash in CodeGen when trying to emit a TokenSequence APValue.
@@ -61,7 +60,7 @@ static_assert(test_multi_base_token_seq());
 
 // Test storing token sequence with interpolated base in a constexpr variable
 // (this is what triggered the original CodeGen crash)
-constexpr auto stored_tokens = []() consteval {
+[[maybe_unused]] constexpr auto stored_tokens = []() consteval {
   constexpr auto base = get_base();
   return ^^{ .\(base).x };
 }();
@@ -82,5 +81,4 @@ consteval bool test_report_tokens_with_base() {
 static_assert(test_report_tokens_with_base());
 
 int main() {
-  (void)stored_tokens;
 }

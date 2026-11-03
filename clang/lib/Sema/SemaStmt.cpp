@@ -1096,11 +1096,19 @@ static bool EqEnumVals(const std::pair<llvm::APSInt, EnumConstantDecl*>& lhs,
 /// GetTypeBeforeIntegralPromotion - Returns the pre-promotion type of
 /// potentially integral-promoted expression @p expr.
 static QualType GetTypeBeforeIntegralPromotion(const Expr *&E) {
-  if (const auto *FE = dyn_cast<FullExpr>(E))
-    E = FE->getSubExpr();
+  // A constant that stands for an interpolated value (a unique opaque value)
+  // can only be evaluated through the ConstantExpr that carries its value, so
+  // do not look through that wrapper.
+  auto LookThroughFullExpr = [](const Expr *E) {
+    if (const auto *FE = dyn_cast<FullExpr>(E))
+      if (!isa<OpaqueValueExpr>(FE->getSubExpr()->IgnoreParens()))
+        return FE->getSubExpr();
+    return E;
+  };
+  E = LookThroughFullExpr(E);
   while (const auto *ImpCast = dyn_cast<ImplicitCastExpr>(E)) {
     if (ImpCast->getCastKind() != CK_IntegralCast) break;
-    E = ImpCast->getSubExpr();
+    E = LookThroughFullExpr(ImpCast->getSubExpr());
   }
   return E->getType();
 }
