@@ -22,6 +22,7 @@ consteval bool outside() {
 }
 constexpr bool b = outside(); // #b
 // expected-error@#b {{call to consteval function 'outside' is not a constant expression}}
+// expected-error@#b {{constexpr variable 'b' must be initialized by a constant expression}}
 // expected-note@*:* {{subexpression not valid in a constant expression}}
 // expected-note@#call {{in call to 'expand_at_instantiation()'}}
 // expected-note@#call {{std::meta::expand_at_instantiation() is only available while expanding a macro}}
