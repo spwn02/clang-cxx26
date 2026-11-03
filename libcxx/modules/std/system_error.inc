@@ -33,6 +33,11 @@ export namespace std {
   using std::operator==;
   using std::operator<=>;
 
+  // [syserr.fmt], formatting support
+#if _LIBCPP_STD_VER >= 29
+  using std::formatter;
+#endif
+
   // [syserr.hash], hash support
   using std::hash;
 

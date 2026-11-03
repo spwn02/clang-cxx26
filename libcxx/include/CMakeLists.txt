@@ -907,6 +907,7 @@ set(files
   __system_error/error_category.h
   __system_error/error_code.h
   __system_error/error_condition.h
+  __system_error/formatter.h
   __system_error/system_error.h
   __system_error/throw_system_error.h
   __thread/formatter.h

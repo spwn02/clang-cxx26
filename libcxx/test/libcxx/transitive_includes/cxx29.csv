@@ -1407,11 +1407,14 @@ system_error compare
 system_error cstdint
 system_error cstdio
 system_error cstring
+system_error ctime
 system_error cwchar
 system_error cwctype
 system_error initializer_list
 system_error iosfwd
 system_error limits
+system_error optional
+system_error ratio
 system_error stdexcept
 system_error string
 system_error string_view

@@ -137,6 +137,8 @@ bool operator<(const error_code& lhs, const error_code& rhs) noexcept;          
 strong_ordering operator<=>(const error_code& lhs, const error_code& rhs) noexcept;           // C++20
 strong_ordering operator<=>(const error_condition& lhs, const error_condition& rhs) noexcept; // C++20
 
+template <class charT> struct formatter<error_code, charT>;      // C++29
+
 template <> struct hash<std::error_code>;
 template <> struct hash<std::error_condition>;
 
@@ -153,6 +155,10 @@ template <> struct hash<std::error_condition>;
 #  include <__system_error/error_code.h>
 #  include <__system_error/error_condition.h>
 #  include <__system_error/system_error.h>
+
+#  if _LIBCPP_STD_VER >= 29
+#    include <__system_error/formatter.h>
+#  endif
 #  include <version>
 
 // standard-mandated includes

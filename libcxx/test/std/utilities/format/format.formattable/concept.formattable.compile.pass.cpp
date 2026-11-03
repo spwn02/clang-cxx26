@@ -206,7 +206,18 @@ void test_P1636() {
   assert_is_not_formattable<std::basic_streambuf<CharT>, CharT>();
   assert_is_not_formattable<std::bitset<42>, CharT>();
   assert_is_not_formattable<std::complex<double>, CharT>();
+#if TEST_STD_VER >= 29 // P3395R6
+  if constexpr (std::same_as<CharT, char>
+#  ifndef TEST_HAS_NO_WIDE_CHARACTERS
+                || std::same_as<CharT, wchar_t>
+#  endif
+  )
+    assert_is_formattable<std::error_code, CharT>();
+  else
+    assert_is_not_formattable<std::error_code, CharT>();
+#else
   assert_is_not_formattable<std::error_code, CharT>();
+#endif
   assert_is_not_formattable<std::shared_ptr<int>, CharT>();
 #ifndef TEST_HAS_NO_LOCALIZATION
   if constexpr (!std::same_as<CharT, int>) // sub_match only works with proper character types

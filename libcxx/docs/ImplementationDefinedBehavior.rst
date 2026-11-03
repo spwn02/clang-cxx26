@@ -84,6 +84,19 @@ to its capacity and uses that size. This means the SSO buffer of
 ``std::string`` is used as initial output buffer.
 
 
+`[syserr.fmt] <https://eel.is/c++draft/syserr.fmt>`_ Encoding of an error message during formatting (C++29)
+------------------------------------------------------------------------------------------------------------
+
+``std::formatter<std::error_code, charT>`` with the ``s`` option formats ``ec.message()``, which is in the
+execution character set of the current C locale. For ``char`` when the ordinary literal encoding is UTF-8 it is
+transcoded to UTF-8, as the Standard requires; that is the only case the Standard specifies. In every other case
+libc++ chooses the following encoding:
+
+ - ``char`` when the ordinary literal encoding is not UTF-8 (``_LIBCPP_HAS_UNICODE`` is off): the message unchanged.
+ - ``wchar_t``: each multibyte character of the current C locale converted with ``mbrtowc``; a byte that is not a
+   valid character is replaced by U+FFFD.
+
+
 Listed in the index of implementation-defined behavior
 ======================================================
 

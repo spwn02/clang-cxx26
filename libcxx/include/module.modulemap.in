@@ -4336,6 +4336,10 @@ module std [system] {
       header "__system_error/error_condition.h"
       export *
     }
+    module formatter {
+      header "__system_error/formatter.h"
+      export *
+    }
     module system_error {
       header "__system_error/system_error.h"
       export *
