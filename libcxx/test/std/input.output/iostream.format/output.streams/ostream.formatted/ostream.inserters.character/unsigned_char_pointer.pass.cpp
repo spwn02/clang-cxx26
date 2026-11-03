@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 // These overloads are deprecated in C++29 (P3154R3).
-// ADDITIONAL_COMPILE_FLAGS: -Wno-deprecated-declarations
+// ADDITIONAL_COMPILE_FLAGS(std-at-least-c++29): -Wno-deprecated-declarations
 
 // <ostream>
 
