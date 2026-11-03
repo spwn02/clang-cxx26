@@ -1075,7 +1075,7 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_tokenSequence, 1, 1, template_argument_list_for },
   { Metafunction::MFRK_tokenSequence, 2, 2, argument_list_for },
   { Metafunction::MFRK_bool, 0, 0, expand_at_instantiation,
-    /*WantsMacroExpansionContext=*/true },
+    /*Throws=*/false, /*WantsMacroExpansionContext=*/true },
   { Metafunction::MFRK_sizeT, 1, 1, punctuator_of },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
