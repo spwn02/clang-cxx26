@@ -31,6 +31,9 @@
 #if TEST_STD_VER >= 20
 #  include <format>
 #endif
+#if TEST_STD_VER >= 23
+#  include <stdfloat>
+#endif
 
 template <class T>
 std::string to_string(T value) {
@@ -114,6 +117,57 @@ void test_long_double() {
   }
 }
 
+#if TEST_STD_VER >= 23
+#  ifdef __STDCPP_FLOAT16_T__
+void test_float16() {
+  // binary16: the upper bound is 1e3 (radix^12 = 4096), the lower bound the smallest value that is at least 1e-4.
+  assert(to_string(std::float16_t(999)) == "999");
+  assert(to_string(std::float16_t(1000)) == "1e+03");
+  assert(to_string(std::float16_t(-999)) == "-999");
+  assert(to_string(std::float16_t(-1000)) == "-1e+03");
+  assert(to_string(std::float16_t(65504)) == "6.55e+04");
+  assert(to_string(std::float16_t(0.5)) == "0.5");
+  assert(to_string(std::float16_t(0.0001)) == "0.0001");
+  assert(to_string(std::float16_t(-0.0001)) == "-0.0001");
+  assert(to_string(std::float16_t(0.00006103515625)) == "6.104e-05"); // 2^-14, the smallest normal
+  assert(to_string(std::float16_t(0)) == "0");
+  assert(to_string(-std::float16_t(0)) == "-0");
+  assert(std::format("{}", std::float16_t(999)) == "999");
+  assert(std::format("{}", std::float16_t(1000)) == "1e+03");
+  assert(std::format("{}", std::float16_t(-1000)) == "-1e+03");
+  assert(std::format("{:>8}", std::float16_t(100)) == "     100");
+}
+#  endif
+#  ifdef __STDCPP_BFLOAT16_T__
+void test_bfloat16() {
+  // bfloat16: the upper bound is 1e2 (radix^9 = 512).
+  assert(to_string(std::bfloat16_t(99)) == "99");
+  assert(to_string(std::bfloat16_t(100)) == "1e+02");
+  assert(to_string(std::bfloat16_t(-99)) == "-99");
+  assert(to_string(std::bfloat16_t(-100)) == "-1e+02");
+  assert(to_string(std::bfloat16_t(0)) == "0");
+  assert(std::format("{}", std::bfloat16_t(99)) == "99");
+  assert(std::format("{}", std::bfloat16_t(100)) == "1e+02");
+  assert(std::format("{}", std::bfloat16_t(-100)) == "-1e+02");
+}
+#  endif
+#  ifdef __STDCPP_FLOAT128_T__
+void test_float128() {
+  // binary128: the upper bound is 1e34 (radix^114 is about 2.08e34).
+  std::float128_t below = 9.9999999999999999999999999999999e33f128;
+  assert(to_string(below).find('e') == std::string::npos);
+  assert(to_string(-below).find('e') == std::string::npos);
+  assert(to_string(1e34f128) != to_string(below));
+  assert(to_string(1e34f128).find('e') != std::string::npos);
+  assert(to_string(-1e34f128).find('e') != std::string::npos);
+  assert(to_string(std::float128_t(100000)) == "100000");
+  assert(to_string(std::float128_t(0.5)) == "0.5");
+  assert(to_string(std::float128_t(0)) == "0");
+  assert(std::format("{}", std::float128_t(100000)) == "100000");
+}
+#  endif
+#endif
+
 #if TEST_STD_VER >= 20
 void test_format() {
   // std::format with the default format uses the same representation.
@@ -138,6 +192,17 @@ int main(int, char**) {
   test_long_double();
 #if TEST_STD_VER >= 20
   test_format();
+#endif
+#if TEST_STD_VER >= 23
+#  ifdef __STDCPP_FLOAT16_T__
+  test_float16();
+#  endif
+#  ifdef __STDCPP_BFLOAT16_T__
+  test_bfloat16();
+#  endif
+#  ifdef __STDCPP_FLOAT128_T__
+  test_float128();
+#  endif
 #endif
   return 0;
 }
