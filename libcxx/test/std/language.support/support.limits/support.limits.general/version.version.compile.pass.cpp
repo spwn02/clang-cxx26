@@ -872,6 +872,10 @@
 #    error "__cpp_lib_philox_engine should not be defined before c++26"
 #  endif
 
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
+#  endif
+
 #  ifdef __cpp_lib_polymorphic
 #    error "__cpp_lib_polymorphic should not be defined before c++26"
 #  endif
@@ -2153,6 +2157,10 @@
 
 #  ifdef __cpp_lib_philox_engine
 #    error "__cpp_lib_philox_engine should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
 #  endif
 
 #  ifdef __cpp_lib_polymorphic
@@ -3592,6 +3600,10 @@
 
 #  ifdef __cpp_lib_philox_engine
 #    error "__cpp_lib_philox_engine should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
 #  endif
 
 #  ifdef __cpp_lib_polymorphic
@@ -5262,6 +5274,10 @@
 
 #  ifdef __cpp_lib_philox_engine
 #    error "__cpp_lib_philox_engine should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
 #  endif
 
 #  ifdef __cpp_lib_polymorphic
@@ -7082,6 +7098,10 @@
 
 #  ifdef __cpp_lib_philox_engine
 #    error "__cpp_lib_philox_engine should not be defined before c++26"
+#  endif
+
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
 #  endif
 
 #  ifdef __cpp_lib_polymorphic
@@ -9433,6 +9453,10 @@
 #  endif
 #  if __cpp_lib_philox_engine != 202406L
 #    error "__cpp_lib_philox_engine should have the value 202406L in c++26"
+#  endif
+
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
 #  endif
 
 #  ifndef __cpp_lib_polymorphic
@@ -11886,6 +11910,13 @@
 #  endif
 #  if __cpp_lib_philox_engine != 202406L
 #    error "__cpp_lib_philox_engine should have the value 202406L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should be defined in c++29"
+#  endif
+#  if __cpp_lib_pointer_tag_pair != 202606L
+#    error "__cpp_lib_pointer_tag_pair should have the value 202606L in c++29"
 #  endif
 
 #  ifndef __cpp_lib_polymorphic

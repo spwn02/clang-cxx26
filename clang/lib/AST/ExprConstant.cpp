@@ -12332,6 +12332,36 @@ static CharUnits getBaseAlignment(EvalInfo &Info, const LValue &Value) {
   return GetAlignOfType(Info.Ctx, Value.Base.getTypeInfoType(), UETT_AlignOf);
 }
 
+/// The pointer tagging builtins (P3125R6) work on the low bits of a pointer that are zero because of the alignment
+/// of the object the pointer points into. A tagged pointer is its untagged pointer plus the tag as a byte offset,
+/// which is also what it is at run time; the subobject designator is kept so that stripping the tag restores it.
+static bool getPointerTagBits(EvalInfo &Info, const Expr *E, uint64_t &Bits) {
+  APSInt Value;
+  if (!EvaluateInteger(E, Value, Info))
+    return false;
+  if (Value.isNegative() || Value.getActiveBits() > 6 || Value.getZExtValue() > 32) {
+    Info.FFDiag(E, diag::note_constexpr_pointer_tag_bits) << Value;
+    return false;
+  }
+  Bits = Value.getZExtValue();
+  return true;
+}
+
+/// Is the object P points into aligned enough to hold Bits tag bits at every address of it?
+static bool checkPointerTagBaseAlignment(EvalInfo &Info, const Expr *E, const LValue &P, uint64_t Bits) {
+  if (!P.Base)
+    return true; // a null pointer or an integer value: its low bits are what they are
+  CharUnits BaseAlign;
+  if (P.Base.is<DynamicAllocLValue>())
+    BaseAlign = Info.Ctx.getTypeAlignInChars(P.Base.getDynamicAllocType());
+  else
+    BaseAlign = getBaseAlignment(Info, P);
+  if (BaseAlign.getQuantity() >= (int64_t(1) << Bits))
+    return true;
+  Info.FFDiag(E, diag::note_constexpr_pointer_tag_alignment) << unsigned(Bits) << BaseAlign.getQuantity();
+  return false;
+}
+
 /// Evaluate the value of the alignment argument to __builtin_align_{up,down},
 /// __builtin_is_aligned and __builtin_assume_aligned.
 static bool getAlignmentArgument(const Expr *E, QualType ForType,
@@ -12551,6 +12581,42 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     Info.FFDiag(E->getArg(0), diag::note_constexpr_alignment_adjust)
         << Alignment;
     return false;
+  }
+  case Builtin::BI__builtin_pointer_tag_insert: {
+    uint64_t Bits;
+    APSInt Tag;
+    if (!evaluatePointer(E->getArg(0), Result) || !EvaluateInteger(E->getArg(1), Tag, Info) ||
+        !getPointerTagBits(Info, E->getArg(2), Bits))
+      return false;
+    if (Tag.isNegative() || Tag.getActiveBits() > Bits) {
+      Info.FFDiag(E->getArg(1), diag::note_constexpr_pointer_tag_value) << Tag << unsigned(Bits);
+      return false;
+    }
+    if (!checkPointerTagBaseAlignment(Info, E->getArg(0), Result, Bits))
+      return false;
+    if (Result.Designator.isOnePastTheEnd() && !Result.Designator.Invalid) {
+      Info.FFDiag(E->getArg(0), diag::note_constexpr_pointer_tag_past_end);
+      return false;
+    }
+    uint64_t Mask = (uint64_t(1) << Bits) - 1;
+    if ((uint64_t(Result.Offset.getQuantity()) & Mask) != 0) {
+      Info.FFDiag(E->getArg(0), diag::note_constexpr_pointer_tag_unaligned) << (int64_t(1) << Bits);
+      return false;
+    }
+    Result.Offset += CharUnits::fromQuantity(int64_t(Tag.getZExtValue()));
+    Result.IsNullPtr = !Result.Base && Result.Offset.isZero();
+    return true;
+  }
+  case Builtin::BI__builtin_pointer_tag_strip: {
+    uint64_t Bits;
+    if (!evaluatePointer(E->getArg(0), Result) || !getPointerTagBits(Info, E->getArg(1), Bits))
+      return false;
+    if (!checkPointerTagBaseAlignment(Info, E->getArg(0), Result, Bits))
+      return false;
+    uint64_t Mask = (uint64_t(1) << Bits) - 1;
+    Result.Offset -= CharUnits::fromQuantity(int64_t(uint64_t(Result.Offset.getQuantity()) & Mask));
+    Result.IsNullPtr = !Result.Base && Result.Offset.isZero();
+    return true;
   }
   case Builtin::BI__builtin_operator_new:
     return HandleOperatorNewCall(Info, E, Result);
@@ -18264,6 +18330,17 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     analyze_os_log::OSLogBufferLayout Layout;
     analyze_os_log::computeOSLogBufferLayout(Info.Ctx, E, Layout);
     return Success(Layout.size().getQuantity(), E);
+  }
+
+  case Builtin::BI__builtin_pointer_tag_get: {
+    uint64_t Bits;
+    LValue Ptr;
+    if (!EvaluatePointer(E->getArg(0), Ptr, Info) || !getPointerTagBits(Info, E->getArg(1), Bits))
+      return false;
+    if (!checkPointerTagBaseAlignment(Info, E->getArg(0), Ptr, Bits))
+      return false;
+    uint64_t Mask = (uint64_t(1) << Bits) - 1;
+    return Success(uint64_t(Ptr.Offset.getQuantity()) & Mask, E);
   }
 
   case Builtin::BI__builtin_is_aligned: {

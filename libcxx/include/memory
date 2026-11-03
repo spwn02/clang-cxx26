@@ -944,6 +944,12 @@ template<size_t N, class T>
 template<size_t Alignment, class T>
   bool is_sufficiently_aligned(T* ptr); // since C++26
 
+// [ptrtag], pointer tagging
+inline constexpr unsigned max_pointer_bits_available = see below;           // since C++29
+constexpr unsigned pointer_bits_available(size_t alignment);                // since C++29
+template<class Ptr, unsigned BitsRequested = see below, class TagT = unsigned>
+  class pointer_tag_pair;                                                   // since C++29
+
 // [obj.lifetime] Explicit lifetime management
 template<class T>
   constexpr void start_lifetime(T& r) noexcept;                    // since C++26
@@ -1000,6 +1006,9 @@ template<class Pointer = void, class Smart, class... Args>
 #  include <__memory/inout_ptr.h>
 #  include <__memory/is_sufficiently_aligned.h>
 #  include <__memory/out_ptr.h>
+#  if _LIBCPP_STD_VER >= 29
+#    include <__memory/pointer_tag_pair.h>
+#  endif
 #  include <__memory/pointer_traits.h>
 #  include <__memory/raw_storage_iterator.h>
 #  include <__memory/shared_ptr.h>

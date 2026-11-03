@@ -1407,6 +1407,11 @@ feature_test_macros = [
             "headers": ["random"],
         },
         {
+            "name": "__cpp_lib_pointer_tag_pair",
+            "values": {"c++29": 202606},  # P3125R6 constexpr pointer tagging
+            "headers": ["memory"],
+        },
+        {
             "name": "__cpp_lib_polymorphic",
             "values": {"c++26": 202502},  # P3019R14 indirect and polymorphic: Vocabulary Types for Composite Class Design
             "headers": ["memory"],

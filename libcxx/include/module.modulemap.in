@@ -3398,6 +3398,10 @@ module std [system] {
       header "__memory/out_ptr.h"
       export *
     }
+    module pointer_tag_pair {
+      header "__memory/pointer_tag_pair.h"
+      export *
+    }
     module pointer_traits {
       header "__memory/pointer_traits.h"
       export *

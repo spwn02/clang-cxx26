@@ -118,6 +118,8 @@ TEST(StdlibTest, Cxx26Facilities) {
       {"std::", "apply_result", "<type_traits>"},
       {"std::", "make_hazard_pointer_batch", "<hazard_pointer>"},
       {"std::simd::", "bit_reverse", "<simd>"},
+      {"std::", "pointer_tag_pair", "<memory>"},
+      {"std::", "pointer_bits_available", "<memory>"},
   };
   for (const auto &C : Cases) {
     auto Symbol = stdlib::Symbol::named(C.Scope, C.Name);

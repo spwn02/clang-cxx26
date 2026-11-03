@@ -273,6 +273,7 @@ __cpp_lib_parallel_algorithm                            202506L <algorithm> <num
                                                         201603L // C++17
 __cpp_lib_parallel_scheduler                            202506L <execution>
 __cpp_lib_philox_engine                                 202406L <random>
+__cpp_lib_pointer_tag_pair                              202606L <memory>
 __cpp_lib_polymorphic                                   202502L <memory>
 __cpp_lib_polymorphic_allocator                         201902L <memory_resource>
 __cpp_lib_print                                         202406L <ostream> <print>
@@ -908,6 +909,7 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_hazard_pointer                       202606L
 # define __cpp_lib_map_lookup                           202606L
 # define __cpp_lib_mdspan_copy                          202606L
+# define __cpp_lib_pointer_tag_pair                     202606L
 # define __cpp_lib_simd_bitops                          202607L
 # if _LIBCPP_HAS_THREADS
 #   define __cpp_lib_thread_attributes                  202606L

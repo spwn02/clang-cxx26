@@ -682,6 +682,7 @@ set(files
   __memory/is_sufficiently_aligned.h
   __memory/noexcept_move_assign_container.h
   __memory/out_ptr.h
+  __memory/pointer_tag_pair.h
   __memory/pointer_traits.h
   __memory/polymorphic.h
   __memory/pstl_freestanding.h

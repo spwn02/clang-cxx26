@@ -276,6 +276,9 @@ C++2d (C++29) Feature Support
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
+- Added the builtins ``__builtin_pointer_tag_insert``, ``__builtin_pointer_tag_get`` and
+  ``__builtin_pointer_tag_strip`` that store a tag in the alignment bits of a pointer, also in constant expressions
+  (the compiler support for C++29 ``std::pointer_tag_pair``, P3125R6). See :ref:`langext-pointer-tag`.
 - Reflection (P2996R13 and the companion papers), parameter reflection, annotations, expansion statements and
   contracts (P2900) are part of ``-std=c++26``: ``-freflection``, ``-freflection-latest``, ``-fcontracts``,
   ``-fcontract-group-*``, ``-fcontract-*`` (except ``-fcontract-evaluation-semantic=``, the implementation-defined way

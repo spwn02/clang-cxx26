@@ -84,6 +84,10 @@
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
 #  endif
 
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
+#  endif
+
 #  ifdef __cpp_lib_polymorphic
 #    error "__cpp_lib_polymorphic should not be defined before c++26"
 #  endif
@@ -195,6 +199,10 @@
 
 #  ifdef __cpp_lib_out_ptr
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
 #  endif
 
 #  ifdef __cpp_lib_polymorphic
@@ -320,6 +328,10 @@
 
 #  ifdef __cpp_lib_out_ptr
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
 #  endif
 
 #  ifdef __cpp_lib_polymorphic
@@ -466,6 +478,10 @@
 
 #  ifdef __cpp_lib_out_ptr
 #    error "__cpp_lib_out_ptr should not be defined before c++23"
+#  endif
+
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
 #  endif
 
 #  ifdef __cpp_lib_polymorphic
@@ -630,6 +646,10 @@
 #  endif
 #  if __cpp_lib_out_ptr != 202106L
 #    error "__cpp_lib_out_ptr should have the value 202106L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
 #  endif
 
 #  ifdef __cpp_lib_polymorphic
@@ -818,6 +838,10 @@
 #  endif
 #  if __cpp_lib_out_ptr != 202311L
 #    error "__cpp_lib_out_ptr should have the value 202311L in c++26"
+#  endif
+
+#  ifdef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should not be defined before c++29"
 #  endif
 
 #  ifndef __cpp_lib_polymorphic
@@ -1015,6 +1039,13 @@
 #  endif
 #  if __cpp_lib_out_ptr != 202311L
 #    error "__cpp_lib_out_ptr should have the value 202311L in c++29"
+#  endif
+
+#  ifndef __cpp_lib_pointer_tag_pair
+#    error "__cpp_lib_pointer_tag_pair should be defined in c++29"
+#  endif
+#  if __cpp_lib_pointer_tag_pair != 202606L
+#    error "__cpp_lib_pointer_tag_pair should have the value 202606L in c++29"
 #  endif
 
 #  ifndef __cpp_lib_polymorphic

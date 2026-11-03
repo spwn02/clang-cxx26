@@ -4821,6 +4821,26 @@ def AlignDown : Builtin {
   let Prototype = "void*(void const*, size_t)";
 }
 
+// Pointer tagging (P3125R6, C++29): the low bits of a pointer that are zero because of the alignment of the object
+// it points into carry a small tag. The tag is part of the pointer value, in constant expressions too.
+def PointerTagInsert : Builtin {
+  let Spellings = ["__builtin_pointer_tag_insert"];
+  let Attributes = [NoThrow, Const, Constexpr];
+  let Prototype = "void*(void const volatile*, size_t, size_t)";
+}
+
+def PointerTagGet : Builtin {
+  let Spellings = ["__builtin_pointer_tag_get"];
+  let Attributes = [NoThrow, Const, Constexpr];
+  let Prototype = "size_t(void const volatile*, size_t)";
+}
+
+def PointerTagStrip : Builtin {
+  let Spellings = ["__builtin_pointer_tag_strip"];
+  let Attributes = [NoThrow, Const, Constexpr];
+  let Prototype = "void*(void const volatile*, size_t)";
+}
+
 // Safestack builtins.
 def GetUnsafeStackStart : Builtin {
   let Spellings = ["__builtin___get_unsafe_stack_start"];

@@ -11,6 +11,16 @@ export namespace std {
   // [pointer.traits], pointer traits
   using std::pointer_traits;
 
+#if _LIBCPP_STD_VER >= 29
+  // [ptrtag], pointer tagging
+  using std::max_pointer_bits_available;
+  using std::pointer_bits_available;
+  using std::pointer_tag_pair;
+  using std::get;
+  using std::tuple_element;
+  using std::tuple_size;
+#endif
+
   // [pointer.conversion], pointer conversion
   using std::to_address;
 

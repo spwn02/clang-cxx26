@@ -5275,6 +5275,45 @@ If Clang can determine that the alignment is not a power of two at compile time,
 it will result in a compilation failure. If the alignment argument is not a
 power of two at run time, the behavior of these builtins is undefined.
 
+.. _langext-pointer-tag:
+
+Builtins for pointer tagging
+----------------------------
+
+``__builtin_pointer_tag_insert``, ``__builtin_pointer_tag_get`` and
+``__builtin_pointer_tag_strip`` store a small tag in the low bits of a pointer
+that are zero because of the alignment of the object it points into, and read
+and remove it again. They are the compiler support behind C++29
+``std::pointer_tag_pair`` (P3125R6); the library is the intended user.
+
+**Syntax**:
+
+.. code-block:: c++
+
+  void *__builtin_pointer_tag_insert(const volatile void *ptr, size_t tag, size_t bits);
+  size_t __builtin_pointer_tag_get(const volatile void *ptr, size_t bits);
+  void *__builtin_pointer_tag_strip(const volatile void *ptr, size_t bits);
+
+**Description**:
+
+``bits`` is the number of tag bits (at most 32), ``tag`` must be less than
+``1 << bits`` and ``ptr`` must be aligned to ``1 << bits`` bytes and must not
+point past the end of an object. The result of ``__builtin_pointer_tag_insert``
+is ``ptr`` plus ``tag`` bytes, with the provenance of ``ptr`` (it lowers to a
+plain ``getelementptr``); ``__builtin_pointer_tag_get`` returns the low ``bits``
+bits of the address and ``__builtin_pointer_tag_strip`` clears them
+(``llvm.ptrmask``). A tagged pointer must not be dereferenced.
+
+All three builtins can be used in constant expressions. The constant evaluator
+does not observe an address: the tag is the byte offset of the pointer in the
+object it points into, which is known modulo ``1 << bits`` when the object is
+aligned to at least that many bytes (an object with a smaller alignment makes
+the use not a constant expression), and the subobject the pointer designates is
+kept, so ``__builtin_pointer_tag_strip`` gives back exactly the pointer that
+was tagged. Tagging a null pointer gives a pointer that is not null and
+``__builtin_pointer_tag_strip`` on it gives a null pointer again. These builtins
+are not supported by the experimental constant interpreter.
+
 Non-standard C++11 Attributes
 =============================
 
