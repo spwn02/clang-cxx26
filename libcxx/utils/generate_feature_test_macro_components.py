@@ -1953,6 +1953,11 @@ feature_test_macros = [
             "headers": ["variant"],
         },
         {
+            "name": "__cpp_lib_view_interface",
+            "values": {"c++29": 202606},  # P3052R2 view_interface::at
+            "headers": ["ranges"],
+        },
+        {
             "name": "__cpp_lib_void_t",
             "values": {"c++17": 201411},
             "headers": ["type_traits"],
