@@ -6,6 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// These overloads are deprecated in C++29 (P3154R3).
+// ADDITIONAL_COMPILE_FLAGS: -Wno-deprecated-declarations
+
 // <istream>
 
 // template<class traits>

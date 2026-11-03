@@ -6,6 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// These overloads are deprecated in C++29 (P3154R3).
+// ADDITIONAL_COMPILE_FLAGS: -Wno-deprecated-declarations
+
 // <ostream>
 
 // template <class charT, class traits = char_traits<charT> >

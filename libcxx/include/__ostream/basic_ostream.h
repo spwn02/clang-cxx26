@@ -405,11 +405,13 @@ _LIBCPP_HIDE_FROM_ABI basic_ostream<char, _Traits>& operator<<(basic_ostream<cha
 }
 
 template <class _Traits>
+_LIBCPP_DEPRECATED_IN_CXX29_("signed char and unsigned char are integer types, not character types; cast to char or int")
 _LIBCPP_HIDE_FROM_ABI basic_ostream<char, _Traits>& operator<<(basic_ostream<char, _Traits>& __os, signed char __c) {
   return std::__put_character_sequence(__os, (char*)&__c, 1);
 }
 
 template <class _Traits>
+_LIBCPP_DEPRECATED_IN_CXX29_("signed char and unsigned char are integer types, not character types; cast to char or int")
 _LIBCPP_HIDE_FROM_ABI basic_ostream<char, _Traits>& operator<<(basic_ostream<char, _Traits>& __os, unsigned char __c) {
   return std::__put_character_sequence(__os, (char*)&__c, 1);
 }
@@ -466,6 +468,7 @@ _LIBCPP_HIDE_FROM_ABI basic_ostream<char, _Traits>& operator<<(basic_ostream<cha
 }
 
 template <class _Traits>
+_LIBCPP_DEPRECATED_IN_CXX29_("signed char and unsigned char are integer types, not character types; cast to char or int")
 _LIBCPP_HIDE_FROM_ABI basic_ostream<char, _Traits>&
 operator<<(basic_ostream<char, _Traits>& __os, const signed char* __str) {
   const char* __s = (const char*)__str;
@@ -473,6 +476,7 @@ operator<<(basic_ostream<char, _Traits>& __os, const signed char* __str) {
 }
 
 template <class _Traits>
+_LIBCPP_DEPRECATED_IN_CXX29_("signed char and unsigned char are integer types, not character types; cast to char or int")
 _LIBCPP_HIDE_FROM_ABI basic_ostream<char, _Traits>&
 operator<<(basic_ostream<char, _Traits>& __os, const unsigned char* __str) {
   const char* __s = (const char*)__str;

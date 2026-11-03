@@ -91,10 +91,10 @@ template<class traits>
 // signed and unsigned
 
 template<class traits>
-  basic_ostream<char,traits>& operator<<(basic_ostream<char,traits>&, signed char);
+  basic_ostream<char,traits>& operator<<(basic_ostream<char,traits>&, signed char);  // deprecated in C++29
 
 template<class traits>
-  basic_ostream<char,traits>& operator<<(basic_ostream<char,traits>&, unsigned char);
+  basic_ostream<char,traits>& operator<<(basic_ostream<char,traits>&, unsigned char);  // deprecated in C++29
 
 // NTBS
 template<class charT, class traits>
@@ -108,10 +108,10 @@ template<class traits>
 
 // signed and unsigned
 template<class traits>
-basic_ostream<char,traits>& operator<<(basic_ostream<char,traits>&, const signed char*);
+basic_ostream<char,traits>& operator<<(basic_ostream<char,traits>&, const signed char*);  // deprecated in C++29
 
 template<class traits>
-  basic_ostream<char,traits>& operator<<(basic_ostream<char,traits>&, const unsigned char*);
+  basic_ostream<char,traits>& operator<<(basic_ostream<char,traits>&, const unsigned char*);  // deprecated in C++29
 
 // swap:
 template <class charT, class traits>
