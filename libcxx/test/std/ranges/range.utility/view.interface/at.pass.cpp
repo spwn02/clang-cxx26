@@ -44,7 +44,9 @@ struct SizedRandom : std::ranges::view_interface<SizedRandom> {
 struct UnsizedRandom : std::ranges::view_interface<UnsizedRandom> {
   int buff[4] = {1, 2, 3, 4};
   constexpr random_access_iterator<int*> begin() { return random_access_iterator<int*>(buff); }
-  constexpr std::default_sentinel_t end() { return {}; }
+  constexpr sentinel_wrapper<random_access_iterator<int*>> end() {
+    return sentinel_wrapper<random_access_iterator<int*>>(random_access_iterator<int*>(buff + 4));
+  }
 };
 
 struct Forward : std::ranges::view_interface<Forward> {
@@ -52,6 +54,13 @@ struct Forward : std::ranges::view_interface<Forward> {
   constexpr forward_iterator<int*> begin() { return forward_iterator<int*>(buff); }
   constexpr forward_iterator<int*> end() { return forward_iterator<int*>(buff + 4); }
 };
+
+// The negative cases must fail for the right reason: UnsizedRandom is a random
+// access range and not a sized one, Forward is not random access.
+static_assert(std::ranges::random_access_range<UnsizedRandom>);
+static_assert(!std::ranges::sized_range<UnsizedRandom>);
+static_assert(!std::ranges::random_access_range<Forward>);
+static_assert(!HasAt<decltype(std::views::iota(0))>);
 
 static_assert(HasAt<SizedRandom>);
 static_assert(HasAt<const SizedRandom>);

@@ -15,7 +15,6 @@
 #include <__concepts/same_as.h>
 #include <__config>
 #include <__iterator/concepts.h>
-#include <__iterator/distance.h>
 #include <__iterator/iterator_traits.h>
 #include <__iterator/prev.h>
 #include <__memory/pointer_traits.h>
@@ -28,6 +27,7 @@
 #include <__type_traits/remove_cv.h>
 
 #if _LIBCPP_STD_VER >= 29
+#  include <__iterator/distance.h>
 #  include <stdexcept>
 #endif
 
