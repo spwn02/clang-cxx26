@@ -28,6 +28,14 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26
 
+#  if _LIBCPP_STD_VER >= 29
+
+// [const.wrap.class] (C++29, P4206R0): string support is reverted, so the template argument is a plain `auto`.
+template <auto _Xp, class = decltype(_Xp)>
+struct constant_wrapper;
+
+#  else
+
 // [const.wrap.class] (C++26, before P4206R0): cw-fixed-value<T> wraps the value; the array specialization lets a string
 // literal (or any array) be the template argument.
 template <class _Tp>
@@ -55,6 +63,8 @@ __cw_fixed_value(_Tp (&)[_Extent]) -> __cw_fixed_value<_Tp[_Extent]>;
 
 template <__cw_fixed_value _Xp, class = typename decltype(_Xp)::type>
 struct constant_wrapper;
+
+#  endif // _LIBCPP_STD_VER >= 29
 
 template <class _Tp>
 concept __constexpr_param = requires { typename constant_wrapper<_Tp::value>; };
@@ -177,11 +187,19 @@ struct __constant_wrapper_operators {
 
 };
 
+#  if _LIBCPP_STD_VER >= 29
+template <auto _Xp, class _Tp>
+struct constant_wrapper : __constant_wrapper_operators {
+  static constexpr decltype(auto) value = (_Xp);
+  using type                            = constant_wrapper;
+  using value_type                      = decltype(_Xp);
+#  else
 template <__cw_fixed_value _Xp, class _Tp>
 struct constant_wrapper : __constant_wrapper_operators {
   static constexpr const auto& value = _Xp.__data;
   using type       = constant_wrapper;
   using value_type = typename decltype(_Xp)::type;
+#  endif
 
   static_assert(is_same_v<_Tp, value_type>);
 
@@ -220,8 +238,13 @@ struct constant_wrapper : __constant_wrapper_operators {
   }
 };
 
+#  if _LIBCPP_STD_VER >= 29
+template <auto _Xp>
+inline constexpr auto cw = constant_wrapper<_Xp>{};
+#  else
 template <__cw_fixed_value _Xp>
 inline constexpr auto cw = constant_wrapper<_Xp>{};
+#  endif
 
 #endif // _LIBCPP_STD_VER >= 26
 

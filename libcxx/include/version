@@ -73,7 +73,8 @@ __cpp_lib_common_reference                              202302L <type_traits>
 __cpp_lib_common_reference_wrapper                      202302L <functional>
 __cpp_lib_complex_udls                                  201309L <complex>
 __cpp_lib_concepts                                      202207L <concepts>
-__cpp_lib_constant_wrapper                              202603L <utility>
+__cpp_lib_constant_wrapper                              202606L <utility>
+                                                        202603L // C++26
 __cpp_lib_constexpr_algorithms                          202306L <algorithm> <utility>
                                                         201806L // C++20
 __cpp_lib_constexpr_atomic                              202411L <atomic>
@@ -898,6 +899,8 @@ __cpp_lib_void_t                                        201411L <type_traits>
 #if _LIBCPP_STD_VER >= 29
 # undef  __cpp_lib_bitops
 # define __cpp_lib_bitops                               202607L
+# undef  __cpp_lib_constant_wrapper
+# define __cpp_lib_constant_wrapper                     202606L
 # undef  __cpp_lib_expected
 # define __cpp_lib_expected                             202606L
 # undef  __cpp_lib_hazard_pointer

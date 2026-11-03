@@ -6,12 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
+// UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23, c++29
 
 // <utility>
 
 // C++26 [const.wrap.class]: the template argument of constant_wrapper is a cw-fixed-value, so a string literal or any array
-// can be wrapped (P4206R0 removes this in C++29).
+// can be wrapped (P4206R0 removes this in C++29, see no_string_support.pass.cpp).
 
 #include <cassert>
 #include <cstddef>

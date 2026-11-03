@@ -352,7 +352,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_constant_wrapper",
-            "values": {"c++26": 202603},  # P3948R1, P3978R3 (string literals: P4206R0 is C++29)
+            "values": {"c++26": 202603, "c++29": 202606},  # P3948R1, P3978R3; P4206R0 (C++29: no string support)
             "headers": ["utility"],
         },
         {

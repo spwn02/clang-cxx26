@@ -10491,8 +10491,8 @@
 #  ifndef __cpp_lib_constant_wrapper
 #    error "__cpp_lib_constant_wrapper should be defined in c++29"
 #  endif
-#  if __cpp_lib_constant_wrapper != 202603L
-#    error "__cpp_lib_constant_wrapper should have the value 202603L in c++29"
+#  if __cpp_lib_constant_wrapper != 202606L
+#    error "__cpp_lib_constant_wrapper should have the value 202606L in c++29"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_algorithms

@@ -14,6 +14,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "test_macros.h"
+
 enum class E { value = 2 };
 
 struct Assignable {
@@ -173,6 +175,10 @@ static_assert((CA{} <<= CA2{}).value.value == 28);
 static_assert((CA{} >>= CA2{}).value.value == 1);
 static_assert(is_cw<decltype(CA{} += CA2{})>::value);
 
+#if TEST_STD_VER >= 29
+static_assert(__cpp_lib_constant_wrapper == 202606L);
+#else
 static_assert(__cpp_lib_constant_wrapper == 202603L);
+#endif
 
 int main() {}
