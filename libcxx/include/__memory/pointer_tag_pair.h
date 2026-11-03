@@ -53,9 +53,10 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 // [ptrtag.bits]
 //
-// A tagged pointer is the pointer plus the tag as a byte offset, which is what it is at run time (the tag bits are
-// zero in an aligned pointer) and in constant expressions too: __builtin_pointer_tag_insert, _get and _strip keep the
-// provenance of the pointer and let the constant evaluator track the tag without observing an address.
+// A tagged pointer is a pointer whose low bits hold the tag. __builtin_pointer_tag_insert, _get and _strip build and take
+// it apart: at run time with address arithmetic, in constant expressions with a tag the evaluator keeps next to the
+// pointer without observing an address. A tagged pointer must only be copied, compared, converted to void* or passed to
+// these builtins; stripping it gives the pointer back.
 
 // Tagging must never overflow into the page number.
 inline constexpr unsigned max_pointer_bits_available = 12;
