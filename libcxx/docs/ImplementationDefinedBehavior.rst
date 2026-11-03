@@ -96,6 +96,10 @@ libc++ chooses the following encoding:
  - ``wchar_t``: each multibyte character of the current C locale converted with ``mbrtowc``; a byte that is not a
    valid character is replaced by U+FFFD.
 
+A program that never calls ``setlocale`` runs in the "C" locale. On platforms where that locale only accepts ASCII
+(glibc), every byte of a message that is not ASCII is replaced by U+FFFD; a message in UTF-8 is passed through
+unchanged only after the program selects a UTF-8 locale.
+
 
 Listed in the index of implementation-defined behavior
 ======================================================
