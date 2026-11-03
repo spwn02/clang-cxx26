@@ -8,8 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20
-// ADDITIONAL_COMPILE_FLAGS: -freflection -std=c++2d
+// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23 || c++26
 
 // token_sequence is itself a range: directly iterable with range-for
 // (begin/end/size found by ADL -- the compiler associates token_sequence

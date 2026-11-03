@@ -8,8 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23
-// ADDITIONAL_COMPILE_FLAGS: -freflection -std=c++2d
+// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23 || c++26
 
 // A list interpolated into a token sequence: '\(e1, e2, ...; sep)'. The
 // elements are a list, as a function's arguments are -- any may be a pack

@@ -8,8 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23
-// ADDITIONAL_COMPILE_FLAGS: -freflection -std=c++2d -Wempty-body -Wextra-semi-stmt
+// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23 || c++26
 
 // RUN: %{build}
 // RUN: %{exec} %t.exe

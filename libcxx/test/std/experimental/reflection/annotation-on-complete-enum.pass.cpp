@@ -8,8 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23
-// ADDITIONAL_COMPILE_FLAGS: -freflection -std=c++2d
+// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23 || c++26
 
 // An annotation's on_complete callback runs for an enumeration once it is
 // complete: after the last enumerator of its definition, or at an

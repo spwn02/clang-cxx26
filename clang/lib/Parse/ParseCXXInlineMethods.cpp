@@ -1032,7 +1032,7 @@ bool Parser::ConsumeAndStoreFunctionPrologue(CachedTokens &Toks) {
     // A macro invocation, 'name!(...)', whose expansion is mem-initializers.
     // The arguments are bracketed by any of (), {} or [], and may be preceded
     // by explicit template arguments, 'name!<Args>(...)'.
-    if (getLangOpts().Reflection && isMacroInvocationExclaim()) {
+    if (getLangOpts().CPlusPlus29 && isMacroInvocationExclaim()) {
       Toks.push_back(Tok);
       ConsumeToken();
       auto CloserOf = [](tok::TokenKind K) {

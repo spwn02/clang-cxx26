@@ -4379,7 +4379,7 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
     // tokens parsed here, before the class is completed, so a later
     // callback sees the members injected by an earlier one. Injected
     // members start from the class's default access.
-    if (getLangOpts().Reflection) {
+    if (getLangOpts().CPlusPlus29) {
       TokenSequenceData TSD;
       for (unsigned I = 0;
            Actions.EvaluateInjectMembersAnnotation(TagDecl, I, TSD); ++I) {

@@ -8525,7 +8525,7 @@ private:
   /// invocation, 'identifier ! opener' or 'identifier ! <', possibly after an
   /// annotated nested-name-specifier (see TryAnnotateQualifiedMacroScope).
   bool isStartOfDeclMacroInvocation() {
-    if (!getLangOpts().Reflection)
+    if (!getLangOpts().CPlusPlus29)
       return false;
     unsigned N = Tok.is(tok::annot_cxxscope) ? 1 : 0;
     return GetLookAheadToken(N).is(tok::identifier) &&

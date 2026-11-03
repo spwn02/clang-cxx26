@@ -882,7 +882,7 @@ bool Parser::isStartOfStmtMacroInvocation() {
 }
 
 bool Parser::isStartOfQualifiedMacroInvocation() {
-  if (!getLangOpts().Reflection)
+  if (!getLangOpts().CPlusPlus29)
     return false;
   if (!Tok.is(tok::coloncolon) &&
       !(Tok.is(tok::identifier) &&

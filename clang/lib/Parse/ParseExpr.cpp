@@ -958,7 +958,7 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     SourceLocation ILoc = ConsumeToken();
 
     // name!( ... ) is an expression-macro invocation.
-    if (getLangOpts().Reflection && isMacroInvocationExclaim()) {
+    if (getLangOpts().CPlusPlus29 && isMacroInvocationExclaim()) {
       CXXScopeSpec MacroSS;
       Res = ParseMacroInvocation(MacroSS, &II, ILoc);
       break;
@@ -2266,7 +2266,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
 
       // obj.name!(args) is an expression-macro invocation whose object
       // expression binds to the macro's explicit object parameter.
-      if (getLangOpts().Reflection && !LHS.isInvalid() && SS.isEmpty() &&
+      if (getLangOpts().CPlusPlus29 && !LHS.isInvalid() && SS.isEmpty() &&
           !TemplateKWLoc.isValid() &&
           Name.getKind() == UnqualifiedIdKind::IK_Identifier &&
           isMacroInvocationExclaim()) {

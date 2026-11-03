@@ -767,7 +767,7 @@ ExprResult Parser::tryParseCXXIdExpression(CXXScopeSpec &SS,
       return ExprError();
 
     // ns::name!( ... ) is an expression-macro invocation.
-    if (getLangOpts().Reflection &&
+    if (getLangOpts().CPlusPlus29 &&
         Name.getKind() == UnqualifiedIdKind::IK_Identifier &&
         isMacroInvocationExclaim()) {
       E = ParseMacroInvocation(SS, Name.Identifier, Name.StartLocation);

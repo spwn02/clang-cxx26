@@ -2599,6 +2599,9 @@ ExprResult Sema::BuildCXXMetafunctionExpr(
     case Metafunction::MFRK_metaInfo:
       Result = Context.MetaInfoTy;
       return false;
+    case Metafunction::MFRK_tokenSequence:
+      Result = Context.TokenSequenceTy;
+      return false;
     case Metafunction::MFRK_sizeT:
       Result = Context.getSizeType();
       return false;

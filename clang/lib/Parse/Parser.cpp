@@ -1814,7 +1814,7 @@ Parser::TryAnnotateName(CorrectionCandidateCallback *CCC,
   // Leave a macro invocation, name!(...) / name!{...} / name![...], for the
   // expression parser: the macro has to be found before its arguments can be
   // parsed.
-  if (getLangOpts().Reflection && Next.is(tok::exclaim) &&
+  if (getLangOpts().CPlusPlus29 && Next.is(tok::exclaim) &&
       isMacroInvocationContinuation(GetLookAheadToken(2).getKind())) {
     if (SS.isNotEmpty())
       AnnotateScopeToken(SS, !WasScopeAnnotation);
