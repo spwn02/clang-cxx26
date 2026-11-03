@@ -131,8 +131,8 @@ Types:
     uint_fast32_t
     uint_fast64_t
 
-    intptr_t
-    uintptr_t
+    intptr_t    // required since C++29, optional before
+    uintptr_t   // required since C++29, optional before
 
     intmax_t
     uintmax_t
@@ -185,8 +185,14 @@ using ::uint_fast16_t _LIBCPP_USING_IF_EXISTS;
 using ::uint_fast32_t _LIBCPP_USING_IF_EXISTS;
 using ::uint_fast64_t _LIBCPP_USING_IF_EXISTS;
 
+#  if _LIBCPP_STD_VER >= 29
+// P3248R5: intptr_t and uintptr_t are required, so a platform without them is diagnosed here.
+using ::intptr_t;
+using ::uintptr_t;
+#  else
 using ::intptr_t _LIBCPP_USING_IF_EXISTS;
 using ::uintptr_t _LIBCPP_USING_IF_EXISTS;
+#  endif
 
 using ::intmax_t _LIBCPP_USING_IF_EXISTS;
 using ::uintmax_t _LIBCPP_USING_IF_EXISTS;
