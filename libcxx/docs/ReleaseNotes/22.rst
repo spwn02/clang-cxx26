@@ -137,6 +137,15 @@ Deprecations and Removals
 Potentially breaking changes
 ----------------------------
 
+- The default representation of a floating-point number (``std::to_chars(first, last, value)`` and ``std::format("{}", value)``,
+  ``std::print`` and the other users) follows P3505R4 in every language mode: the fixed notation for
+  ``1e-4 <= abs(value) < 10^k`` and the scientific notation otherwise (``k`` is 7 for ``float``, 16 for ``double``, 19
+  for the x87 ``long double``), with the shortest significand that round-trips. ``100000.0`` is now printed as
+  ``100000`` (was ``1e+05``), ``1234567890123456700000.0`` as ``1.2345678901234568e+21`` (was
+  ``1234567890123456774144``) and ``12345678.0f`` as ``1.2345678e+07`` (was ``12345678``). The lower bound is the
+  smallest value of the type that is at least 1e-4, so ``1e-4f`` is printed as ``1e-04`` and ``1e-4`` as ``0.0001``.
+  Code that compares the output with fixed strings has to be updated.
+
 - ``std::nearbyint``, ``std::rint``, ``std::lrint`` and ``std::llrint`` are no longer ``constexpr``. P0533R9 excludes
   them (they depend on the rounding mode) and [constexpr.functions] forbids an implementation to declare a function
   ``constexpr`` that the standard does not.

@@ -1918,14 +1918,17 @@ void test_floating_point_default() {
   test(SV("12,345.67"), SV("{:L}"), F(1.234567e4L));
   test(SV("123,456.7"), SV("{:L}"), F(1.234567e5L));
   test(SV("1,234,567"), SV("{:L}"), F(1.234567e6));
-  test(SV("12,345,670"), SV("{:L}"), F(1.234567e7));
+  if constexpr (sizeof(F) > sizeof(float))
+    test(SV("12,345,670"), SV("{:L}"), F(1.234567e7));
+  else
+    test(SV("1.234567e+07"), SV("{:L}"), F(1.234567e7));
   if constexpr (sizeof(F) > sizeof(float)) {
     test(SV("123,456,700"), SV("{:L}"), F(1.234567e8));
     test(SV("1,234,567,000"), SV("{:L}"), F(1.234567e9));
     test(SV("12,345,670,000"), SV("{:L}"), F(1.234567e10));
     test(SV("123,456,700,000"), SV("{:L}"), F(1.234567e11));
-    test(SV("1.234567e+12"), SV("{:L}"), F(1.234567e12));
-    test(SV("1.234567e+13"), SV("{:L}"), F(1.234567e13));
+    test(SV("1,234,567,000,000"), SV("{:L}"), F(1.234567e12));
+    test(SV("12,345,670,000,000"), SV("{:L}"), F(1.234567e13));
   }
   test(SV("-1.234567e-06"), SV("{:L}"), F(-1.234567e-6L));
   test(SV("-1.234567e-05"), SV("{:L}"), F(-1.234567e-5L));
@@ -1940,14 +1943,17 @@ void test_floating_point_default() {
   test(SV("-12,345.67"), SV("{:L}"), F(-1.234567e4L));
   test(SV("-123,456.7"), SV("{:L}"), F(-1.234567e5L));
   test(SV("-1,234,567"), SV("{:L}"), F(-1.234567e6));
-  test(SV("-12,345,670"), SV("{:L}"), F(-1.234567e7));
+  if constexpr (sizeof(F) > sizeof(float))
+    test(SV("-12,345,670"), SV("{:L}"), F(-1.234567e7));
+  else
+    test(SV("-1.234567e+07"), SV("{:L}"), F(-1.234567e7));
   if constexpr (sizeof(F) > sizeof(float)) {
     test(SV("-123,456,700"), SV("{:L}"), F(-1.234567e8));
     test(SV("-1,234,567,000"), SV("{:L}"), F(-1.234567e9));
     test(SV("-12,345,670,000"), SV("{:L}"), F(-1.234567e10));
     test(SV("-123,456,700,000"), SV("{:L}"), F(-1.234567e11));
-    test(SV("-1.234567e+12"), SV("{:L}"), F(-1.234567e12));
-    test(SV("-1.234567e+13"), SV("{:L}"), F(-1.234567e13));
+    test(SV("-1,234,567,000,000"), SV("{:L}"), F(-1.234567e12));
+    test(SV("-12,345,670,000,000"), SV("{:L}"), F(-1.234567e13));
   }
 
   std::locale::global(loc);
@@ -1964,14 +1970,17 @@ void test_floating_point_default() {
   test(SV("12_34_5#67"), SV("{:L}"), F(1.234567e4L));
   test(SV("123_45_6#7"), SV("{:L}"), F(1.234567e5L));
   test(SV("1_234_56_7"), SV("{:L}"), F(1.234567e6));
-  test(SV("12_345_67_0"), SV("{:L}"), F(1.234567e7));
+  if constexpr (sizeof(F) > sizeof(float))
+    test(SV("12_345_67_0"), SV("{:L}"), F(1.234567e7));
+  else
+    test(SV("1#234567e+07"), SV("{:L}"), F(1.234567e7));
   if constexpr (sizeof(F) > sizeof(float)) {
     test(SV("1_23_456_70_0"), SV("{:L}"), F(1.234567e8));
     test(SV("1_2_34_567_00_0"), SV("{:L}"), F(1.234567e9));
     test(SV("1_2_3_45_670_00_0"), SV("{:L}"), F(1.234567e10));
     test(SV("1_2_3_4_56_700_00_0"), SV("{:L}"), F(1.234567e11));
-    test(SV("1#234567e+12"), SV("{:L}"), F(1.234567e12));
-    test(SV("1#234567e+13"), SV("{:L}"), F(1.234567e13));
+    test(SV("1_2_3_4_5_67_000_00_0"), SV("{:L}"), F(1.234567e12));
+    test(SV("1_2_3_4_5_6_70_000_00_0"), SV("{:L}"), F(1.234567e13));
   }
   test(SV("-1#234567e-06"), SV("{:L}"), F(-1.234567e-6L));
   test(SV("-1#234567e-05"), SV("{:L}"), F(-1.234567e-5L));
@@ -1986,14 +1995,17 @@ void test_floating_point_default() {
   test(SV("-12_34_5#67"), SV("{:L}"), F(-1.234567e4L));
   test(SV("-123_45_6#7"), SV("{:L}"), F(-1.234567e5L));
   test(SV("-1_234_56_7"), SV("{:L}"), F(-1.234567e6));
-  test(SV("-12_345_67_0"), SV("{:L}"), F(-1.234567e7));
+  if constexpr (sizeof(F) > sizeof(float))
+    test(SV("-12_345_67_0"), SV("{:L}"), F(-1.234567e7));
+  else
+    test(SV("-1#234567e+07"), SV("{:L}"), F(-1.234567e7));
   if constexpr (sizeof(F) > sizeof(float)) {
     test(SV("-1_23_456_70_0"), SV("{:L}"), F(-1.234567e8));
     test(SV("-1_2_34_567_00_0"), SV("{:L}"), F(-1.234567e9));
     test(SV("-1_2_3_45_670_00_0"), SV("{:L}"), F(-1.234567e10));
     test(SV("-1_2_3_4_56_700_00_0"), SV("{:L}"), F(-1.234567e11));
-    test(SV("-1#234567e+12"), SV("{:L}"), F(-1.234567e12));
-    test(SV("-1#234567e+13"), SV("{:L}"), F(-1.234567e13));
+    test(SV("-1_2_3_4_5_67_000_00_0"), SV("{:L}"), F(-1.234567e12));
+    test(SV("-1_2_3_4_5_6_70_000_00_0"), SV("{:L}"), F(-1.234567e13));
   }
 
   test(SV("1.234567e-06"), en_US, SV("{:L}"), F(1.234567e-6L));
@@ -2009,14 +2021,17 @@ void test_floating_point_default() {
   test(SV("12,345.67"), en_US, SV("{:L}"), F(1.234567e4L));
   test(SV("123,456.7"), en_US, SV("{:L}"), F(1.234567e5L));
   test(SV("1,234,567"), en_US, SV("{:L}"), F(1.234567e6));
-  test(SV("12,345,670"), en_US, SV("{:L}"), F(1.234567e7));
+  if constexpr (sizeof(F) > sizeof(float))
+    test(SV("12,345,670"), en_US, SV("{:L}"), F(1.234567e7));
+  else
+    test(SV("1.234567e+07"), en_US, SV("{:L}"), F(1.234567e7));
   if constexpr (sizeof(F) > sizeof(float)) {
     test(SV("123,456,700"), en_US, SV("{:L}"), F(1.234567e8));
     test(SV("1,234,567,000"), en_US, SV("{:L}"), F(1.234567e9));
     test(SV("12,345,670,000"), en_US, SV("{:L}"), F(1.234567e10));
     test(SV("123,456,700,000"), en_US, SV("{:L}"), F(1.234567e11));
-    test(SV("1.234567e+12"), en_US, SV("{:L}"), F(1.234567e12));
-    test(SV("1.234567e+13"), en_US, SV("{:L}"), F(1.234567e13));
+    test(SV("1,234,567,000,000"), en_US, SV("{:L}"), F(1.234567e12));
+    test(SV("12,345,670,000,000"), en_US, SV("{:L}"), F(1.234567e13));
   }
   test(SV("-1.234567e-06"), en_US, SV("{:L}"), F(-1.234567e-6L));
   test(SV("-1.234567e-05"), en_US, SV("{:L}"), F(-1.234567e-5L));
@@ -2031,14 +2046,17 @@ void test_floating_point_default() {
   test(SV("-12,345.67"), en_US, SV("{:L}"), F(-1.234567e4L));
   test(SV("-123,456.7"), en_US, SV("{:L}"), F(-1.234567e5L));
   test(SV("-1,234,567"), en_US, SV("{:L}"), F(-1.234567e6));
-  test(SV("-12,345,670"), en_US, SV("{:L}"), F(-1.234567e7));
+  if constexpr (sizeof(F) > sizeof(float))
+    test(SV("-12,345,670"), en_US, SV("{:L}"), F(-1.234567e7));
+  else
+    test(SV("-1.234567e+07"), en_US, SV("{:L}"), F(-1.234567e7));
   if constexpr (sizeof(F) > sizeof(float)) {
     test(SV("-123,456,700"), en_US, SV("{:L}"), F(-1.234567e8));
     test(SV("-1,234,567,000"), en_US, SV("{:L}"), F(-1.234567e9));
     test(SV("-12,345,670,000"), en_US, SV("{:L}"), F(-1.234567e10));
     test(SV("-123,456,700,000"), en_US, SV("{:L}"), F(-1.234567e11));
-    test(SV("-1.234567e+12"), en_US, SV("{:L}"), F(-1.234567e12));
-    test(SV("-1.234567e+13"), en_US, SV("{:L}"), F(-1.234567e13));
+    test(SV("-1,234,567,000,000"), en_US, SV("{:L}"), F(-1.234567e12));
+    test(SV("-12,345,670,000,000"), en_US, SV("{:L}"), F(-1.234567e13));
   }
 
   std::locale::global(en_US);
@@ -2055,14 +2073,17 @@ void test_floating_point_default() {
   test(SV("12_34_5#67"), loc, SV("{:L}"), F(1.234567e4L));
   test(SV("123_45_6#7"), loc, SV("{:L}"), F(1.234567e5L));
   test(SV("1_234_56_7"), loc, SV("{:L}"), F(1.234567e6));
-  test(SV("12_345_67_0"), loc, SV("{:L}"), F(1.234567e7));
+  if constexpr (sizeof(F) > sizeof(float))
+    test(SV("12_345_67_0"), loc, SV("{:L}"), F(1.234567e7));
+  else
+    test(SV("1#234567e+07"), loc, SV("{:L}"), F(1.234567e7));
   if constexpr (sizeof(F) > sizeof(float)) {
     test(SV("1_23_456_70_0"), loc, SV("{:L}"), F(1.234567e8));
     test(SV("1_2_34_567_00_0"), loc, SV("{:L}"), F(1.234567e9));
     test(SV("1_2_3_45_670_00_0"), loc, SV("{:L}"), F(1.234567e10));
     test(SV("1_2_3_4_56_700_00_0"), loc, SV("{:L}"), F(1.234567e11));
-    test(SV("1#234567e+12"), loc, SV("{:L}"), F(1.234567e12));
-    test(SV("1#234567e+13"), loc, SV("{:L}"), F(1.234567e13));
+    test(SV("1_2_3_4_5_67_000_00_0"), loc, SV("{:L}"), F(1.234567e12));
+    test(SV("1_2_3_4_5_6_70_000_00_0"), loc, SV("{:L}"), F(1.234567e13));
   }
   test(SV("-1#234567e-06"), loc, SV("{:L}"), F(-1.234567e-6L));
   test(SV("-1#234567e-05"), loc, SV("{:L}"), F(-1.234567e-5L));
@@ -2077,14 +2098,17 @@ void test_floating_point_default() {
   test(SV("-12_34_5#67"), loc, SV("{:L}"), F(-1.234567e4L));
   test(SV("-123_45_6#7"), loc, SV("{:L}"), F(-1.234567e5L));
   test(SV("-1_234_56_7"), loc, SV("{:L}"), F(-1.234567e6));
-  test(SV("-12_345_67_0"), loc, SV("{:L}"), F(-1.234567e7));
+  if constexpr (sizeof(F) > sizeof(float))
+    test(SV("-12_345_67_0"), loc, SV("{:L}"), F(-1.234567e7));
+  else
+    test(SV("-1#234567e+07"), loc, SV("{:L}"), F(-1.234567e7));
   if constexpr (sizeof(F) > sizeof(float)) {
     test(SV("-1_23_456_70_0"), loc, SV("{:L}"), F(-1.234567e8));
     test(SV("-1_2_34_567_00_0"), loc, SV("{:L}"), F(-1.234567e9));
     test(SV("-1_2_3_45_670_00_0"), loc, SV("{:L}"), F(-1.234567e10));
     test(SV("-1_2_3_4_56_700_00_0"), loc, SV("{:L}"), F(-1.234567e11));
-    test(SV("-1#234567e+12"), loc, SV("{:L}"), F(-1.234567e12));
-    test(SV("-1#234567e+13"), loc, SV("{:L}"), F(-1.234567e13));
+    test(SV("-1_2_3_4_5_67_000_00_0"), loc, SV("{:L}"), F(-1.234567e12));
+    test(SV("-1_2_3_4_5_6_70_000_00_0"), loc, SV("{:L}"), F(-1.234567e13));
   }
 
   // *** Fill, align, zero padding ***

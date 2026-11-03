@@ -2759,7 +2759,7 @@ inline constexpr DoubleToCharsTestCase double_to_chars_test_cases[] = {
     // for a shortest representation (see above); a tie is resolved in favor of f."
     {1e-6, chars_format{}, "1e-06"},
     {1e-5, chars_format{}, "1e-05"},
-    {1e-4, chars_format{}, "1e-04"},
+    {1e-4, chars_format{}, "0.0001"},
     {1e-3, chars_format{}, "0.001"},
     {1e-2, chars_format{}, "0.01"},
     {1e-1, chars_format{}, "0.1"},
@@ -2768,9 +2768,9 @@ inline constexpr DoubleToCharsTestCase double_to_chars_test_cases[] = {
     {1e2, chars_format{}, "100"},
     {1e3, chars_format{}, "1000"},
     {1e4, chars_format{}, "10000"},
-    {1e5, chars_format{}, "1e+05"},
-    {1e6, chars_format{}, "1e+06"},
-    {1e7, chars_format{}, "1e+07"},
+    {1e5, chars_format{}, "100000"},
+    {1e6, chars_format{}, "1000000"},
+    {1e7, chars_format{}, "10000000"},
     {1.234e-6, chars_format{}, "1.234e-06"},
     {1.234e-5, chars_format{}, "1.234e-05"},
     {1.234e-4, chars_format{}, "0.0001234"},
@@ -2786,8 +2786,8 @@ inline constexpr DoubleToCharsTestCase double_to_chars_test_cases[] = {
     {1.234e6, chars_format{}, "1234000"},
     {1.234e7, chars_format{}, "12340000"},
     {1.234e8, chars_format{}, "123400000"},
-    {1.234e9, chars_format{}, "1.234e+09"},
-    {1.234e10, chars_format{}, "1.234e+10"},
+    {1.234e9, chars_format{}, "1234000000"},
+    {1.234e10, chars_format{}, "12340000000"},
 
     // Exact value is 1.9156918820264798304697...e-56, incorrectly rounded by dtoa_milo() (Grisu2).
     {0x1.e0ffed391517ep-186, chars_format::scientific, "1.9156918820264798e-56"},

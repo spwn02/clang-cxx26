@@ -904,12 +904,29 @@ _LIBCPP_HIDE_FROM_ABI inline __to_chars_out __format_hex(char* __first, char* __
 // ---------------------------------------------------------------------------------------------------------------------
 // to_chars entry point.
 // ---------------------------------------------------------------------------------------------------------------------
-_LIBCPP_HIDE_FROM_ABI inline __fmt_kind __shortest_notation(const __shortest_digits& __s, int __e10, __fmt_kind __kind) {
-  if (__kind == __fmt_kind::__plain) {
-    long __lower = __s.__n == 1 ? -3 : -(static_cast<long>(__s.__n) + 3);
-    long __upper = __s.__n == 1 ? 4 : 5;
-    return (__lower <= __e10 && __e10 <= __upper) ? __fmt_kind::__fixed : __fmt_kind::__scientific;
+// P3505R4: the default representation is fixed if the magnitude is in [l, u), scientific otherwise, where l is the
+// smallest value >= 1e-4 and u the largest power of ten <= radix^(digits + 1) that the format can represent.
+// Both bounds are given as the bit patterns of the format.
+_LIBCPP_HIDE_FROM_ABI inline bool __plain_is_fixed(__u128 __magnitude_bits, const __fp_format& __f) {
+  __u128 __lower;
+  __u128 __upper;
+  if (__f.__p == __binary128.__p) {
+    __lower = (static_cast<__u128>(0x3FF1A36E2EB1C432ull) << 64) | 0xCA57A786C226809Eull; // 0x1.a36e2eb1c432ca57a786c226809ep-14
+    __upper = (static_cast<__u128>(0x406FED09BEAD87C0ull) << 64) | 0x378D8E6400000000ull; // 1e34
+  } else if (__f.__p == __binary16.__p) {
+    __lower = 0x068E; // 0x1.a38p-14
+    __upper = 0x63D0; // 1e3
+  } else {
+    __lower = 0x38D2; // bfloat16: 0x1.a4p-14
+    __upper = 0x42C8; // 1e2
   }
+  return __lower <= __magnitude_bits && __magnitude_bits < __upper;
+}
+
+_LIBCPP_HIDE_FROM_ABI inline __fmt_kind __shortest_notation(
+    const __shortest_digits& __s, __u128 __magnitude_bits, const __fp_format& __f, __fmt_kind __kind) {
+  if (__kind == __fmt_kind::__plain)
+    return __plain_is_fixed(__magnitude_bits, __f) ? __fmt_kind::__fixed : __fmt_kind::__scientific;
   if (__kind == __fmt_kind::__general)
     return (-4 <= __s.__x && __s.__x < 6) ? __fmt_kind::__fixed : __fmt_kind::__scientific;
   return __kind;
@@ -1006,7 +1023,7 @@ _LIBCPP_HIDE_FROM_ABI inline __to_chars_out __to_chars(
                                                                    : __round_trip_bits;
   __shortest_digits __s = __find_shortest(__d, __mag_bits, __round_trip_format);
   int __e10 = __s.__x - (__s.__n - 1);
-  __fmt_kind __use = __shortest_notation(__s, __e10, __kind);
+  __fmt_kind __use = __shortest_notation(__s, __mag_bits, __round_trip_format, __kind);
   if (__use == __fmt_kind::__scientific)
     return __print_shortest_scientific(__first, __last, __d.__neg, __s);
   // fixed

@@ -256,12 +256,18 @@ constexpr inline _LIBCPP_HIDE_FROM_ABI char* __find_exponent(char* __first, char
   return __last;
 }
 
+// __plain_notation is chars_format{} for the types whose default representation to_chars chooses by itself. The
+// narrow floating-point types are formatted as the double their shortest representation reads back as, so they pass
+// the notation (fixed or scientific) their own range selects ([charconv.to.chars], P3505R4).
 template <class _Fp, class _Tp>
-_LIBCPP_HIDE_FROM_ABI __float_result
-__format_buffer_default(const __float_buffer<_Fp>& __buffer, _Tp __value, char* __integral) {
+_LIBCPP_HIDE_FROM_ABI __float_result __format_buffer_default(
+    const __float_buffer<_Fp>& __buffer, _Tp __value, char* __integral, chars_format __plain_notation = chars_format{}) {
   __float_result __result;
   __result.__integral = __integral;
-  __result.__last     = __formatter::__to_buffer(__integral, __buffer.end(), __value);
+  __result.__last =
+      __plain_notation == chars_format{}
+          ? __formatter::__to_buffer(__integral, __buffer.end(), __value)
+          : __formatter::__to_buffer(__integral, __buffer.end(), __value, __plain_notation);
 
   __result.__exponent = __formatter::__find_exponent(__result.__integral, __result.__last);
 
@@ -474,14 +480,15 @@ _LIBCPP_HIDE_FROM_ABI __float_result __format_buffer(
     bool __negative,
     bool __has_precision,
     __format_spec::__sign __sign,
-    __format_spec::__type __type) {
+    __format_spec::__type __type,
+    chars_format __plain_notation = chars_format{}) {
   char* __first = __formatter::__insert_sign(__buffer.begin(), __negative, __sign);
   switch (__type) {
   case __format_spec::__type::__default:
     if (__has_precision)
       return __formatter::__format_buffer_general_lower_case(__buffer, __value, __buffer.__precision(), __first);
     else
-      return __formatter::__format_buffer_default(__buffer, __value, __first);
+      return __formatter::__format_buffer_default(__buffer, __value, __first, __plain_notation);
 
   case __format_spec::__type::__hexfloat_lower_case:
     return __formatter::__format_buffer_hexadecimal_lower_case(
@@ -657,7 +664,11 @@ _LIBCPP_HIDE_FROM_ABI auto __write_using_trailing_zeros(
 
 template <floating_point _Tp, class _CharT, class _FormatContext>
 _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator
-__format_floating_point(_Tp __value, _FormatContext& __ctx, __format_spec::__parsed_specifications<_CharT> __specs) {
+__format_floating_point(
+    _Tp __value,
+    _FormatContext& __ctx,
+    __format_spec::__parsed_specifications<_CharT> __specs,
+    chars_format __plain_notation = chars_format{}) {
   bool __negative = std::signbit(__value);
 
   if (!std::isfinite(__value)) [[unlikely]]
@@ -677,7 +688,13 @@ __format_floating_point(_Tp __value, _FormatContext& __ctx, __format_spec::__par
   // Force the type of the precision to avoid -1 to become an unsigned value.
   __float_buffer<_Fp> __buffer(__specs.__precision_);
   __float_result __result = __formatter::__format_buffer(
-      __buffer, __value, __negative, (__specs.__has_precision()), __specs.__std_.__sign_, __specs.__std_.__type_);
+      __buffer,
+      __value,
+      __negative,
+      (__specs.__has_precision()),
+      __specs.__std_.__sign_,
+      __specs.__std_.__type_,
+      __plain_notation);
 
   if (__specs.__std_.__alternate_form_) {
     if (__result.__radix_point == __result.__last) {
@@ -812,6 +829,14 @@ _LIBCPP_HIDE_FROM_ABI double __narrow_float_argument(_Tp __value, __format_spec:
     std::from_chars(__buffer, __r.ptr, __parsed);
   return __parsed;
 }
+
+// P3505R4: the default representation of a narrow type is fixed if the magnitude is in [lower, upper), where lower is
+// the smallest value of the type at least 1e-4 and upper the largest power of ten at most radix^(digits + 1) (1e3 for
+// binary16, 1e2 for bfloat16), and scientific otherwise. Zero is printed as "0".
+_LIBCPP_HIDE_FROM_ABI inline chars_format __narrow_plain_notation(float __value, float __lower, float __upper) {
+  float __abs = __builtin_fabsf(__value);
+  return (__abs == 0.0f || (__lower <= __abs && __abs < __upper)) ? chars_format::fixed : chars_format::scientific;
+}
 } // namespace __formatter
 #    if defined(__STDCPP_FLOAT128_T__)
 namespace __formatter {
@@ -838,8 +863,12 @@ struct formatter<float16_t, _CharT> : public __formatter_floating_point<_CharT> 
   using __base::parse;
   template <class _FormatContext>
   _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(float16_t __value, _FormatContext& __ctx) const {
-    return __base::format(__formatter::__narrow_float_argument(__value, this->__parser_.__get_parsed_std_specifications(__ctx)),
-                          __ctx);
+    auto __specs = this->__parser_.__get_parsed_std_specifications(__ctx);
+    return __formatter::__format_floating_point(
+        __formatter::__narrow_float_argument(__value, __specs),
+        __ctx,
+        __specs,
+        __formatter::__narrow_plain_notation(static_cast<float>(__value), 0x1.a38p-14f, 1e3f));
   }
 };
 #    endif
@@ -872,8 +901,12 @@ struct formatter<bfloat16_t, _CharT> : public __formatter_floating_point<_CharT>
   using __base::parse;
   template <class _FormatContext>
   _LIBCPP_HIDE_FROM_ABI typename _FormatContext::iterator format(bfloat16_t __value, _FormatContext& __ctx) const {
-    return __base::format(__formatter::__narrow_float_argument(__value, this->__parser_.__get_parsed_std_specifications(__ctx)),
-                          __ctx);
+    auto __specs = this->__parser_.__get_parsed_std_specifications(__ctx);
+    return __formatter::__format_floating_point(
+        __formatter::__narrow_float_argument(__value, __specs),
+        __ctx,
+        __specs,
+        __formatter::__narrow_plain_notation(static_cast<float>(__value), 0x1.a4p-14f, 1e2f));
   }
 };
 #    endif
