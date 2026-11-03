@@ -61,8 +61,14 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 inline constexpr unsigned max_pointer_bits_available = 12;
 
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr unsigned pointer_bits_available(size_t __alignment) {
-  _LIBCPP_ASSERT_UNCATEGORIZED(
-      __alignment != 0 && (__alignment & (__alignment - 1)) == 0, "pointer_bits_available requires a power of two");
+  // The precondition is part of the constant expression requirements whatever the hardening mode is.
+  if consteval {
+    if (__alignment == 0 || (__alignment & (__alignment - 1)) != 0)
+      __builtin_unreachable();
+  } else {
+    _LIBCPP_ASSERT_UNCATEGORIZED(
+        __alignment != 0 && (__alignment & (__alignment - 1)) == 0, "pointer_bits_available requires a power of two");
+  }
   unsigned __bits = static_cast<unsigned>(std::countr_zero(__alignment));
   return __bits < max_pointer_bits_available ? __bits : max_pointer_bits_available;
 }
@@ -126,7 +132,11 @@ public:
   // [ptrtag.pair.overalign]
   template <size_t _PromisedAlignment, __tagging_compatible_pointee<pointer_type, bits_requested, _PromisedAlignment> _Up>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static constexpr pointer_tag_pair from_overaligned(_Up* __p, tag_type __t) {
-    if !consteval {
+    if consteval {
+      // Constant when the promise is provably kept: the object the pointer points into is aligned enough.
+      if (__p != nullptr && !__builtin_is_aligned(__p, _PromisedAlignment))
+        __builtin_unreachable();
+    } else {
       _LIBCPP_ASSERT_UNCATEGORIZED(__p == nullptr || std::is_sufficiently_aligned<_PromisedAlignment>(__p),
                                    "from_overaligned requires a pointer aligned to the promised alignment");
     }

@@ -101,6 +101,18 @@ A program that never calls ``setlocale`` runs in the "C" locale. On platforms wh
 unchanged only after the program selects a UTF-8 locale.
 
 
+`[ptrtag.bits] <https://eel.is/c++draft/ptrtag.bits>`_ Pointer tagging limits (C++29)
+-------------------------------------------------------------------------------------
+
+``std::max_pointer_bits_available`` is 12 on every target: a tag never reaches into the page number of a 4 KiB page.
+``std::pointer_bits_available(alignment)`` returns ``min(countr_zero(alignment), 12)``. Because the value is not zero,
+libc++ guarantees what the remark of ``max_pointer_bits_available`` asks for: a tagged pointer is the untagged pointer
+plus the tag as a byte offset (``getelementptr``), so every operation that keeps an invalid pointer value as it is
+(copying, storing, passing, comparing) keeps the tag, and ``from_tagged`` of the result gives back the same
+``pointer_tag_pair``. In constant expressions a use needs an object aligned to at least ``2^bits`` bytes, and a tagged
+pointer that is not turned back with ``pointer()`` is not diagnosed when it is dereferenced.
+
+
 Listed in the index of implementation-defined behavior
 ======================================================
 
