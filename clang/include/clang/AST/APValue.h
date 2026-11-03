@@ -669,6 +669,12 @@ public:
   unsigned getLValueCallIndex() const;
   unsigned getLValueVersion() const;
   bool isNullPointer() const;
+  /// The tag of an lvalue (pointer) with a pointer tag (P3125R6): the value stored in the low bits of the pointer that
+  /// are zero because of the alignment of the object it points into, kept beside the offset and the lvalue path. Zero
+  /// for an untagged pointer. A tagged pointer is an invalid pointer value: it can be copied and compared for
+  /// equality, but not used to access an object.
+  unsigned getLValueTag() const;
+  void setLValueTag(unsigned Tag);
 
   APValue &getVectorElt(unsigned I) {
     assert(Kind == Vector && "Invalid accessor");

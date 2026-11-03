@@ -5296,7 +5296,7 @@ and remove it again. They are the compiler support behind C++29
 
 **Description**:
 
-``bits`` is the number of tag bits (at most 32), ``tag`` must be less than
+``bits`` is the number of tag bits (at most 16), ``tag`` must be less than
 ``1 << bits`` and ``ptr`` must be aligned to ``1 << bits`` bytes and must not
 point past the end of an object. The result of ``__builtin_pointer_tag_insert``
 is ``ptr`` plus ``tag`` bytes, with the provenance of ``ptr`` (it lowers to a
@@ -5305,14 +5305,23 @@ bits of the address and ``__builtin_pointer_tag_strip`` clears them
 (``llvm.ptrmask``). A tagged pointer must not be dereferenced.
 
 All three builtins can be used in constant expressions. The constant evaluator
-does not observe an address: the tag is the byte offset of the pointer in the
-object it points into, which is known modulo ``1 << bits`` when the object is
-aligned to at least that many bytes (an object with a smaller alignment makes
-the use not a constant expression), and the subobject the pointer designates is
-kept, so ``__builtin_pointer_tag_strip`` gives back exactly the pointer that
-was tagged. Tagging a null pointer gives a pointer that is not null and
-``__builtin_pointer_tag_strip`` on it gives a null pointer again. These builtins
-are not supported by the experimental constant interpreter.
+does not observe an address. A tagged pointer keeps the object, the offset and
+the subobject of the untagged pointer and, beside them, the tag, so
+``__builtin_pointer_tag_strip`` gives back exactly the pointer that was tagged.
+The object the pointer points into has to be aligned to at least ``1 << bits``
+bytes, otherwise the use is not a constant expression. Tagging a null pointer
+gives a pointer that is not null and ``__builtin_pointer_tag_strip`` on it gives
+a null pointer again. These builtins are not supported by the experimental
+constant interpreter.
+
+A tagged pointer is an invalid pointer value ([basic.compound]). In a constant
+expression it can be copied, compared for equality, converted to another cv
+``void*`` type and passed to the three builtins; any other use is diagnosed:
+indirection, member access, array subscript, pointer arithmetic, relational and
+pointer difference operators, conversion to a pointer to an object type,
+``delete`` and use as a template argument. It can be a part of a constant (a
+``constexpr`` variable, a member of a ``constexpr`` object), where it is emitted
+as the object address plus the tag, as at run time.
 
 Non-standard C++11 Attributes
 =============================

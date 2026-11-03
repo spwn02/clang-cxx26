@@ -709,6 +709,9 @@ let Class = PropertyTypeCase<APValue, "LValue"> in {
   def : Property<"offsetQuantity", UInt32> {
     let Read = [{ node.getLValueOffset().getQuantity() }];
   }
+  def : Property<"pointerTag", UInt32> {
+    let Read = [{ node.getLValueTag() }];
+  }
   def : Property<"lvaluePath", LValuePathSerializationHelper> {
     let Conditional = [{ hasLValuePath }];
     let Read = [{
@@ -738,12 +741,14 @@ let Class = PropertyTypeCase<APValue, "LValue"> in {
     result.MakeLValue();
     if (!hasLValuePath) {
       result.setLValue(base, offset, APValue::NoLValuePath{}, isNullPtr);
+      result.setLValueTag(pointerTag);
       return result;
     }
     auto pathLength = lvaluePath->Path.size();
     APValue::LValuePathEntry *path = result.setLValueUninit(
         base, offset, pathLength, isLValueOnePastTheEnd, isNullPtr).data();
     llvm::copy(lvaluePath->Path, path);
+    result.setLValueTag(pointerTag);
     return result;
   }]>;
 }

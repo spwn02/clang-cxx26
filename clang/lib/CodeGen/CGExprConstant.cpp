@@ -2121,13 +2121,15 @@ private:
   emitPointerAuthDiscriminator(const Expr *E);
 
   bool hasNonZeroOffset() const {
-    return !Value.getLValueOffset().isZero();
+    // The tag of a tagged pointer (P3125R6) is a part of the offset at run time.
+    return !Value.getLValueOffset().isZero() || Value.getLValueTag() != 0;
   }
 
   /// Return the value offset.
   llvm::Constant *getOffset() {
-    return llvm::ConstantInt::get(CGM.Int64Ty,
-                                  Value.getLValueOffset().getQuantity());
+    // A tagged pointer (P3125R6) is the pointer plus the tag as a byte offset.
+    return llvm::ConstantInt::get(
+        CGM.Int64Ty, Value.getLValueOffset().getQuantity() + Value.getLValueTag());
   }
 
   /// Apply the value offset to the given constant.

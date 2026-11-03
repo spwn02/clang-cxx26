@@ -1792,6 +1792,12 @@ namespace {
     bool InvalidBase : 1;
     // P2280R4 track if we have an unknown reference or pointer.
     bool AllowConstexprUnknown = false;
+    // The tag of a tagged pointer (P3125R6), beside Offset and Designator, which are those of the untagged pointer.
+    // A tagged pointer is an invalid pointer value: it cannot be used to access an object.
+    unsigned PtrTag = 0;
+
+    bool isTagged() const { return PtrTag != 0; }
+    bool checkNotTagged(EvalInfo &Info, const Expr *E) const;
 
     const APValue::LValueBase getLValueBase() const { return Base; }
     bool allowConstexprUnknown() const { return AllowConstexprUnknown; }
@@ -1814,6 +1820,7 @@ namespace {
       }
       if (AllowConstexprUnknown)
         V.setConstexprUnknown();
+      V.setLValueTag(PtrTag);
     }
     void setFrom(const ASTContext &Ctx, const APValue &V) {
       assert(V.isLValue() && "Setting LValue from a non-LValue?");
@@ -1823,6 +1830,7 @@ namespace {
       Designator = SubobjectDesignator(Ctx, V);
       IsNullPtr = V.isNullPointer();
       AllowConstexprUnknown = V.allowConstexprUnknown();
+      PtrTag = V.getLValueTag();
     }
 
     void set(APValue::LValueBase B, bool BInvalid = false) {
@@ -1841,6 +1849,7 @@ namespace {
       Designator = SubobjectDesignator(getType(B));
       IsNullPtr = false;
       AllowConstexprUnknown = false;
+      PtrTag = 0;
     }
 
     void setNull(ASTContext &Ctx, QualType PointerTy) {
@@ -1851,6 +1860,7 @@ namespace {
       Designator = SubobjectDesignator(PointerTy->getPointeeType());
       IsNullPtr = true;
       AllowConstexprUnknown = false;
+      PtrTag = 0;
     }
 
     void setInvalid(APValue::LValueBase B, unsigned I = 0) {
@@ -3809,6 +3819,13 @@ static bool CastToDerivedClass(EvalInfo &Info, const Expr *E, LValue &Result,
   return true;
 }
 
+bool LValue::checkNotTagged(EvalInfo &Info, const Expr *E) const {
+  if (!PtrTag)
+    return true;
+  Info.FFDiag(E, diag::note_constexpr_pointer_tag_misuse);
+  return false;
+}
+
 static bool HandleLValueDirectBase(EvalInfo &Info, const Expr *E, LValue &Obj,
                                    const CXXRecordDecl *Derived,
                                    const CXXRecordDecl *Base,
@@ -3818,6 +3835,8 @@ static bool HandleLValueDirectBase(EvalInfo &Info, const Expr *E, LValue &Obj,
     RL = &Info.Ctx.getASTRecordLayout(Derived);
   }
 
+  if (!Obj.checkNotTagged(Info, E))
+    return false;
   Obj.addDecl(Info, E, Base, /*Virtual*/ false);
   Obj.getLValueOffset() += RL->getBaseClassOffset(Base);
   return true;
@@ -3826,6 +3845,8 @@ static bool HandleLValueDirectBase(EvalInfo &Info, const Expr *E, LValue &Obj,
 static bool HandleLValueBase(EvalInfo &Info, const Expr *E, LValue &Obj,
                              const CXXRecordDecl *DerivedDecl,
                              const CXXBaseSpecifier *Base) {
+  if (!Obj.checkNotTagged(Info, E))
+    return false;
   const CXXRecordDecl *BaseDecl = Base->getType()->getAsCXXRecordDecl();
 
   if (!Base->isVirtual())
@@ -3890,6 +3911,8 @@ static bool HandleLValueMember(EvalInfo &Info, const Expr *E, LValue &LVal,
     RL = &Info.Ctx.getASTRecordLayout(FD->getParent());
   }
 
+  if (!LVal.checkNotTagged(Info, E))
+    return false;
   unsigned I = FD->getFieldIndex();
   LVal.addDecl(Info, E, FD);
   LVal.adjustOffset(Info.Ctx.toCharUnitsFromBits(RL->getFieldOffset(I)));
@@ -3951,6 +3974,8 @@ static bool HandleLValueArrayAdjustment(EvalInfo &Info, const Expr *E,
                                         APSInt Adjustment) {
   CharUnits SizeOfPointee;
   if (!HandleSizeof(Info, E->getExprLoc(), EltTy, SizeOfPointee))
+    return false;
+  if (!LVal.checkNotTagged(Info, E))
     return false;
 
   LVal.adjustOffsetAndIndex(Info, E, Adjustment, SizeOfPointee);
@@ -5272,6 +5297,10 @@ static CompleteObject findCompleteObject(EvalInfo &Info, const Expr *E,
     return CompleteObject();
   }
 
+  // A tagged pointer is an invalid pointer value: indirection through it is undefined.
+  if (!LVal.checkNotTagged(Info, E))
+    return CompleteObject();
+
   if (!LVal.Base) {
     if (AK == AccessKinds::AK_Dereference)
       Info.FFDiag(E, diag::note_constexpr_dereferencing_null);
@@ -6183,6 +6212,8 @@ static const ValueDecl *HandleMemberPointerAccess(EvalInfo &Info,
 static bool HandleBaseToDerivedCast(EvalInfo &Info, const CastExpr *E,
                                     LValue &Result) {
   SubobjectDesignator &D = Result.Designator;
+  if (!Result.checkNotTagged(Info, E))
+    return false;
   if (D.Invalid || !Result.checkNullPointer(Info, E, CSK_Derived))
     return false;
 
@@ -9065,6 +9096,8 @@ static bool HandleOperatorDeleteCall(EvalInfo &Info, const CallExpr *E) {
   for (unsigned I = 1, N = E->getNumArgs(); I != N; ++I)
     EvaluateIgnoredValue(Info, E->getArg(I));
 
+  if (!Pointer.checkNotTagged(Info, E))
+    return false;
   if (Pointer.Designator.Invalid)
     return false;
 
@@ -12115,6 +12148,9 @@ bool PointerExprEvaluator::VisitCastExpr(const CastExpr *E) {
   case CK_AddressSpaceConversion:
     if (!Visit(SubExpr))
       return false;
+    // A tagged pointer can only be converted to another void pointer type.
+    if (Result.isTagged() && !E->getType()->isVoidPointerType() && !Result.checkNotTagged(Info, E))
+      return false;
     if (E->getType()->isFunctionPointerType() ||
         SubExpr->getType()->isFunctionPointerType()) {
       // Casting between two function pointer types, or between a function
@@ -12339,7 +12375,7 @@ static bool getPointerTagBits(EvalInfo &Info, const Expr *E, uint64_t &Bits) {
   APSInt Value;
   if (!EvaluateInteger(E, Value, Info))
     return false;
-  if (Value.isNegative() || Value.getActiveBits() > 6 || Value.getZExtValue() > 32) {
+  if (Value.isNegative() || Value.getActiveBits() > 5 || Value.getZExtValue() > 16) {
     Info.FFDiag(E, diag::note_constexpr_pointer_tag_bits) << Value;
     return false;
   }
@@ -12599,12 +12635,15 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       return false;
     }
     uint64_t Mask = (uint64_t(1) << Bits) - 1;
-    if ((uint64_t(Result.Offset.getQuantity()) & Mask) != 0) {
+    if (Result.isTagged() || (uint64_t(Result.Offset.getQuantity()) & Mask) != 0) {
       Info.FFDiag(E->getArg(0), diag::note_constexpr_pointer_tag_unaligned) << (int64_t(1) << Bits);
       return false;
     }
-    Result.Offset += CharUnits::fromQuantity(int64_t(Tag.getZExtValue()));
-    Result.IsNullPtr = !Result.Base && Result.Offset.isZero();
+    // The tag is kept beside the offset and the designator of the untagged pointer, so that it can be taken off
+    // again, and so that the pointer cannot be used to access an object.
+    Result.PtrTag = unsigned(Tag.getZExtValue());
+    if (Result.PtrTag)
+      Result.IsNullPtr = false;
     return true;
   }
   case Builtin::BI__builtin_pointer_tag_strip: {
@@ -12615,7 +12654,9 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       return false;
     uint64_t Mask = (uint64_t(1) << Bits) - 1;
     Result.Offset -= CharUnits::fromQuantity(int64_t(uint64_t(Result.Offset.getQuantity()) & Mask));
-    Result.IsNullPtr = !Result.Base && Result.Offset.isZero();
+    Result.PtrTag &= ~unsigned(Mask);
+    if (!Result.Base && Result.Offset.isZero() && !Result.PtrTag)
+      Result.IsNullPtr = true;
     return true;
   }
   case Builtin::BI__builtin_operator_new:
@@ -18340,7 +18381,7 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     if (!checkPointerTagBaseAlignment(Info, E->getArg(0), Ptr, Bits))
       return false;
     uint64_t Mask = (uint64_t(1) << Bits) - 1;
-    return Success(uint64_t(Ptr.Offset.getQuantity()) & Mask, E);
+    return Success((uint64_t(Ptr.Offset.getQuantity()) + Ptr.PtrTag) & Mask, E);
   }
 
   case Builtin::BI__builtin_is_aligned: {
@@ -20421,6 +20462,10 @@ EvaluateComparisonBinaryOperator(EvalInfo &Info, const BinaryOperator *E,
     if (!EvaluatePointer(E->getRHS(), RHSValue, Info) || !LHSOK)
       return false;
 
+    // Tagged pointers are invalid pointer values: they can be compared for equality only.
+    if (!IsEquality && (!LHSValue.checkNotTagged(Info, E) || !RHSValue.checkNotTagged(Info, E)))
+      return false;
+
     // Reject differing bases from the normal codepath; we special-case
     // comparisons to null.
     if (!HasSameBase(LHSValue, RHSValue)) {
@@ -20546,8 +20591,8 @@ EvaluateComparisonBinaryOperator(EvalInfo &Info, const BinaryOperator *E,
     // The comparison here must be unsigned, and performed with the same
     // width as the pointer.
     unsigned PtrSize = Info.Ctx.getTypeSize(LHSTy);
-    uint64_t CompareLHS = LHSOffset.getQuantity();
-    uint64_t CompareRHS = RHSOffset.getQuantity();
+    uint64_t CompareLHS = LHSOffset.getQuantity() + LHSValue.PtrTag;
+    uint64_t CompareRHS = RHSOffset.getQuantity() + RHSValue.PtrTag;
     assert(PtrSize <= 64 && "Unexpected pointer width");
     uint64_t Mask = ~0ULL >> (64 - PtrSize);
     CompareLHS &= Mask;
@@ -20761,6 +20806,9 @@ bool IntExprEvaluator::VisitBinaryOperator(const BinaryOperator *E) {
       return false;
 
     if (!EvaluatePointer(E->getRHS(), RHSValue, Info) || !LHSOK)
+      return false;
+
+    if (!LHSValue.checkNotTagged(Info, E) || !RHSValue.checkNotTagged(Info, E))
       return false;
 
     // Reject differing bases from the normal codepath; we special-case

@@ -757,6 +757,8 @@ void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
     OS << ", Null=" << Value.isNullPointer()
        << ", Offset=" << Value.getLValueOffset().getQuantity()
        << ", HasPath=" << Value.hasLValuePath();
+    if (Value.getLValueTag())
+      OS << ", Tag=" << Value.getLValueTag();
     if (Value.hasLValuePath()) {
       OS << ", PathLength=" << Value.getLValuePath().size();
       OS << ", Path=(";

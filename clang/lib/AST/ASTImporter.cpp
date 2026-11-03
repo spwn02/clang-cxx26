@@ -10973,6 +10973,7 @@ ASTNodeImporter::ImportAPValue(const APValue &FromValue) {
     } else
       Result.setLValue(Base, Offset, APValue::NoLValuePath{},
                        FromValue.isNullPointer());
+    Result.setLValueTag(FromValue.getLValueTag());
   }
   if (Err)
     return std::move(Err);

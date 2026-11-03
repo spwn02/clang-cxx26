@@ -1273,6 +1273,7 @@ void ODRHash::AddStructuralValue(const APValue &Value) {
     assert(Base.is<const ValueDecl *>());
     AddDecl(Base.get<const ValueDecl *>());
     ID.AddInteger(Value.getLValueOffset().getQuantity());
+    ID.AddInteger(Value.getLValueTag());
 
     bool OnePastTheEnd = Value.isLValueOnePastTheEnd();
     if (Value.hasLValuePath()) {

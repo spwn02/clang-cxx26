@@ -278,6 +278,9 @@ def note_constexpr_alignment_too_big : Note<
   "requested alignment must be %0 or less for type %1; %2 is invalid">;
 def note_constexpr_alignment_compute : Note<
   "cannot constant evaluate whether run-time alignment is at least %0">;
+def note_constexpr_pointer_tag_misuse : Note<
+  "a tagged pointer is an invalid pointer value: it can only be copied, compared for equality, converted to another "
+  "void pointer type or passed to a pointer tag builtin">;
 def note_constexpr_pointer_tag_alignment : Note<
   "cannot use %0 pointer tag bit(s): the object the pointer points into is only aligned to %1 byte(s)">;
 def note_constexpr_pointer_tag_unaligned : Note<

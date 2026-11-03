@@ -176,6 +176,8 @@ namespace {
     unsigned PathLength;
     bool IsNullPtr : 1;
     bool IsOnePastTheEnd : 1;
+    // The pointer tag of P3125R6; at most 16 bits.
+    unsigned short PtrTag = 0;
   };
 }
 
@@ -357,6 +359,7 @@ APValue::APValue(const APValue &RHS)
     else
       setLValue(RHS.getLValueBase(), RHS.getLValueOffset(), NoLValuePath(),
                 RHS.isNullPointer());
+    setLValueTag(RHS.getLValueTag());
     break;
   case Array:
     MakeArray(RHS.getArrayInitializedElts(), RHS.getArraySize());
@@ -727,6 +730,7 @@ void APValue::Profile(llvm::FoldingSetNodeID &ID) const {
   case LValue:
     getLValueBase().Profile(ID);
     ID.AddInteger(getLValueOffset().getQuantity());
+    ID.AddInteger(getLValueTag());
     ID.AddInteger((isNullPointer() ? 1 : 0) |
                   (isLValueOnePastTheEnd() ? 2 : 0) |
                   (hasLValuePath() ? 4 : 0));
@@ -1421,6 +1425,17 @@ bool APValue::isNullPointer() const {
   return ((const LV *)(const char *)&Data)->IsNullPtr;
 }
 
+unsigned APValue::getLValueTag() const {
+  assert(Kind == LValue && "Invalid usage");
+  return ((const LV *)(const char *)&Data)->PtrTag;
+}
+
+void APValue::setLValueTag(unsigned Tag) {
+  assert(Kind == LValue && "Invalid usage");
+  assert(Tag <= 0xFFFF && "pointer tag too wide");
+  ((LV *)(char *)&Data)->PtrTag = static_cast<unsigned short>(Tag);
+}
+
 void APValue::setLValue(LValueBase B, const CharUnits &O, NoLValuePath,
                         bool IsNullPtr) {
   assert(isLValue() && "Invalid accessor");
@@ -1430,6 +1445,7 @@ void APValue::setLValue(LValueBase B, const CharUnits &O, NoLValuePath,
   LVal.Offset = O;
   LVal.resizePath((unsigned)-1);
   LVal.IsNullPtr = IsNullPtr;
+  LVal.PtrTag = 0;
 }
 
 MutableArrayRef<APValue::LValuePathEntry>
@@ -1441,6 +1457,7 @@ APValue::setLValueUninit(LValueBase B, const CharUnits &O, unsigned Size,
   LVal.IsOnePastTheEnd = IsOnePastTheEnd;
   LVal.Offset = O;
   LVal.IsNullPtr = IsNullPtr;
+  LVal.PtrTag = 0;
   LVal.resizePath(Size);
   return {LVal.getPath(), Size};
 }

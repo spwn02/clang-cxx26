@@ -61,3 +61,35 @@ constexpr bool Heap() {
   return ok;
 }
 static_assert(Heap());
+
+// A tagged pointer is an invalid pointer value: only copies, equality, void* conversions and the builtins are allowed.
+constexpr const void *Cv = __builtin_pointer_tag_insert(&Aligned, 1, 3);
+constexpr const volatile void *Cvv = Cv; // conversion to another void pointer type is fine
+static_assert(Cvv == Cv);
+static_assert(Cv != nullptr);                       // a tagged null pointer is not null either
+static_assert(__builtin_pointer_tag_insert(nullptr, 1, 3) != nullptr);
+
+constexpr int Deref = *static_cast<const int *>(Cv); // expected-error {{constexpr variable 'Deref' must be initialized by a constant expression}} expected-note {{a tagged pointer is an invalid pointer value}}
+constexpr const void *Arith = static_cast<const char *>(Cv) + 1; // expected-error {{constexpr variable 'Arith' must be initialized by a constant expression}} expected-note {{a tagged pointer is an invalid pointer value}}
+constexpr bool Less = static_cast<const int *>(Cv) < &Aligned; // expected-error {{constexpr variable 'Less' must be initialized by a constant expression}} expected-note {{a tagged pointer is an invalid pointer value}}
+constexpr long Diff = static_cast<const int *>(Cv) - &Aligned; // expected-error {{constexpr variable 'Diff' must be initialized by a constant expression}} expected-note {{a tagged pointer is an invalid pointer value}}
+
+constexpr bool DeleteTagged() {
+  S *p = new S{1, 2};
+  S *t = static_cast<S *>(__builtin_pointer_tag_insert(p, 1, 4)); // expected-note {{a tagged pointer is an invalid pointer value}}
+  delete t;
+  return true;
+}
+static_assert(DeleteTagged()); // expected-error {{static assertion expression is not an integral constant expression}} expected-note {{in call to 'DeleteTagged()'}}
+
+// Not as a template argument.
+template <const void *> struct X {};
+using Bad = X<Cv>; // expected-error {{a tagged pointer (P3125R6) is an invalid pointer value and cannot be a template argument}}
+
+// A tagged pointer is part of a constant: a member of a constexpr object keeps its tag.
+struct Holder {
+  const void *p;
+};
+constexpr Holder H{__builtin_pointer_tag_insert(&Aligned, 6, 3)};
+static_assert(__builtin_pointer_tag_get(H.p, 3) == 6);
+static_assert(__builtin_pointer_tag_strip(H.p, 3) == &Aligned);

@@ -5713,6 +5713,8 @@ def err_template_arg_ref_bind_ignores_quals : Error<
   "reference binding of non-type template parameter "
   "%diff{of type $ to template argument of type $|to template argument}0,1 "
   "ignores qualifiers">;
+def err_template_arg_pointer_tag : Error<
+  "a tagged pointer (P3125R6) is an invalid pointer value and cannot be a template argument">;
 def err_template_arg_not_decl_ref : Error<
   "non-type template argument does not refer to any declaration">;
 def err_template_arg_not_address_of : Error<
