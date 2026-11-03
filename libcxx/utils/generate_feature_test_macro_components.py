@@ -1860,6 +1860,7 @@ feature_test_macros = [
             "values": {
                 "c++17": 201611,
                 "c++26": 202306,  # P2497R0 Testing for success or failure of <charconv> functions
+                "c++29": 202606,  # P3505R4 Fix the default floating-point representation in std::format
             },
             "headers": ["charconv"],
         },

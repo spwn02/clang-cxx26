@@ -362,24 +362,10 @@ struct __floating_decimal_64 {
   int32_t _Scientific_exponent = _Ryu_exponent + static_cast<int32_t>(__olength) - 1;
 
   if (_Fmt == chars_format{}) {
-    int32_t _Lower;
-    int32_t _Upper;
-
-    if (__olength == 1) {
-      // Value | Fixed   | Scientific
-      // 1e-3  | "0.001" | "1e-03"
-      // 1e4   | "10000" | "1e+04"
-      _Lower = -3;
-      _Upper = 4;
-    } else {
-      // Value   | Fixed       | Scientific
-      // 1234e-7 | "0.0001234" | "1.234e-04"
-      // 1234e5  | "123400000" | "1.234e+08"
-      _Lower = -static_cast<int32_t>(__olength + 3);
-      _Upper = 5;
-    }
-
-    if (_Lower <= _Ryu_exponent && _Ryu_exponent <= _Upper) {
+    // P3505R4: fixed if 1e-4 <= |value| < 1e16, where both bounds are the nearest doubles at or above resp. exactly
+    // representable; otherwise scientific. The shortest significand is the same for both.
+    const uint64_t __abs_bits = __double_to_bits(__f);
+    if (0x3F1A36E2EB1C432Dull <= __abs_bits && __abs_bits < 0x4341C37937E08000ull) {
       _Fmt = chars_format::fixed;
     } else {
       _Fmt = chars_format::scientific;

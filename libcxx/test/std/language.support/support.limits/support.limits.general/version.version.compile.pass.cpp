@@ -12505,8 +12505,8 @@
 #  ifndef __cpp_lib_to_chars
 #    error "__cpp_lib_to_chars should be defined in c++29"
 #  endif
-#  if __cpp_lib_to_chars != 202306L
-#    error "__cpp_lib_to_chars should have the value 202306L in c++29"
+#  if __cpp_lib_to_chars != 202606L
+#    error "__cpp_lib_to_chars should have the value 202606L in c++29"
 #  endif
 
 #  ifndef __cpp_lib_to_string

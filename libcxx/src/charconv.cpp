@@ -148,15 +148,20 @@ to_chars_result __to_chars_long_double_shortest(char* __first, char* __last, lon
   const int __length            = static_cast<int>(__digits.size());
   const int __ryu_exponent      = __sci_exponent - (__length - 1);
   if (__fmt == chars_format{}) {
-    int __lower, __upper;
-    if (__length == 1) {
-      __lower = -3;
-      __upper = 4;
-    } else {
-      __lower = -(__length + 3);
-      __upper = 5;
+    // P3505R4: fixed if 1e-4 <= |value| < 1e(floor(log10(2^(digits + 1)))): the lower bound is the smallest long
+    // double at or above 1e-4 and the upper bound the largest power of ten at most radix^(digits + 1).
+    long double __lower_bound, __upper_bound;
+    if constexpr (numeric_limits<long double>::digits == 64) { // x87
+      __lower_bound = 0x1.a36e2eb1c432ca58p-14L;
+      __upper_bound = 1e19L;
+    } else if constexpr (numeric_limits<long double>::digits == 113) { // binary128
+      __lower_bound = 0x1.a36e2eb1c432ca57a786c226809ep-14L;
+      __upper_bound = 1e34L;
+    } else { // long double is a double (or double-double, where this is the best approximation)
+      __lower_bound = 0x1.a36e2eb1c432dp-14L;
+      __upper_bound = 1e16L;
     }
-    __fmt = (__lower <= __ryu_exponent && __ryu_exponent <= __upper) ? chars_format::fixed : chars_format::scientific;
+    __fmt = (__abs == 0 || (__lower_bound <= __abs && __abs < __upper_bound)) ? chars_format::fixed : chars_format::scientific;
   } else if (__fmt == chars_format::general) {
     __fmt = (-4 <= __sci_exponent && __sci_exponent < 6) ? chars_format::fixed : chars_format::scientific;
   }

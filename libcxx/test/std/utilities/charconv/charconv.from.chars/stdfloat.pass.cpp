@@ -130,9 +130,9 @@ int main(int, char**) {
     assert(std::string(buffer, out.ptr) == "1.1");
     out = std::to_chars(buffer, buffer + sizeof(buffer), 1.1f16, std::chars_format::general);
     assert(std::string(buffer, out.ptr) == "1.1");
-    // 65500 is the shortest decimal that parses back to the largest finite binary16 value (65504).
+    // 6.55e+04 is the shortest decimal that parses back to the largest finite binary16 value (65504).
     out = std::to_chars(buffer, buffer + sizeof(buffer), 65504.0f16);
-    assert(std::string(buffer, out.ptr) == "65500");
+    assert(std::string(buffer, out.ptr) == "6.55e+04"); // P3505R4: binary16 prints scientific from 1e3 on
     out = std::to_chars(buffer, buffer + sizeof(buffer), 65504.0f16, std::chars_format::scientific);
     assert(std::string(buffer, out.ptr) == "6.55e+04");
     out = std::to_chars(buffer, buffer + sizeof(buffer), 5.9604645e-8f16);
