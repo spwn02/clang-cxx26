@@ -1,6 +1,6 @@
 // Copyright 2026 Jump Trading, LLC
 //
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fconsteval-operations -fsyntax-only -Wunused-parameter -Wreorder-ctor -verify
+// RUN: %clang_cc1 %s -std=c++2d -fsyntax-only -Wunused-parameter -Wreorder-ctor -verify
 
 // An expression macro invoked as an entry of a ctor-initializer expands to
 // zero or more mem-initializers. (See libcxx's mem-init-macro.pass.cpp for

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fconsteval-operations -verify %s
+// RUN: %clang_cc1 -std=c++2d -verify %s
 
 // A token sequence is a scalar type, but it has no mangling, so two
 // specializations chosen by distinct token-sequence arguments would share a

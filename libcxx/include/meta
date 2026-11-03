@@ -668,7 +668,6 @@ enum : unsigned {
   // P3491R3 string-literal helper
   __metafn_is_string_literal,
   __metafn_reflect_array_object,
-  __metafn_string_literal_from,
 
   // Expression macros (experimental)
   __metafn_source_text_of,

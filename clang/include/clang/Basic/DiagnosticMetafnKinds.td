@@ -11,6 +11,10 @@
 let Component = "Metafn" in {
 
 // General diagnostics.
+// Accessibility.
+def metafn_access_query_class_being_defined : Note<
+  "cannot query the access of a member of class %0 currently being defined">;
+
 def metafn_expected_reflection_of : Note<"expected a reflection of %0">;
 def metafn_expected_reflection_of_but_got : Note<
   "expected a reflection of %0, but got %1">;

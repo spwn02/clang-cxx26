@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fconsteval-operations -fsyntax-only -fcxx-exceptions -verify
+// RUN: %clang_cc1 %s -std=c++2d -fsyntax-only -fcxx-exceptions -verify
 
 using token_sequence = decltype(^^{ });
 namespace std { class type_info { public: virtual ~type_info(); }; }
@@ -358,7 +358,8 @@ struct D {
 
 __macro operator""_x(unsigned long long) { return ^^{ 0 }; }  // expected-error {{a literal operator cannot be an expression macro}}
 __macro operator new(size_t) { return ^^{ 0 }; }  // expected-error {{an allocation or deallocation function cannot be an expression macro}} \
-                                                  // expected-error {{'operator new' cannot be declared consteval}}
+                                                  // expected-error {{'operator new' cannot be declared consteval}} \
+                                                  // expected-error {{consteval-only value is only allowed in an immediate function context}}
 
 }  // namespace N13
 

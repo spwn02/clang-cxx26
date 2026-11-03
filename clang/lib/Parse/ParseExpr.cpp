@@ -1549,8 +1549,7 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
       ConsumeAnnotationToken();
       return ExprError();
     }
-    if (TryAnnotateTypeOrScopeToken(ImplicitTypenameContext::No,
-                                    isAddressOfOperand))
+    if (TryAnnotateTypeOrScopeToken(ImplicitTypenameContext::No))
       return ExprError();
     if (Tok.is(tok::annot_template_name))
       return ExprError();

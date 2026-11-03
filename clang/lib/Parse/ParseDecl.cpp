@@ -5797,7 +5797,7 @@ bool Parser::isTypeSpecifierQualifier() {
       return true;
     if (getCurToken().is(tok::annot_template_name))
       return false;
-    return isTypeSpecifierQualifier(getCurToken());
+    return isTypeSpecifierQualifier();
 
   case tok::identifier:   // foo::bar
     if (TryAltiVecVectorToken())

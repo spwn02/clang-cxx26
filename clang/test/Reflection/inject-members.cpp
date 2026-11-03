@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fconsteval-operations -fsyntax-only -verify
+// RUN: %clang_cc1 %s -std=c++2d -fsyntax-only -verify
 
 // The inject_members annotation callback: invoked right before the annotated
 // class is completed, its returned tokens are parsed as additional members.

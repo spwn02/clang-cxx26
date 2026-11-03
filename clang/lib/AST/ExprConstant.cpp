@@ -9307,8 +9307,6 @@ class APValueToBufferConverter {
     case APValue::FixedPoint:
       // FIXME: We should support these.
 
-    case APValue::LValue:
-    case APValue::Matrix:
     case APValue::Reflection:
     case APValue::TokenSequence:
     case APValue::Union:
@@ -24632,7 +24630,7 @@ static bool interpolateTokens(EvalInfo &Info, const Token &SrcTok,
   // Evaluate the expression in the current constexpr context.
   APValue Val;
   QualType ExprTy = SubExpr->getType();
-  if (ExprTy->isTokenSequenceType() || ExprTy->isMetaTokenType()) {
+  if (ExprTy->isTokenSequenceType()) {
     // Token sequence (or token) interpolation: splice tokens inline.
     if (!EvaluateOperandAsRValue(Info, SubExpr, Val))
       return false;

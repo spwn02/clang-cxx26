@@ -1,11 +1,11 @@
 // Copyright 2026 Jump Trading, LLC
 //
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fsyntax-only -verify=ok
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fsyntax-only -verify=self -DSELF
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fsyntax-only -verify=mutual -DMUTUAL
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fsyntax-only -verify=decl -DDECL
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fsyntax-only -verify=limit -DLIMIT -fmacro-expansion-depth=10
-// RUN: %clang_cc1 %s -std=c++26 -freflection -fsyntax-only -verify=ok -DDEEP -fmacro-expansion-depth=1200 -Wno-stack-exhausted
+// RUN: %clang_cc1 %s -std=c++2d -fsyntax-only -verify=ok
+// RUN: %clang_cc1 %s -std=c++2d -fsyntax-only -verify=self -DSELF
+// RUN: %clang_cc1 %s -std=c++2d -fsyntax-only -verify=mutual -DMUTUAL
+// RUN: %clang_cc1 %s -std=c++2d -fsyntax-only -verify=decl -DDECL
+// RUN: %clang_cc1 %s -std=c++2d -fsyntax-only -verify=limit -DLIMIT -fmacro-expansion-depth=10
+// RUN: %clang_cc1 %s -std=c++2d -fsyntax-only -verify=ok -DDEEP -fmacro-expansion-depth=1200 -Wno-stack-exhausted
 // RUN: %clang -### -fmacro-expansion-depth=17 -c %s 2>&1 | FileCheck --check-prefix=DRIVER %s
 
 // Macro expansion depth is bounded by -fmacro-expansion-depth (default 256).

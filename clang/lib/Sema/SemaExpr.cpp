@@ -20551,6 +20551,12 @@ HandleImmediateInvocations(Sema &SemaRef,
   for (auto *E : CurRec.ConstevalOnly) {
     if (E->isImmediateEscalating())
       continue;
+    // A reference to a macro is not a use of its consteval-only function type:
+    // the macro is expanded, never called.
+    if (auto *DRE = dyn_cast<DeclRefExpr>(E->IgnoreImplicit()))
+      if (auto *FD = dyn_cast<FunctionDecl>(DRE->getDecl());
+          FD && Sema::IsExpressionMacro(FD))
+        continue;
     if (SemaRef.getLangOpts().CPlusPlus26 &&
         !hasImmediateValue(E, SemaRef.Context))
       continue;

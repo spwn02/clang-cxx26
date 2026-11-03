@@ -2013,8 +2013,7 @@ bool Parser::TryAnnotateTypeOrScopeToken(
     CXXScopeSpec SS;
     if (AnnotateInterpolatedTemplateName(SS, /*AllowTypeAnnotation=*/false))
       return true;
-    return TryAnnotateTypeOrScopeToken(AllowImplicitTypename,
-                                       IsAddressOfOperand);
+    return TryAnnotateTypeOrScopeToken(AllowImplicitTypename);
   }
 
   if (Tok.is(tok::kw_typename)) {

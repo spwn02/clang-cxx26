@@ -843,7 +843,12 @@ static bool macro_expansion_context(APValue &Result, ASTContext &C,
                                     ArrayRef<Expr *> Args,
                                     Decl *ContainingDecl);
 
-static bool declaration_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+static // This tree has no entity-proxy reflections: nothing to unproxy.
+static APValue MaybeUnproxy(ASTContext &, const APValue &RV, bool /*Dealias*/) {
+  return RV;
+}
+
+bool declaration_of(APValue &Result, ASTContext &C, MetaActions &Meta,
                            EvalFn Evaluator, DiagFn Diagnoser,
                            bool AllowInjection, QualType ResultTy,
                            SourceRange Range, ArrayRef<Expr *> Args,
@@ -1046,7 +1051,6 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 1, 1, is_closure_type },
   { Metafunction::MFRK_bool, 1, 1, is_string_literal },
   { Metafunction::MFRK_metaInfo, 6, 6, reflect_array_object, true },
-  { Metafunction::MFRK_charPtr, 1, 1, string_literal_from },
 
   // Expression macros
   { Metafunction::MFRK_spliceFromArg, 2, 2, source_text_of },
@@ -2262,6 +2266,7 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
         return Meta.ThrowMetaException(Range.getBegin(),
                                        "invalid reflection operand");
       BeingDefined = true;
+    }
 
     if (!BeingDefined) {
       // Only complete the type when it is *not* already mid-definition.

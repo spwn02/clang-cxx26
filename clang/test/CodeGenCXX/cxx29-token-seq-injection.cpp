@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++26 -freflection -fconsteval-operations -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++2d -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
 
 // Declarations injected at namespace scope must be handed to the ASTConsumer,
 // or they are parsed and then silently never emitted, producing link errors.
