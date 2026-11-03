@@ -18,10 +18,12 @@
 
 void test() {
   // A pointer to a string literal is not a valid template argument.
-  auto s = std::cw<"abc">; // expected-error@*:* {{}}
+  // expected-error@+1 {{pointer to subobject of string literal is not allowed in a template argument}}
+  auto s = std::cw<"abc">;
   (void)s;
 
   // The second template argument must be decltype(X).
-  std::constant_wrapper<1, long> w; // expected-error@*:* {{}}
+  // expected-error@*:* {{static assertion failed}}
+  std::constant_wrapper<1, long> w;
   (void)w;
 }

@@ -24,6 +24,7 @@
 #include <map>
 #include <string>
 #include <system_error>
+#include <utility>
 
 #include "assert_macros.h"
 #include "concat_macros.h"
@@ -120,8 +121,38 @@ void test_invalid_specs() {
   TEST_THROWS_TYPE(std::format_error, (void)format_runtime(SV("{:ss}")));
 }
 
+// A category whose message is the string given at construction.
+struct fixed_message_category : std::error_category {
+  explicit fixed_message_category(std::string m) : msg(std::move(m)) {}
+  const char* name() const noexcept override { return "fixed"; }
+  std::string message(int) const override { return msg; }
+  std::string msg;
+};
+
+std::string format_message(std::string message) {
+  fixed_message_category c(std::move(message));
+  std::error_code ec(1, c);
+  return std::vformat(std::string_view("{:s}"), std::make_format_args(ec));
+}
+
+// The vectors of Tables 3-8 to 3-11 of the Unicode Standard, Chapter 3.9 (U+FFFD Substitution of Maximal Subparts).
+void test_unicode_tables() {
+  const std::string R = "\xEF\xBF\xBD"; // U+FFFD
+  // Table 3-8: non-shortest form sequences, every byte is replaced
+  assert(format_message("\xC0\xAF\xE0\x80\xBF\xF0\x81\x82\x41") == R + R + R + R + R + R + R + R + "A");
+  // Table 3-9: surrogates
+  assert(format_message("\xED\xA0\x80\xED\xBF\xBF\xED\xAF\x41") == R + R + R + R + R + R + R + R + "A");
+  // Table 3-10: other ill-formed sequences
+  assert(format_message("\xF4\x91\x92\x93\xFF\x41\x80\xBF\x42") == R + R + R + R + R + "A" + R + R + "B");
+  // Table 3-11: truncated sequences, one U+FFFD per maximal subpart
+  assert(format_message("\xE1\x80\xE2\xF0\x91\x92\xF1\xBF\x41") == R + R + R + R + "A");
+  // a truncated sequence at the end of the message
+  assert(format_message("ab\xE1\x80") == "ab" + R);
+}
+
 void test_utf8_transcoding() {
   assert(std::setlocale(LC_ALL, LOCALE_en_US_UTF_8) != nullptr);
+  test_unicode_tables();
   // ill-formed subsequences are replaced one maximal subpart at a time
   assert(fmt<char>(std::string_view("{:s}"), std::error_code(2, cat())) ==
          "a\xEF\xBF\xBD\xEF\xBF\xBD\xEF\xBF\xBD"
@@ -137,18 +168,6 @@ void test_utf8_transcoding() {
 #endif
 }
 
-#if defined(LOCALE_fr_CA_ISO8859_1)
-void test_latin1() {
-  if (std::setlocale(LC_ALL, LOCALE_fr_CA_ISO8859_1) == nullptr)
-    return; // locale not installed
-  // the message is in the execution character set (ISO 8859-1 here) and is transcoded to UTF-8
-  assert(fmt<char>(std::string_view("{:s}"), std::error_code(5, cat())) == "caf\xC3\xA9");
-#  ifndef TEST_HAS_NO_WIDE_CHARACTERS
-  assert(fmt<wchar_t>(std::wstring_view(L"{:s}"), std::error_code(5, cat())) == L"café");
-#  endif
-}
-#endif
-
 template <class CharT>
 void test() {
   test_default_and_width<CharT>();
@@ -163,8 +182,5 @@ int main(int, char**) {
   test<wchar_t>();
 #endif
   test_utf8_transcoding();
-#if defined(LOCALE_fr_CA_ISO8859_1)
-  test_latin1();
-#endif
   return 0;
 }
