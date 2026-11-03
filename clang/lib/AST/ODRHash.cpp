@@ -1267,6 +1267,7 @@ void ODRHash::AddStructuralValue(const APValue &Value) {
     const APValue::LValueBase &Base = Value.getLValueBase();
     if (!Base) {
       ID.AddInteger(Value.getLValueOffset().getQuantity());
+      ID.AddInteger(Value.getLValueTag());
       break;
     }
 

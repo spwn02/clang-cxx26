@@ -2633,6 +2633,14 @@ static bool CheckLValueConstantExpression(EvalInfo &Info, SourceLocation Loc,
   const Expr *BaseE = Base.dyn_cast<const Expr *>();
   const ValueDecl *BaseVD = Base.dyn_cast<const ValueDecl*>();
 
+  // A tagged pointer (P3125R6) is an invalid pointer value, whose mangling and identity are not defined: it cannot
+  // be a template argument, nor a part of one (this check runs for every pointer inside a class value too), nor
+  // the value std::meta::reflect_constant makes a template parameter object of.
+  if (isTemplateArgument(Kind) && LVal.isTagged()) {
+    Info.FFDiag(Loc, diag::note_constexpr_pointer_tag_template_arg);
+    return false;
+  }
+
   // Additional restrictions apply in a template argument. We only enforce the
   // C++20 restrictions here; additional syntactic and semantic restrictions
   // are applied elsewhere.
@@ -3230,7 +3238,8 @@ static bool EvalPointerValueAsBool(const APValue &Value, bool &Result) {
   // evaluatable, and they are false unless the offset is zero.
   if (!Value.getLValueBase()) {
     // TODO: Should a non-null pointer with an offset of zero evaluate to true?
-    Result = !Value.getLValueOffset().isZero();
+    // A tagged null pointer (P3125R6) is not null: its tag is a part of the address.
+    Result = !Value.getLValueOffset().isZero() || Value.getLValueTag() != 0;
     return true;
   }
 
@@ -12536,6 +12545,8 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     // behavior is non-constant.
     if (!evaluatePointer(E->getArg(0), Result))
       return false;
+    if (!Result.checkNotTagged(Info, E->getArg(0)))
+      return false;
 
     LValue OffsetResult(Result);
     APSInt Alignment;
@@ -12584,6 +12595,8 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
   case Builtin::BI__builtin_align_up:
   case Builtin::BI__builtin_align_down: {
     if (!evaluatePointer(E->getArg(0), Result))
+      return false;
+    if (!Result.checkNotTagged(Info, E->getArg(0)))
       return false;
     APSInt Alignment;
     if (!getAlignmentArgument(E->getArg(1), E->getArg(0)->getType(), Info,
@@ -18229,6 +18242,10 @@ static bool tryEvaluateBuiltinObjectSize(const Expr *E, unsigned Type,
       return false;
   }
 
+  // A tagged pointer is an invalid pointer value: the object it points into is unknown.
+  if (LVal.isTagged())
+    return false;
+
   // If we point to before the start of the object, there are no accessible
   // bytes.
   if (LVal.getLValueOffset().isNegative()) {
@@ -18393,6 +18410,8 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       // If we evaluated a pointer, check the minimum known alignment.
       LValue Ptr;
       Ptr.setFrom(Info.Ctx, Src);
+      if (!Ptr.checkNotTagged(Info, E->getArg(0)))
+        return false;
       CharUnits BaseAlignment = getBaseAlignment(Info, Ptr);
       CharUnits PtrAlign = BaseAlignment.alignmentAtOffset(Ptr.Offset);
       // We can return true if the known alignment at the computed offset is

@@ -84,7 +84,7 @@ static_assert(DeleteTagged()); // expected-error {{static assertion expression i
 
 // Not as a template argument.
 template <const void *> struct X {};
-using Bad = X<Cv>; // expected-error {{a tagged pointer (P3125R6) is an invalid pointer value and cannot be a template argument}}
+using Bad = X<Cv>; // expected-error {{non-type template argument is not a constant expression}} expected-note {{a tagged pointer is an invalid pointer value and cannot be a template argument or a part of one}}
 
 // A tagged pointer is part of a constant: a member of a constexpr object keeps its tag.
 struct Holder {
@@ -93,3 +93,21 @@ struct Holder {
 constexpr Holder H{__builtin_pointer_tag_insert(&Aligned, 6, 3)};
 static_assert(__builtin_pointer_tag_get(H.p, 3) == 6);
 static_assert(__builtin_pointer_tag_strip(H.p, 3) == &Aligned);
+
+// Not as a part of a class-type template argument either (it would have the mangling of the untagged pointer).
+template <Holder> struct Y {};
+using BadClass = Y<Holder{__builtin_pointer_tag_insert(&Aligned, 5, 3)}>; // expected-error {{non-type template argument is not a constant expression}} expected-note {{a tagged pointer is an invalid pointer value and cannot be a template argument or a part of one}}
+using GoodClass = Y<Holder{&Aligned}>;
+
+// A tagged null pointer is not null, also in a boolean context.
+static_assert(__builtin_pointer_tag_insert(nullptr, 1, 3));
+static_assert(!__builtin_pointer_tag_insert(nullptr, 0, 3));
+constexpr bool B = Cv ? true : false;
+static_assert(B);
+
+// Builtins that read the address do not accept a tagged pointer.
+constexpr bool IsAligned = __builtin_is_aligned(Cv, 8); // expected-error {{constexpr variable 'IsAligned' must be initialized by a constant expression}} expected-note {{a tagged pointer is an invalid pointer value}}
+constexpr const void *AlignDown = __builtin_align_down(Cv, 8); // expected-error {{constexpr variable 'AlignDown' must be initialized by a constant expression}} expected-note {{a tagged pointer is an invalid pointer value}}
+constexpr const void *AlignUp = __builtin_align_up(Cv, 8); // expected-error {{constexpr variable 'AlignUp' must be initialized by a constant expression}} expected-note {{a tagged pointer is an invalid pointer value}}
+constexpr const void *Assumed = __builtin_assume_aligned(Cv, 8); // expected-error {{constexpr variable 'Assumed' must be initialized by a constant expression}} expected-note {{a tagged pointer is an invalid pointer value}}
+static_assert(__builtin_object_size(Cv, 0) == static_cast<unsigned long>(-1)); // expected-error {{static assertion expression is not an integral constant expression}}

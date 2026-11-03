@@ -7382,11 +7382,6 @@ ExprResult Sema::CheckTemplateArgument(NamedDecl *Param, QualType ParamType,
       return ExprError();
     setDeductionArg(ArgResult.get());
 
-    if (Value.isLValue() && Value.getLValueTag()) {
-      Diag(Arg->getBeginLoc(), diag::err_template_arg_pointer_tag) << Arg->getSourceRange();
-      return ExprError();
-    }
-
     if (Value.isLValue()) {
       APValue::LValueBase Base = Value.getLValueBase();
       auto *VD = const_cast<ValueDecl *>(Base.dyn_cast<const ValueDecl *>());

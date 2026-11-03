@@ -281,6 +281,8 @@ def note_constexpr_alignment_compute : Note<
 def note_constexpr_pointer_tag_misuse : Note<
   "a tagged pointer is an invalid pointer value: it can only be copied, compared for equality, converted to another "
   "void pointer type or passed to a pointer tag builtin">;
+def note_constexpr_pointer_tag_template_arg : Note<
+  "a tagged pointer is an invalid pointer value and cannot be a template argument or a part of one">;
 def note_constexpr_pointer_tag_alignment : Note<
   "cannot use %0 pointer tag bit(s): the object the pointer points into is only aligned to %1 byte(s)">;
 def note_constexpr_pointer_tag_unaligned : Note<
