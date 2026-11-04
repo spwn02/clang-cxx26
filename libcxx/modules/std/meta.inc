@@ -273,6 +273,46 @@ export namespace std {
       _LIBCPP_META_EXPORT_PREDICATE(is_structural_type)
 
 #undef _LIBCPP_META_EXPORT_PREDICATE
+
+#if _LIBCPP_STD_VER >= 29
+      using std::meta::__reflection_v2::argument_list_for;
+      using std::meta::__reflection_v2::argument_list_options;
+      using std::meta::__reflection_v2::as_lvalue;
+      using std::meta::__reflection_v2::begin;
+      using std::meta::__reflection_v2::clone_naming;
+      using std::meta::__reflection_v2::declaration_of;
+      using std::meta::__reflection_v2::empty;
+      using std::meta::__reflection_v2::end;
+      using std::meta::__reflection_v2::expand_at_instantiation;
+      using std::meta::__reflection_v2::forwarding_call_for;
+      using std::meta::__reflection_v2::id;
+      using std::meta::__reflection_v2::is_binary_operation;
+      using std::meta::__reflection_v2::is_constant_expression;
+      using std::meta::__reflection_v2::is_declaration_spec;
+      using std::meta::__reflection_v2::list_builder;
+      using std::meta::__reflection_v2::macro_expansion_context;
+      using std::meta::__reflection_v2::make_noexcept;
+      using std::meta::__reflection_v2::make_override;
+      using std::meta::__reflection_v2::operands_of;
+      using std::meta::__reflection_v2::punctuator;
+      using std::meta::__reflection_v2::punctuator_of;
+      using std::meta::__reflection_v2::queue_injection;
+      using std::meta::__reflection_v2::report_tokens;
+      using std::meta::__reflection_v2::size;
+      using std::meta::__reflection_v2::source_text_of;
+      using std::meta::__reflection_v2::stringize;
+      using std::meta::__reflection_v2::str_lit;
+      using std::meta::__reflection_v2::template_argument_list_for;
+      using std::meta::__reflection_v2::template_list_options;
+      using std::meta::__reflection_v2::template_parameter_list_for;
+      using std::meta::__reflection_v2::test_expression;
+      using std::meta::__reflection_v2::token_iterator;
+      using std::meta::__reflection_v2::tokenize;
+      using std::meta::__reflection_v2::token_kind;
+      using std::meta::__reflection_v2::token_kind_of;
+      using std::meta::__reflection_v2::token_sequence;
+      using std::meta::__reflection_v2::tokens_of;
+#endif // _LIBCPP_STD_VER >= 29
     }
   }
 }

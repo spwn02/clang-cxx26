@@ -7958,8 +7958,13 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
 
     // A member declared while its class is still being defined already has a
     // fixed access specifier, and the class's bases are known, so accessibility
-    // can be computed. This lets 'members_of' work mid-definition (e.g. from a
-    // consteval block injecting members based on those already present).
+    // can be computed. In C++29 (P4380) this lets 'members_of' work
+    // mid-definition (e.g. from a consteval block injecting members based on
+    // those already present); before it, the query is diagnosed.
+    if (DC && DC->isBeingDefined() && !C.getLangOpts().CPlusPlus29)
+      return Diagnoser(Range.getBegin(),
+                       diag::metafn_access_query_class_being_defined)
+          << DC << Range;
     return false;
   };
 

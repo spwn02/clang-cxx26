@@ -4010,19 +4010,19 @@ consteval auto punctuator_of(token_sequence __tok) -> punctuator {
 }
 
 // The punctuator's (primary) spelling.
-consteval auto symbol_of(punctuator p) -> string_view {
-  static constexpr string_view names[55] = {
+consteval auto symbol_of(punctuator __p) -> string_view {
+  static constexpr string_view __names[55] = {
       "{", "}", "[", "]", "(", ")", "[:", ":]", ";", ":", "...", "?", "::", ".",
       ".*", "->", "->*", "~", "!", "+", "-", "*", "/", "%", "^", "&", "|", "=",
       "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|=", "==", "!=", "<", ">",
       "<=", ">=", "<=>", "&&", "||", "<<", ">>", "<<=", ">>=", "++", "--", ",",
       "#", "##", "^^"
   };
-  return names[int(p)];
+  return __names[int(__p)];
 }
 
-consteval auto u8symbol_of(punctuator p) -> u8string_view {
-  static constexpr u8string_view names[55] = {
+consteval auto u8symbol_of(punctuator __p) -> u8string_view {
+  static constexpr u8string_view __names[55] = {
       u8"{", u8"}", u8"[", u8"]", u8"(", u8")", u8"[:", u8":]", u8";", u8":",
       u8"...", u8"?", u8"::", u8".", u8".*", u8"->", u8"->*", u8"~", u8"!",
       u8"+", u8"-", u8"*", u8"/", u8"%", u8"^", u8"&", u8"|", u8"=", u8"+=",
@@ -4030,7 +4030,7 @@ consteval auto u8symbol_of(punctuator p) -> u8string_view {
       u8"<", u8">", u8"<=", u8">=", u8"<=>", u8"&&", u8"||", u8"<<", u8">>",
       u8"<<=", u8">>=", u8"++", u8"--", u8",", u8"#", u8"##", u8"^^"
   };
-  return names[int(p)];
+  return __names[int(__p)];
 }
 
 // Whether a reflected macro argument is a constant expression, i.e. whether
@@ -4383,6 +4383,7 @@ consteval auto end(token_sequence __ts) -> token_iterator {
 
 _LIBCPP_END_NAMESPACE_REFLECTION_V2
 
+#if _LIBCPP_STD_VER >= 29
 // A token_sequence's storage is owned by the compilation itself, so
 // iterators obtained from an rvalue sequence never dangle.
 template <>
@@ -4395,15 +4396,16 @@ _LIBCPP_BEGIN_NAMESPACE_REFLECTION_V2
 // token_sequence being directly iterable (above); prefer iterating or
 // indexing the sequence itself.
 consteval auto tokens_of(token_sequence __tokens) -> vector<token_sequence> {
-  vector<token_sequence> result;
-  size_t n = size(__tokens);
-  result.reserve(n);
+  vector<token_sequence> __result;
+  size_t __n = size(__tokens);
+  __result.reserve(__n);
   for (token_sequence __tok : __tokens)
-    result.push_back(__tok);
-  return result;
+    __result.push_back(__tok);
+  return __result;
 }
 
 _LIBCPP_END_NAMESPACE_REFLECTION_V2
+#endif // _LIBCPP_STD_VER >= 29
 
 #endif  // _LIBCPP_STD_VER >= 26
 
