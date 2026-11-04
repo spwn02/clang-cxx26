@@ -81,6 +81,37 @@ std::optional<TokenSequenceData> getMaterializedTokens(ASTContext &C,
   return TokenSequenceData(It->second.first, It->second.second);
 }
 
+std::string getTokenSpellingForPrinting(const Token &T) {
+  if (T.isAnnotation())
+    return std::string();
+  if (T.isLiteral())
+    return std::string(T.getLiteralData(), T.getLength());
+  if (T.is(tok::raw_identifier))
+    return T.getRawIdentifier().str();
+  if (const IdentifierInfo *II = T.getIdentifierInfo())
+    return II->getName().str();
+  if (const char *P = tok::getPunctuatorSpelling(T.getKind()))
+    return P;
+  if (const char *K = tok::getKeywordSpelling(T.getKind()))
+    return K;
+  return std::string();
+}
+
+std::string spellTokenSequence(
+    TokenSequenceData TSD,
+    llvm::function_ref<std::string(const Token &)> Annot) {
+  std::string Result;
+  for (const Token &T : TSD) {
+    if (!Result.empty())
+      Result += ' ';
+    if (T.isAnnotation())
+      Result += Annot ? Annot(T) : std::string("\\(...)");
+    else
+      Result += getTokenSpellingForPrinting(T);
+  }
+  return Result;
+}
+
 TokenSequenceData CreateTokenSequenceData(ASTContext &Ctx,
                                           ArrayRef<Token> Tokens) {
   Token *StoredTokens = nullptr;

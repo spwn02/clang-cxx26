@@ -2036,6 +2036,18 @@ CXXTokenSequenceExpr::Create(ASTContext &C, SourceLocation OperatorLoc,
   return E;
 }
 
+void CXXTokenSequenceExpr::setParamBindings(
+    ASTContext &C, ArrayRef<TokenSequenceParamBinding> Bindings) {
+  ParamBindings = nullptr;
+  NumParamBindings = 0;
+  if (Bindings.empty())
+    return;
+  auto *Copy = C.Allocate<TokenSequenceParamBinding>(Bindings.size());
+  llvm::copy(Bindings, Copy);
+  ParamBindings = Copy;
+  NumParamBindings = Bindings.size();
+}
+
 void CXXMacroInvocationExpr::setUnparsedEnvironment(
     ASTContext &C, DeclContext *Ctx, ArrayRef<NamedDecl *> TemplateParams) {
   ArgsUnparsed = true;

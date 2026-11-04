@@ -531,6 +531,12 @@ void ASTStmtReader::VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
   E->setOperatorLoc(Record.readSourceLocation());
   APValue V = Record.readAPValue();
   E->setTokenSequence(V.getTokenSequence());
+  SmallVector<TokenSequenceParamBinding, 4> Bindings;
+  for (unsigned I = 0, N = Record.readUInt32(); I != N; ++I) {
+    unsigned Index = Record.readUInt32();
+    Bindings.push_back({Index, Record.readDeclAs<NamedDecl>()});
+  }
+  E->setParamBindings(Record.getContext(), Bindings);
   for (unsigned I = 0; I != NumInterpolationExprs; ++I)
     E->setInterpolationExpr(I, Record.readSubExpr());
   E->setOperandRange(Record.readSourceRange());

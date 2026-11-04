@@ -317,6 +317,7 @@ public:
   void VisitCXXDefaultInitExpr(const CXXDefaultInitExpr *Node);
   void VisitLambdaExpr(const LambdaExpr *LE);
   void VisitDoExpr(const DoExpr *DE);
+  void VisitCXXTokenSequenceExpr(const CXXTokenSequenceExpr *E);
 
   void VisitObjCEncodeExpr(const ObjCEncodeExpr *OEE);
   void VisitObjCMessageExpr(const ObjCMessageExpr *OME);

@@ -1,3 +1,5 @@
+#include "clang/AST/Reflection.h"
+#include "clang/Lex/Token.h"
 #include "clang/AST/JSONNodeDumper.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/SourceManager.h"
@@ -1609,6 +1611,16 @@ void JSONNodeDumper::VisitCXXDefaultInitExpr(const CXXDefaultInitExpr *Node) {
 
 void JSONNodeDumper::VisitLambdaExpr(const LambdaExpr *LE) {
   JOS.attribute("hasExplicitParameters", LE->hasExplicitParameters());
+}
+
+void JSONNodeDumper::VisitCXXTokenSequenceExpr(const CXXTokenSequenceExpr *E) {
+  if (E->getValue().isTokenSequence()) {
+    TokenSequenceData TSD = E->getValue().getTokenSequence();
+    JOS.attribute("numTokens", static_cast<int64_t>(TSD.size()));
+    JOS.attribute("tokens", spellTokenSequence(TSD));
+  }
+  JOS.attribute("numInterpolations",
+                static_cast<int64_t>(E->getNumInterpolationExprs()));
 }
 
 void JSONNodeDumper::VisitDoExpr(const DoExpr *DE) {

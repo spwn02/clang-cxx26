@@ -264,6 +264,7 @@ public:
   void VisitCaseStmt(const CaseStmt *Node);
   void VisitReturnStmt(const ReturnStmt *Node);
   void VisitDoExpr(const DoExpr *Node);
+  void VisitCXXTokenSequenceExpr(const CXXTokenSequenceExpr *Node);
   void VisitCoawaitExpr(const CoawaitExpr *Node);
   void VisitCoreturnStmt(const CoreturnStmt *Node);
   void VisitCompoundStmt(const CompoundStmt *Node);

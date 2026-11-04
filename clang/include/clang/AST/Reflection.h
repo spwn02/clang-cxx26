@@ -16,6 +16,7 @@
 #include "clang/Basic/TokenKinds.h"
 #include "clang/AST/TypeBase.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -102,6 +103,18 @@ TokenSequenceData CreateTokenSequenceData(ASTContext &Ctx,
 TokenSequenceData AppendTokenSequenceData(ASTContext &Ctx,
                                           TokenSequenceData LHS,
                                           ArrayRef<Token> RHS);
+
+/// The spelling of \p T for printing (dumping, -ast-print): an identifier or
+/// keyword by name, a literal by its text, a punctuator by its spelling. An
+/// annotation token (an interpolation, a value) has no spelling here and gives
+/// an empty string: the caller prints what it carries.
+std::string getTokenSpellingForPrinting(const Token &T);
+
+/// All the tokens of \p TSD, space separated, an annotation token as \p Annot
+/// says (default: "\\(...)").
+std::string spellTokenSequence(
+    TokenSequenceData TSD,
+    llvm::function_ref<std::string(const Token &)> Annot = nullptr);
 
 /// Allocate an empty token sequence in the ASTContext.
 inline TokenSequenceData CreateEmptyTokenSequenceData(ASTContext &Ctx) {

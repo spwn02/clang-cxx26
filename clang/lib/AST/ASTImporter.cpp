@@ -41,7 +41,9 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtVisitor.h"
+#include "clang/AST/Reflection.h"
 #include "clang/AST/SpliceSpecifier.h"
+#include "clang/Lex/Token.h"
 #include "clang/AST/TemplateBase.h"
 #include "clang/AST/TemplateName.h"
 #include "clang/AST/Type.h"
@@ -653,6 +655,19 @@ namespace clang {
     ExpectedStmt VisitParenListExpr(ParenListExpr *E);
     ExpectedStmt VisitStmtExpr(StmtExpr *E);
     ExpectedStmt VisitDoExpr(DoExpr *E);
+    ExpectedStmt VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E);
+    ExpectedStmt VisitCXXBuiltinInjectExpr(CXXBuiltinInjectExpr *E);
+    ExpectedStmt VisitCXXBuiltinReportTokensExpr(CXXBuiltinReportTokensExpr *E);
+    ExpectedStmt
+    VisitCXXTokenInterpolationListExpr(CXXTokenInterpolationListExpr *E);
+    ExpectedStmt VisitCXXBuiltinIdExpr(CXXBuiltinIdExpr *E);
+    ExpectedStmt VisitCXXBuiltinStrLiteralExpr(CXXBuiltinStrLiteralExpr *E);
+    ExpectedStmt VisitCXXBuiltinTokenizeExpr(CXXBuiltinTokenizeExpr *E);
+    ExpectedStmt VisitCXXBuiltinStringizeExpr(CXXBuiltinStringizeExpr *E);
+    template <typename ExprT> ExpectedStmt importBuiltinStringExpr(ExprT *E);
+    // CXXMacroInvocationExpr is not imported (its unparsed-argument
+    // environment names parser state): importing one reports an unsupported
+    // construct instead of producing a half-built node.
     ExpectedStmt VisitDoReturnStmt(DoReturnStmt *S);
     ExpectedStmt VisitUnaryOperator(UnaryOperator *E);
     ExpectedStmt VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr *E);
@@ -8085,6 +8100,147 @@ ExpectedStmt ASTNodeImporter::VisitStmtExpr(StmtExpr *E) {
                E->getTemplateDepth());
 }
 
+ExpectedStmt
+ASTNodeImporter::VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
+  Error Err = Error::success();
+  auto ToOperatorLoc = importChecked(Err, E->getOperatorLoc());
+  auto ToRange = importChecked(Err, E->getOperandRange());
+  auto ToType = importChecked(Err, E->getType());
+  APValue FromValue = E->getValue();
+  auto ToValue = importChecked(Err, FromValue);
+  if (Err)
+    return std::move(Err);
+
+  SmallVector<TokenSequenceParamBinding, 4> ToBindings;
+  for (const TokenSequenceParamBinding &B : E->getParamBindings()) {
+    auto ToParam = import(B.Param);
+    if (!ToParam)
+      return ToParam.takeError();
+    ToBindings.push_back({B.TokenIndex, *ToParam});
+  }
+
+  ASTContext &Ctx = Importer.getToContext();
+  CXXTokenSequenceExpr *ToE = CXXTokenSequenceExpr::Create(
+      Ctx, ToOperatorLoc, ToRange, ToValue.getTokenSequence(), ToBindings,
+      ToType);
+  {
+    auto Children = E->children();
+    auto It = Children.begin();
+    for (unsigned I = 0, N = E->getNumInterpolationExprs(); I != N; ++I, ++It) {
+      auto ToInterp = import(cast<Expr>(*It));
+      if (!ToInterp)
+        return ToInterp.takeError();
+      ToE->setInterpolationExpr(I, *ToInterp);
+    }
+  }
+  return ToE;
+}
+
+ExpectedStmt
+ASTNodeImporter::VisitCXXBuiltinInjectExpr(CXXBuiltinInjectExpr *E) {
+  Error Err = Error::success();
+  auto ToType = importChecked(Err, E->getType());
+  auto ToOperand = importChecked(Err, E->getOperand());
+  auto ToTarget = importChecked(Err, E->getTargetNS());
+  auto ToKw = importChecked(Err, E->getKwLoc());
+  auto ToLParen = importChecked(Err, E->getLParenLoc());
+  auto ToRParen = importChecked(Err, E->getRParenLoc());
+  if (Err)
+    return std::move(Err);
+  return CXXBuiltinInjectExpr::Create(Importer.getToContext(), ToType,
+                                      ToOperand, ToKw, ToLParen, ToRParen,
+                                      ToTarget);
+}
+
+ExpectedStmt ASTNodeImporter::VisitCXXBuiltinReportTokensExpr(
+    CXXBuiltinReportTokensExpr *E) {
+  Error Err = Error::success();
+  auto ToType = importChecked(Err, E->getType());
+  auto ToMsg = importChecked(Err, E->getMessage());
+  auto ToSize = importChecked(Err, E->getMsgSizeCall());
+  auto ToData = importChecked(Err, E->getMsgDataCall());
+  auto ToOperand = importChecked(Err, E->getOperand());
+  auto ToKw = importChecked(Err, E->getKwLoc());
+  auto ToLParen = importChecked(Err, E->getLParenLoc());
+  auto ToRParen = importChecked(Err, E->getRParenLoc());
+  if (Err)
+    return std::move(Err);
+  return CXXBuiltinReportTokensExpr::Create(Importer.getToContext(), ToType,
+                                            ToMsg, ToSize, ToData, ToOperand,
+                                            ToKw, ToLParen, ToRParen);
+}
+
+ExpectedStmt ASTNodeImporter::VisitCXXTokenInterpolationListExpr(
+    CXXTokenInterpolationListExpr *E) {
+  Error Err = Error::success();
+  auto ToType = importChecked(Err, E->getType());
+  auto ToSeparator = importChecked(Err, E->getSeparator());
+  auto ToBegin = importChecked(Err, E->getBeginLoc());
+  auto ToEnd = importChecked(Err, E->getEndLoc());
+  SmallVector<Expr *, 4> ToElements(E->getNumElements());
+  if (Err)
+    return std::move(Err);
+  if (Error Err2 = ImportContainerChecked(E->getElements(), ToElements))
+    return std::move(Err2);
+  return CXXTokenInterpolationListExpr::Create(Importer.getToContext(), ToType,
+                                               ToElements, ToSeparator,
+                                               ToBegin, ToEnd);
+}
+
+template <typename ExprT>
+ExpectedStmt ASTNodeImporter::importBuiltinStringExpr(ExprT *E) {
+  Error Err = Error::success();
+  auto ToType = importChecked(Err, E->getType());
+  auto ToKw = importChecked(Err, E->getKwLoc());
+  auto ToLParen = importChecked(Err, E->getLParenLoc());
+  auto ToRParen = importChecked(Err, E->getRParenLoc());
+  if (Err)
+    return std::move(Err);
+  SmallVector<Expr *, 4> ToArgs, ToSizes, ToDatas;
+  for (unsigned I = 0, N = E->getNumArgs(); I != N; ++I) {
+    auto A = Importer.Import(E->getArg(I));
+    auto S = Importer.Import(E->getSizeCall(I));
+    auto D = Importer.Import(E->getDataCall(I));
+    if (!A)
+      return A.takeError();
+    if (!S)
+      return S.takeError();
+    if (!D)
+      return D.takeError();
+    ToArgs.push_back(*A);
+    ToSizes.push_back(*S);
+    ToDatas.push_back(*D);
+  }
+  return ExprT::Create(Importer.getToContext(), ToType, ToArgs, ToSizes,
+                       ToDatas, ToKw, ToLParen, ToRParen);
+}
+
+ExpectedStmt ASTNodeImporter::VisitCXXBuiltinIdExpr(CXXBuiltinIdExpr *E) {
+  return importBuiltinStringExpr(E);
+}
+ExpectedStmt
+ASTNodeImporter::VisitCXXBuiltinStrLiteralExpr(CXXBuiltinStrLiteralExpr *E) {
+  return importBuiltinStringExpr(E);
+}
+ExpectedStmt
+ASTNodeImporter::VisitCXXBuiltinTokenizeExpr(CXXBuiltinTokenizeExpr *E) {
+  return importBuiltinStringExpr(E);
+}
+
+ExpectedStmt
+ASTNodeImporter::VisitCXXBuiltinStringizeExpr(CXXBuiltinStringizeExpr *E) {
+  Error Err = Error::success();
+  auto ToType = importChecked(Err, E->getType());
+  auto ToOperand = importChecked(Err, E->getOperand());
+  auto ToKw = importChecked(Err, E->getKwLoc());
+  auto ToLParen = importChecked(Err, E->getLParenLoc());
+  auto ToRParen = importChecked(Err, E->getRParenLoc());
+  if (Err)
+    return std::move(Err);
+  return CXXBuiltinStringizeExpr::Create(Importer.getToContext(), ToType,
+                                         ToOperand, ToKw, ToLParen, ToRParen);
+}
+
 ExpectedStmt ASTNodeImporter::VisitDoExpr(DoExpr *E) {
   Error Err = Error::success();
   auto ToInitStmt = importChecked(Err, E->getInitStmt());
@@ -10840,6 +10996,83 @@ ASTNodeImporter::ImportAPValue(const APValue &FromValue) {
   case APValue::Reflection:
     Result = FromValue;
     break;
+  case APValue::TokenSequence: {
+    if (Err)
+      return std::move(Err);
+    // Rebuild the token array in the destination context: locations,
+    // identifiers, spellings and what the annotation tokens carry are all
+    // imported; an annotation token that cannot be becomes tok::unknown.
+    ASTContext &ToCtx = Importer.getToContext();
+    SmallVector<Token, 16> ToToks;
+    for (const Token &T : FromValue.getTokenSequence()) {
+      Token N = T;
+      auto ToLoc = Importer.Import(T.getLocation());
+      if (!ToLoc)
+        return ToLoc.takeError();
+      N.setLocation(*ToLoc);
+      if (T.isAnnotation()) {
+        auto ToEnd = Importer.Import(T.getAnnotationEndLoc());
+        if (!ToEnd)
+          return ToEnd.takeError();
+        N.setAnnotationEndLoc(*ToEnd);
+        switch (T.getKind()) {
+        case tok::annot_typename: {
+          auto ToTy = Importer.Import(QualType::getFromOpaquePtr(
+              T.getAnnotationValue()));
+          if (!ToTy)
+            return ToTy.takeError();
+          N.setAnnotationValue(ToTy->getAsOpaquePtr());
+          break;
+        }
+        case tok::annot_template_name: {
+          auto ToName = Importer.Import(
+              TemplateName::getFromVoidPointer(T.getAnnotationValue()));
+          if (!ToName)
+            return ToName.takeError();
+          N.setAnnotationValue(ToName->getAsVoidPointer());
+          break;
+        }
+        case tok::annot_primary_expr:
+        case tok::annot_token_seq_expr: {
+          auto ToE =
+              Importer.Import(static_cast<Expr *>(T.getAnnotationValue()));
+          if (!ToE)
+            return ToE.takeError();
+          N.setAnnotationValue(static_cast<void *>(*ToE));
+          break;
+        }
+        case tok::annot_splice: {
+          auto ToSS = Importer.Import(
+              static_cast<SpliceSpecifier *>(T.getAnnotationValue()));
+          if (!ToSS)
+            return ToSS.takeError();
+          N.setAnnotationValue(static_cast<void *>(*ToSS));
+          break;
+        }
+        default:
+          N.startToken();
+          N.setKind(tok::unknown);
+          N.setLocation(*ToLoc);
+          break;
+        }
+      } else if (T.isLiteral() || T.is(tok::raw_identifier)) {
+        unsigned Len = T.getLength();
+        char *Buf = new (ToCtx) char[Len];
+        const char *From = T.isLiteral() ? T.getLiteralData()
+                                         : T.getRawIdentifier().data();
+        std::copy(From, From + Len, Buf);
+        if (T.isLiteral())
+          N.setLiteralData(Buf);
+        else
+          N.setRawIdentifierData(Buf);
+      } else if (const IdentifierInfo *II = T.getIdentifierInfo()) {
+        N.setIdentifierInfo(Importer.Import(II));
+      }
+      ToToks.push_back(N);
+    }
+    Result = APValue(CreateTokenSequenceData(ToCtx, ToToks));
+    break;
+  }
   case APValue::Vector: {
     Result.MakeVector();
     MutableArrayRef<APValue> Elts =

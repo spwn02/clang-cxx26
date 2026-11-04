@@ -5643,6 +5643,7 @@ class CXXTokenSequenceExpr final
     : public Expr,
       private llvm::TrailingObjects<CXXTokenSequenceExpr, Stmt *> {
   friend class ASTStmtReader;
+  friend class ASTNodeImporter;
   friend class ASTStmtWriter;
   friend TrailingObjects;
 
@@ -5691,6 +5692,8 @@ public:
 
   /// The identifier tokens that name template parameters where the sequence
   /// was written, in token order.
+  void setParamBindings(ASTContext &C,
+                        ArrayRef<TokenSequenceParamBinding> Bindings);
   ArrayRef<TokenSequenceParamBinding> getParamBindings() const {
     return {ParamBindings, NumParamBindings};
   }

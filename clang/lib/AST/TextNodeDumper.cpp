@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/Reflection.h"
+#include "clang/Lex/Token.h"
 #include "clang/AST/TextNodeDumper.h"
 #include "clang/AST/APValue.h"
 #include "clang/AST/DeclFriend.h"
@@ -622,6 +624,8 @@ static bool isSimpleAPValue(const APValue &Value) {
   case APValue::Struct:
   case APValue::Reflection:
     return false;
+  case APValue::TokenSequence:
+    return true;
   case APValue::Union:
     return isSimpleAPValue(Value.getUnionValue());
   }
@@ -860,6 +864,10 @@ void TextNodeDumper::Visit(const APValue &Value, QualType Ty) {
     return;
   case APValue::Reflection:
     OS << "Reflection <todo>";
+    return;
+  case APValue::TokenSequence:
+    OS << "TokenSequence " << Value.getTokenSequence().size() << " '"
+       << spellTokenSequence(Value.getTokenSequence()) << "'";
     return;
   }
   llvm_unreachable("Unknown APValue kind!");
@@ -1497,6 +1505,15 @@ void clang::TextNodeDumper::VisitReturnStmt(const ReturnStmt *Node) {
     OS << " nrvo_candidate(";
     dumpBareDeclRef(Cand);
     OS << ")";
+  }
+}
+
+void clang::TextNodeDumper::VisitCXXTokenSequenceExpr(
+    const CXXTokenSequenceExpr *Node) {
+  if (Node->getValue().isTokenSequence()) {
+    TokenSequenceData TSD = Node->getValue().getTokenSequence();
+    ColorScope Color(OS, ShowColors, ValueColor);
+    OS << " tokens:" << TSD.size() << " '" << spellTokenSequence(TSD) << "'";
   }
 }
 

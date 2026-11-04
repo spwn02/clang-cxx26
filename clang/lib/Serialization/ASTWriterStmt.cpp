@@ -524,6 +524,12 @@ void ASTStmtWriter::VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
         break;
       }
   Record.AddAPValue(E->getValue());
+  // The tokens that name a template or macro parameter, by index.
+  Record.writeUInt32(E->getParamBindings().size());
+  for (const TokenSequenceParamBinding &B : E->getParamBindings()) {
+    Record.writeUInt32(B.TokenIndex);
+    Record.AddDeclRef(B.Param);
+  }
   for (Stmt *S : E->children())
     Record.AddStmt(S);
   Record.AddSourceRange(E->getOperandRange());
