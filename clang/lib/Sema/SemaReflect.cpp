@@ -1557,7 +1557,12 @@ Sema::BuildSpliceSpecifier(SourceLocation LSpliceLoc, Expr *Operand,
 QualType Sema::BuildReflectionSpliceType(SourceLocation TypenameKWLoc,
                                          SpliceSpecifier *Splice,
                                          bool Complain) {
-  if (Splice->getDependence() != SpliceSpecifierDependence::None) {
+  // A dependent operand cannot be evaluated yet. A known template with
+  // dependent arguments can be: it names a template-id (see
+  // ReflectionSpliceType), whose arguments are deducible.
+  if (Splice->getDependence() != SpliceSpecifierDependence::None &&
+      !(Splice->isSpecialization() &&
+        Splice->getOperand()->getDependence() == ExprDependence::None)) {
     return Context.getReflectionSpliceType(TypenameKWLoc, Splice,
                                            Context.DependentTy);
   }
