@@ -741,7 +741,7 @@ public:
 
   static constexpr size_type npos = size_type(-1);
 
-  constexpr token_sequence() noexcept = default;
+  _LIBCPP_HIDE_FROM_ABI constexpr token_sequence() noexcept = default;
 
   // The tokens listed: token_sequence{t0, t1}.
   consteval token_sequence(initializer_list<token> __il)
@@ -765,20 +765,20 @@ public:
 
   // The tokens as objects, in static storage made once per sequence (null if
   // there are none).
-  constexpr pointer data() const noexcept {
+  _LIBCPP_HIDE_FROM_ABI constexpr pointer data() const noexcept {
     return __metafunction(__detail::__metafn_tokens_materialize, *this);
   }
-  constexpr iterator begin() const noexcept { return data(); }
-  constexpr iterator end() const noexcept { return data() + size(); }
-  constexpr iterator cbegin() const noexcept { return begin(); }
-  constexpr iterator cend() const noexcept { return end(); }
-  constexpr size_type size() const noexcept {
+  _LIBCPP_HIDE_FROM_ABI constexpr iterator begin() const noexcept { return data(); }
+  _LIBCPP_HIDE_FROM_ABI constexpr iterator end() const noexcept { return data() + size(); }
+  _LIBCPP_HIDE_FROM_ABI constexpr iterator cbegin() const noexcept { return begin(); }
+  _LIBCPP_HIDE_FROM_ABI constexpr iterator cend() const noexcept { return end(); }
+  _LIBCPP_HIDE_FROM_ABI constexpr size_type size() const noexcept {
     return __metafunction(__detail::__metafn_token_count, *this);
   }
-  constexpr bool empty() const noexcept { return size() == 0; }
-  constexpr reference operator[](size_type __i) const { return data()[__i]; }
-  constexpr reference front() const { return data()[0]; }
-  constexpr reference back() const { return data()[size() - 1]; }
+  _LIBCPP_HIDE_FROM_ABI constexpr bool empty() const noexcept { return size() == 0; }
+  _LIBCPP_HIDE_FROM_ABI constexpr reference operator[](size_type __i) const { return data()[__i]; }
+  _LIBCPP_HIDE_FROM_ABI constexpr reference front() const { return data()[0]; }
+  _LIBCPP_HIDE_FROM_ABI constexpr reference back() const { return data()[size() - 1]; }
 
   // The __n tokens (or as many as there are) starting at __pos.
   consteval auto subseq(size_type __pos, size_type __n = npos) const
@@ -832,7 +832,7 @@ namespace __detail {
 // (How the compiler interpolates any other contiguous range of tokens: a
 // std::span<const token>, say.)
 template <__token_range _Rp>
-constexpr auto __tokens_of_range(_Rp const& __r) -> token_sequence {
+_LIBCPP_HIDE_FROM_ABI constexpr auto __tokens_of_range(_Rp const& __r) -> token_sequence {
   return token_sequence(__r);
 }
 }  // namespace __detail
