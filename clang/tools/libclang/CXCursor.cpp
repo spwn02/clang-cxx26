@@ -592,6 +592,24 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     K = CXCursor_DoExpr;
     break;
 
+  case Stmt::CXXTokenSequenceExprClass:
+    K = CXCursor_TokenSequenceExpr;
+    break;
+
+  case Stmt::CXXMacroInvocationExprClass:
+    K = CXCursor_MacroInvocationExpr;
+    break;
+
+  case Stmt::CXXBuiltinInjectExprClass:
+  case Stmt::CXXBuiltinReportTokensExprClass:
+  case Stmt::CXXTokenInterpolationListExprClass:
+  case Stmt::CXXBuiltinIdExprClass:
+  case Stmt::CXXBuiltinStrLiteralExprClass:
+  case Stmt::CXXBuiltinTokenizeExprClass:
+  case Stmt::CXXBuiltinStringizeExprClass:
+    K = CXCursor_TokenInjectionExpr;
+    break;
+
   case Stmt::DoReturnStmtClass:
     K = CXCursor_DoReturnStmt;
     break;

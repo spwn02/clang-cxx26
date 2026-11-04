@@ -6090,6 +6090,12 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("PackIndexingExpr");
   case CXCursor_DoExpr:
     return cxstring::createRef("DoExpr");
+  case CXCursor_TokenSequenceExpr:
+    return cxstring::createRef("TokenSequenceExpr");
+  case CXCursor_MacroInvocationExpr:
+    return cxstring::createRef("MacroInvocationExpr");
+  case CXCursor_TokenInjectionExpr:
+    return cxstring::createRef("TokenInjectionExpr");
   case CXCursor_DoReturnStmt:
     return cxstring::createRef("DoReturnStmt");
   case CXCursor_LambdaExpr:

@@ -1112,6 +1112,16 @@ class CursorKind(BaseEnumeration):
     # Represents a C++29 do expression (P2806).
     DO_EXPR = 157
 
+    # Represents a C++29 token sequence literal (P4380), ^^{ tokens }.
+    TOKEN_SEQUENCE_EXPR = 158
+
+    # Represents a C++29 expression macro invocation (P4380), name!(args).
+    MACRO_INVOCATION_EXPR = 159
+
+    # Represents a C++29 token injection builtin (P4380): queue_injection,
+    # report_tokens, id, str_lit, tokenize, stringize or an interpolation list.
+    TOKEN_INJECTION_EXPR = 160
+
     # A statement whose specific kind is not exposed via this interface.
     #
     # Unexposed statements have the same operations as any other kind of

@@ -1696,7 +1696,24 @@ enum CXCursorKind {
    */
   CXCursor_DoExpr = 157,
 
-  CXCursor_LastExpr = CXCursor_DoExpr,
+  /**
+   * A C++29 token sequence literal (P4380), `^^{ tokens }`.
+   */
+  CXCursor_TokenSequenceExpr = 158,
+
+  /**
+   * A C++29 expression macro invocation (P4380), `name!(args)`.
+   */
+  CXCursor_MacroInvocationExpr = 159,
+
+  /**
+   * A C++29 token injection builtin (P4380): `queue_injection`,
+   * `report_tokens`, `id`, `str_lit`, `tokenize`, `stringize`, or a `\(a, b)`
+   * interpolation list.
+   */
+  CXCursor_TokenInjectionExpr = 160,
+
+  CXCursor_LastExpr = CXCursor_TokenInjectionExpr,
 
   /* Statements */
   CXCursor_FirstStmt = 200,
