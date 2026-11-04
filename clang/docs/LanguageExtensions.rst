@@ -1780,6 +1780,14 @@ queries ``source_text_of``, ``is_binary_operation``, ``operands_of``, ``operator
 ``<meta>``; ``std::constexpr_print_str`` / ``constexpr_warning_str`` / ``constexpr_error_str`` (P2758) are in
 ``<debugging>``.
 
+Name lookup for injected declarations is deliberately plain, because the paper leaves it open (its ``vtable_for``
+example: should code be able to refer to a declaration that a *later* injection introduces, as a variable template or a
+forward declaration?). Here an injected declaration is found from the point where the injection has happened, as if
+it had been written there; naming it earlier is an ordinary "undeclared identifier", and a hand-written forward
+declaration is not completed by a later injected definition (the two are distinct entities, so naming it is
+ambiguous). ``clang/test/SemaCXX/cxx29-token-seq-forward-reference.cpp`` pins this; it will be revisited when the
+authors settle the question (tracked in #358).
+
 Known limitations of this port: a non-empty token sequence round-trips through a PCH or a module as an empty one
 (building one warns, ``-Wtoken-sequence-serialization``; tracked in #492), so an expression macro cannot be defined in a
 header that is precompiled or in a module. Outside ``-std=c++29`` ``__macro`` is an ordinary identifier, and a ``^^{ ... }``
