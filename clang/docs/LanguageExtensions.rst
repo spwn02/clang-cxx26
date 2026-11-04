@@ -1777,6 +1777,11 @@ queries ``source_text_of``, ``is_binary_operation``, ``operands_of``, ``operator
 ``<meta>``; ``std::constexpr_print_str`` / ``constexpr_warning_str`` / ``constexpr_error_str`` (P2758) are in
 ``<debugging>``.
 
+Known limitations of this port: a non-empty token sequence round-trips through a PCH or a module as an empty one
+(building one warns, ``-Wtoken-sequence-serialization``; tracked in #492), so an expression macro cannot be defined in a
+header that is precompiled or in a module; and the compiler of this branch also accepts ``^^{ ... }`` and ``__macro``
+in ``-std=c++26`` (they are not gated by the language mode yet; the ``cxx26`` release line is unaffected).
+
 Not yet ported: the class-based ``std::meta::token_sequence`` / ``std::meta::token`` model of the prototype (a range of
 ``token`` with ``size()``, ``subseq()``, indexing, ``+=``/``==`` members and ``std::format`` support), template splices
 with dependent arguments in partial specializations, and the toolchain wiring (clangd, clang-tidy, clang-format,
