@@ -43,6 +43,7 @@
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/ParentMapContext.h"
 #include "clang/AST/RawCommentList.h"
+#include "clang/AST/Reflection.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/TemplateBase.h"
@@ -922,6 +923,17 @@ void ASTContext::cleanup() {
 
 ASTContext::~ASTContext() { cleanup(); }
 
+void ASTContext::TokenSequenceStorageDeleter::operator()(
+    TokenSequenceStorageState *P) const {
+  delete P;
+}
+
+TokenSequenceStorageState &ASTContext::getTokenSequenceStorage() {
+  if (!TokenSequenceStorage)
+    TokenSequenceStorage.reset(new TokenSequenceStorageState);
+  return *TokenSequenceStorage;
+}
+
 void ASTContext::setTraversalScope(const std::vector<Decl *> &TopLevelDecls) {
   TraversalScope = TopLevelDecls;
   getParentMapContext().clear();
@@ -1435,6 +1447,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
 
   // meta::token_sequence type (C++2c token sequences)
   InitBuiltinType(TokenSequenceTy, BuiltinType::TokenSequence);
+  InitBuiltinType(MetaTokenTy, BuiltinType::MetaToken);
 
   // half type (OpenCL 6.1.1.1) / ARM NEON __fp16
   InitBuiltinType(HalfTy, BuiltinType::Half);
@@ -2273,6 +2286,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       break;
     case BuiltinType::MetaInfo:
     case BuiltinType::TokenSequence:
+    case BuiltinType::MetaToken:
       Width = Target->getMetaInfoWidth();
       Align = Target->getMetaInfoAlign();
       break;
@@ -3468,6 +3482,10 @@ static void encodeTypeForFunctionPointerAuth(const ASTContext &Ctx,
 
     case BuiltinType::TokenSequence:
       OS << "t";
+      return;
+
+    case BuiltinType::MetaToken:
+      OS << "k";
       return;
 
     case BuiltinType::ObjCId:
@@ -9404,6 +9422,7 @@ static char getObjCEncodingForPrimitiveType(const ASTContext *C,
     case BuiltinType::SatULongFract:
     case BuiltinType::MetaInfo:
     case BuiltinType::TokenSequence:
+    case BuiltinType::MetaToken:
       // FIXME: potentially need @encodes for these!
       return ' ';
 
@@ -14182,6 +14201,12 @@ ASTContext::getUnnamedGlobalConstantDecl(QualType Ty,
       UnnamedGlobalConstantDecl::Create(*this, Ty, APVal);
   UnnamedGlobalConstantDecls.InsertNode(New, InsertPos);
   return New;
+}
+
+UnnamedGlobalConstantDecl *
+ASTContext::createUniqueUnnamedGlobalConstantDecl(QualType Ty,
+                                                  const APValue &Value) const {
+  return UnnamedGlobalConstantDecl::Create(*this, Ty, Value);
 }
 
 TemplateParamObjectDecl *

@@ -1,6 +1,8 @@
 // RUN: %clang_cc1 %s -std=c++2d -fsyntax-only -fcxx-exceptions -verify
 
-using token_sequence = decltype(^^{ });
+#include "Inputs/token-sequence.h"
+using std::meta::token_sequence;
+
 namespace std { class type_info { public: virtual ~type_info(); }; }
 
 namespace N1 {
@@ -867,21 +869,23 @@ static_assert(c == 4);
 
 namespace N20 {
 
-// In the body a parameter is a prvalue naming what was bound to it, and its
-// classification says so. Contexts that classify the operand (reference
+// In the body a (non-raw) parameter is a prvalue naming what was bound to it,
+// and its classification says so. A raw token_sequence parameter is an
+// ordinary parameter: its own type, an lvalue, so decltype((body)) is a
+// reference (a divergence from the prototype's expectation). Contexts that classify the operand (reference
 // binding -- which is also what range-for's '__range' is -- and a
 // parenthesized decltype) therefore work on a parameter directly. (Binding
 // a reference to a parameter used to assert in ExprClassification.)
 __macro first_plus(token_sequence body, int x) {
-  static_assert(__is_same(decltype((body)), token_sequence));
+  static_assert(__is_same(decltype((body)), token_sequence&));
   static_assert(__is_same(decltype((x)), decltype(^^int)));
   auto&& r = body;
   auto const& cx = x;
-  token_sequence first = r[0];
+  token_sequence first = r;
   return ^^{ (\(first) * 10 + \(cx)) };
 }
 constexpr int a = 3;
-static_assert(first_plus!(a b c, 7) == 37);
+static_assert(first_plus!(a, 7) == 37);
 
 }  // namespace N20
 
@@ -1082,7 +1086,6 @@ namespace N26 {
 // Arguments captured with an unknown shape are parsed where they were
 // written, as part of the template, then substituted into like the rest of
 // it: packs, member names, lambdas, and nested templates all behave.
-using token_sequence = decltype(^^{});
 
 struct H {
   static __macro keep(token_sequence t) { return t; }

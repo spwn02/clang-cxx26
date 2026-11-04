@@ -27,6 +27,7 @@
 
 using std::meta::info;
 using std::meta::token_sequence;
+using std::meta::token_sequence;
 
 // ------------------------------------------------ deferred macro ----------
 

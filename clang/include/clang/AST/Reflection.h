@@ -16,6 +16,7 @@
 #include "clang/Basic/TokenKinds.h"
 #include "clang/AST/TypeBase.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include <optional>
@@ -25,6 +26,7 @@ namespace clang {
 
 class APValue;
 class CXXBaseSpecifier;
+class Decl;
 class NamedDecl;
 class NamespaceDecl;
 class Token;
@@ -33,6 +35,25 @@ struct FunctionDeclSpec;
 
 /// \\brief Representation of a captured token sequence from ^^{ ... }.
 /// Essentially an ArrayRef<Token> allocated in the ASTContext.
+class UnnamedGlobalConstantDecl;
+
+/// See ASTContext::getTokenSequenceStorage.
+struct TokenSequenceStorageState {
+  /// The static array of std::meta::token made for a token array, by the
+  /// array's first token and size.
+  llvm::DenseMap<std::pair<const Token *, size_t>, UnnamedGlobalConstantDecl *>
+      StorageFor;
+  /// The tokens a materialized array was made from.
+  llvm::DenseMap<const Decl *, std::pair<const Token *, size_t>> TokensOf;
+  /// Buffers made by appending, by their first token: how many tokens are in
+  /// use, and how many fit.
+  struct GrowableBuffer {
+    size_t Used;
+    size_t Capacity;
+  };
+  llvm::DenseMap<const Token *, GrowableBuffer> Growable;
+};
+
 struct TokenSequenceData : public ArrayRef<Token> {
   TokenSequenceData() = default;
   TokenSequenceData(const Token *Data, size_t Length)
@@ -70,10 +91,33 @@ TokenSequenceData CreateTokenSequenceData(ASTContext &Ctx,
                                           ArrayRef<Token> Tokens1,
                                           ArrayRef<Token> Tokens2);
 
+/// \p LHS followed by \p RHS, for std::meta::token_sequence's += and +.
+/// Token arrays are immutable: an array is a view of a prefix of a buffer
+/// that is only ever appended to. When \p LHS is a whole buffer's used
+/// prefix and the buffer has room, \p RHS is written past it and the
+/// result views the longer prefix -- every other view of the buffer still
+/// sees exactly what it saw. Otherwise both are copied into a new buffer
+/// with spare capacity. So building a sequence by appending is amortized
+/// linear, and copies of a sequence never need copying themselves.
+TokenSequenceData AppendTokenSequenceData(ASTContext &Ctx,
+                                          TokenSequenceData LHS,
+                                          ArrayRef<Token> RHS);
+
 /// Allocate an empty token sequence in the ASTContext.
 inline TokenSequenceData CreateEmptyTokenSequenceData(ASTContext &Ctx) {
   return CreateTokenSequenceData(Ctx, {});
 }
+
+/// The tokens of \p TSD as an array of std::meta::token in static storage
+/// (what a std::meta::token_sequence iterates): a pointer to its first element,
+/// of type \p PtrTy, or a null pointer for no tokens. The storage for a token
+/// array is made once (keyed by its storage), and remembers its tokens (see
+/// getMaterializedTokens).
+APValue MaterializeTokens(ASTContext &C, TokenSequenceData TSD, QualType PtrTy);
+
+/// The tokens of an array made by MaterializeTokens, or null.
+std::optional<TokenSequenceData> getMaterializedTokens(ASTContext &C,
+                                                       const Decl *Storage);
 
 /// Description of a hypothetical data member used by `define_class`.
 struct TagDataMemberSpec {

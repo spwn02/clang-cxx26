@@ -1946,6 +1946,8 @@ bool CastExpr::CastConsistency() const {
   case CK_HLSLMatrixTruncation:
   case CK_HLSLElementwiseCast:
   case CK_HLSLAggregateSplatCast:
+  case CK_TokenArrayToSequence:
+  case CK_SequenceToTokenArray:
   CheckNoBasePath:
     assert(path_empty() && "Cast kind should not have a base path!");
     break;

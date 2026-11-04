@@ -775,6 +775,11 @@ bool Compiler<Emitter>::VisitCastExpr(const CastExpr *CE) {
   case CK_ToVoid:
     return discard(SubExpr);
 
+  case CK_TokenArrayToSequence:
+  case CK_SequenceToTokenArray:
+    // Token sequences are the tree evaluator's (P4380).
+    return this->emitInvalid(CE);
+
   case CK_Dynamic:
     // This initially goes through VisitCXXDynamicCastExpr, where we emit
     // a diagnostic if appropriate.

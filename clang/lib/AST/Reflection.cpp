@@ -16,6 +16,71 @@
 
 namespace clang {
 
+APValue MaterializeTokens(ASTContext &C, TokenSequenceData TSD,
+                          QualType PtrTy) {
+  size_t N = TSD.size();
+  if (N == 0)
+    return APValue(static_cast<const Expr *>(nullptr),
+                   CharUnits::fromQuantity(C.getTargetNullPointerValue(PtrTy)),
+                   APValue::NoLValuePath(), /*IsNullPtr=*/true);
+  auto &M = C.getTokenSequenceStorage();
+  UnnamedGlobalConstantDecl *&Storage = M.StorageFor[{TSD.data(), N}];
+  if (!Storage) {
+    // Its own storage: tokens that compare equal may still differ (e.g.
+    // interpolated constants of different types), so equal arrays are not
+    // shared -- but the same array (the same storage) always is.
+    // Each token refers to its slot in the token array (immutable, and
+    // living as long as the compilation): no storage of its own.
+    APValue Elems(APValue::UninitArray(), N, N);
+    for (size_t I = 0; I != N; ++I)
+      Elems.getArrayInitializedElt(I) =
+          APValue(TokenSequenceData(TSD.data() + I, 1));
+    QualType ArrTy = C.getConstantArrayType(
+        C.MetaTokenTy.withConst(), llvm::APInt(64, N), nullptr,
+        ArraySizeModifier::Normal, /*IndexTypeQuals=*/0);
+    Storage = C.createUniqueUnnamedGlobalConstantDecl(ArrTy, Elems);
+    M.TokensOf[Storage] = {TSD.data(), N};
+  }
+  APValue::LValuePathEntry Path[] = {APValue::LValuePathEntry::ArrayIndex(0)};
+  return APValue(APValue::LValueBase(Storage), CharUnits::Zero(), Path,
+                 /*OnePastTheEnd=*/false);
+}
+
+TokenSequenceData AppendTokenSequenceData(ASTContext &Ctx,
+                                          TokenSequenceData LHS,
+                                          ArrayRef<Token> RHS) {
+  if (RHS.empty())
+    return LHS;
+  auto &Buffers = Ctx.getTokenSequenceStorage().Growable;
+  size_t N = LHS.size() + RHS.size();
+  if (!LHS.empty()) {
+    auto It = Buffers.find(LHS.data());
+    if (It != Buffers.end() && It->second.Used == LHS.size() &&
+        N <= It->second.Capacity) {
+      // (RHS may be a view of this same buffer, e.g. ts += ts; it lies
+      // within the used prefix, so it does not overlap what is written.)
+      std::copy(RHS.begin(), RHS.end(),
+                const_cast<Token *>(LHS.data()) + LHS.size());
+      It->second.Used = N;
+      return TokenSequenceData(LHS.data(), N);
+    }
+  }
+  size_t Capacity = std::max<size_t>(2 * N, 16);
+  Token *Stored = new (Ctx) Token[Capacity];
+  std::copy(RHS.begin(), RHS.end(), std::copy(LHS.begin(), LHS.end(), Stored));
+  Buffers[Stored] = {N, Capacity};
+  return TokenSequenceData(Stored, N);
+}
+
+std::optional<TokenSequenceData> getMaterializedTokens(ASTContext &C,
+                                                       const Decl *Storage) {
+  auto &M = C.getTokenSequenceStorage();
+  auto It = M.TokensOf.find(Storage);
+  if (It == M.TokensOf.end())
+    return std::nullopt;
+  return TokenSequenceData(It->second.first, It->second.second);
+}
+
 TokenSequenceData CreateTokenSequenceData(ASTContext &Ctx,
                                           ArrayRef<Token> Tokens) {
   Token *StoredTokens = nullptr;

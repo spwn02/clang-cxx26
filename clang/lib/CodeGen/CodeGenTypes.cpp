@@ -507,6 +507,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
 
     case BuiltinType::MetaInfo:
     case BuiltinType::TokenSequence:
+    case BuiltinType::MetaToken:
       ResultType = llvm::IntegerType::get(getLLVMContext(), 128);
       break;
 

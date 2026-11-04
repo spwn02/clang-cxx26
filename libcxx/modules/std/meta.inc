@@ -278,11 +278,8 @@ export namespace std {
       using std::meta::__reflection_v2::argument_list_for;
       using std::meta::__reflection_v2::argument_list_options;
       using std::meta::__reflection_v2::as_lvalue;
-      using std::meta::__reflection_v2::begin;
       using std::meta::__reflection_v2::clone_naming;
       using std::meta::__reflection_v2::declaration_of;
-      using std::meta::__reflection_v2::empty;
-      using std::meta::__reflection_v2::end;
       using std::meta::__reflection_v2::expand_at_instantiation;
       using std::meta::__reflection_v2::forwarding_call_for;
       using std::meta::__reflection_v2::id;
@@ -298,7 +295,6 @@ export namespace std {
       using std::meta::__reflection_v2::punctuator_of;
       using std::meta::__reflection_v2::queue_injection;
       using std::meta::__reflection_v2::report_tokens;
-      using std::meta::__reflection_v2::size;
       using std::meta::__reflection_v2::source_text_of;
       using std::meta::__reflection_v2::stringize;
       using std::meta::__reflection_v2::str_lit;
@@ -306,7 +302,7 @@ export namespace std {
       using std::meta::__reflection_v2::template_list_options;
       using std::meta::__reflection_v2::template_parameter_list_for;
       using std::meta::__reflection_v2::test_expression;
-      using std::meta::__reflection_v2::token_iterator;
+      using std::meta::__reflection_v2::token;
       using std::meta::__reflection_v2::tokenize;
       using std::meta::__reflection_v2::token_kind;
       using std::meta::__reflection_v2::token_kind_of;
@@ -319,6 +315,7 @@ export namespace std {
 #if _LIBCPP_STD_VER >= 29
 export namespace std::ranges {
   using std::ranges::enable_borrowed_range;
+  using std::ranges::enable_view;
 }
 #endif // _LIBCPP_STD_VER >= 29
 #endif // _LIBCPP_STD_VER >= 26

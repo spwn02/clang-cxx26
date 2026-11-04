@@ -5953,6 +5953,7 @@ static void TryDefaultInitialization(Sema &S,
   }
 
   if (DestType->isReflectionType() || DestType->isTokenSequenceType() ||
+      DestType->isMetaTokenType() ||
       (S.getLangOpts().CPlusPlus26 && DestType->isNullPtrType() &&
        DestType.isConstQualified())) {
     Sequence.AddZeroInitializationStep(Entity.getType());

@@ -1172,10 +1172,15 @@ bool Parser::ParseMacroArgumentList(ArrayRef<MacroParamKind> RawParams,
                RawParams.back() == MacroParamKind::RawPack)
         Kind = MacroParamKind::RawPack;
       ExprResult Arg;
-      if (Kind != MacroParamKind::Expression)
+      if (Kind != MacroParamKind::Expression) {
         Arg = ParseMacroRawArgument(
             Close, /*Greedy=*/Kind == MacroParamKind::Raw &&
                        Idx + 1 == RawParams.size());
+        // Raw arguments are std::meta::token_sequence values (and so that is
+        // what a raw pack deduces).
+        if (Arg.isUsable())
+          Arg = Actions.BuildTokenSequenceValue(Arg.get());
+      }
       else if (Tok.is(tok::l_brace))
         Arg = ParseBraceInitializer();
       else
@@ -1238,8 +1243,11 @@ ExprResult Parser::ParseMacroRawArgument(tok::TokenKind Close, bool Greedy) {
     EndLoc = Tok.getLocation();
     ConsumeAnyToken();
   }
+  // A raw argument stays the compiler's token array: the macro binds it as
+  // such (see Sema::EvaluateMacroExpansion).
   return Actions.ActOnCXXTokenSequenceReflection(
-      getCurScope(), StartLoc, SourceRange(StartLoc, EndLoc), Tokens);
+      getCurScope(), StartLoc, SourceRange(StartLoc, EndLoc), Tokens,
+      /*AsValue=*/false);
 }
 
 bool Parser::ParseDeferredMacroArguments(ArrayRef<MacroParamKind> RawParams, bool Braced,
