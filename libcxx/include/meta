@@ -409,8 +409,8 @@ consteval auto has_inaccessible_bases(
 #include <optional>
 
 #include <__ranges/access.h>
-#include <__ranges/enable_borrowed_range.h>
 #include <__ranges/concepts.h>
+#include <__ranges/enable_borrowed_range.h>
 #include <__ranges/size.h>
 
 #include <source_location>
@@ -450,8 +450,10 @@ consteval auto is_namespace(info) -> bool;
 consteval auto is_class_type(info) -> bool;
 consteval auto parent_of(info) -> info;
 
+#if _LIBCPP_STD_VER >= 29
 // An opaque handle to a token sequence.
 using token_sequence = decltype(^^{ });
+#endif
 
 _LIBCPP_DIAGNOSTIC_PUSH
 _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
@@ -945,19 +947,21 @@ consteval auto u8identifier_of(info __r) -> u8string_view {
                         ^^u8identifier_of);
 }
 
+#if _LIBCPP_STD_VER >= 29
 // The spelling of a single identifier token. As for identifier_of(info), any
 // other operand -- a keyword, literal or punctuator, or an empty or
 // multi-token sequence -- is not a constant expression; test with
 // token_kind_of(tok) == token_kind::identifier first.
-consteval auto identifier_of(token_sequence tok) -> string_view {
+consteval auto identifier_of(token_sequence __tok) -> string_view {
   return __metafunction(__detail::__metafn_identifier_of_token, ^^const char *,
-                        tok, /*UTF8=*/false);
+                        __tok, /*UTF8=*/false);
 }
 
-consteval auto u8identifier_of(token_sequence tok) -> u8string_view {
+consteval auto u8identifier_of(token_sequence __tok) -> u8string_view {
   return __metafunction(__detail::__metafn_identifier_of_token,
-                        ^^const char8_t *, tok, /*UTF8=*/true);
+                        ^^const char8_t *, __tok, /*UTF8=*/true);
 }
+#endif // _LIBCPP_STD_VER >= 29
 
 // Returns an implementation-defined name for the reflected entity.
 consteval auto display_string_of(info __r) -> string_view;
@@ -980,13 +984,18 @@ using enum operators;
 
 // Returns the operator overloaded by the represented operator function or
 // operator function template.
+#if _LIBCPP_STD_VER >= 29
 consteval auto is_binary_operation(info) -> bool;
+#endif
 
 consteval auto operator_of(info __r) -> operators {
-  // In C++29 the reflection of a binary-operation expression (a macro
-  // argument) has an operator too.
-  if (!is_operator_function(__r) && !is_operator_function_template(__r) &&
-      !is_binary_operation(__r))
+  if (!is_operator_function(__r) && !is_operator_function_template(__r)
+#if _LIBCPP_STD_VER >= 29
+      // The reflection of a binary-operation expression (a macro argument)
+      // has an operator too.
+      && !is_binary_operation(__r)
+#endif
+  )
     throw __lib_exception(u8"operator_of requires an operator function or operator function template", ^^operator_of, source_location::current(__builtin_meta_call_origin()));
   return operators(__metafunction(__detail::__metafn_operator_of, __r));
 }
@@ -3875,45 +3884,45 @@ consteval auto u8display_string_of(info __r) -> u8string_view {
   return __detail::pretty_printer<char8_t>::print(__r);
 }
 
+#if _LIBCPP_STD_VER >= 29
+
 // helper for building up delimited lists of token sequences
 class list_builder {
-  token_sequence body = ^^{};
-  token_sequence delim;
-  bool first = true;
+  token_sequence __body_ = ^^{};
+  token_sequence __delim_;
+  bool __first_ = true;
 
 public:
   // default to no delimiter
-  consteval explicit list_builder(token_sequence delim = ^^{ }) : delim(delim) { }
+  consteval explicit list_builder(token_sequence __d = ^^{ }) : __delim_(__d) {}
 
-  consteval auto operator+=(token_sequence tok) -> void {
-    if (tok != ^^{ }) {
-      if (not first) {
-        body += delim;
+  consteval auto operator+=(token_sequence __tok) -> void {
+    if (__tok != ^^{ }) {
+      if (not __first_) {
+        __body_ += __delim_;
       }
-      first = false;
-      body += tok;
+      __first_ = false;
+      __body_ += __tok;
     }
   }
 
-  consteval operator token_sequence() const {
-    return body;
-  }
+  consteval operator token_sequence() const { return __body_; }
 };
 
 // A single identifier token assembled from the arguments (strings and
 // integers), the identifier sibling of str_lit(). Compare against a token
 // directly: ts[0] == id("a").
-template <class... Ts>
-consteval auto id(Ts const&...) -> token_sequence;
+template <class... _Ts>
+consteval auto id(_Ts const&...) -> token_sequence;
 
-template <class... Ts>
-consteval auto str_lit(Ts const&...) -> token_sequence;
+template <class... _Ts>
+consteval auto str_lit(_Ts const&...) -> token_sequence;
 
 // Tokenize strings into a token_sequence.
 // Arguments are concatenated and then lexed as C++ source code.
 // Accepts integers, characters, string literals, and types with data()/size().
-template <class... Ts>
-consteval auto tokenize(Ts const&...) -> token_sequence;
+template <class... _Ts>
+consteval auto tokenize(_Ts const&...) -> token_sequence;
 
 // Convert a token_sequence back into a string.
 // Preserves whitespace between tokens.
@@ -3921,31 +3930,31 @@ consteval auto stringize(token_sequence) -> char const*;
 
 // Queue token injection into the current or specified namespace.
 // Accepts any type convertible to token_sequence.
-consteval auto queue_injection(token_sequence tokens) -> void;
-consteval auto queue_injection(info target_ns, token_sequence tokens) -> void;
+consteval auto queue_injection(token_sequence __tokens) -> void;
+consteval auto queue_injection(info __target_ns, token_sequence __tokens) -> void;
 
 // Report tokens for debugging (emits a warning with the token content).
-template <class M>
-consteval auto report_tokens(M const& msg, token_sequence tokens) -> void;
+template <class _Mp>
+consteval auto report_tokens(_Mp const& __msg, token_sequence __tokens) -> void;
 
 // Expression macros (experimental): queries on the reflection of an argument
 // expression bound to a macro parameter, and on token sequences.
 
 // The argument as spelled at the invocation.
-consteval auto source_text_of(info r) -> string_view {
-  return __metafunction(__detail::__metafn_source_text_of, ^^const char *, r);
+consteval auto source_text_of(info __r) -> string_view {
+  return __metafunction(__detail::__metafn_source_text_of, ^^const char *, __r);
 }
 
 // Whether the expression applies a (built-in, overloaded, or rewritten)
 // binary operator. operator_of gives the operator; operands_of the operands
 // as written, each itself a reflection of an expression.
-consteval auto is_binary_operation(info r) -> bool {
-  return __metafunction(__detail::__metafn_is_binary_operation, r);
+consteval auto is_binary_operation(info __r) -> bool {
+  return __metafunction(__detail::__metafn_is_binary_operation, __r);
 }
 
-consteval auto operands_of(info r) -> vector<info> {
-  return {__metafunction(__detail::__metafn_get_ith_operand_of, r, 0),
-          __metafunction(__detail::__metafn_get_ith_operand_of, r, 1)};
+consteval auto operands_of(info __r) -> vector<info> {
+  return {__metafunction(__detail::__metafn_get_ith_operand_of, __r, 0),
+          __metafunction(__detail::__metafn_get_ith_operand_of, __r, 1)};
 }
 
 // The lexical category of a single token. All operators and punctuators
@@ -3964,12 +3973,12 @@ enum class token_kind {
 // Token classification. To match a specific identifier, compare the token
 // against id(...) directly: tok == id("name"); to read its spelling, use
 // identifier_of(tok).
-consteval auto token_kind_of(token_sequence tok) -> token_kind {
-  return token_kind(__metafunction(__detail::__metafn_token_kind_of, tok));
+consteval auto token_kind_of(token_sequence __tok) -> token_kind {
+  return token_kind(__metafunction(__detail::__metafn_token_kind_of, __tok));
 }
 
-consteval auto operator_of(token_sequence tok) -> operators {
-  return operators(__metafunction(__detail::__metafn_operator_of_token, tok));
+consteval auto operator_of(token_sequence __tok) -> operators {
+  return operators(__metafunction(__detail::__metafn_operator_of_token, __tok));
 }
 
 // C++'s punctuators: the operator-or-punctuator tokens that are not keywords,
@@ -3996,8 +4005,8 @@ enum class punctuator {
 };
 
 // The punctuator a single token is.
-consteval auto punctuator_of(token_sequence tok) -> punctuator {
-  return punctuator(__metafunction(__detail::__metafn_punctuator_of, tok));
+consteval auto punctuator_of(token_sequence __tok) -> punctuator {
+  return punctuator(__metafunction(__detail::__metafn_punctuator_of, __tok));
 }
 
 // The punctuator's (primary) spelling.
@@ -4027,8 +4036,8 @@ consteval auto u8symbol_of(punctuator p) -> u8string_view {
 // Whether a reflected macro argument is a constant expression, i.e. whether
 // constant_of(r) would yield its value. This is how an operator macro decides
 // between a compile-time and a run-time expansion for an operand.
-consteval auto is_constant_expression(info r) -> bool {
-  return __metafunction(__detail::__metafn_is_constant_expression, r);
+consteval auto is_constant_expression(info __r) -> bool {
+  return __metafunction(__detail::__metafn_is_constant_expression, __r);
 }
 
 // Speculatively parses the token sequence as a single expression at the
@@ -4039,8 +4048,8 @@ consteval auto is_constant_expression(info r) -> bool {
 //
 //   if (auto r = test_expression(^^{ (\(e).begin()) }))
 //     return ^^{ \(*r) };
-consteval auto test_expression(token_sequence tokens) -> optional<info> {
-  info __r = __metafunction(__detail::__metafn_test_expression, tokens);
+consteval auto test_expression(token_sequence __tokens) -> optional<info> {
+  info __r = __metafunction(__detail::__metafn_test_expression, __tokens);
   if (__r == info{})
     return nullopt;
   return __r;
@@ -4054,8 +4063,8 @@ consteval auto test_expression(token_sequence tokens) -> optional<info> {
 // unevaluated -- e.g. the `t` of [range.access.begin]:
 //
 //   return ^^{ auto(\(as_lvalue(r)).begin()) };
-consteval auto as_lvalue(info r) -> info {
-  return __metafunction(__detail::__metafn_as_lvalue, r);
+consteval auto as_lvalue(info __r) -> info {
+  return __metafunction(__detail::__metafn_as_lvalue, __r);
 }
 
 // Reflects the context the macro being expanded is expanding *into*: the
@@ -4135,8 +4144,8 @@ consteval auto declaration_of(info fn, clone_naming naming = {}) -> info {
 
 // Returns true if 'r' is a declaration description produced by
 // declaration_of.
-consteval auto is_declaration_spec(info r) -> bool {
-  return __metafunction(__detail::__metafn_is_declaration_spec, r);
+consteval auto is_declaration_spec(info __r) -> bool {
+  return __metafunction(__detail::__metafn_is_declaration_spec, __r);
 }
 
 // Declaration transformations: each takes a declaration description and
@@ -4150,8 +4159,8 @@ consteval auto is_declaration_spec(info r) -> bool {
 // override an inherited virtual, diagnosed at the destination class the
 // same way a written 'override' would be. Refused for member function
 // template descriptions (a template cannot be virtual).
-consteval auto make_override(info d) -> info {
-  return __metafunction(__detail::__metafn_make_override, d);
+consteval auto make_override(info __d) -> info {
+  return __metafunction(__detail::__metafn_make_override, __d);
 }
 
 // make_noexcept: the injected clone is declared noexcept. declaration_of
@@ -4159,8 +4168,8 @@ consteval auto make_override(info d) -> info {
 // new body has its own exception behavior); this asks for noexcept
 // explicitly -- e.g. a mock mirroring an interface whose virtuals are
 // noexcept, where a looser override would be ill-formed.
-consteval auto make_noexcept(info d) -> info {
-  return __metafunction(__detail::__metafn_make_noexcept, d);
+consteval auto make_noexcept(info __d) -> info {
+  return __metafunction(__detail::__metafn_make_noexcept, __d);
 }
 
 // declaration_of also accepts a *class template*: the description then
@@ -4202,19 +4211,19 @@ struct template_list_options {
 // is not carried: any actual specialization the injected declaration can
 // match already satisfies it. Works for class template heads and for
 // member function template descriptions alike.
-consteval auto template_parameter_list_for(info d,
-                                           template_list_options opts = {})
+consteval auto template_parameter_list_for(info __d,
+                                           template_list_options __opts = {})
     -> token_sequence {
-  return __metafunction(__detail::__metafn_template_parameter_list_for, d,
-                        opts.defaults);
+  return __metafunction(__detail::__metafn_template_parameter_list_for, __d,
+                        __opts.defaults);
 }
 
 // The matching argument list: 'T0, T1, T2...' (packs expanded). Refused for
 // a template parameter pack followed by more parameters -- such an argument
 // list is a non-deduced context, so a specialization written with it could
 // never be matched.
-consteval auto template_argument_list_for(info d) -> token_sequence {
-  return __metafunction(__detail::__metafn_template_argument_list_for, d);
+consteval auto template_argument_list_for(info __d) -> token_sequence {
+  return __metafunction(__detail::__metafn_template_argument_list_for, __d);
 }
 
 struct argument_list_options {
@@ -4241,9 +4250,9 @@ struct argument_list_options {
 // is fine here. The callee's own requirements remain the caller's problem
 // (a noexcept clone invoking a throwing callee terminates). Refused for
 // explicit-object members, C-style variadics, and head-only descriptions.
-consteval auto argument_list_for(info d, argument_list_options opts = {})
+consteval auto argument_list_for(info __d, argument_list_options __opts = {})
     -> token_sequence {
-  return __metafunction(__detail::__metafn_argument_list_for, d, opts.forward);
+  return __metafunction(__detail::__metafn_argument_list_for, __d, __opts.forward);
 }
 
 // Returns tokens for a call forwarding the parameters of the description 'd'
@@ -4264,11 +4273,11 @@ consteval auto argument_list_for(info d, argument_list_options opts = {})
 // instead of forwarding them (e.g. to use them again after the call). Refused (constexpr_error) for descriptions this recipe cannot
 // forward faithfully: explicit-object members, C-style variadics, and
 // template heads where a parameter pack is followed by more parameters.
-consteval auto forwarding_call_for(info d, token_sequence receiver,
-                                   argument_list_options opts = {})
+consteval auto forwarding_call_for(info __d, token_sequence __receiver,
+                                   argument_list_options __opts = {})
     -> token_sequence {
-  return __metafunction(__detail::__metafn_forwarding_call_for, d, receiver,
-                        opts.forward);
+  return __metafunction(__detail::__metafn_forwarding_call_for, __d, __receiver,
+                        __opts.forward);
 }
 
 // A token_sequence is itself an iterable, indexable range: begin/end and
@@ -4370,6 +4379,8 @@ consteval auto end(token_sequence __ts) -> token_iterator {
   return {__ts, size(__ts)};
 }
 
+#endif // _LIBCPP_STD_VER >= 29
+
 _LIBCPP_END_NAMESPACE_REFLECTION_V2
 
 // A token_sequence's storage is owned by the compilation itself, so
@@ -4383,12 +4394,12 @@ _LIBCPP_BEGIN_NAMESPACE_REFLECTION_V2
 // Each token of the sequence as its own single-token sequence. Predates
 // token_sequence being directly iterable (above); prefer iterating or
 // indexing the sequence itself.
-consteval auto tokens_of(token_sequence tokens) -> vector<token_sequence> {
+consteval auto tokens_of(token_sequence __tokens) -> vector<token_sequence> {
   vector<token_sequence> result;
-  size_t n = size(tokens);
+  size_t n = size(__tokens);
   result.reserve(n);
-  for (token_sequence tok : tokens)
-    result.push_back(tok);
+  for (token_sequence __tok : __tokens)
+    result.push_back(__tok);
   return result;
 }
 

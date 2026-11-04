@@ -57,54 +57,55 @@ struct __tag_string {
 
   template <class _Tp>
     requires is_convertible_v<const _Tp&, string_view>
-  consteval __tag_string(const _Tp& __s) : __str_(__s) {
-    for (char __c : __str_)
-      if (!((__c >= 'a' && __c <= 'z') || (__c >= 'A' && __c <= 'Z') ||
-            (__c >= '0' && __c <= '9') || __c == '_' || __c == '-' ||
-            __c == '=')) {
-        // The builtin rejects the malformed tag, so this consteval
-        // constructor is not a constant expression -- diagnosed here, at the
-        // construction of the tag, rather than at its eventual use.
-        __builtin_constexpr_diag(2, __str_.data(), __str_.size(), "", 0);
-        break;
-      }
+  _LIBCPP_HIDE_FROM_ABI consteval __tag_string(const _Tp& __s) : __str_(__s) {
+    for (char __c : __str_) {
+      const bool __ok = (__c >= 'a' && __c <= 'z') || (__c >= 'A' && __c <= 'Z') || (__c >= '0' && __c <= '9') ||
+                        __c == '_' || __c == '-' || __c == '=';
+      if (__ok)
+        continue;
+      // The builtin rejects the malformed tag, so this consteval
+      // constructor is not a constant expression -- diagnosed here, at the
+      // construction of the tag, rather than at its eventual use.
+      __builtin_constexpr_diag(2, __str_.data(), __str_.size(), "", 0);
+      break;
+    }
   }
 };
 
-inline constexpr void constexpr_print_str(string_view __msg) noexcept {
+_LIBCPP_HIDE_FROM_ABI inline constexpr void constexpr_print_str(string_view __msg) noexcept {
   __builtin_constexpr_diag(0, "", 0, __msg.data(), __msg.size());
 }
-inline constexpr void constexpr_print_str(u8string_view __msg) noexcept {
+_LIBCPP_HIDE_FROM_ABI inline constexpr void constexpr_print_str(u8string_view __msg) noexcept {
   __builtin_constexpr_diag(0, "", 0, __msg.data(), __msg.size());
 }
-inline constexpr void constexpr_print_str(__tag_string __tag,
+_LIBCPP_HIDE_FROM_ABI inline constexpr void constexpr_print_str(__tag_string __tag,
                                           string_view __msg) noexcept {
   __builtin_constexpr_diag(0, __tag.__str_.data(), __tag.__str_.size(),
                            __msg.data(), __msg.size());
 }
-inline constexpr void constexpr_print_str(__tag_string __tag,
+_LIBCPP_HIDE_FROM_ABI inline constexpr void constexpr_print_str(__tag_string __tag,
                                           u8string_view __msg) noexcept {
   __builtin_constexpr_diag(0, __tag.__str_.data(), __tag.__str_.size(),
                            __msg.data(), __msg.size());
 }
 
-inline constexpr void constexpr_warning_str(__tag_string __tag,
+_LIBCPP_HIDE_FROM_ABI inline constexpr void constexpr_warning_str(__tag_string __tag,
                                             string_view __msg) noexcept {
   __builtin_constexpr_diag(1, __tag.__str_.data(), __tag.__str_.size(),
                            __msg.data(), __msg.size());
 }
-inline constexpr void constexpr_warning_str(__tag_string __tag,
+_LIBCPP_HIDE_FROM_ABI inline constexpr void constexpr_warning_str(__tag_string __tag,
                                             u8string_view __msg) noexcept {
   __builtin_constexpr_diag(1, __tag.__str_.data(), __tag.__str_.size(),
                            __msg.data(), __msg.size());
 }
 
-inline constexpr void constexpr_error_str(__tag_string __tag,
+_LIBCPP_HIDE_FROM_ABI inline constexpr void constexpr_error_str(__tag_string __tag,
                                           string_view __msg) noexcept {
   __builtin_constexpr_diag(2, __tag.__str_.data(), __tag.__str_.size(),
                            __msg.data(), __msg.size());
 }
-inline constexpr void constexpr_error_str(__tag_string __tag,
+_LIBCPP_HIDE_FROM_ABI inline constexpr void constexpr_error_str(__tag_string __tag,
                                           u8string_view __msg) noexcept {
   __builtin_constexpr_diag(2, __tag.__str_.data(), __tag.__str_.size(),
                            __msg.data(), __msg.size());
