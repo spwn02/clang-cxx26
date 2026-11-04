@@ -4271,8 +4271,17 @@ ReflectionSpliceType::ReflectionSpliceType(SourceLocation TypenameKWLoc,
                                            SpliceSpecifier *Splice,
                                            QualType UnderlyingTy)
   : Type(ReflectionSplice,
-         UnderlyingTy->isDependentType() ? QualType()
-                                         : UnderlyingTy.getCanonicalType(),
+         // A splice type is canonically its underlying type, unless that is
+         // dependent: then it is its own canonical type (non-deduced), except
+         // for a splice-specialization-specifier whose template is known and
+         // whose arguments are dependent. That is a template-id like any
+         // other, so its arguments are deducible ([temp.deduct.type]: only
+         // the constant-expression of a splice-specifier is non-deduced).
+         (UnderlyingTy->isDependentType() &&
+          !(Splice->isSpecialization() &&
+            isa<TemplateSpecializationType>(UnderlyingTy.getTypePtr())))
+             ? QualType()
+             : UnderlyingTy.getCanonicalType(),
          ReflectionSpliceType::computeDependence(UnderlyingTy, Splice),
          UnderlyingTy->isConstevalOnly()),
     TypenameKWLoc(TypenameKWLoc), Splice(Splice), UnderlyingTy(UnderlyingTy) {
@@ -4286,8 +4295,9 @@ QualType ReflectionSpliceType::desugar() const {
 }
 
 bool ReflectionSpliceType::isSugared() const {
-  // A reflected type is sugared if it's non-dependent.
-  return !isDependentType();
+  // A reflected type is sugared if it has a canonical type of its own to
+  // desugar to (it does unless it is dependent on the splice operand).
+  return getCanonicalTypeInternal().getTypePtr() != this;
 }
 
 DependentReflectionSpliceType::DependentReflectionSpliceType(
