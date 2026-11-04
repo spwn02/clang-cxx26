@@ -18,11 +18,8 @@ using std::meta::punctuator;
 
 constexpr punctuator a = punctuator_of((^^{ x })[0]); // #a
 // expected-error@#a {{constexpr variable 'a' must be initialized by a constant expression}}
-// expected-error@#a {{call to consteval function 'std::meta::punctuator_of' is not a constant expression}}
 constexpr punctuator b = punctuator_of(std::meta::token{}); // #b
 // expected-error@#b {{constexpr variable 'b' must be initialized by a constant expression}}
-// expected-error@#b {{call to consteval function 'std::meta::punctuator_of' is not a constant expression}}
 constexpr punctuator c = punctuator_of((^^{ 42 })[0]); // #c
 // expected-error@#c {{constexpr variable 'c' must be initialized by a constant expression}}
-// expected-error@#c {{call to consteval function 'std::meta::punctuator_of' is not a constant expression}}
 // expected-note@*:* 3+ {{}}

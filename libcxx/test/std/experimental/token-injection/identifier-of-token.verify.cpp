@@ -23,18 +23,15 @@ static_assert(std::meta::identifier_of(std::meta::id("bar", 1)) == "bar1");
 
 constexpr std::string_view keyword = std::meta::identifier_of((^^{ int })[0]); // #keyword
 // expected-error@#keyword {{constexpr variable 'keyword' must be initialized by a constant expression}}
-// expected-error@#keyword {{call to consteval function 'std::meta::identifier_of' is not a constant expression}}
 // expected-note@#keyword {{a single identifier token}}
 
 constexpr std::string_view punct = std::meta::identifier_of((^^{ + })[0]); // #punct
 // expected-error@#punct {{constexpr variable 'punct' must be initialized by a constant expression}}
-// expected-error@#punct {{call to consteval function 'std::meta::identifier_of' is not a constant expression}}
 // expected-note@#punct {{a single identifier token}}
 
 // The empty token (a value-initialized std::meta::token).
 constexpr std::string_view none = std::meta::identifier_of(std::meta::token{}); // #none
 // expected-error@#none {{constexpr variable 'none' must be initialized by a constant expression}}
-// expected-error@#none {{call to consteval function 'std::meta::identifier_of' is not a constant expression}}
 // expected-note@#none {{a single identifier token}}
 
 // A sequence is not a token.

@@ -1782,8 +1782,8 @@ queries ``source_text_of``, ``is_binary_operation``, ``operands_of``, ``operator
 
 Known limitations of this port: a non-empty token sequence round-trips through a PCH or a module as an empty one
 (building one warns, ``-Wtoken-sequence-serialization``; tracked in #492), so an expression macro cannot be defined in a
-header that is precompiled or in a module; and the compiler of this branch also accepts ``^^{ ... }`` and ``__macro``
-in ``-std=c++26`` (they are not gated by the language mode yet; the ``cxx26`` release line is unaffected).
+header that is precompiled or in a module. Outside ``-std=c++29`` ``__macro`` is an ordinary identifier, and a ``^^{ ... }``
+literal is diagnosed (it needs the C++29-only class ``std::meta::token_sequence``); the ``cxx26`` release line has none of this code.
 
 Not yet ported: ``std::format`` support for ``token_sequence`` beyond what the ported tests define themselves, template splices
 with dependent arguments in partial specializations, and the toolchain wiring (clangd, clang-tidy, clang-format,
