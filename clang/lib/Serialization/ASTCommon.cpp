@@ -195,6 +195,9 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::TokenSequence:
     ID = PREDEF_TYPE_TOKEN_SEQUENCE_ID;
     break;
+  case BuiltinType::MetaToken:
+    ID = PREDEF_TYPE_META_TOKEN_ID;
+    break;
   case BuiltinType::Overload:
     ID = PREDEF_TYPE_OVERLOAD_ID;
     break;

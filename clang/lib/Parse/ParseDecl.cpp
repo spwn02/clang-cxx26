@@ -4444,7 +4444,7 @@ void Parser::ParseDeclarationSpecifiers(
       if (!isInvalid)
         isInvalid = DS.SetTypeSpecType(
             DeclSpec::TST_typename, Loc, PrevSpec, DiagID,
-            ParsedType::make(Actions.getASTContext().TokenSequenceTy), Policy);
+            ParsedType::make(Actions.getMacroReturnType()), Policy);
       break;
     case tok::kw_constinit:
       isInvalid = DS.SetConstexprSpec(ConstexprSpecKind::Constinit, Loc,
@@ -7908,7 +7908,7 @@ void Parser::ParseParameterDeclarationClause(
           ParmDeclarator.getNumTypeObjects() == 0 &&
           DS.getTypeSpecType() == DeclSpec::TST_typename) {
         QualType T = Actions.GetTypeFromParser(DS.getRepAsType());
-        if (!T.isNull() && !T.hasQualifiers() && T->isTokenSequenceType()) {
+        if (!T.isNull() && !T.hasQualifiers() && T->isTokenSequenceLikeType()) {
           SourceLocation Loc = DS.getTypeSpecTypeLoc();
           const char *PrevSpec = nullptr;
           unsigned DiagID = 0;

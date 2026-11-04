@@ -1,8 +1,6 @@
-// RUN: %clang_cc1 -std=c++2d -ast-dump -ast-dump-filter=tokens %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++2d -I %S/../Reflection/Inputs -ast-dump -ast-dump-filter=tokens %s | FileCheck %s
 
-namespace std::meta {
-  using token_sequence = decltype(^^{});
-}
+#include "token-sequence.h"
 
 constexpr int value = 42;
 

@@ -1323,7 +1323,7 @@ public:
   CanQualType Float16Ty; // C11 extension ISO/IEC TS 18661-3
   CanQualType Float32Ty, Float64Ty; // C++23 std::float32_t/std::float64_t
   CanQualType VoidPtrTy, NullPtrTy;
-  CanQualType MetaInfoTy, TokenSequenceTy;
+  CanQualType MetaInfoTy, TokenSequenceTy, MetaTokenTy;
   CanQualType DependentTy, OverloadTy, BoundMemberTy, UnresolvedTemplateTy,
       UnknownAnyTy;
   CanQualType BuiltinFnTy;
@@ -3639,6 +3639,11 @@ public:
   /// corresponding to a given APValue.
   UnnamedGlobalConstantDecl *
   getUnnamedGlobalConstantDecl(QualType Ty, const APValue &Value) const;
+
+  /// A new unnamed global constant of type \p Ty with value \p Value, not
+  /// shared with any other (getUnnamedGlobalConstantDecl interns by value).
+  UnnamedGlobalConstantDecl *
+  createUniqueUnnamedGlobalConstantDecl(QualType Ty, const APValue &Value) const;
 
   /// Return the template parameter object of the given type with the given
   /// value.

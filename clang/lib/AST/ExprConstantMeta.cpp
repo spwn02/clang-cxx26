@@ -873,6 +873,49 @@ static bool expand_at_instantiation(APValue &Result, ASTContext &C,
                                     ArrayRef<Expr *> Args,
                                     Decl *ContainingDecl);
 
+static bool tokens_join(APValue &Result, ASTContext &C, MetaActions &Meta,
+                        EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                        QualType ResultTy, SourceRange Range,
+                        ArrayRef<Expr *> Args, Decl *ContainingDecl);
+static bool members_gather(APValue &Result, ASTContext &C, MetaActions &Meta,
+                           EvalFn Evaluator, DiagFn Diagnoser,
+                           bool AllowInjection, QualType ResultTy,
+                           SourceRange Range, ArrayRef<Expr *> Args,
+                           Decl *ContainingDecl);
+
+static bool tokens_append(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl);
+
+static bool tokens_subseq(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl);
+
+static bool tokens_equal(APValue &Result, ASTContext &C, MetaActions &Meta,
+                         EvalFn Evaluator, DiagFn Diagnoser,
+                         bool AllowInjection, QualType ResultTy,
+                         SourceRange Range, ArrayRef<Expr *> Args,
+                         Decl *ContainingDecl);
+
+static bool token_type(APValue &Result, ASTContext &C, MetaActions &Meta,
+                       EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                       QualType ResultTy, SourceRange Range,
+                       ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool tokens_fill(APValue &Result, ASTContext &C, MetaActions &Meta,
+                        EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                        QualType ResultTy, SourceRange Range,
+                        ArrayRef<Expr *> Args, Decl *ContainingDecl);
+static bool tokens_materialize(APValue &Result, ASTContext &C,
+                               MetaActions &Meta, EvalFn Evaluator,
+                               DiagFn Diagnoser, bool AllowInjection,
+                               QualType ResultTy, SourceRange Range,
+                               ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
 static bool punctuator_of(APValue &Result, ASTContext &C, MetaActions &Meta,
                           EvalFn Evaluator, DiagFn Diagnoser,
                           bool AllowInjection, QualType ResultTy,
@@ -1057,7 +1100,7 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 1, 1, is_binary_operation },
   { Metafunction::MFRK_metaInfo, 2, 2, get_ith_operand_of },
   { Metafunction::MFRK_sizeT, 1, 1, token_count },
-  { Metafunction::MFRK_tokenSequence, 2, 2, get_ith_token },
+  { Metafunction::MFRK_token, 2, 2, get_ith_token },
   { Metafunction::MFRK_sizeT, 1, 1, token_kind_of },
   { Metafunction::MFRK_sizeT, 1, 1, operator_of_token },
   { Metafunction::MFRK_spliceFromArg, 3, 3, identifier_of_token },
@@ -1077,6 +1120,14 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 0, 0, expand_at_instantiation,
     /*Throws=*/false, /*WantsMacroExpansionContext=*/true },
   { Metafunction::MFRK_sizeT, 1, 1, punctuator_of },
+  { Metafunction::MFRK_tokenSequence, 2, 2, tokens_join },
+  { Metafunction::MFRK_sizeT, 2, 2, tokens_fill },
+  { Metafunction::MFRK_tokenPtr, 1, 1, tokens_materialize },
+  { Metafunction::MFRK_sizeT, 6, 6, members_gather },
+  { Metafunction::MFRK_tokenSequence, 2, 2, tokens_append },
+  { Metafunction::MFRK_tokenSequence, 3, 3, tokens_subseq },
+  { Metafunction::MFRK_token, 0, 0, token_type },
+  { Metafunction::MFRK_bool, 2, 2, tokens_equal },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
                                             sizeof(Metafunction);
@@ -1112,6 +1163,16 @@ bool Metafunction::isSafeOnValueDependentExpressions() const {
          ImplFn == type_of || ImplFn == is_binary_operation ||
          ImplFn == operator_of || ImplFn == get_ith_operand_of;
 }
+
+Metafunction::TokenArrayOp Metafunction::getTokenArrayOp() const {
+  if (ImplFn == tokens_join)
+    return TokenArrayOp::Join;
+  if (ImplFn == tokens_fill)
+    return TokenArrayOp::Fill;
+  return TokenArrayOp::None;
+}
+
+bool Metafunction::isMemberGather() const { return ImplFn == members_gather; }
 
 bool Metafunction::Lookup(unsigned ID, const Metafunction *&result) {
   if (ID >= NumMetafunctions)
@@ -1624,6 +1685,15 @@ static bool isReflectableDecl(MetaActions &Meta, ASTContext &C, Decl *D) {
   }
 
   if (D->isLocalExternDecl())
+    return false;
+
+  // std::meta::token_sequence's storage is the compiler's, not a member a
+  // program can see.
+  if (auto *FD = dyn_cast<FieldDecl>(D); FD && FD->isImplicit() &&
+                                         FD->getType()->isTokenSequenceType() &&
+                                         C.getCanonicalTagType(FD->getParent())
+                                             .getTypePtr()
+                                             ->isStdMetaTokenSequenceType())
     return false;
 
   if (isa<NamespaceAliasDecl>(D))
@@ -2636,6 +2706,269 @@ bool operator_of_token(APValue &Result, ASTContext &C, MetaActions &Meta,
   return SetAndSucceed(
       Result, APValue(C.MakeIntValue(getMetaIndexForOverloadedOperator(OO),
                                      C.getSizeType())));
+}
+
+// EXPERIMENTAL (benchmarking a vector<token> model): concatenate the
+// token_sequence elements of an array, given as (pointer, count), in one
+// step -- standing in for the compiler consuming a vector<token> directly
+// (interpolating it, or taking it as a macro's result).
+bool tokens_join(APValue &Result, ASTContext &C, MetaActions &Meta,
+                 EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                 QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                 Decl *ContainingDecl) {
+  APValue Count;
+  if (!Evaluator(Count, Args[1], true))
+    return true;
+  uint64_t N = Count.getInt().getZExtValue();
+  QualType ElemTy = Args[0]->getType()->getPointeeType().getUnqualifiedType();
+  SmallVector<Token, 64> Toks;
+  for (uint64_t K = 0; K < N; ++K) {
+    llvm::APInt Idx(C.getTypeSize(C.getSizeType()), K, false);
+    Expr *Elem = new (C) ArraySubscriptExpr(
+        Args[0],
+        IntegerLiteral::Create(C, Idx, C.getSizeType(), Args[1]->getExprLoc()),
+        ElemTy, VK_LValue, OK_Ordinary, Range.getBegin());
+    APValue V;
+    if (!Evaluator(V, Elem, true) || !V.isTokenSequence())
+      return true;
+    TokenSequenceData TSD = V.getTokenSequence();
+    Toks.append(TSD.begin(), TSD.end());
+  }
+  return SetAndSucceed(Result, APValue(CreateTokenSequenceData(C, Toks)));
+}
+
+// The tokens of a token array as an array of std::meta::token in static
+// storage (an unnamed global constant of its own: tokens that compare equal
+// may still differ, e.g. interpolated constants of different types, so it is
+// not shared): a pointer to its first element, or null for an empty array.
+// This is the storage a std::meta::token_sequence iterates over.
+bool tokens_materialize(APValue &Result, ASTContext &C, MetaActions &Meta,
+                        EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                        QualType ResultTy, SourceRange Range,
+                        ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  APValue TS;
+  if (!Evaluator(TS, Args[0], true) || !TS.isTokenSequence())
+    return true;
+  return SetAndSucceed(Result,
+                       MaterializeTokens(C, TS.getTokenSequence(), ResultTy));
+}
+
+// EXPERIMENTAL: implemented natively by the constant evaluator (see
+// Metafunction::getTokenArrayOp); never reached.
+bool tokens_fill(APValue &Result, ASTContext &C, MetaActions &Meta,
+                 EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                 QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                 Decl *ContainingDecl) {
+  return true;
+}
+
+// members_gather(info* dst, info r, size_t kind, info scope,
+//                info designating_class, size_t capacity)
+//
+// The reflections that members_of (kind 0), bases_of (1),
+// static_data_members_of (2), nonstatic_data_members_of (3), or subobjects_of
+// (4: the bases, then the non-static data members) give for 'r' in the access
+// context (scope, designating_class), as an array. The constant evaluator
+// writes them to 'dst' (see Metafunction::isMemberGather); 'dst' and
+// 'capacity' are not read here.
+//
+// Each step is the metafunction the library would call, called directly:
+// the same walk (get_begin_member_decl_of / get_next_member_decl_of /
+// map_decl_to_entity, or get_ith_base_of), the same access check (only class
+// members, bases and enumerators are checked, by is_accessible), and the same
+// kind predicates -- without the interpreted iterator, the intermediate
+// vectors, and the call through the constant evaluator for each.
+bool members_gather(APValue &Result, ASTContext &C, MetaActions &Meta,
+                    EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                    QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                    Decl *ContainingDecl) {
+  APValue R, KindV, Scope, Designating;
+  if (!Evaluator(R, Args[1], true) || !Evaluator(KindV, Args[2], true) ||
+      !Evaluator(Scope, Args[3], true) ||
+      !Evaluator(Designating, Args[4], true))
+    return true;
+  uint64_t Kind = KindV.getInt().getZExtValue();
+
+  // A metafunction's arguments are expressions: wrap each value in one.
+  auto ArgOf = [&](const APValue &V, QualType T) -> Expr * {
+    auto *OVE = new (C) OpaqueValueExpr(Range.getBegin(), T, VK_PRValue);
+    return ConstantExpr::Create(C, OVE, V);
+  };
+  auto Call = [&](decltype(&members_gather) Fn, QualType RT,
+                  ArrayRef<Expr *> As, APValue &Out) {
+    return Fn(Out, C, Meta, Evaluator, Diagnoser, AllowInjection, RT, Range, As,
+              ContainingDecl);
+  };
+  auto IsTrue = [](const APValue &B) { return B.getInt().getBoolValue(); };
+
+  APValue Sentinel = makeReflection(C.VoidTy);
+  auto IsSentinel = [&](const APValue &V) {
+    return V.isReflectedType() && C.hasSameType(V.getReflectedType(), C.VoidTy);
+  };
+  Expr *RE = ArgOf(R, C.MetaInfoTy);
+  Expr *SentinelE = ArgOf(Sentinel, C.MetaInfoTy);
+  Expr *ScopeE = ArgOf(Scope, C.MetaInfoTy);
+  Expr *DesignatingE = ArgOf(Designating, C.MetaInfoTy);
+
+  // is_accessible(m, ctx), as the library has it.
+  auto Accessible = [&](const APValue &M, bool &Acc) {
+    Expr *ME = ArgOf(M, C.MetaInfoTy);
+    APValue B;
+    bool Checked = false;
+    for (auto *Pred : {&is_class_member, &is_base, &is_enumerator}) {
+      if (Call(Pred, C.BoolTy, {ME}, B))
+        return true;
+      if (IsTrue(B)) {
+        Checked = true;
+        break;
+      }
+    }
+    if (!Checked) {
+      Acc = true;
+      return false;
+    }
+    if (Call(is_accessible, C.BoolTy, {ME, ScopeE, DesignatingE}, B))
+      return true;
+    Acc = IsTrue(B);
+    return false;
+  };
+
+  SmallVector<APValue, 16> Out;
+  auto Bases = [&]() {
+    for (uint64_t I = 0;; ++I) {
+      APValue B;
+      Expr *IdxE =
+          ArgOf(APValue(C.MakeIntValue(I, C.getSizeType())), C.getSizeType());
+      if (Call(get_ith_base_of, C.MetaInfoTy, {RE, SentinelE, IdxE}, B))
+        return true;
+      if (IsSentinel(B))
+        return false;
+      bool Acc;
+      if (Accessible(B, Acc))
+        return true;
+      if (Acc)
+        Out.push_back(B);
+    }
+  };
+  // Members, kept if accessible and (when given) the predicate holds.
+  auto Members = [&](decltype(&members_gather) Pred) {
+    APValue Cur;
+    if (Call(get_begin_member_decl_of, C.MetaInfoTy, {RE, SentinelE}, Cur))
+      return true;
+    while (!IsSentinel(Cur)) {
+      Expr *CurE = ArgOf(Cur, C.MetaInfoTy);
+      APValue M;
+      if (Call(map_decl_to_entity, C.MetaInfoTy, {CurE}, M))
+        return true;
+      bool Acc;
+      if (Accessible(M, Acc))
+        return true;
+      if (Acc && Pred) {
+        APValue B;
+        if (Call(Pred, C.BoolTy, {ArgOf(M, C.MetaInfoTy)}, B))
+          return true;
+        Acc = IsTrue(B);
+      }
+      if (Acc)
+        Out.push_back(M);
+      APValue Next;
+      if (Call(get_next_member_decl_of, C.MetaInfoTy, {CurE, SentinelE}, Next))
+        return true;
+      Cur = Next;
+    }
+    return false;
+  };
+
+  bool Failed = false;
+  switch (Kind) {
+  case 0:
+    Failed = Members(nullptr);
+    break;
+  case 1:
+    Failed = Bases();
+    break;
+  case 2:
+    Failed = Members(&is_variable);
+    break;
+  case 3:
+    Failed = Members(&is_nonstatic_data_member);
+    break;
+  case 4:
+    Failed = Bases() || Members(&is_nonstatic_data_member);
+    break;
+  default:
+    llvm_unreachable("unknown member query");
+  }
+  if (Failed)
+    return true;
+
+  APValue Arr(APValue::UninitArray(), Out.size(), Out.size());
+  for (unsigned I = 0; I != Out.size(); ++I)
+    Arr.getArrayInitializedElt(I) = Out[I];
+  return SetAndSucceed(Result, Arr);
+}
+
+// tokens_append(token array, token array or token): the first followed by
+// the second (see AppendTokenSequenceData).
+bool tokens_append(APValue &Result, ASTContext &C, MetaActions &Meta,
+                   EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                   QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                   Decl *ContainingDecl) {
+  APValue L, R;
+  if (!Evaluator(L, Args[0], true) || !Evaluator(R, Args[1], true))
+    return true;
+  if (!L.isTokenSequence() || !R.isTokenSequence())
+    return DiagnoseReflectionKind(Diagnoser, Range, "a token sequence");
+  return SetAndSucceed(Result,
+                       APValue(AppendTokenSequenceData(C, L.getTokenSequence(),
+                                                       R.getTokenSequence())));
+}
+
+// tokens_subseq(token array, pos, n): the 'n' tokens (or as many as there
+// are) starting at 'pos', viewing the same storage.
+bool tokens_subseq(APValue &Result, ASTContext &C, MetaActions &Meta,
+                   EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                   QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                   Decl *ContainingDecl) {
+  APValue TS, PosV, NV;
+  if (!Evaluator(TS, Args[0], true) || !Evaluator(PosV, Args[1], true) ||
+      !Evaluator(NV, Args[2], true))
+    return true;
+  if (!TS.isTokenSequence())
+    return DiagnoseReflectionKind(Diagnoser, Range, "a token sequence");
+  TokenSequenceData TSD = TS.getTokenSequence();
+  uint64_t Pos = PosV.getInt().getZExtValue();
+  if (Pos > TSD.size())
+    return DiagnoseReflectionKind(Diagnoser, Range,
+                                  "a position within the token sequence");
+  uint64_t N = std::min<uint64_t>(NV.getInt().getZExtValue(), TSD.size() - Pos);
+  return SetAndSucceed(
+      Result, APValue(TokenSequenceData(N ? TSD.data() + Pos : nullptr, N)));
+}
+
+// tokens_equal(tokens, tokens): token by token (a token is one token).
+bool tokens_equal(APValue &Result, ASTContext &C, MetaActions &Meta,
+                  EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                  QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                  Decl *ContainingDecl) {
+  APValue A, B;
+  if (!Evaluator(A, Args[0], true) || !Evaluator(B, Args[1], true))
+    return true;
+  if (!A.isTokenSequence() || !B.isTokenSequence())
+    return DiagnoseReflectionKind(Diagnoser, Range, "a token sequence");
+  llvm::FoldingSetNodeID AID, BID;
+  A.Profile(AID);
+  B.Profile(BID);
+  return SetAndSucceed(Result, makeBool(C, AID == BID));
+}
+
+// token_type(): only its type matters (<meta> defines std::meta::token as
+// decltype of it); there is no value.
+bool token_type(APValue &Result, ASTContext &C, MetaActions &Meta,
+                EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                Decl *ContainingDecl) {
+  return DiagnoseReflectionKind(Diagnoser, Range, "an unevaluated operand");
 }
 
 bool punctuator_of(APValue &Result, ASTContext &C, MetaActions &Meta,

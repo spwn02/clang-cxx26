@@ -1402,6 +1402,11 @@ bool Sema::RequireStructuralType(QualType T, SourceLocation Loc) {
 
   // Drill down into the reason why the class is non-structural.
   while (const CXXRecordDecl *RD = T->getAsCXXRecordDecl()) {
+    // A token sequence has no mangling (P4380): that is the reason, and its
+    // storage is not a member to point at.
+    if (T->isStdMetaTokenSequenceType())
+      return true;
+
     // All members are required to be public and non-mutable, and can't be of
     // rvalue reference type. Check these conditions first to prefer a "local"
     // reason over a more distant one.

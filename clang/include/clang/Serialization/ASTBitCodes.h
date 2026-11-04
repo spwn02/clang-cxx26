@@ -1132,6 +1132,9 @@ enum PredefinedTypeIDs {
   /// \brief The 'std::meta::token_sequence' type
   PREDEF_TYPE_TOKEN_SEQUENCE_ID = 76,
 
+  /// \brief The 'std::meta::token' type
+  PREDEF_TYPE_META_TOKEN_ID = 77,
+
 /// OpenCL image types with auto numeration
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
   PREDEF_TYPE_##Id##_ID,
@@ -1173,7 +1176,7 @@ enum PredefinedTypeIDs {
 ///
 /// Type IDs for non-predefined types will start at
 /// NUM_PREDEF_TYPE_IDs.
-const unsigned NUM_PREDEF_TYPE_IDS = 521;
+const unsigned NUM_PREDEF_TYPE_IDS = 522;
 
 // Ensure we do not overrun the predefined types we reserved
 // in the enum PredefinedTypeIDs above.

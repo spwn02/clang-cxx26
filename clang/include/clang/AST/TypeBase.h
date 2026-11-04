@@ -2603,7 +2603,15 @@ public:
   bool isVoidType() const;         // C99 6.2.5p19
   bool isReflectionType() const;   // C++2c reflection [CXX26]
   bool isTokenSequenceType() const;  // C++2c token sequences
-  bool isScalarType() const;       // C99 6.2.5p21 (arithmetic + pointers)
+  bool isMetaTokenType() const;      // std::meta::token
+  /// std::meta::token_sequence: the type of a token literal, ^^{ ... } (the
+  /// compiler's token array, with the library's interface).
+  bool isStdMetaTokenSequenceType() const;
+  /// The compiler's token array, or std::meta::token_sequence.
+  bool isTokenSequenceLikeType() const {
+    return isTokenSequenceType() || isStdMetaTokenSequenceType();
+  }
+  bool isScalarType() const;         // C99 6.2.5p21 (arithmetic + pointers)
   bool isAggregateType() const;
   bool isFundamentalType() const;
   bool isCompoundType() const;
@@ -8616,6 +8624,7 @@ inline bool Type::isFundamentalType() const {
          isNullPtrType() ||
          isReflectionType() ||
          isTokenSequenceType() ||
+         isMetaTokenType() ||
          // FIXME: It's really annoying that we don't have an
          // 'isArithmeticType()' which agrees with the standard definition.
          (isArithmeticType() && !isEnumeralType());
@@ -9020,6 +9029,12 @@ inline bool Type::isTokenSequenceType() const {
   if (const auto *BT = dyn_cast<BuiltinType>(CanonicalType)) {
     return BT->getKind() == BuiltinType::TokenSequence;
   }
+  return false;
+}
+
+inline bool Type::isMetaTokenType() const {
+  if (const auto *BT = dyn_cast<BuiltinType>(CanonicalType))
+    return BT->getKind() == BuiltinType::MetaToken;
   return false;
 }
 

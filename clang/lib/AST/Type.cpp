@@ -2423,7 +2423,7 @@ Type::ScalarTypeKind Type::getScalarTypeKind() const {
       return STK_FixedPoint;
     if (BT->isReflectionType())
       return STK_Reflection;
-    if (BT->isTokenSequenceType())
+    if (BT->isTokenSequenceType() || BT->isMetaTokenType())
       return STK_TokenSequence;
     llvm_unreachable("unknown scalar builtin type");
   } else if (isa<PointerType>(T)) {
@@ -3104,12 +3104,24 @@ bool Type::isLiteralType(const ASTContext &Ctx) const {
   return false;
 }
 
+bool Type::isStdMetaTokenSequenceType() const {
+  const CXXRecordDecl *RD = getAsCXXRecordDecl();
+  if (!RD || !RD->getIdentifier() || RD->getName() != "token_sequence")
+    return false;
+  const DeclContext *DC = RD->getDeclContext();
+  while (DC && DC->isInlineNamespace())
+    DC = DC->getParent();
+  const auto *NS = dyn_cast_or_null<NamespaceDecl>(DC);
+  return NS && NS->getIdentifier() && NS->getName() == "meta" &&
+         NS->isInStdNamespace();
+}
+
 bool Type::isStructuralType() const {
   // A token sequence is a scalar type, but it has no mangling, so two
   // specializations chosen by distinct token sequences would share a mangled
   // name and collide at link time. Exclude it before the scalar case; this
   // also propagates to any class type holding one, via StructuralIfLiteral.
-  if (isTokenSequenceType())
+  if (isTokenSequenceType() || isMetaTokenType())
     return false;
   // C++20 [temp.param]p6:
   //   A structural type is one of the following:
@@ -3530,7 +3542,9 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case MetaInfo:
     return "meta::info";
   case TokenSequence:
-    return "meta::token_sequence";
+    return "meta::__token_array";
+  case MetaToken:
+    return "meta::token";
   case Overload:
     return "<overloaded function type>";
   case BoundMember:
@@ -5274,6 +5288,7 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
     case BuiltinType::NullPtr:
     case BuiltinType::MetaInfo:
     case BuiltinType::TokenSequence:
+    case BuiltinType::MetaToken:
     case BuiltinType::IncompleteMatrixIdx:
     case BuiltinType::ArraySection:
     case BuiltinType::OMPArrayShaping:

@@ -3422,6 +3422,11 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::MetaInfo:
     Out << "Dm";
     break;
+  case BuiltinType::MetaToken:
+    // A vendor extended type (consteval-only, so in practice only in the
+    // names of compile-time entities).
+    Out << "u5token";
+    break;
 
 #define BUILTIN_TYPE(Id, SingletonId)
 #define PLACEHOLDER_TYPE(Id, SingletonId) \

@@ -1435,6 +1435,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
 
   // meta::token_sequence type (C++2c token sequences)
   InitBuiltinType(TokenSequenceTy, BuiltinType::TokenSequence);
+  InitBuiltinType(MetaTokenTy, BuiltinType::MetaToken);
 
   // half type (OpenCL 6.1.1.1) / ARM NEON __fp16
   InitBuiltinType(HalfTy, BuiltinType::Half);
@@ -2273,6 +2274,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       break;
     case BuiltinType::MetaInfo:
     case BuiltinType::TokenSequence:
+    case BuiltinType::MetaToken:
       Width = Target->getMetaInfoWidth();
       Align = Target->getMetaInfoAlign();
       break;
@@ -3468,6 +3470,10 @@ static void encodeTypeForFunctionPointerAuth(const ASTContext &Ctx,
 
     case BuiltinType::TokenSequence:
       OS << "t";
+      return;
+
+    case BuiltinType::MetaToken:
+      OS << "k";
       return;
 
     case BuiltinType::ObjCId:
@@ -9404,6 +9410,7 @@ static char getObjCEncodingForPrimitiveType(const ASTContext *C,
     case BuiltinType::SatULongFract:
     case BuiltinType::MetaInfo:
     case BuiltinType::TokenSequence:
+    case BuiltinType::MetaToken:
       // FIXME: potentially need @encodes for these!
       return ' ';
 
@@ -14182,6 +14189,12 @@ ASTContext::getUnnamedGlobalConstantDecl(QualType Ty,
       UnnamedGlobalConstantDecl::Create(*this, Ty, APVal);
   UnnamedGlobalConstantDecls.InsertNode(New, InsertPos);
   return New;
+}
+
+UnnamedGlobalConstantDecl *
+ASTContext::createUniqueUnnamedGlobalConstantDecl(QualType Ty,
+                                                  const APValue &Value) const {
+  return UnnamedGlobalConstantDecl::Create(*this, Ty, Value);
 }
 
 TemplateParamObjectDecl *

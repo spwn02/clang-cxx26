@@ -201,6 +201,11 @@ public:
   }
   void VisitCXXBindTemporaryExpr(CXXBindTemporaryExpr *E);
   void VisitCXXConstructExpr(const CXXConstructExpr *E);
+  // A token literal (P4380): token sequences carry no state at runtime.
+  void VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
+    if (!Dest.isIgnored())
+      CGF.EmitNullInitialization(Dest.getAddress(), E->getType());
+  }
   void VisitCXXInheritedCtorInitExpr(const CXXInheritedCtorInitExpr *E);
   void VisitLambdaExpr(LambdaExpr *E);
   void VisitCXXStdInitializerListExpr(CXXStdInitializerListExpr *E);
@@ -993,6 +998,13 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
     Visit(E->getSubExpr());
     break;
 
+  case CK_TokenArrayToSequence:
+    // Token sequences carry no state at runtime (P4380): the empty value.
+    CGF.EmitIgnoredExpr(E->getSubExpr());
+    if (!Dest.isIgnored())
+      CGF.EmitNullInitialization(Dest.getAddress(), E->getType());
+    break;
+
   case CK_LValueBitCast:
     llvm_unreachable("should not be emitting lvalue bitcast as rvalue");
 
@@ -1049,6 +1061,7 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
   case CK_FixedPointToBoolean:
   case CK_FixedPointToIntegral:
   case CK_IntegralToFixedPoint:
+  case CK_SequenceToTokenArray:
     llvm_unreachable("cast kind invalid for aggregate types");
   }
 }
@@ -1588,6 +1601,10 @@ static bool castPreservesZero(const CastExpr *CE) {
   case CK_IntToOCLSampler:
   case CK_ZeroToOCLOpaqueType:
     // FIXME: Check these.
+    return false;
+
+  case CK_TokenArrayToSequence:
+  case CK_SequenceToTokenArray:
     return false;
 
   case CK_FixedPointCast:

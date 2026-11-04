@@ -16496,9 +16496,31 @@ public:
 
   /// A token sequence written in scope \p S. Identifiers that name template
   /// parameters there are recorded (see TokenSequenceParamBinding).
+  /// A token literal, ^^{ ... }. \p AsValue: as a std::meta::token_sequence
+  /// (see BuildTokenSequenceValue); a raw macro argument is not.
   ExprResult ActOnCXXTokenSequenceReflection(Scope *S, SourceLocation OpLoc,
                                              SourceRange OperandRange,
-                                             ArrayRef<Token> Tokens);
+                                             ArrayRef<Token> Tokens,
+                                             bool AsValue = true);
+  /// std::meta::token_sequence, the type of a token literal, once <meta> has
+  /// defined it; null before (in particular, inside <meta> itself, where a
+  /// token literal is the compiler's token array).
+  QualType getStdMetaTokenSequenceType();
+  QualType StdMetaTokenSequenceTy;
+  /// The return type of an expression macro: std::meta::token_sequence once
+  /// <meta> defines it (the compiler's token array before).
+  QualType getMacroReturnType();
+  /// The token array the std::meta::token_sequence \p E holds.
+  Expr *BuildTokenArrayFromSequence(Expr *E);
+  /// \p Record is std::meta::token_sequence, being defined: give it its
+  /// storage, a member only the compiler can name.
+  void AddTokenSequenceStorage(CXXRecordDecl *Record);
+  /// \p E, of the compiler's token array type, as a std::meta::token_sequence
+  /// (constructed from it), or \p E itself before <meta> declares one.
+  ExprResult BuildTokenSequenceValue(Expr *E);
+  /// \p E converted to the compiler's token array type (from a
+  /// std::meta::token_sequence, by its conversion function), or \p E itself.
+  Expr *ConvertToTokenArray(Expr *E);
 
   ExprResult ActOnTokenSequenceInterpolation(Expr *E);
   /// '\(e1, e2, ...; sep)' in a token sequence: each element (a pack

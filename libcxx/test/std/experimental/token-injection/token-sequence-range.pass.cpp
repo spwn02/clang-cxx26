@@ -1,0 +1,169 @@
+//===----------------------------------------------------------------------===//
+//
+// Copyright 2026 Jump Trading, LLC
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+// UNSUPPORTED: c++03 || c++11 || c++14 || c++17 || c++20 || c++23 || c++26
+
+// token_sequence is a vector of tokens: directly iterable with range-for and
+// directly indexable, each element a std::meta::token. tokens_of() predates
+// this and is now just a copy.
+
+#include <meta>
+#include <algorithm>
+#include <cassert>
+#include <ranges>
+#include <string_view>
+#include <vector>
+
+namespace m = std::meta;
+
+constexpr m::token_sequence ts = ^^{ a + b };
+
+// ----------------------------------------------------------------------------
+// size / empty.
+// ----------------------------------------------------------------------------
+static_assert(ts.size() == 3);
+static_assert(!ts.empty());
+static_assert(std::empty(^^{ }));
+static_assert(std::size(^^{ }) == 0);
+
+// ----------------------------------------------------------------------------
+// Direct indexing.
+// ----------------------------------------------------------------------------
+static_assert(m::token_kind_of(ts[0]) == m::token_kind::identifier);
+static_assert(m::token_kind_of(ts[1]) == m::token_kind::punctuator);
+static_assert(m::token_kind_of(ts[2]) == m::token_kind::identifier);
+static_assert(ts[0] == m::id("a"));  // id() is a single-identifier-token
+static_assert(ts[2] == m::id("b"));  // sequence; tokens compare directly
+
+// The result is a token: it splices and compares, and tokens make a
+// sequence.
+static_assert(m::token_sequence{ts[0], ts[1], ts[2]} == ^^{ a + b });
+static_assert(ts[1] == ^^{ + });
+
+// ... and a prvalue: it can be selected by a conditional and bound to a
+// reference like any other rvalue (contexts that classify the operand).
+static_assert((true ? ts[0] : ts[2]) == ^^{ a });
+static_assert((false ? ts[0] : ts[2]) == ^^{ b });
+static_assert([] { auto&& t = ts[1]; return t == ^^{ + }; }());
+
+// Interpolation while an unrelated allocation is live: the operand is
+// evaluated as a subexpression of the enclosing evaluation, not as a
+// top-level evaluation with its own leak check.
+consteval m::token_sequence with_live_vector() {
+  std::vector<int> v{1, 2};
+  m::token_sequence tok = ^^{ x };
+  return ^^{ \(tok) \(^^int) \(v.size()) };
+}
+static_assert([] {
+  auto r = with_live_vector();
+  return std::size(r) == 3 && r[0] == ^^{ x } &&
+         m::token_kind_of(r[1]) == m::token_kind::annotation &&
+         m::token_kind_of(r[2]) == m::token_kind::annotation;
+}());
+
+// ----------------------------------------------------------------------------
+// Range-for.
+// ----------------------------------------------------------------------------
+consteval int count_identifiers(m::token_sequence seq) {
+  int n = 0;
+  for (m::token tok : seq)
+    if (m::token_kind_of(tok) == m::token_kind::identifier)
+      ++n;
+  return n;
+}
+static_assert(count_identifiers(ts) == 2);
+static_assert(count_identifiers(^^{ }) == 0);
+static_assert(count_identifiers(^^{ f(x, y) + z }) == 4);
+
+// Rebuild a sequence token by token.
+consteval m::token_sequence roundtrip(m::token_sequence seq) {
+  m::token_sequence out = ^^{ };
+  for (m::token tok : seq)
+    out += tok;
+  return out;
+}
+static_assert(roundtrip(^^{ if (x) { return 1; } }) ==
+              ^^{ if (x) { return 1; } });
+
+// ----------------------------------------------------------------------------
+// Iterator arithmetic (random access).
+// ----------------------------------------------------------------------------
+static_assert([] {
+  auto it = std::begin(ts);
+  assert(*it == ^^{ a });
+  assert(it[2] == ^^{ b });
+  ++it;
+  assert(*it == ^^{ + });
+  assert(*(it + 1) == ^^{ b });
+  assert(*(1 + it) == ^^{ b });
+  --it;
+  assert(*it == ^^{ a });
+  it += 2;
+  assert(*it == ^^{ b });
+  it -= 2;
+  assert(*it == ^^{ a });
+  assert(std::end(ts) - std::begin(ts) == 3);
+  assert(std::begin(ts) != std::end(ts));
+  assert(std::begin(ts) < std::end(ts));
+  assert(std::begin(ts) + 3 == std::end(ts));
+  auto post = it++;
+  assert(*post == ^^{ a } && *it == ^^{ + });
+  return true;
+}());
+
+// ----------------------------------------------------------------------------
+// token_sequence is a contiguous range, and a borrowed one (its tokens are in
+// static storage).
+// ----------------------------------------------------------------------------
+static_assert(std::ranges::random_access_range<m::token_sequence>);
+static_assert(std::ranges::sized_range<m::token_sequence>);
+static_assert(std::ranges::borrowed_range<m::token_sequence>);
+static_assert(std::ranges::viewable_range<m::token_sequence>);
+static_assert(std::ranges::contiguous_range<m::token_sequence>);
+
+static_assert([]() consteval {
+  assert(std::ranges::size(ts) == 3);
+  assert(std::ranges::distance(ts) == 3);
+  assert(!std::ranges::empty(ts));
+
+  // Algorithms.
+  assert(std::ranges::count_if(ts, [](m::token tok) {
+           return m::token_kind_of(tok) == m::token_kind::identifier;
+         }) == 2);
+  assert(std::ranges::find(ts, (^^{ + })[0]) - std::ranges::begin(ts) == 1);
+
+  // Views compose (an rvalue sequence is owned by the view).
+  int idents = 0;
+  for ([[maybe_unused]] m::token tok :
+       ^^{ f(x) + g(y) } | std::views::filter([](m::token t) {
+         return m::token_kind_of(t) == m::token_kind::identifier;
+       }))
+    ++idents;
+  assert(idents == 4);
+
+  m::token_sequence reversed = ^^{ };
+  for (m::token tok : ts | std::views::reverse)
+    reversed += tok;
+  assert(reversed == ^^{ b + a });
+  return true;
+}());
+
+// ----------------------------------------------------------------------------
+// tokens_of is now a copy of the sequence.
+// ----------------------------------------------------------------------------
+static_assert([]() consteval {
+  auto v = m::tokens_of(ts);
+  assert(v.size() == std::size(ts));
+  for (size_t i = 0; i != v.size(); ++i)
+    assert(v[i] == ts[i]);
+  return true;
+}());
+
+int main(int, char**) { return 0; }
