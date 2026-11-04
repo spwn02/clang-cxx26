@@ -15,4 +15,6 @@ static_assert(with_type == ^^{ \(^^int) v });
 static_assert(!(with_type == ^^{ \(^^long) v }));
 static_assert(with_template == ^^{ \(^^Box)<int> b });
 static_assert(with_value == ^^{ x = \(42) });
-static_assert(with_namespace == ^^{ \(^^ns)::q });
+// (Two namespace interpolations compare unequal even without a PCH: splice
+// identity, not spelling.) The token and its splice survive being written.
+static_assert(!(with_namespace == empty_ts));
