@@ -1788,15 +1788,18 @@ declaration is not completed by a later injected definition (the two are distinc
 ambiguous). ``clang/test/SemaCXX/cxx29-token-seq-forward-reference.cpp`` pins this; it will be revisited when the
 authors settle the question (tracked in #358).
 
-Known limitations of this port: a non-empty token sequence round-trips through a PCH or a module as an empty one
-(building one warns, ``-Wtoken-sequence-serialization``; tracked in #492), so an expression macro cannot be defined in a
-header that is precompiled or in a module. Outside ``-std=c++29`` ``__macro`` is an ordinary identifier, and a ``^^{ ... }``
-literal is diagnosed (it needs the C++29-only class ``std::meta::token_sequence``); the ``cxx26`` release line has none of this code.
+Known limitations of this port: a token sequence keeps its tokens through a PCH or a module, including the
+interpolated types, template names, expressions and namespace splices; only a declaration description
+(``declaration_of``) inside a sequence is lost (``-Wtoken-sequence-serialization``). The class
+``std::meta::token_sequence`` must be visible where a literal is written (``import std;`` or ``#include <meta>``).
+Outside ``-std=c++29`` ``__macro`` is an ordinary identifier, and a ``^^{ ... }`` literal is diagnosed; the ``cxx26``
+release line has none of this code. The ASTImporter imports literals, values and the helper builtins, but not
+expression macro invocations or interpolated reflections (the latter is a gap of P2996 reflection in the importer
+generally). clang-format keeps a literal ``^^{ ... }`` exactly as written, because its whitespace is part of its value.
 
-Not yet ported: ``std::format`` support for ``token_sequence`` beyond what the ported tests define themselves, template splices
-with dependent arguments in partial specializations, and the toolchain wiring (clangd, clang-tidy, clang-format,
-libclang) beyond keeping the existing tools building and passing their tests. Tracked in the Token Sequence Injection
-milestone.
+Not yet ported: a ``std::formatter`` for ``token_sequence`` (the prototype has none either), and syntax-highlighting of the
+tokens inside a literal (they are not part of the AST; interpolated expressions are, with completion, hover,
+go-to-definition and references).
 
 .. _do_expressions:
 
