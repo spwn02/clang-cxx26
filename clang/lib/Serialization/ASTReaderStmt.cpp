@@ -582,6 +582,7 @@ void ASTStmtReader::VisitCXXBuiltinReportTokensExpr(
 
 void ASTStmtReader::VisitCXXBuiltinIdExpr(CXXBuiltinIdExpr *E) {
   VisitExpr(E);
+  Record.skipInts(1); // the number of arguments (see CreateEmpty)
   E->setKwLoc(Record.readSourceLocation());
   E->setLParenLoc(Record.readSourceLocation());
   E->setRParenLoc(Record.readSourceLocation());
@@ -594,6 +595,7 @@ void ASTStmtReader::VisitCXXBuiltinIdExpr(CXXBuiltinIdExpr *E) {
 
 void ASTStmtReader::VisitCXXBuiltinStrLiteralExpr(CXXBuiltinStrLiteralExpr *E) {
   VisitExpr(E);
+  Record.skipInts(1); // the number of arguments (see CreateEmpty)
   E->setKwLoc(Record.readSourceLocation());
   E->setLParenLoc(Record.readSourceLocation());
   E->setRParenLoc(Record.readSourceLocation());
@@ -606,6 +608,7 @@ void ASTStmtReader::VisitCXXBuiltinStrLiteralExpr(CXXBuiltinStrLiteralExpr *E) {
 
 void ASTStmtReader::VisitCXXBuiltinTokenizeExpr(CXXBuiltinTokenizeExpr *E) {
   VisitExpr(E);
+  Record.skipInts(1); // the number of arguments (see CreateEmpty)
   E->setKwLoc(Record.readSourceLocation());
   E->setLParenLoc(Record.readSourceLocation());
   E->setRParenLoc(Record.readSourceLocation());

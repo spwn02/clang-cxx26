@@ -11,6 +11,8 @@
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclTemplate.h"
+#include "clang/AST/Reflection.h"
+#include "clang/Lex/Token.h"
 #include <optional>
 
 namespace clang {

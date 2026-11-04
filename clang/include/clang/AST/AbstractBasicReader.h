@@ -10,6 +10,8 @@
 #define LLVM_CLANG_AST_ABSTRACTBASICREADER_H
 
 #include "clang/AST/DeclTemplate.h"
+#include "clang/AST/Reflection.h"
+#include "clang/Lex/Token.h"
 #include <optional>
 
 namespace clang {
