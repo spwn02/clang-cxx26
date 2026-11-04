@@ -1758,7 +1758,10 @@ behaviour described here is that of the prototype it is taken from (brevzin/llvm
 ``token-vector-model``) as ported to this tree, not normative text.
 
 ``^^{ ... }`` is a *token sequence literal*: its tokens are lexed, not parsed (only ``{}`` have to balance), and the
-value has the consteval-only type ``std::meta::token_sequence`` (``decltype(^^{ })``). ``\(e)`` inside a literal
+value is a ``std::meta::token_sequence``: a consteval-only class in ``<meta>`` that holds the tokens in a member only the
+compiler can name. It is a random-access range of ``std::meta::token`` (a consteval-only scalar, one token) with
+``size()``, ``empty()``, ``data()``, ``begin()``/``end()``, ``operator[]``, ``front()``/``back()`` and ``subseq()``, and ``+=``, ``+`` and ``==``
+work on sequences and tokens. Copying one is cheap and ``+=`` appends in amortized constant time per token. ``\(e)`` inside a literal
 interpolates ``e``: a token sequence is spliced in, a reflection becomes one token naming the entity, a
 ``std::meta::operators`` or ``punctuator`` value becomes its token, and any other value a token for that value.
 ``\(a, b, ...)`` interpolates a list, ``\(pack...)`` and ``\(pack...; sep)`` expand a pack with a separator, and
@@ -1773,7 +1776,7 @@ functions with an explicit object parameter, as operators, at declaration, state
 argument is passed as a reflection of its expression, or as the raw tokens for a ``token_sequence`` parameter. The
 queries ``source_text_of``, ``is_binary_operation``, ``operands_of``, ``operator_of``, ``macro_expansion_context``,
 ``is_constant_expression``, ``as_lvalue``, the token helpers (``id``, ``str_lit``, ``tokenize``, ``stringize``,
-``token_kind_of``, ``punctuator_of``, ``identifier_of(token_sequence)``), ``declaration_of`` and its companions are in
+``token_kind_of``, ``punctuator_of``, ``identifier_of(token)``), ``declaration_of`` and its companions are in
 ``<meta>``; ``std::constexpr_print_str`` / ``constexpr_warning_str`` / ``constexpr_error_str`` (P2758) are in
 ``<debugging>``.
 
@@ -1782,8 +1785,7 @@ Known limitations of this port: a non-empty token sequence round-trips through a
 header that is precompiled or in a module; and the compiler of this branch also accepts ``^^{ ... }`` and ``__macro``
 in ``-std=c++26`` (they are not gated by the language mode yet; the ``cxx26`` release line is unaffected).
 
-Not yet ported: the class-based ``std::meta::token_sequence`` / ``std::meta::token`` model of the prototype (a range of
-``token`` with ``size()``, ``subseq()``, indexing, ``+=``/``==`` members and ``std::format`` support), template splices
+Not yet ported: ``std::format`` support for ``token_sequence`` beyond what the ported tests define themselves, template splices
 with dependent arguments in partial specializations, and the toolchain wiring (clangd, clang-tidy, clang-format,
 libclang) beyond keeping the existing tools building and passing their tests. Tracked in the Token Sequence Injection
 milestone.
