@@ -4134,12 +4134,12 @@ struct clone_naming {
 //   ^^{ \(d) { return \(call); } }
 //
 // Reusing the description in another class creates fresh declarations.
-consteval auto declaration_of(info fn, clone_naming naming = {}) -> info {
-  return __metafunction(__detail::__metafn_declaration_of, fn, naming.name,
-                        naming.template_parameter_prefix.size(),
-                        naming.template_parameter_prefix.data(),
-                        naming.parameter_prefix.size(),
-                        naming.parameter_prefix.data());
+consteval auto declaration_of(info __fn, clone_naming __naming = {}) -> info {
+  return __metafunction(__detail::__metafn_declaration_of, __fn, __naming.name,
+                        __naming.template_parameter_prefix.size(),
+                        __naming.template_parameter_prefix.data(),
+                        __naming.parameter_prefix.size(),
+                        __naming.parameter_prefix.data());
 }
 
 // Returns true if 'r' is a declaration description produced by

@@ -316,4 +316,9 @@ export namespace std {
     }
   }
 }
+#if _LIBCPP_STD_VER >= 29
+export namespace std::ranges {
+  using std::ranges::enable_borrowed_range;
+}
+#endif // _LIBCPP_STD_VER >= 29
 #endif // _LIBCPP_STD_VER >= 26
