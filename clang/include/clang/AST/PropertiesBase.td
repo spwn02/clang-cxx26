@@ -450,6 +450,7 @@ let Class = PropertyTypeCase<APValue, "TokenSequence"> in {
     SmallVector<QualType, 4> bufTypes;
     SmallVector<TemplateName, 4> bufTemplates;
     SmallVector<const Stmt *, 4> bufExprs;
+    SmallVector<SpliceSpecifier *, 2> bufSplices;
     for (const Token &T : node.getTokenSequence()) {
       tok::TokenKind K = T.getKind();
       unsigned Flags = T.getFlags();
@@ -465,6 +466,10 @@ let Class = PropertyTypeCase<APValue, "TokenSequence"> in {
         case tok::annot_template_name:
           bufTemplates.push_back(TemplateName::getFromVoidPointer(
               T.getAnnotationValue()));
+          break;
+        case tok::annot_splice:
+          bufSplices.push_back(
+              static_cast<SpliceSpecifier *>(T.getAnnotationValue()));
           break;
         case tok::annot_primary_expr:
         case tok::annot_token_seq_expr:
@@ -504,6 +509,9 @@ let Class = PropertyTypeCase<APValue, "TokenSequence"> in {
     let Read = [{ bufTemplates }];
   }
   def : Property<"tokExprs", Array<StmtRef>> { let Read = [{ bufExprs }]; }
+  def : Property<"tokSplices", Array<SpliceSpecifierRef>> {
+    let Read = [{ bufSplices }];
+  }
   def : Creator<[{
     SmallVector<Token, 16> toks;
     const char *spell = nullptr;
@@ -512,7 +520,7 @@ let Class = PropertyTypeCase<APValue, "TokenSequence"> in {
       std::copy(tokSpelling.begin(), tokSpelling.end(), Buf);
       spell = Buf;
     }
-    size_t nSpell = 0, nType = 0, nTemplate = 0, nExpr = 0;
+    size_t nSpell = 0, nType = 0, nTemplate = 0, nExpr = 0, nSplice = 0;
     for (size_t i = 0; i != tokKinds.size(); ++i) {
       Token T;
       T.startToken();
@@ -526,6 +534,9 @@ let Class = PropertyTypeCase<APValue, "TokenSequence"> in {
           break;
         case tok::annot_template_name:
           T.setAnnotationValue(tokTemplates[nTemplate++].getAsVoidPointer());
+          break;
+        case tok::annot_splice:
+          T.setAnnotationValue(static_cast<void *>(tokSplices[nSplice++]));
           break;
         default:
           T.setAnnotationValue(static_cast<void *>(tokExprs[nExpr++]));

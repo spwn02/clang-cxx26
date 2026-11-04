@@ -517,7 +517,8 @@ void ASTStmtWriter::VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
     for (const Token &T : E->getValue().getTokenSequence())
       if (T.isAnnotation() &&
           !T.isOneOf(tok::annot_typename, tok::annot_template_name,
-                     tok::annot_primary_expr, tok::annot_token_seq_expr)) {
+                     tok::annot_primary_expr, tok::annot_token_seq_expr,
+                     tok::annot_splice)) {
         Record.getASTContext().getDiagnostics().Report(
             E->getBeginLoc(), diag::warn_token_sequence_not_serialized);
         break;

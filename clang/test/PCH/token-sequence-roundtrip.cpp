@@ -15,3 +15,4 @@ static_assert(with_type == ^^{ \(^^int) v });
 static_assert(!(with_type == ^^{ \(^^long) v }));
 static_assert(with_template == ^^{ \(^^Box)<int> b });
 static_assert(with_value == ^^{ x = \(42) });
+static_assert(with_namespace == ^^{ \(^^ns)::q });
