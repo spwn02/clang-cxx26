@@ -843,12 +843,12 @@ static bool macro_expansion_context(APValue &Result, ASTContext &C,
                                     ArrayRef<Expr *> Args,
                                     Decl *ContainingDecl);
 
-static // This tree has no entity-proxy reflections: nothing to unproxy.
+// This tree has no entity-proxy reflections: nothing to unproxy.
 static APValue MaybeUnproxy(ASTContext &, const APValue &RV, bool /*Dealias*/) {
   return RV;
 }
 
-bool declaration_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+static bool declaration_of(APValue &Result, ASTContext &C, MetaActions &Meta,
                            EvalFn Evaluator, DiagFn Diagnoser,
                            bool AllowInjection, QualType ResultTy,
                            SourceRange Range, ArrayRef<Expr *> Args,
@@ -2118,6 +2118,7 @@ bool get_ith_base_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       bool BeingDefined =
           C.getLangOpts().CPlusPlus29 && cxxRecordDecl->isBeingDefined();
       if (!BeingDefined) {
+        Meta.EnsureInstantiated(typeDecl, Range);
         if (isIncompleteInReflectionContext(C, RV.getReflectedType()))
           return Diagnoser(Range.getBegin(),
                            diag::metafn_cannot_introspect_type)
@@ -2258,33 +2259,25 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     // incomplete. In C++29 (token sequence injection, P4380) the members
     // declared so far can be introspected so that members can be injected
     // conditioned on the members already present; a type that is incomplete
-    // for any other reason is ill-formed.
+    // for any other reason is ill-formed. Such a class is neither (re-)
+    // instantiated -- it is already being instantiated, and instantiating its
+    // member definitions requires the complete type -- nor given its implicit
+    // special members, which depend on the complete member-specification.
     bool BeingDefined = false;
-    if (isIncompleteInReflectionContext(C, QT)) {
-      auto *TD = dyn_cast<TagDecl>(typeDecl);
-      if (!C.getLangOpts().CPlusPlus29 || !TD || !TD->isBeingDefined())
-        return Meta.ThrowMetaException(Range.getBegin(),
-                                       "invalid reflection operand");
-      BeingDefined = true;
-    }
+    if (C.getLangOpts().CPlusPlus29)
+      if (auto *TD = dyn_cast<TagDecl>(typeDecl); TD && TD->isBeingDefined())
+        BeingDefined = true;
 
     if (!BeingDefined) {
-      // Only complete the type when it is *not* already mid-definition.
-      // Instantiating a class-template specialization (and its member
-      // definitions) requires the complete type; doing so for a specialization
-      // that is currently being instantiated would re-enter instantiation and
-      // try to instantiate members whose signatures reference the still
-      // incomplete type. A type that is incomplete for any other reason is
-      // ill-formed here.
       if (!Meta.EnsureInstantiated(typeDecl, Range))
         return true;
 
-      if (QT->isIncompleteType())
-        return true;
+      if (isIncompleteInReflectionContext(C, QT))
+        return Meta.ThrowMetaException(Range.getBegin(),
+                                       "invalid reflection operand");
+      // NOTE(CXX26): Uncomment to allow 'members_of' within member
+      // specification.
 
-      // Don't force-declare implicit special members while the class is still
-      // being defined: whether they exist / are deleted depends on the complete
-      // member-specification, which isn't available yet.
       if (auto *CXXRD = dyn_cast<CXXRecordDecl>(typeDecl))
         Meta.EnsureDeclarationOfImplicitMembers(CXXRD);
     }
