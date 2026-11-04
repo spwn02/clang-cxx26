@@ -16,18 +16,6 @@
 
 namespace clang {
 
-namespace {
-struct MaterializedTokens {
-  llvm::DenseMap<std::pair<const Token *, size_t>, UnnamedGlobalConstantDecl *>
-      StorageFor;
-  llvm::DenseMap<const Decl *, TokenSequenceData> TokensOf;
-};
-MaterializedTokens &materializedTokens() {
-  static MaterializedTokens M;
-  return M;
-}
-} // namespace
-
 APValue MaterializeTokens(ASTContext &C, TokenSequenceData TSD,
                           QualType PtrTy) {
   size_t N = TSD.size();
@@ -35,7 +23,7 @@ APValue MaterializeTokens(ASTContext &C, TokenSequenceData TSD,
     return APValue(static_cast<const Expr *>(nullptr),
                    CharUnits::fromQuantity(C.getTargetNullPointerValue(PtrTy)),
                    APValue::NoLValuePath(), /*IsNullPtr=*/true);
-  MaterializedTokens &M = materializedTokens();
+  auto &M = C.TokenSequenceStorage;
   UnnamedGlobalConstantDecl *&Storage = M.StorageFor[{TSD.data(), N}];
   if (!Storage) {
     // Its own storage: tokens that compare equal may still differ (e.g.
@@ -51,32 +39,19 @@ APValue MaterializeTokens(ASTContext &C, TokenSequenceData TSD,
         C.MetaTokenTy.withConst(), llvm::APInt(64, N), nullptr,
         ArraySizeModifier::Normal, /*IndexTypeQuals=*/0);
     Storage = C.createUniqueUnnamedGlobalConstantDecl(ArrTy, Elems);
-    M.TokensOf[Storage] = TSD;
+    M.TokensOf[Storage] = {TSD.data(), N};
   }
   APValue::LValuePathEntry Path[] = {APValue::LValuePathEntry::ArrayIndex(0)};
   return APValue(APValue::LValueBase(Storage), CharUnits::Zero(), Path,
                  /*OnePastTheEnd=*/false);
 }
 
-namespace {
-// The buffers made by AppendTokenSequenceData, by their first token: how
-// many tokens are in use, and how many fit.
-struct GrowableBuffer {
-  size_t Used;
-  size_t Capacity;
-};
-llvm::DenseMap<const Token *, GrowableBuffer> &growableBuffers() {
-  static llvm::DenseMap<const Token *, GrowableBuffer> Buffers;
-  return Buffers;
-}
-} // namespace
-
 TokenSequenceData AppendTokenSequenceData(ASTContext &Ctx,
                                           TokenSequenceData LHS,
                                           ArrayRef<Token> RHS) {
   if (RHS.empty())
     return LHS;
-  auto &Buffers = growableBuffers();
+  auto &Buffers = Ctx.TokenSequenceStorage.Growable;
   size_t N = LHS.size() + RHS.size();
   if (!LHS.empty()) {
     auto It = Buffers.find(LHS.data());
@@ -97,10 +72,13 @@ TokenSequenceData AppendTokenSequenceData(ASTContext &Ctx,
   return TokenSequenceData(Stored, N);
 }
 
-const TokenSequenceData *getMaterializedTokens(const Decl *Storage) {
-  MaterializedTokens &M = materializedTokens();
+std::optional<TokenSequenceData> getMaterializedTokens(ASTContext &C,
+                                                       const Decl *Storage) {
+  auto &M = C.TokenSequenceStorage;
   auto It = M.TokensOf.find(Storage);
-  return It == M.TokensOf.end() ? nullptr : &It->second;
+  if (It == M.TokensOf.end())
+    return std::nullopt;
+  return TokenSequenceData(It->second.first, It->second.second);
 }
 
 TokenSequenceData CreateTokenSequenceData(ASTContext &Ctx,

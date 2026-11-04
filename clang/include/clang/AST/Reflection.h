@@ -95,7 +95,8 @@ inline TokenSequenceData CreateEmptyTokenSequenceData(ASTContext &Ctx) {
 APValue MaterializeTokens(ASTContext &C, TokenSequenceData TSD, QualType PtrTy);
 
 /// The tokens of an array made by MaterializeTokens, or null.
-const TokenSequenceData *getMaterializedTokens(const Decl *Storage);
+std::optional<TokenSequenceData> getMaterializedTokens(ASTContext &C,
+                                                       const Decl *Storage);
 
 /// Description of a hypothetical data member used by `define_class`.
 struct TagDataMemberSpec {

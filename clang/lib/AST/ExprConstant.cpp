@@ -11100,7 +11100,9 @@ static bool ReadTokenArray(EvalInfo &Info, const Expr *E, LValue Ptr,
     return true;
   }
   if (const auto *D = Ptr.Base.dyn_cast<const ValueDecl *>())
-    if (const TokenSequenceData *TSD = getMaterializedTokens(D)) {
+    if (std::optional<TokenSequenceData> TSOpt =
+            getMaterializedTokens(Info.Ctx, D)) {
+      const TokenSequenceData *TSD = &*TSOpt;
       ArrayRef<APValue::LValuePathEntry> Path = Ptr.Designator.Entries;
       uint64_t Idx = Path.size() == 1 ? Path[0].getAsArrayIndex() : 0;
       if (Path.size() <= 1 && Idx + N <= TSD->size()) {

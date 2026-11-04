@@ -869,8 +869,10 @@ static_assert(c == 4);
 
 namespace N20 {
 
-// In the body a parameter is a prvalue naming what was bound to it, and its
-// classification says so. Contexts that classify the operand (reference
+// In the body a (non-raw) parameter is a prvalue naming what was bound to it,
+// and its classification says so. A raw token_sequence parameter is an
+// ordinary parameter: its own type, an lvalue, so decltype((body)) is a
+// reference (a divergence from the prototype's expectation). Contexts that classify the operand (reference
 // binding -- which is also what range-for's '__range' is -- and a
 // parenthesized decltype) therefore work on a parameter directly. (Binding
 // a reference to a parameter used to assert in ExprClassification.)

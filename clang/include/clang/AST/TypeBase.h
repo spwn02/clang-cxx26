@@ -3227,7 +3227,7 @@ private:
       : Type(Builtin, QualType(),
              K == Dependent ? TypeDependence::DependentInstantiation
                             : TypeDependence::None,
-             /*ConstevalOnly=*/(K == MetaInfo || K == TokenSequence)) {
+             /*ConstevalOnly=*/(K == MetaInfo || K == TokenSequence || K == MetaToken)) {
     static_assert(Kind::LastKind <
                       (1 << BuiltinTypeBitfields::NumOfBuiltinTypeBits) &&
                   "Defined builtin type exceeds the allocated space for serial "
