@@ -43,6 +43,7 @@
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/ParentMapContext.h"
 #include "clang/AST/RawCommentList.h"
+#include "clang/AST/Reflection.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/TemplateBase.h"
@@ -921,6 +922,17 @@ void ASTContext::cleanup() {
 }
 
 ASTContext::~ASTContext() { cleanup(); }
+
+void ASTContext::TokenSequenceStorageDeleter::operator()(
+    TokenSequenceStorageState *P) const {
+  delete P;
+}
+
+TokenSequenceStorageState &ASTContext::getTokenSequenceStorage() {
+  if (!TokenSequenceStorage)
+    TokenSequenceStorage.reset(new TokenSequenceStorageState);
+  return *TokenSequenceStorage;
+}
 
 void ASTContext::setTraversalScope(const std::vector<Decl *> &TopLevelDecls) {
   TraversalScope = TopLevelDecls;

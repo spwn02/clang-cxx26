@@ -90,7 +90,7 @@ template <> struct DenseMapInfo<ScalableVecTyKey> {
 namespace clang {
 
 class APValue;
-class Token;
+struct TokenSequenceStorageState;
 class ASTMutationListener;
 class ASTRecordLayout;
 class AtomicExpr;
@@ -1358,27 +1358,6 @@ public:
 #include "clang/Basic/AMDGPUTypes.def"
 #define HLSL_INTANGIBLE_TYPE(Name, Id, SingletonId) CanQualType SingletonId;
 #include "clang/Basic/HLSLIntangibleTypes.def"
-
-  /// Bookkeeping for token sequences (P4380; see AST/Reflection.cpp). It is
-  /// per context because it names storage this context allocated: a process
-  /// serving several contexts (clangd, libclang), possibly on several
-  /// threads, must not share it.
-  struct TokenSequenceStorageState {
-    /// The static array of std::meta::token made for a token array, by the
-    /// array's first token and size.
-    llvm::DenseMap<std::pair<const Token *, size_t>,
-                   UnnamedGlobalConstantDecl *>
-        StorageFor;
-    /// The tokens a materialized array was made from.
-    llvm::DenseMap<const Decl *, std::pair<const Token *, size_t>> TokensOf;
-    /// Buffers made by appending, by their first token: how many tokens are
-    /// in use, and how many fit.
-    struct GrowableBuffer {
-      size_t Used;
-      size_t Capacity;
-    };
-    llvm::DenseMap<const Token *, GrowableBuffer> Growable;
-  } TokenSequenceStorage;
 
   // Types for deductions in C++0x [stmt.ranged]'s desugaring. Built on demand.
   mutable QualType AutoDeductTy;     // Deduction against 'auto'.
@@ -3920,6 +3899,20 @@ private:
   SmallVector<std::unique_ptr<OMPTraitInfo>, 4> OMPTraitInfoVector;
 
   llvm::DenseMap<GlobalDecl, llvm::StringSet<>> ThunksToBeAbbreviated;
+
+  /// Bookkeeping for token sequences (P4380; see AST/Reflection.cpp), made on
+  /// first use. It is per context because it names storage this context
+  /// allocated: a process serving several contexts (clangd, libclang),
+  /// possibly on several threads, must not share it. (Kept last, and out of
+  /// line, so that it does not disturb the layout of the members above.)
+  struct TokenSequenceStorageDeleter {
+    void operator()(TokenSequenceStorageState *P) const;
+  };
+  std::unique_ptr<TokenSequenceStorageState, TokenSequenceStorageDeleter>
+      TokenSequenceStorage;
+
+public:
+  TokenSequenceStorageState &getTokenSequenceStorage();
 };
 
 /// Insertion operator for diagnostics.

@@ -16,6 +16,7 @@
 #include "clang/Basic/TokenKinds.h"
 #include "clang/AST/TypeBase.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include <optional>
@@ -25,6 +26,7 @@ namespace clang {
 
 class APValue;
 class CXXBaseSpecifier;
+class Decl;
 class NamedDecl;
 class NamespaceDecl;
 class Token;
@@ -33,6 +35,25 @@ struct FunctionDeclSpec;
 
 /// \\brief Representation of a captured token sequence from ^^{ ... }.
 /// Essentially an ArrayRef<Token> allocated in the ASTContext.
+class UnnamedGlobalConstantDecl;
+
+/// See ASTContext::getTokenSequenceStorage.
+struct TokenSequenceStorageState {
+  /// The static array of std::meta::token made for a token array, by the
+  /// array's first token and size.
+  llvm::DenseMap<std::pair<const Token *, size_t>, UnnamedGlobalConstantDecl *>
+      StorageFor;
+  /// The tokens a materialized array was made from.
+  llvm::DenseMap<const Decl *, std::pair<const Token *, size_t>> TokensOf;
+  /// Buffers made by appending, by their first token: how many tokens are in
+  /// use, and how many fit.
+  struct GrowableBuffer {
+    size_t Used;
+    size_t Capacity;
+  };
+  llvm::DenseMap<const Token *, GrowableBuffer> Growable;
+};
+
 struct TokenSequenceData : public ArrayRef<Token> {
   TokenSequenceData() = default;
   TokenSequenceData(const Token *Data, size_t Length)

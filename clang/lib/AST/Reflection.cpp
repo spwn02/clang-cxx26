@@ -23,7 +23,7 @@ APValue MaterializeTokens(ASTContext &C, TokenSequenceData TSD,
     return APValue(static_cast<const Expr *>(nullptr),
                    CharUnits::fromQuantity(C.getTargetNullPointerValue(PtrTy)),
                    APValue::NoLValuePath(), /*IsNullPtr=*/true);
-  auto &M = C.TokenSequenceStorage;
+  auto &M = C.getTokenSequenceStorage();
   UnnamedGlobalConstantDecl *&Storage = M.StorageFor[{TSD.data(), N}];
   if (!Storage) {
     // Its own storage: tokens that compare equal may still differ (e.g.
@@ -51,7 +51,7 @@ TokenSequenceData AppendTokenSequenceData(ASTContext &Ctx,
                                           ArrayRef<Token> RHS) {
   if (RHS.empty())
     return LHS;
-  auto &Buffers = Ctx.TokenSequenceStorage.Growable;
+  auto &Buffers = Ctx.getTokenSequenceStorage().Growable;
   size_t N = LHS.size() + RHS.size();
   if (!LHS.empty()) {
     auto It = Buffers.find(LHS.data());
@@ -74,7 +74,7 @@ TokenSequenceData AppendTokenSequenceData(ASTContext &Ctx,
 
 std::optional<TokenSequenceData> getMaterializedTokens(ASTContext &C,
                                                        const Decl *Storage) {
-  auto &M = C.TokenSequenceStorage;
+  auto &M = C.getTokenSequenceStorage();
   auto It = M.TokensOf.find(Storage);
   if (It == M.TokensOf.end())
     return std::nullopt;
