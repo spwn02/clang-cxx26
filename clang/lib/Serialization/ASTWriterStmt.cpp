@@ -18,6 +18,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
+#include "clang/Basic/DiagnosticSerialization.h"
 #include "clang/Serialization/ASTReader.h"
 #include "clang/Serialization/ASTRecordWriter.h"
 #include "llvm/Bitstream/BitstreamWriter.h"
@@ -511,7 +512,11 @@ void ASTStmtWriter::VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
   Record.AddSourceLocation(E->getOperatorLoc());
   // FIXME: Token sequences currently round-trip through PCH/modules as an
   // empty token sequence (see PropertiesBase.td). Implement proper Token array
-  // serialization when this becomes load-bearing.
+  // serialization when this becomes load-bearing (#387).
+  if (E->getValue().isTokenSequence() &&
+      !E->getValue().getTokenSequence().empty())
+    Record.getASTContext().getDiagnostics().Report(E->getBeginLoc(),
+                                   diag::warn_token_sequence_not_serialized);
   Record.AddAPValue(E->getValue());
   for (Stmt *S : E->children())
     Record.AddStmt(S);
