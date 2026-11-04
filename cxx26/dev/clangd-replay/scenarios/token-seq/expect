@@ -1,0 +1,7 @@
+# label  must|never|must-contain  text
+interp       must-contain   count
+interp2      must-contain   local
+hover-interp must-contain   Type: `int`
+def-interp   must-contain   23:43
+refs-interp  must-contain   23:43
+refs-interp  must-contain   26:22
