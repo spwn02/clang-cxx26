@@ -84,6 +84,18 @@ Parser::Parser(Preprocessor &pp, Sema &actions, bool skipFunctionBodies)
       [this](StringRef TypeStr, StringRef Context, SourceLocation IncludeLoc) {
         return this->ParseTypeFromString(TypeStr, Context, IncludeLoc);
       };
+
+  Actions.SetParserBridge(this);
+  Actions.SetTokenInjectionCallback(&Parser::TokenInjectionCallback);
+  Actions.SetExpressionMacroExpansionCallback(
+      &Parser::ExpressionMacroExpansionCallback);
+  Actions.SetSpeculativeExpressionCallback(
+      &Parser::SpeculativeExpressionCallback);
+  Actions.SetMemInitMacroExpansionCallback(
+      &Parser::MemInitMacroExpansionCallback);
+  Actions.SetDeferredMacroArgumentsCallback(
+      &Parser::DeferredMacroArgumentsCallback);
+  Actions.SetDeferredInjectedDefsCallback(&Parser::DeferredInjectedDefsCallback);
 }
 
 DiagnosticBuilder Parser::Diag(SourceLocation Loc, unsigned DiagID) {
@@ -197,6 +209,14 @@ bool Parser::ExpectAndConsumeSemi(unsigned DiagID, StringRef TokenUsed) {
 
 void Parser::ConsumeExtraSemi(ExtraSemiKind Kind, DeclSpec::TST TST) {
   if (!Tok.is(tok::semi)) return;
+
+  // The ';' of a token macro invocation, after its expansion, is not one the
+  // user wrote as extra. (Null statements are treated the same way.)
+  if (Tok.hasLeadingEmptyMacro() &&
+      InvocationTerminators.contains(Tok.getLocation())) {
+    ConsumeToken();
+    return;
+  }
 
   bool HadMultipleSemis = false;
   SourceLocation StartLoc = Tok.getLocation();
@@ -753,7 +773,7 @@ bool Parser::ParseTopLevelDecl(DeclGroupPtrTy &Result,
     }
 
     // Late template parsing can begin.
-    Actions.SetLateTemplateParser(LateTemplateParserCallback, this);
+    Actions.SetLateTemplateParser(LateTemplateParserCallback, nullptr);
     Actions.ActOnEndOfTranslationUnit();
     //else don't tell Sema that we ended parsing: more input might come.
     return true;
@@ -816,6 +836,13 @@ Parser::ParseExternalDeclaration(ParsedAttributes &Attrs,
     cutOffParsing();
     return nullptr;
   }
+
+  // A declaration-position macro invocation: 'name!(args);' (or
+  // 'ns::name!(args);') expands to a sequence of declarations parsed in place.
+  if (TryAnnotateQualifiedMacroScope(/*EnteringContext=*/true))
+    return nullptr;
+  if (isStartOfDeclMacroInvocation())
+    return ParseDeclMacroInvocation(AS_none, /*TagDecl=*/nullptr);
 
   Decl *SingleDecl = nullptr;
   switch (Tok.getKind()) {
@@ -1784,6 +1811,16 @@ Parser::TryAnnotateName(CorrectionCandidateCallback *CCC,
 
   Token Next = NextToken();
 
+  // Leave a macro invocation, name!(...) / name!{...} / name![...], for the
+  // expression parser: the macro has to be found before its arguments can be
+  // parsed.
+  if (getLangOpts().CPlusPlus29 && Next.is(tok::exclaim) &&
+      isMacroInvocationContinuation(GetLookAheadToken(2).getKind())) {
+    if (SS.isNotEmpty())
+      AnnotateScopeToken(SS, !WasScopeAnnotation);
+    return AnnotatedNameKind::Unresolved;
+  }
+
   // Look up and classify the identifier. We don't perform any typo-correction
   // after a scope specifier, because in general we can't recover from typos
   // there (eg, after correcting 'A::template B<X>::C' [sic], we would need to
@@ -1960,8 +1997,24 @@ bool Parser::TryAnnotateTypeOrScopeToken(
           Tok.is(tok::kw_decltype) || Tok.is(tok::annot_template_id) ||
           Tok.is(tok::kw___super) || Tok.is(tok::kw_auto) ||
           Tok.is(tok::l_splice) || Tok.is(tok::annot_splice) ||
-          Tok.is(tok::kw_template) || Tok.is(tok::annot_pack_indexing_type)) &&
+          Tok.is(tok::kw_template) || Tok.is(tok::annot_pack_indexing_type) ||
+          Tok.is(tok::annot_template_name) ||
+          // An already-annotated type (e.g. a type reflection interpolated
+          // into an injected token sequence) is a scope token when followed
+          // by '::'.
+          (Tok.is(tok::annot_typename) && NextToken().is(tok::coloncolon))) &&
          "Cannot be a type or scope token!");
+
+  if (Tok.is(tok::annot_template_name)) {
+    // A template designated by an interpolated reflection only forms a type
+    // or scope together with a template-argument-list.
+    if (!NextToken().is(tok::less))
+      return false;
+    CXXScopeSpec SS;
+    if (AnnotateInterpolatedTemplateName(SS, /*AllowTypeAnnotation=*/false))
+      return true;
+    return TryAnnotateTypeOrScopeToken(AllowImplicitTypename);
+  }
 
   if (Tok.is(tok::kw_typename)) {
     // MSVC lets you do stuff like:

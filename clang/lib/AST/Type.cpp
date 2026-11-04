@@ -2423,6 +2423,8 @@ Type::ScalarTypeKind Type::getScalarTypeKind() const {
       return STK_FixedPoint;
     if (BT->isReflectionType())
       return STK_Reflection;
+    if (BT->isTokenSequenceType())
+      return STK_TokenSequence;
     llvm_unreachable("unknown scalar builtin type");
   } else if (isa<PointerType>(T)) {
     return STK_CPointer;
@@ -3103,6 +3105,12 @@ bool Type::isLiteralType(const ASTContext &Ctx) const {
 }
 
 bool Type::isStructuralType() const {
+  // A token sequence is a scalar type, but it has no mangling, so two
+  // specializations chosen by distinct token sequences would share a mangled
+  // name and collide at link time. Exclude it before the scalar case; this
+  // also propagates to any class type holding one, via StructuralIfLiteral.
+  if (isTokenSequenceType())
+    return false;
   // C++20 [temp.param]p6:
   //   A structural type is one of the following:
   //   -- a scalar type; or
@@ -3521,6 +3529,8 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
     return Policy.NullptrTypeInNamespace ? "std::nullptr_t" : "nullptr_t";
   case MetaInfo:
     return "meta::info";
+  case TokenSequence:
+    return "meta::token_sequence";
   case Overload:
     return "<overloaded function type>";
   case BoundMember:
@@ -5263,6 +5273,7 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
     case BuiltinType::BuiltinFn:
     case BuiltinType::NullPtr:
     case BuiltinType::MetaInfo:
+    case BuiltinType::TokenSequence:
     case BuiltinType::IncompleteMatrixIdx:
     case BuiltinType::ArraySection:
     case BuiltinType::OMPArrayShaping:

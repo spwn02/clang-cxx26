@@ -237,6 +237,12 @@ def err_expected_expression : Error<"expected expression">;
 def err_expected_type : Error<"expected a type">;
 def err_expected_external_declaration : Error<"expected external declaration">;
 def err_extraneous_closing_brace : Error<"extraneous closing brace ('}')">;
+def err_unexpected_token_in_injected_members : Error<
+  "unexpected %0 in injected member declarations">;
+def note_injected_members_here : Note<
+  "in member declarations injected into %0">;
+def err_expected_body_after_decl_spec : Error<
+  "expected '{' or ';' after an interpolated declaration description">;
 def err_expected_semi_declaration : Error<
   "expected ';' at end of declaration">;
 def err_expected_semi_decl_list : Error<
@@ -1851,6 +1857,20 @@ def err_mixed_attributes_and_annotations : Error<
   "attribute specifier cannot contain both attributes and annotations">;
 def warn_meant_parenthesize_reflection : Warning<
   "'%0' binds to reflection operand">, InGroup<ReflexingParse>;
+def err_macro_expansion_not_single_expression : Error<
+  "expansion of expression macro must form a single expression">;
+def err_interpolation_escapes_token_sequence : Error<
+  "interpolation with %0 backslashes escapes the enclosing token sequence "
+  "(%1 %plural{1:level|:levels}1 of token sequence enclose it)">;
+def err_dollar_interpolation_escapes_token_sequence : Error<
+  "interpolation with %0 '$' escapes the enclosing token sequence "
+  "(%1 %plural{1:level|:levels}1 of token sequence enclose it)">;
+def err_dollar_interpolation_expected : Error<
+  "expected a name or '{' after '$' in a token sequence">;
+def err_dollar_interpolation_keyword : Error<
+  "'$' interpolates a name, not the keyword '%0'; write '${%0}'">;
+def err_dollar_interpolation_digit : Error<
+  "'$' followed by a digit is reserved in a token sequence">;
 def err_splice_template_argument : Error<
   "unparenthesized splice expression cannot be used as a template argument">;
 }

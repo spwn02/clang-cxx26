@@ -5563,6 +5563,9 @@ public:
   static CXXReflectExpr *Create(ASTContext &C, SourceLocation OperatorLoc,
                                 SourceRange OperandRange, APValue RV);
   static CXXReflectExpr *Create(ASTContext &C, SourceLocation OperatorLoc,
+                                SourceRange OperandRange, APValue RV,
+                                QualType Ty);
+  static CXXReflectExpr *Create(ASTContext &C, SourceLocation OperatorLoc,
                                 Expr *DepSubExpr);
   static CXXReflectExpr *CreateEmpty(const ASTContext &C);
 
@@ -5619,6 +5622,105 @@ public:
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == CXXReflectExprClass;
+  }
+};
+
+/// Represents a C++2c token sequence literal expression of the form
+/// `^^{ tokens }`. This is a prvalue of type `std::meta::token_sequence`.
+///
+/// The captured tokens may include interpolation expressions (introduced via
+/// `\(...)`) which are evaluated when the token sequence is materialized.
+/// An identifier token of a token sequence that, where the sequence was
+/// written, names a template parameter (by ordinary name lookup). When the
+/// sequence is instantiated, the token is replaced by that parameter's
+/// argument.
+struct TokenSequenceParamBinding {
+  unsigned TokenIndex;
+  NamedDecl *Param;
+};
+
+class CXXTokenSequenceExpr final
+    : public Expr,
+      private llvm::TrailingObjects<CXXTokenSequenceExpr, Stmt *> {
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+  friend TrailingObjects;
+
+  // The captured token sequence data (pointer + size into ASTContext storage).
+  TokenSequenceData TokSeq;
+
+  unsigned NumInterpolationExprs;
+
+  // Template parameters named by identifier tokens (ASTContext storage).
+  const TokenSequenceParamBinding *ParamBindings = nullptr;
+  unsigned NumParamBindings = 0;
+
+  // Source locations.
+  SourceLocation OperatorLoc;
+  SourceRange OperandRange;
+
+  CXXTokenSequenceExpr(const ASTContext &C, QualType ExprTy,
+                       TokenSequenceData TSD, unsigned NumInterpolationExprs);
+  CXXTokenSequenceExpr(EmptyShell Empty, unsigned NumInterpolationExprs);
+
+  void initializeInterpolationExprs();
+  void setInterpolationExpr(unsigned I, Expr *E) {
+    getTrailingObjects()[I] = E;
+  }
+
+public:
+  static CXXTokenSequenceExpr *
+  Create(ASTContext &C, SourceLocation OperatorLoc, SourceRange OperandRange,
+         TokenSequenceData TSD,
+         ArrayRef<TokenSequenceParamBinding> ParamBindings = {});
+  static CXXTokenSequenceExpr *CreateEmpty(const ASTContext &C,
+                                           unsigned NumInterpolationExprs);
+
+  /// Returns the captured token sequence data.
+  TokenSequenceData getTokenSequence() const { return TokSeq; }
+  void setTokenSequence(TokenSequenceData TSD) {
+    TokSeq = TSD;
+    initializeInterpolationExprs();
+  }
+
+  unsigned getNumInterpolationExprs() const { return NumInterpolationExprs; }
+
+  /// The identifier tokens that name template parameters where the sequence
+  /// was written, in token order.
+  ArrayRef<TokenSequenceParamBinding> getParamBindings() const {
+    return {ParamBindings, NumParamBindings};
+  }
+
+  /// Returns an APValue representing this token sequence.
+  APValue getValue() const;
+
+  SourceLocation getBeginLoc() const LLVM_READONLY { return OperatorLoc; }
+  SourceLocation getEndLoc() const LLVM_READONLY {
+    return OperandRange.getEnd();
+  }
+  SourceRange getSourceRange() const {
+    return SourceRange(getBeginLoc(), getEndLoc());
+  }
+
+  /// Returns location of the '^^'-operator.
+  SourceLocation getOperatorLoc() const { return OperatorLoc; }
+  SourceRange getOperandRange() const { return OperandRange; }
+
+  void setOperatorLoc(SourceLocation L) { OperatorLoc = L; }
+  void setOperandRange(SourceRange R) { OperandRange = R; }
+
+  child_range children() {
+    Stmt **Begin = getTrailingObjects();
+    return child_range(Begin, Begin + NumInterpolationExprs);
+  }
+
+  const_child_range children() const {
+    Stmt *const *Begin = getTrailingObjects();
+    return const_child_range(Begin, Begin + NumInterpolationExprs);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CXXTokenSequenceExprClass;
   }
 };
 
@@ -5737,6 +5839,589 @@ public:
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == CXXMetafunctionExprClass;
+  }
+};
+
+/// Represents a call to std::meta::queue_injection(token_sequence).
+/// This expression injects the tokens from a token sequence into
+/// the enclosing scope during consteval evaluation.
+class CXXBuiltinInjectExpr : public Expr {
+  // Args[0] = Operand (token sequence), Args[1] = TargetNS (optional)
+  Stmt *Args[2];
+  unsigned NumArgs;
+  SourceLocation KwLoc;
+  SourceLocation LParenLoc;
+  SourceLocation RParenLoc;
+
+  CXXBuiltinInjectExpr(QualType Ty, Expr *Operand, SourceLocation KwLoc,
+                        SourceLocation LParenLoc, SourceLocation RParenLoc,
+                        Expr *TargetNS = nullptr);
+  CXXBuiltinInjectExpr(EmptyShell Empty);
+
+public:
+  static CXXBuiltinInjectExpr *Create(ASTContext &C, QualType Ty,
+                                       Expr *Operand, SourceLocation KwLoc,
+                                       SourceLocation LParenLoc,
+                                       SourceLocation RParenLoc,
+                                       Expr *TargetNS = nullptr);
+  static CXXBuiltinInjectExpr *CreateEmpty(ASTContext &C);
+
+  Expr *getOperand() const { return cast<Expr>(Args[0]); }
+  void setOperand(Expr *E) { Args[0] = E; }
+
+  bool hasTargetNS() const { return NumArgs > 1; }
+  Expr *getTargetNS() const {
+    assert(hasTargetNS() && "no target namespace");
+    return cast<Expr>(Args[1]);
+  }
+  void setTargetNS(Expr *E) { Args[1] = E; NumArgs = 2; }
+
+  SourceLocation getKwLoc() const { return KwLoc; }
+  void setKwLoc(SourceLocation Loc) { KwLoc = Loc; }
+
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+  void setRParenLoc(SourceLocation Loc) { RParenLoc = Loc; }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY { return KwLoc; }
+  SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
+
+  child_range children() {
+    return child_range(Args, Args + NumArgs);
+  }
+  const_child_range children() const {
+    return const_child_range(Args, Args + NumArgs);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CXXBuiltinInjectExprClass;
+  }
+};
+
+class CXXBuiltinReportTokensExpr : public Expr {
+  // Args[0] = Message, Args[1] = MsgSizeCall, Args[2] = MsgDataCall,
+  // Args[3] = Operand (token sequence)
+  Stmt *Args[4];
+  SourceLocation KwLoc;
+  SourceLocation LParenLoc;
+  SourceLocation RParenLoc;
+
+  CXXBuiltinReportTokensExpr(QualType Ty, Expr *Msg, Expr *MsgSizeCall,
+                              Expr *MsgDataCall, Expr *Operand,
+                              SourceLocation KwLoc, SourceLocation LParenLoc,
+                              SourceLocation RParenLoc);
+  CXXBuiltinReportTokensExpr(EmptyShell Empty);
+
+public:
+  static CXXBuiltinReportTokensExpr *Create(ASTContext &C, QualType Ty,
+                                             Expr *Msg, Expr *MsgSizeCall,
+                                             Expr *MsgDataCall, Expr *Operand,
+                                             SourceLocation KwLoc,
+                                             SourceLocation LParenLoc,
+                                             SourceLocation RParenLoc);
+  static CXXBuiltinReportTokensExpr *CreateEmpty(ASTContext &C);
+
+  Expr *getMessage() const { return cast<Expr>(Args[0]); }
+  void setMessage(Expr *E) { Args[0] = E; }
+
+  Expr *getMsgSizeCall() const { return cast_or_null<Expr>(Args[1]); }
+  void setMsgSizeCall(Expr *E) { Args[1] = E; }
+
+  Expr *getMsgDataCall() const { return cast_or_null<Expr>(Args[2]); }
+  void setMsgDataCall(Expr *E) { Args[2] = E; }
+
+  Expr *getOperand() const { return cast<Expr>(Args[3]); }
+  void setOperand(Expr *E) { Args[3] = E; }
+
+  SourceLocation getKwLoc() const { return KwLoc; }
+  void setKwLoc(SourceLocation Loc) { KwLoc = Loc; }
+
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+  void setRParenLoc(SourceLocation Loc) { RParenLoc = Loc; }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY { return KwLoc; }
+  SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
+
+  child_range children() {
+    return child_range(Args, Args + 4);
+  }
+  const_child_range children() const {
+    return const_child_range(Args, Args + 4);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CXXBuiltinReportTokensExprClass;
+  }
+};
+
+/// A list interpolated into a token sequence: '\(e1, e2, ...; sep)' inside
+/// '^^{ ... }'. Each element -- any of which may be a pack expansion, expanded
+/// at instantiation -- is interpolated as '\(e)' would be, and consecutive
+/// elements are separated by the separator's tokens (a ',' when there is no
+/// separator). '\(a...)' is thus '\(a...[0]), \(a...[1]), ...'. Its value is
+/// the resulting token array.
+class CXXTokenInterpolationListExpr : public Expr {
+  // NumElements elements, then the separator (null if none was written).
+  Stmt **SubExprs = nullptr;
+  unsigned NumElements = 0;
+  SourceLocation BeginLoc;
+  SourceLocation EndLoc;
+
+  CXXTokenInterpolationListExpr(ASTContext &C, QualType Ty,
+                                ArrayRef<Expr *> Elements, Expr *Separator,
+                                SourceLocation BeginLoc, SourceLocation EndLoc);
+  CXXTokenInterpolationListExpr(EmptyShell Empty)
+      : Expr(CXXTokenInterpolationListExprClass, Empty) {}
+
+public:
+  static CXXTokenInterpolationListExpr *
+  Create(ASTContext &C, QualType Ty, ArrayRef<Expr *> Elements, Expr *Separator,
+         SourceLocation BeginLoc, SourceLocation EndLoc);
+  static CXXTokenInterpolationListExpr *CreateEmpty(ASTContext &C);
+
+  unsigned getNumElements() const { return NumElements; }
+  Expr *getElement(unsigned I) const {
+    assert(I < NumElements);
+    return cast<Expr>(SubExprs[I]);
+  }
+  ArrayRef<Expr *> getElements() const {
+    return {reinterpret_cast<Expr *const *>(SubExprs), NumElements};
+  }
+  Expr *getSeparator() const {
+    return SubExprs ? cast_or_null<Expr>(SubExprs[NumElements]) : nullptr;
+  }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY { return BeginLoc; }
+  SourceLocation getEndLoc() const LLVM_READONLY { return EndLoc; }
+
+  child_range children() {
+    if (!SubExprs)
+      return child_range(child_iterator(), child_iterator());
+    return child_range(SubExprs, SubExprs + NumElements + 1);
+  }
+  const_child_range children() const {
+    if (!SubExprs)
+      return const_child_range(const_child_iterator(), const_child_iterator());
+    return const_child_range(SubExprs, SubExprs + NumElements + 1);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CXXTokenInterpolationListExprClass;
+  }
+};
+
+class CXXBuiltinIdExpr : public Expr {
+  // Per-arg storage: 3 slots per logical argument.
+  //   [3*I + 0] = original argument expression (always set; carries type
+  //               and source location)
+  //   [3*I + 1] = size() call expression converted to size_t, only for
+  //               user-defined string-like arguments; null otherwise
+  //   [3*I + 2] = data() call expression converted to const char*, only
+  //               for user-defined string-like arguments; null otherwise
+  // For integer or string-literal arguments slots 1 and 2 are null and
+  // the constant evaluator works directly off slot 0.
+  Stmt **Args;
+  unsigned NumArgs;
+  SourceLocation KwLoc;
+  SourceLocation LParenLoc;
+  SourceLocation RParenLoc;
+
+  CXXBuiltinIdExpr(ASTContext &C, QualType Ty, ArrayRef<Expr *> Args,
+                    ArrayRef<Expr *> SizeCalls, ArrayRef<Expr *> DataCalls,
+                    SourceLocation KwLoc, SourceLocation LParenLoc,
+                    SourceLocation RParenLoc);
+  CXXBuiltinIdExpr(EmptyShell Empty, unsigned NumArgs);
+
+public:
+  static CXXBuiltinIdExpr *Create(ASTContext &C, QualType Ty,
+                                   ArrayRef<Expr *> Args,
+                                   ArrayRef<Expr *> SizeCalls,
+                                   ArrayRef<Expr *> DataCalls,
+                                   SourceLocation KwLoc,
+                                   SourceLocation LParenLoc,
+                                   SourceLocation RParenLoc);
+  static CXXBuiltinIdExpr *CreateEmpty(ASTContext &C, unsigned NumArgs);
+
+  unsigned getNumArgs() const { return NumArgs; }
+  Expr *getArg(unsigned I) const {
+    assert(I < NumArgs && "argument index out of range");
+    return cast<Expr>(Args[3 * I]);
+  }
+  void setArg(unsigned I, Expr *E) {
+    assert(I < NumArgs && "argument index out of range");
+    Args[3 * I] = E;
+  }
+
+  /// User-defined string args carry pre-built size() and data() calls so
+  /// the constant evaluator doesn't need Sema. Returns null for integer
+  /// and string-literal args.
+  Expr *getSizeCall(unsigned I) const {
+    assert(I < NumArgs && "argument index out of range");
+    return cast_or_null<Expr>(Args[3 * I + 1]);
+  }
+  Expr *getDataCall(unsigned I) const {
+    assert(I < NumArgs && "argument index out of range");
+    return cast_or_null<Expr>(Args[3 * I + 2]);
+  }
+  void setSizeCall(unsigned I, Expr *E) {
+    assert(I < NumArgs && "argument index out of range");
+    Args[3 * I + 1] = E;
+  }
+  void setDataCall(unsigned I, Expr *E) {
+    assert(I < NumArgs && "argument index out of range");
+    Args[3 * I + 2] = E;
+  }
+
+  SourceLocation getKwLoc() const { return KwLoc; }
+  void setKwLoc(SourceLocation Loc) { KwLoc = Loc; }
+
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+  void setRParenLoc(SourceLocation Loc) { RParenLoc = Loc; }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY { return KwLoc; }
+  SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
+
+  child_range children() { return child_range(Args, Args + 3 * NumArgs); }
+  const_child_range children() const {
+    return const_child_range(Args, Args + 3 * NumArgs);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CXXBuiltinIdExprClass;
+  }
+};
+
+/// Represents a call to std::meta::str_lit(...), which produces a
+/// token_sequence containing a single string literal token formed by
+/// concatenating the arguments.
+class CXXBuiltinStrLiteralExpr : public Expr {
+  // Same per-arg storage as CXXBuiltinIdExpr: 3 slots per logical argument.
+  Stmt **Args;
+  unsigned NumArgs;
+  SourceLocation KwLoc;
+  SourceLocation LParenLoc;
+  SourceLocation RParenLoc;
+
+  CXXBuiltinStrLiteralExpr(ASTContext &C, QualType Ty, ArrayRef<Expr *> Args,
+                           ArrayRef<Expr *> SizeCalls, ArrayRef<Expr *> DataCalls,
+                           SourceLocation KwLoc, SourceLocation LParenLoc,
+                           SourceLocation RParenLoc);
+  CXXBuiltinStrLiteralExpr(EmptyShell Empty, unsigned NumArgs);
+
+public:
+  static CXXBuiltinStrLiteralExpr *Create(ASTContext &C, QualType Ty,
+                                          ArrayRef<Expr *> Args,
+                                          ArrayRef<Expr *> SizeCalls,
+                                          ArrayRef<Expr *> DataCalls,
+                                          SourceLocation KwLoc,
+                                          SourceLocation LParenLoc,
+                                          SourceLocation RParenLoc);
+  static CXXBuiltinStrLiteralExpr *CreateEmpty(ASTContext &C, unsigned NumArgs);
+
+  unsigned getNumArgs() const { return NumArgs; }
+  Expr *getArg(unsigned I) const {
+    assert(I < NumArgs && "argument index out of range");
+    return cast<Expr>(Args[3 * I]);
+  }
+  void setArg(unsigned I, Expr *E) {
+    assert(I < NumArgs && "argument index out of range");
+    Args[3 * I] = E;
+  }
+
+  Expr *getSizeCall(unsigned I) const {
+    assert(I < NumArgs && "argument index out of range");
+    return cast_or_null<Expr>(Args[3 * I + 1]);
+  }
+  Expr *getDataCall(unsigned I) const {
+    assert(I < NumArgs && "argument index out of range");
+    return cast_or_null<Expr>(Args[3 * I + 2]);
+  }
+  void setSizeCall(unsigned I, Expr *E) {
+    assert(I < NumArgs && "argument index out of range");
+    Args[3 * I + 1] = E;
+  }
+  void setDataCall(unsigned I, Expr *E) {
+    assert(I < NumArgs && "argument index out of range");
+    Args[3 * I + 2] = E;
+  }
+
+  SourceLocation getKwLoc() const { return KwLoc; }
+  void setKwLoc(SourceLocation Loc) { KwLoc = Loc; }
+
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+  void setRParenLoc(SourceLocation Loc) { RParenLoc = Loc; }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY { return KwLoc; }
+  SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
+
+  child_range children() { return child_range(Args, Args + 3 * NumArgs); }
+  const_child_range children() const {
+    return const_child_range(Args, Args + 3 * NumArgs);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CXXBuiltinStrLiteralExprClass;
+  }
+};
+
+/// CXXBuiltinTokenizeExpr - Represents std::meta::tokenize(...).
+/// Lexes concatenated arguments into a token_sequence at compile time.
+class CXXBuiltinTokenizeExpr : public Expr {
+  // Same per-arg storage as CXXBuiltinIdExpr: 3 slots per logical argument.
+  Stmt **Args;
+  unsigned NumArgs;
+  SourceLocation KwLoc;
+  SourceLocation LParenLoc;
+  SourceLocation RParenLoc;
+
+  CXXBuiltinTokenizeExpr(ASTContext &C, QualType Ty, ArrayRef<Expr *> Args,
+                         ArrayRef<Expr *> SizeCalls, ArrayRef<Expr *> DataCalls,
+                         SourceLocation KwLoc, SourceLocation LParenLoc,
+                         SourceLocation RParenLoc);
+  CXXBuiltinTokenizeExpr(EmptyShell Empty, unsigned NumArgs);
+
+public:
+  static CXXBuiltinTokenizeExpr *Create(ASTContext &C, QualType Ty,
+                                        ArrayRef<Expr *> Args,
+                                        ArrayRef<Expr *> SizeCalls,
+                                        ArrayRef<Expr *> DataCalls,
+                                        SourceLocation KwLoc,
+                                        SourceLocation LParenLoc,
+                                        SourceLocation RParenLoc);
+  static CXXBuiltinTokenizeExpr *CreateEmpty(ASTContext &C, unsigned NumArgs);
+
+  unsigned getNumArgs() const { return NumArgs; }
+  Expr *getArg(unsigned I) const {
+    assert(I < NumArgs && "argument index out of range");
+    return cast<Expr>(Args[3 * I]);
+  }
+  void setArg(unsigned I, Expr *E) {
+    assert(I < NumArgs && "argument index out of range");
+    Args[3 * I] = E;
+  }
+
+  Expr *getSizeCall(unsigned I) const {
+    assert(I < NumArgs && "argument index out of range");
+    return cast_or_null<Expr>(Args[3 * I + 1]);
+  }
+  Expr *getDataCall(unsigned I) const {
+    assert(I < NumArgs && "argument index out of range");
+    return cast_or_null<Expr>(Args[3 * I + 2]);
+  }
+  void setSizeCall(unsigned I, Expr *E) {
+    assert(I < NumArgs && "argument index out of range");
+    Args[3 * I + 1] = E;
+  }
+  void setDataCall(unsigned I, Expr *E) {
+    assert(I < NumArgs && "argument index out of range");
+    Args[3 * I + 2] = E;
+  }
+
+  SourceLocation getKwLoc() const { return KwLoc; }
+  void setKwLoc(SourceLocation Loc) { KwLoc = Loc; }
+
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+  void setRParenLoc(SourceLocation Loc) { RParenLoc = Loc; }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY { return KwLoc; }
+  SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
+
+  child_range children() { return child_range(Args, Args + 3 * NumArgs); }
+  const_child_range children() const {
+    return const_child_range(Args, Args + 3 * NumArgs);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CXXBuiltinTokenizeExprClass;
+  }
+};
+
+/// CXXBuiltinStringizeExpr - Represents a call to std::meta::stringize().
+/// Converts a token_sequence to a string literal (char const*).
+class CXXBuiltinStringizeExpr : public Expr {
+  Stmt *Operand;
+  SourceLocation KwLoc;
+  SourceLocation LParenLoc;
+  SourceLocation RParenLoc;
+
+  CXXBuiltinStringizeExpr(QualType Ty, Expr *Operand, SourceLocation KwLoc,
+                          SourceLocation LParenLoc, SourceLocation RParenLoc);
+  CXXBuiltinStringizeExpr(EmptyShell Empty);
+
+public:
+  static CXXBuiltinStringizeExpr *Create(ASTContext &C, QualType Ty,
+                                         Expr *Operand, SourceLocation KwLoc,
+                                         SourceLocation LParenLoc,
+                                         SourceLocation RParenLoc);
+  static CXXBuiltinStringizeExpr *CreateEmpty(ASTContext &C);
+
+  Expr *getOperand() const { return cast<Expr>(Operand); }
+  void setOperand(Expr *E) { Operand = E; }
+
+  SourceLocation getKwLoc() const { return KwLoc; }
+  void setKwLoc(SourceLocation Loc) { KwLoc = Loc; }
+
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+  void setRParenLoc(SourceLocation Loc) { RParenLoc = Loc; }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY { return KwLoc; }
+  SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
+
+  child_range children() { return child_range(&Operand, &Operand + 1); }
+  const_child_range children() const {
+    return const_child_range(&Operand, &Operand + 1);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CXXBuiltinStringizeExprClass;
+  }
+};
+
+/// An expression-macro invocation, 'name!(args)' or 'obj.name!(args)', whose
+/// expansion is deferred to instantiation because an argument (or the object
+/// expression) is dependent. A non-dependent invocation is replaced by its
+/// expansion outright and never becomes a node.
+class CXXMacroInvocationExpr : public Expr {
+  friend class ASTStmtReader;
+
+  /// The callee (an UnresolvedLookupExpr naming the macros found by ordinary
+  /// lookup; null for a member invocation, whose lookup awaits the object
+  /// type), the object expression of a member invocation (null otherwise),
+  /// then the arguments.
+  Stmt **SubExprs;
+  unsigned NumArgs;
+  bool IsArrow = false;
+  /// True if the macro was not known when the invocation was parsed (a
+  /// dependent qualifier or object type): its parameter shape, which decides
+  /// how the arguments are parsed -- and where they split -- was unknown, so
+  /// the single argument is a token sequence of the whole argument list, to
+  /// be parsed at instantiation.
+  bool ArgsUnparsed = false;
+  /// Where unparsed arguments are to be parsed: the context the invocation
+  /// was written in, and the template parameters in scope there (ASTContext
+  /// storage). Not serialized, as token sequences are not.
+  DeclContext *UnparsedContext = nullptr;
+  NamedDecl *const *UnparsedTemplateParams = nullptr;
+  unsigned NumUnparsedTemplateParams = 0;
+  /// The member name of a member invocation.
+  DeclarationNameInfo MemberNameInfo;
+  /// The explicit template arguments of a member invocation,
+  /// 'obj.name!<Args>(...)' (ASTContext storage), or null. (Those of a
+  /// non-member invocation are the callee's.) Not serialized.
+  const ASTTemplateArgumentListInfo *MemberTemplateArgs = nullptr;
+  SourceLocation OperatorLoc;
+  SourceLocation ExclaimLoc;
+  SourceLocation LParenLoc;
+  SourceLocation RParenLoc;
+
+  CXXMacroInvocationExpr(ASTContext &C, UnresolvedLookupExpr *Callee,
+                         Expr *Base, bool IsArrow,
+                         const DeclarationNameInfo &MemberNameInfo,
+                         SourceLocation OperatorLoc, ArrayRef<Expr *> Args,
+                         SourceLocation ExclaimLoc, SourceLocation LParenLoc,
+                         SourceLocation RParenLoc);
+  CXXMacroInvocationExpr(ASTContext &C, EmptyShell Empty, unsigned NumArgs);
+
+public:
+  static CXXMacroInvocationExpr *Create(ASTContext &C,
+                                        UnresolvedLookupExpr *Callee,
+                                        ArrayRef<Expr *> Args,
+                                        SourceLocation ExclaimLoc,
+                                        SourceLocation LParenLoc,
+                                        SourceLocation RParenLoc);
+  /// A member invocation 'base.name!(args)' or 'base->name!(args)', with
+  /// explicit template arguments \p TemplateArgs ('base.name!<Args>(args)')
+  /// if non-null.
+  static CXXMacroInvocationExpr *
+  CreateMember(ASTContext &C, Expr *Base, bool IsArrow,
+               SourceLocation OperatorLoc,
+               const DeclarationNameInfo &MemberNameInfo, ArrayRef<Expr *> Args,
+               SourceLocation ExclaimLoc, SourceLocation LParenLoc,
+               SourceLocation RParenLoc,
+               const TemplateArgumentListInfo *TemplateArgs = nullptr);
+  static CXXMacroInvocationExpr *CreateEmpty(ASTContext &C, unsigned NumArgs);
+
+  UnresolvedLookupExpr *getCallee() const {
+    return cast_or_null<UnresolvedLookupExpr>(SubExprs[0]);
+  }
+  void setCallee(UnresolvedLookupExpr *E) { SubExprs[0] = E; }
+
+  bool isMemberInvocation() const { return SubExprs[1] != nullptr; }
+  Expr *getBase() const { return cast_or_null<Expr>(SubExprs[1]); }
+  void setBase(Expr *E) { SubExprs[1] = E; }
+  bool isArrow() const { return IsArrow; }
+  void setIsArrow(bool A) { IsArrow = A; }
+  bool areArgsUnparsed() const { return ArgsUnparsed; }
+  void setArgsUnparsed(bool U) { ArgsUnparsed = U; }
+  /// The context unparsed arguments are parsed in (see ArgsUnparsed).
+  DeclContext *getUnparsedContext() const { return UnparsedContext; }
+  /// The template parameters in scope for unparsed arguments.
+  ArrayRef<NamedDecl *> getUnparsedTemplateParams() const {
+    return {UnparsedTemplateParams, NumUnparsedTemplateParams};
+  }
+  /// Mark the arguments unparsed, to be parsed in \p Ctx with
+  /// \p TemplateParams in scope.
+  void setUnparsedEnvironment(ASTContext &C, DeclContext *Ctx,
+                              ArrayRef<NamedDecl *> TemplateParams);
+  const DeclarationNameInfo &getMemberNameInfo() const {
+    return MemberNameInfo;
+  }
+  void setMemberNameInfo(const DeclarationNameInfo &NI) {
+    MemberNameInfo = NI;
+  }
+  /// The explicit template arguments of a member invocation, or null.
+  const ASTTemplateArgumentListInfo *getMemberTemplateArgs() const {
+    return MemberTemplateArgs;
+  }
+
+  unsigned getNumArgs() const { return NumArgs; }
+  Expr *getArg(unsigned I) const { return cast<Expr>(SubExprs[I + 2]); }
+  void setArg(unsigned I, Expr *E) { SubExprs[I + 2] = E; }
+  ArrayRef<Expr *> getArgs() const {
+    return ArrayRef(reinterpret_cast<Expr *const *>(SubExprs + 2), NumArgs);
+  }
+
+  SourceLocation getOperatorLoc() const { return OperatorLoc; }
+  void setOperatorLoc(SourceLocation Loc) { OperatorLoc = Loc; }
+  SourceLocation getExclaimLoc() const { return ExclaimLoc; }
+  void setExclaimLoc(SourceLocation Loc) { ExclaimLoc = Loc; }
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+  void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+  void setRParenLoc(SourceLocation Loc) { RParenLoc = Loc; }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY {
+    return isMemberInvocation() ? getBase()->getBeginLoc()
+                                : getCallee()->getBeginLoc();
+  }
+  SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
+
+  child_range children() {
+    return child_range(SubExprs, SubExprs + 2 + NumArgs);
+  }
+  const_child_range children() const {
+    return const_child_range(SubExprs, SubExprs + 2 + NumArgs);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CXXMacroInvocationExprClass;
   }
 };
 

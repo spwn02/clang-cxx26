@@ -19,6 +19,7 @@
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/Basic/ExceptionSpecificationType.h"
+#include "clang/Lex/Token.h"
 #include "llvm/ADT/ArrayRef.h"
 
 using namespace clang;
@@ -1019,15 +1020,33 @@ ExprDependence clang::computeDependence(CXXReflectExpr *E,
     D |= RV.getReflectedAnnotation()->getArg()->getDependence();
     return D;
   }
+  case ReflectionKind::Expression:
+    return D | RV.getReflectedExpression()->getDependence();
   case ReflectionKind::Null:
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Namespace:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
     return ExprDependence::None;
   }
   llvm_unreachable("unknown reflection kind while computing dependence");
+}
+
+ExprDependence clang::computeDependence(CXXTokenSequenceExpr *E) {
+  // Token sequences may contain dependent interpolation expressions.
+  ExprDependence D = ExprDependence::None;
+  TokenSequenceData TSD = E->getTokenSequence();
+  for (const Token &Tok : TSD) {
+    if (Tok.is(tok::annot_token_seq_expr)) {
+      const Expr *InterpExpr =
+          reinterpret_cast<const Expr *>(Tok.getAnnotationValue());
+      if (InterpExpr)
+        D |= InterpExpr->getDependence();
+    }
+  }
+  return D;
 }
 
 ExprDependence clang::computeDependence(CXXMetafunctionExpr *E) {
@@ -1075,6 +1094,27 @@ ExprDependence clang::computeDependence(ExplDependentCallExpr *E) {
   auto D = E->getDependence();
   if (E->getTemplateDepth() > 0)
     D |= ExprDependence::Value;
+  return D;
+}
+
+ExprDependence clang::computeDependence(CXXBuiltinStringizeExpr *E) {
+  return E->getOperand()->getDependence();
+}
+
+ExprDependence clang::computeDependence(CXXMacroInvocationExpr *E) {
+  // The node only exists while the expansion is deferred, so it is always
+  // dependent; the operands contribute unexpanded packs and the like.
+  auto D = ExprDependence::TypeValueInstantiation;
+  if (Expr *Callee = E->getCallee())
+    D |= Callee->getDependence();
+  if (Expr *Base = E->getBase())
+    D |= Base->getDependence();
+  for (Expr *Arg : E->getArgs())
+    D |= Arg->getDependence();
+  if (const ASTTemplateArgumentListInfo *TArgs = E->getMemberTemplateArgs())
+    for (const TemplateArgumentLoc &A : TArgs->arguments())
+      D |= toExprDependence(A.getArgument().getDependence() &
+                            TemplateArgumentDependence::UnexpandedPack);
   return D;
 }
 

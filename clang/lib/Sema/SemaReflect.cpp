@@ -19,6 +19,8 @@
 #include "clang/AST/ConstevalOnly.h"
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/MetaActions.h"
+#include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/Token.h"
 #include "clang/AST/Metafunction.h"
 #include "clang/AST/Reflection.h"
 #include "clang/AST/Type.h"
@@ -26,6 +28,7 @@
 #include "clang/Basic/DiagnosticSema.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
+#include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/ParsedAttr.h"
 #include "clang/Sema/ParsedTemplate.h"
@@ -33,6 +36,7 @@
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
@@ -128,6 +132,11 @@ bool CheckReflectVar(Sema &S, VarDecl *VD, SourceRange Range) {
        DC = DC->getParent()) {
     assert(DC && "Var context not a parent of the current context");
     if (auto *RD = dyn_cast<CXXRecordDecl>(DC); RD && RD->isLambda()) {
+      // Consteval blocks are implemented as immediately-invoked lambdas.
+      // They shouldn't prevent reflecting on local entities since
+      // everything is resolved at compile time.
+      if (RD->isConstevalBlock())
+        continue;
       S.Diag(Range.getBegin(), diag::err_reflect_intervening_lambda) << Range;
       return true;
     }
@@ -580,6 +589,35 @@ public:
     ExprResult Result = S.ActOnCallExpr(S.getCurScope(), Fn, Fn->getExprLoc(),
                                         Args, Range.getEnd(), nullptr);
     return Result.get();
+  }
+
+  Expr *TestExpression(TokenSequenceData TSD, SourceLocation Loc) override {
+    if (!S.CanParseSpeculativeExpression())
+      return nullptr;
+    // The speculative parse decides only whether the tokens form an
+    // expression; a consteval-only value in it (a reflection, say, which the
+    // macro uses only at translation time) is not one of the invocation
+    // site's run-time expressions.
+    unsigned Ctx = S.ExprEvalContexts.size() - 1;
+    llvm::SmallPtrSet<Expr *, 4> ConstevalOnlyBefore(
+        S.ExprEvalContexts[Ctx].ConstevalOnly.begin(),
+        S.ExprEvalContexts[Ctx].ConstevalOnly.end());
+    auto ForgetSpeculative = llvm::make_scope_exit([&] {
+      if (Ctx >= S.ExprEvalContexts.size())
+        return;
+      auto &Now = S.ExprEvalContexts[Ctx].ConstevalOnly;
+      SmallVector<Expr *, 4> Added;
+      for (Expr *E : Now)
+        if (!ConstevalOnlyBefore.contains(E))
+          Added.push_back(E);
+      for (Expr *E : Added)
+        Now.erase(E);
+    });
+    ExprResult R =
+        S.ParseSpeculativeExpressionFromParserBridge(TSD, SourceRange(Loc, Loc));
+    if (R.isInvalid() || !R.get() || R.get()->containsErrors())
+      return nullptr;
+    return R.get();
   }
 
   CXXRecordDecl *DefineAggregate(CXXRecordDecl *IncompleteDecl,
@@ -1077,6 +1115,574 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OperatorLoc,
   return BuildCXXReflectExpr(OperatorLoc, E);
 }
 
+/// True if the identifier at \p Tokens[I] follows a member access or a
+/// nested-name-specifier ('x.N', 'p->N', 'T::N', 'x.template N', 'x.~N'),
+/// where it names a member rather than whatever unqualified lookup finds.
+static bool isMemberNameToken(ArrayRef<Token> Tokens, unsigned I) {
+  auto IsAccess = [&](unsigned J) {
+    return Tokens[J].isOneOf(tok::period, tok::arrow, tok::coloncolon);
+  };
+  if (I == 0)
+    return false;
+  if (IsAccess(I - 1))
+    return true;
+  return I >= 2 && Tokens[I - 1].isOneOf(tok::kw_template, tok::tilde) &&
+         IsAccess(I - 2);
+}
+
+/// Record the identifier tokens of \p Tokens that name template parameters
+/// in scope \p S. Binding them here, where the sequence is written, keeps
+/// their meaning when the sequence is instantiated: a parameter is found
+/// under the name it has at this point (an out-of-line member may rename its
+/// class's parameters), and a member name that merely shares a parameter's
+/// spelling is left alone.
+static void collectTokenSequenceParamBindings(
+    Sema &SemaRef, Scope *S, ArrayRef<Token> Tokens,
+    SmallVectorImpl<TokenSequenceParamBinding> &Bindings) {
+  if (!S || !S->getTemplateParamParent())
+    return;
+
+  for (unsigned I = 0, N = Tokens.size(); I != N; ++I) {
+    const Token &T = Tokens[I];
+    if (!T.is(tok::identifier) || isMemberNameToken(Tokens, I))
+      continue;
+    LookupResult R(SemaRef, T.getIdentifierInfo(), T.getLocation(),
+                   Sema::LookupOrdinaryName);
+    R.suppressDiagnostics();
+    if (!SemaRef.LookupName(R, S, /*AllowBuiltinCreation=*/false) ||
+        !R.isSingleResult())
+      continue;
+    NamedDecl *Found = R.getFoundDecl();
+    if (Found->isTemplateParameter())
+      Bindings.push_back({I, Found});
+  }
+}
+
+ExprResult Sema::ActOnCXXTokenSequenceReflection(Scope *S, SourceLocation OpLoc,
+                                                 SourceRange OperandRange,
+                                                 ArrayRef<Token> Tokens) {
+  TokenSequenceData TSD = CreateTokenSequenceData(Context, Tokens);
+  SmallVector<TokenSequenceParamBinding, 4> Bindings;
+  collectTokenSequenceParamBindings(*this, S, Tokens, Bindings);
+  return CXXTokenSequenceExpr::Create(Context, OpLoc, OperandRange, TSD,
+                                      Bindings);
+}
+
+enum class TokenOpTarget { MetaInfo, TokenSequence };
+
+static Expr *TryConvertTo(Sema &S, Expr *E, TokenOpTarget Target) {
+  QualType ExprTy = E->getType();
+  if (ExprTy->isDependentType())
+    return E;
+
+  // If the expression is already of the desired type, no conversion needed.
+  if (Target == TokenOpTarget::MetaInfo && ExprTy->isReflectionType())
+    return E;
+  if (Target == TokenOpTarget::TokenSequence && ExprTy->isTokenSequenceType())
+    return E;
+
+  QualType TargetTy = Target == TokenOpTarget::MetaInfo
+                          ? S.Context.MetaInfoTy
+                          : S.Context.TokenSequenceTy;
+  InitializedEntity Entity =
+      InitializedEntity::InitializeTemporary(TargetTy);
+  InitializationKind Kind =
+      InitializationKind::CreateCopy(E->getBeginLoc(), E->getBeginLoc());
+  InitializationSequence Seq(S, Entity, Kind, E);
+  if (Seq) {
+    ExprResult Conv = Seq.Perform(S, Entity, Kind, E);
+    if (!Conv.isInvalid())
+      return Conv.get();
+  }
+
+  return E;
+}
+
+// Try to convert to token_sequence first; if that fails, try meta::info.
+// Used for interpolation contexts where either is acceptable but a
+// token_sequence conversion is preferred (so it can be expanded inline
+// rather than splice-evaluated).
+static Expr *TryConvertToTokenSequenceOrMetaInfo(Sema &S, Expr *E) {
+  Expr *Converted = TryConvertTo(S, E, TokenOpTarget::TokenSequence);
+  if (Converted != E)
+    return Converted;
+  return TryConvertTo(S, E, TokenOpTarget::MetaInfo);
+}
+
+ExprResult Sema::ActOnTokenSequenceInterpolation(Expr *E) {
+  if (isa<CXXTokenInterpolationListExpr>(E))
+    return E;
+  // Don't evaluate here — the expression may reference consteval function
+  // parameters that aren't constant expressions at parse time but will have
+  // concrete values when the token sequence is evaluated during consteval
+  // evaluation. Evaluation happens in the ReflectionEvaluator when the
+  // ^^{ ... } expression is evaluated.
+
+  // If the expression is convertible to std::meta::token_sequence or
+  // std::meta::info, insert that conversion. token_sequence is preferred so
+  // a list_builder or similar wrapper can be expanded as raw tokens.
+  return TryConvertToTokenSequenceOrMetaInfo(*this, E);
+}
+
+ExprResult Sema::BuildTokenInterpolationList(SourceLocation BeginLoc,
+                                             ArrayRef<Expr *> Elements,
+                                             Expr *Separator,
+                                             SourceLocation EndLoc) {
+  // A pack expansion is kept as written; each element it expands to is
+  // converted when the list is rebuilt at instantiation.
+  SmallVector<Expr *, 4> Converted;
+  for (Expr *E : Elements) {
+    if (isa<PackExpansionExpr>(E)) {
+      Converted.push_back(E);
+      continue;
+    }
+    if (DiagnoseUnexpandedParameterPack(E))
+      return ExprError();
+    ExprResult C = ActOnTokenSequenceInterpolation(E);
+    if (C.isInvalid())
+      return ExprError();
+    Converted.push_back(C.get());
+  }
+  if (Separator) {
+    if (DiagnoseUnexpandedParameterPack(Separator))
+      return ExprError();
+    ExprResult C = ActOnTokenSequenceInterpolation(Separator);
+    if (C.isInvalid())
+      return ExprError();
+    Separator = C.get();
+  }
+  return CXXTokenInterpolationListExpr::Create(
+      Context, Context.TokenSequenceTy, Converted, Separator, BeginLoc, EndLoc);
+}
+
+ExprResult Sema::ActOnCXXBuiltinInject(SourceLocation KwLoc,
+                                       SourceLocation LParenLoc,
+                                       ArrayRef<Expr *> Args,
+                                       SourceLocation RParenLoc) {
+  // queue_injection(tokens) or queue_injection(target_ns, tokens)
+  Expr *TargetNS = nullptr;
+  Expr *Operand = nullptr;
+  if (Args.size() == 1) {
+    Operand = Args[0];
+  } else if (Args.size() == 2) {
+    TargetNS = Args[0];
+    Operand = Args[1];
+  } else {
+    llvm_unreachable("invalid number of arguments");
+  }
+  if (TargetNS)
+    TargetNS = TryConvertTo(*this, TargetNS, TokenOpTarget::MetaInfo);
+  Operand = TryConvertTo(*this, Operand, TokenOpTarget::TokenSequence);
+  return CXXBuiltinInjectExpr::Create(Context, Context.VoidTy, Operand,
+                                       KwLoc, LParenLoc, RParenLoc, TargetNS);
+}
+
+ExprResult Sema::ActOnCXXBuiltinReportTokens(SourceLocation KwLoc,
+                                             SourceLocation LParenLoc,
+                                             ArrayRef<Expr *> Args,
+                                             SourceLocation RParenLoc) {
+  // report_tokens(msg, tokens)
+  assert(Args.size() == 2 && "expected 2 arguments");
+  Expr *Msg = Args[0];
+  Expr *Operand = Args[1];
+  Operand = TryConvertTo(*this, Operand, TokenOpTarget::TokenSequence);
+
+  // Process the message argument using the same rules as id/str_lit: supports
+  // string literals, pointers, arrays, and user-defined types with data()/size().
+  Expr *MsgSizeCall = nullptr;
+  Expr *MsgDataCall = nullptr;
+
+  if (!Msg->isTypeDependent() && !Msg->isValueDependent()) {
+    QualType T = Msg->getType().getNonReferenceType();
+
+    // String-literal / pointer / array args evaluate directly.
+    if (!T->isPointerType() && !T->isArrayType()) {
+      // Class type: must have data() returning const char* and size() returning
+      // size_t (matching static_assert user-defined message rules).
+      auto *RD = T->getAsCXXRecordDecl();
+      if (!RD) {
+        Diag(Msg->getExprLoc(), diag::err_user_defined_msg_invalid)
+            << /*StringEvaluationContext::StaticAssert=*/0;
+        return ExprError();
+      }
+
+      SourceLocation Loc = Msg->getBeginLoc();
+      auto FindMember = [&](StringRef Name) -> std::optional<LookupResult> {
+        DeclarationName DN = PP.getIdentifierInfo(Name);
+        LookupResult R(*this, DN, Loc, Sema::LookupMemberName);
+        LookupQualifiedName(R, RD);
+        if (R.empty())
+          return std::nullopt;
+        return std::move(R);
+      };
+      auto Size = FindMember("size");
+      auto Data = FindMember("data");
+      if (!Size || !Data) {
+        Diag(Loc, diag::err_user_defined_msg_missing_member_function)
+            << /*StringEvaluationContext::StaticAssert=*/0
+            << ((!Size && !Data) ? 2 : !Size ? 0 : 1);
+        return ExprError();
+      }
+
+      auto BuildCall = [&](LookupResult &LR) -> ExprResult {
+        ExprResult Ref = BuildMemberReferenceExpr(
+            Msg, Msg->getType(), Loc, /*IsArrow=*/false, CXXScopeSpec(),
+            SourceLocation(), nullptr, LR, nullptr, nullptr);
+        if (Ref.isInvalid())
+          return ExprError();
+        ExprResult Call = BuildCallExpr(nullptr, Ref.get(), Loc, {}, Loc, nullptr,
+                                         false, true);
+        if (Call.isInvalid())
+          return ExprError();
+        return TemporaryMaterializationConversion(Call.get());
+      };
+
+      QualType SizeT = Context.getSizeType();
+      QualType ConstCharPtr = Context.getPointerType(
+          Context.getConstType(Context.CharTy));
+
+      ExprResult SizeCall = BuildCall(*Size);
+      ExprResult DataCall = BuildCall(*Data);
+      if (SizeCall.isInvalid() || DataCall.isInvalid())
+        return ExprError();
+
+      ExprResult SizeConv = BuildConvertedConstantExpression(
+          SizeCall.get(), SizeT, CCEKind::StaticAssertMessageSize);
+      ExprResult DataConv = BuildConvertedConstantExpression(
+          DataCall.get(), ConstCharPtr, CCEKind::StaticAssertMessageData);
+      if (SizeConv.isInvalid() || DataConv.isInvalid()) {
+        Diag(Loc, diag::err_user_defined_msg_invalid_mem_fn_ret_ty)
+            << /*StringEvaluationContext::StaticAssert=*/0
+            << (SizeConv.isInvalid() ? /*size*/ 0 : /*data*/ 1);
+        return ExprError();
+      }
+
+      MsgSizeCall = SizeConv.get();
+      MsgDataCall = DataConv.get();
+    }
+  }
+
+  return CXXBuiltinReportTokensExpr::Create(Context, Context.VoidTy, Msg,
+                                             MsgSizeCall, MsgDataCall, Operand,
+                                             KwLoc, LParenLoc, RParenLoc);
+}
+
+ExprResult Sema::ActOnCXXBuiltinId(SourceLocation KwLoc,
+                                   SourceLocation LParenLoc,
+                                   ArrayRef<Expr *> Args,
+                                   SourceLocation RParenLoc) {
+  // For each argument, classify and (for user-defined string-like types)
+  // build the size() and data() member calls so the constant evaluator
+  // doesn't need Sema-level lookup. Uses the same data()/size() member
+  // duck-typing rule as user-defined static_assert messages.
+  SmallVector<Expr *, 4> SizeCalls(Args.size(), nullptr);
+  SmallVector<Expr *, 4> DataCalls(Args.size(), nullptr);
+
+  QualType SizeT = Context.getSizeType();
+  QualType ConstCharPtr = Context.getPointerType(
+      Context.getConstType(Context.CharTy));
+
+  for (unsigned I = 0; I < Args.size(); ++I) {
+    Expr *Arg = Args[I];
+
+    // Defer to instantiation for dependent args.
+    if (Arg->isTypeDependent() || Arg->isValueDependent())
+      continue;
+
+    QualType T = Arg->getType().getNonReferenceType();
+
+    // Integer and string-literal / pointer / array args evaluate directly.
+    if (T->isIntegralOrEnumerationType() || T->isPointerType() ||
+        T->isArrayType())
+      continue;
+
+    // Class type: must have data() returning const char* and size() returning
+    // size_t (matching static_assert user-defined message rules).
+    auto *RD = T->getAsCXXRecordDecl();
+    if (!RD) {
+      Diag(Arg->getExprLoc(), diag::err_user_defined_msg_invalid)
+          << /*StringEvaluationContext::StaticAssert=*/0;
+      return ExprError();
+    }
+
+    SourceLocation Loc = Arg->getBeginLoc();
+    auto FindMember = [&](StringRef Name) -> std::optional<LookupResult> {
+      DeclarationName DN = PP.getIdentifierInfo(Name);
+      LookupResult R(*this, DN, Loc, Sema::LookupMemberName);
+      LookupQualifiedName(R, RD);
+      if (R.empty())
+        return std::nullopt;
+      return std::move(R);
+    };
+    auto Size = FindMember("size");
+    auto Data = FindMember("data");
+    if (!Size || !Data) {
+      Diag(Loc, diag::err_user_defined_msg_missing_member_function)
+          << /*StringEvaluationContext::StaticAssert=*/0
+          << ((!Size && !Data) ? 2 : !Size ? 0 : 1);
+      return ExprError();
+    }
+
+    auto BuildCall = [&](LookupResult &LR) -> ExprResult {
+      ExprResult Ref = BuildMemberReferenceExpr(
+          Arg, Arg->getType(), Loc, /*IsArrow=*/false, CXXScopeSpec(),
+          SourceLocation(), nullptr, LR, nullptr, nullptr);
+      if (Ref.isInvalid())
+        return ExprError();
+      ExprResult Call = BuildCallExpr(nullptr, Ref.get(), Loc, {}, Loc, nullptr,
+                                       false, true);
+      if (Call.isInvalid())
+        return ExprError();
+      return TemporaryMaterializationConversion(Call.get());
+    };
+
+    ExprResult SizeCall = BuildCall(*Size);
+    ExprResult DataCall = BuildCall(*Data);
+    if (SizeCall.isInvalid() || DataCall.isInvalid())
+      return ExprError();
+
+    ExprResult SizeConv = BuildConvertedConstantExpression(
+        SizeCall.get(), SizeT, CCEKind::StaticAssertMessageSize);
+    ExprResult DataConv = BuildConvertedConstantExpression(
+        DataCall.get(), ConstCharPtr, CCEKind::StaticAssertMessageData);
+    if (SizeConv.isInvalid() || DataConv.isInvalid()) {
+      Diag(Loc, diag::err_user_defined_msg_invalid_mem_fn_ret_ty)
+          << /*StringEvaluationContext::StaticAssert=*/0
+          << (SizeConv.isInvalid() ? /*size*/ 0 : /*data*/ 1);
+      return ExprError();
+    }
+
+    SizeCalls[I] = SizeConv.get();
+    DataCalls[I] = DataConv.get();
+  }
+
+  return CXXBuiltinIdExpr::Create(Context, Context.TokenSequenceTy,
+                                  ArrayRef<Expr *>(Args), SizeCalls, DataCalls,
+                                  KwLoc, LParenLoc, RParenLoc);
+}
+
+ExprResult Sema::ActOnCXXBuiltinStrLiteral(SourceLocation KwLoc,
+                                           SourceLocation LParenLoc,
+                                           ArrayRef<Expr *> Args,
+                                           SourceLocation RParenLoc) {
+  // Same argument validation as std::meta::id, but with no first-argument
+  // restriction (integers can come first since "123" is a valid literal).
+  SmallVector<Expr *, 4> SizeCalls(Args.size(), nullptr);
+  SmallVector<Expr *, 4> DataCalls(Args.size(), nullptr);
+
+  QualType SizeT = Context.getSizeType();
+  QualType ConstCharPtr = Context.getPointerType(
+      Context.getConstType(Context.CharTy));
+
+  for (unsigned I = 0; I < Args.size(); ++I) {
+    Expr *Arg = Args[I];
+
+    // Defer to instantiation for dependent args.
+    if (Arg->isTypeDependent() || Arg->isValueDependent())
+      continue;
+
+    QualType T = Arg->getType().getNonReferenceType();
+
+    // Integer and string-literal / pointer / array args evaluate directly.
+    if (T->isIntegralOrEnumerationType() || T->isPointerType() ||
+        T->isArrayType())
+      continue;
+
+    // Class type: must have data() returning const char* and size() returning
+    // size_t (matching static_assert user-defined message rules).
+    auto *RD = T->getAsCXXRecordDecl();
+    if (!RD) {
+      Diag(Arg->getExprLoc(), diag::err_user_defined_msg_invalid)
+          << /*StringEvaluationContext::StaticAssert=*/0;
+      return ExprError();
+    }
+
+    SourceLocation Loc = Arg->getBeginLoc();
+    auto FindMember = [&](StringRef Name) -> std::optional<LookupResult> {
+      DeclarationName DN = PP.getIdentifierInfo(Name);
+      LookupResult R(*this, DN, Loc, Sema::LookupMemberName);
+      LookupQualifiedName(R, RD);
+      if (R.empty())
+        return std::nullopt;
+      return std::move(R);
+    };
+    auto Size = FindMember("size");
+    auto Data = FindMember("data");
+    if (!Size || !Data) {
+      Diag(Loc, diag::err_user_defined_msg_missing_member_function)
+          << /*StringEvaluationContext::StaticAssert=*/0
+          << ((!Size && !Data) ? 2 : !Size ? 0 : 1);
+      return ExprError();
+    }
+
+    auto BuildCall = [&](LookupResult &LR) -> ExprResult {
+      ExprResult Ref = BuildMemberReferenceExpr(
+          Arg, Arg->getType(), Loc, /*IsArrow=*/false, CXXScopeSpec(),
+          SourceLocation(), nullptr, LR, nullptr, nullptr);
+      if (Ref.isInvalid())
+        return ExprError();
+      ExprResult Call = BuildCallExpr(nullptr, Ref.get(), Loc, {}, Loc, nullptr,
+                                       false, true);
+      if (Call.isInvalid())
+        return ExprError();
+      return TemporaryMaterializationConversion(Call.get());
+    };
+
+    ExprResult SizeCall = BuildCall(*Size);
+    ExprResult DataCall = BuildCall(*Data);
+    if (SizeCall.isInvalid() || DataCall.isInvalid())
+      return ExprError();
+
+    ExprResult SizeConv = BuildConvertedConstantExpression(
+        SizeCall.get(), SizeT, CCEKind::StaticAssertMessageSize);
+    ExprResult DataConv = BuildConvertedConstantExpression(
+        DataCall.get(), ConstCharPtr, CCEKind::StaticAssertMessageData);
+    if (SizeConv.isInvalid() || DataConv.isInvalid()) {
+      Diag(Loc, diag::err_user_defined_msg_invalid_mem_fn_ret_ty)
+          << /*StringEvaluationContext::StaticAssert=*/0
+          << (SizeConv.isInvalid() ? /*size*/ 0 : /*data*/ 1);
+      return ExprError();
+    }
+
+    SizeCalls[I] = SizeConv.get();
+    DataCalls[I] = DataConv.get();
+  }
+
+  return CXXBuiltinStrLiteralExpr::Create(Context, Context.TokenSequenceTy,
+                                          ArrayRef<Expr *>(Args), SizeCalls,
+                                          DataCalls, KwLoc, LParenLoc,
+                                          RParenLoc);
+}
+
+ExprResult Sema::ActOnCXXBuiltinTokenize(SourceLocation KwLoc,
+                                         SourceLocation LParenLoc,
+                                         ArrayRef<Expr *> Args,
+                                         SourceLocation RParenLoc) {
+  if (Args.empty()) {
+    Diag(KwLoc, diag::err_typecheck_call_too_few_args_at_least)
+        << 0 << 1 << 0;
+    return ExprError();
+  }
+
+  // For each argument, classify and (for user-defined string-like types)
+  // build the size() and data() member calls so the constant evaluator
+  // doesn't need Sema-level lookup. Uses the same data()/size() member
+  // duck-typing rule as user-defined static_assert messages.
+  SmallVector<Expr *, 4> SizeCalls(Args.size(), nullptr);
+  SmallVector<Expr *, 4> DataCalls(Args.size(), nullptr);
+
+  QualType SizeT = Context.getSizeType();
+  QualType ConstCharPtr = Context.getPointerType(
+      Context.getConstType(Context.CharTy));
+
+  for (unsigned I = 0; I < Args.size(); ++I) {
+    Expr *Arg = Args[I];
+
+    // Defer to instantiation for dependent args.
+    if (Arg->isTypeDependent() || Arg->isValueDependent())
+      continue;
+
+    QualType T = Arg->getType().getNonReferenceType();
+
+    // Integer and string-literal / pointer / array args evaluate directly.
+    if (T->isIntegralOrEnumerationType() || T->isPointerType() ||
+        T->isArrayType())
+      continue;
+
+    // Class type: must have data() returning const char* and size() returning
+    // size_t (matching static_assert user-defined message rules).
+    auto *RD = T->getAsCXXRecordDecl();
+    if (!RD) {
+      Diag(Arg->getExprLoc(), diag::err_user_defined_msg_invalid)
+          << /*StringEvaluationContext::StaticAssert=*/0;
+      return ExprError();
+    }
+
+    SourceLocation Loc = Arg->getBeginLoc();
+    auto FindMember = [&](StringRef Name) -> std::optional<LookupResult> {
+      DeclarationName DN = PP.getIdentifierInfo(Name);
+      LookupResult R(*this, DN, Loc, Sema::LookupMemberName);
+      LookupQualifiedName(R, RD);
+      if (R.empty())
+        return std::nullopt;
+      return std::move(R);
+    };
+    auto Size = FindMember("size");
+    auto Data = FindMember("data");
+    if (!Size || !Data) {
+      Diag(Loc, diag::err_user_defined_msg_missing_member_function)
+          << /*StringEvaluationContext::StaticAssert=*/0
+          << ((!Size && !Data) ? 2 : !Size ? 0 : 1);
+      return ExprError();
+    }
+
+    auto BuildCall = [&](LookupResult &LR) -> ExprResult {
+      ExprResult Ref = BuildMemberReferenceExpr(
+          Arg, Arg->getType(), Loc, /*IsArrow=*/false, CXXScopeSpec(),
+          SourceLocation(), nullptr, LR, nullptr, nullptr);
+      if (Ref.isInvalid())
+        return ExprError();
+      ExprResult Call = BuildCallExpr(nullptr, Ref.get(), Loc, {}, Loc, nullptr,
+                                       false, true);
+      if (Call.isInvalid())
+        return ExprError();
+      return TemporaryMaterializationConversion(Call.get());
+    };
+
+    ExprResult SizeCall = BuildCall(*Size);
+    ExprResult DataCall = BuildCall(*Data);
+    if (SizeCall.isInvalid() || DataCall.isInvalid())
+      return ExprError();
+
+    ExprResult SizeConv = BuildConvertedConstantExpression(
+        SizeCall.get(), SizeT, CCEKind::StaticAssertMessageSize);
+    ExprResult DataConv = BuildConvertedConstantExpression(
+        DataCall.get(), ConstCharPtr, CCEKind::StaticAssertMessageData);
+    if (SizeConv.isInvalid() || DataConv.isInvalid()) {
+      Diag(Loc, diag::err_user_defined_msg_invalid_mem_fn_ret_ty)
+          << /*StringEvaluationContext::StaticAssert=*/0
+          << (SizeConv.isInvalid() ? /*size*/ 0 : /*data*/ 1);
+      return ExprError();
+    }
+
+    SizeCalls[I] = SizeConv.get();
+    DataCalls[I] = DataConv.get();
+  }
+
+  return CXXBuiltinTokenizeExpr::Create(Context, Context.TokenSequenceTy,
+                                        ArrayRef<Expr *>(Args), SizeCalls,
+                                        DataCalls, KwLoc, LParenLoc,
+                                        RParenLoc);
+}
+
+ExprResult Sema::ActOnCXXBuiltinStringize(SourceLocation KwLoc,
+                                          SourceLocation LParenLoc,
+                                          ArrayRef<Expr *> Args,
+                                          SourceLocation RParenLoc) {
+  if (Args.size() != 1) {
+    Diag(KwLoc, diag::err_typecheck_call_too_few_args_at_least)
+        << 0 << 1 << static_cast<unsigned>(Args.size());
+    return ExprError();
+  }
+
+  Expr *Operand = Args[0];
+
+  // Handle dependent arguments.
+  if (Operand->isTypeDependent() || Operand->isValueDependent()) {
+    QualType ResultTy = Context.getPointerType(Context.getConstType(Context.CharTy));
+    return CXXBuiltinStringizeExpr::Create(Context, ResultTy, Operand, KwLoc,
+                                           LParenLoc, RParenLoc);
+  }
+
+  // The operand must be convertible to token_sequence.
+  Operand = TryConvertTo(*this, Operand, TokenOpTarget::TokenSequence);
+
+  // Result type is char const*.
+  QualType ResultTy = Context.getPointerType(Context.getConstType(Context.CharTy));
+  return CXXBuiltinStringizeExpr::Create(Context, ResultTy, Operand, KwLoc,
+                                         LParenLoc, RParenLoc);
+}
+
 /// Returns an expression representing the result of a metafunction operating
 /// on a reflection.
 ExprResult Sema::ActOnCXXMetafunction(SourceLocation KwLoc,
@@ -1241,6 +1847,523 @@ bool Sema::ActOnCXXSpliceScopeSpecifier(CXXScopeSpec &SS,
 Decl *Sema::ActOnConstevalBlockDeclaration(SourceLocation ConstevalLoc,
                                            Expr *EvaluatingExpr) {
   return BuildConstevalBlockDeclaration(ConstevalLoc, EvaluatingExpr);
+}
+
+// The Rewrite-kind substitution that maps a source declaration's template
+// parameters to their already-cloned counterparts: one level per parameter
+// list, innermost first (a nested template template parameter list, then
+// the list enclosing it).
+static MultiLevelTemplateArgumentList
+clonedParameterRewrite(ArrayRef<ArrayRef<TemplateArgument>> Levels) {
+  MultiLevelTemplateArgumentList Args;
+  Args.setKind(TemplateSubstitutionKind::Rewrite);
+  for (ArrayRef<TemplateArgument> Level : Levels)
+    Args.addOuterTemplateArguments(Level);
+  return Args;
+}
+
+// One level of the constraint-space substitution for a clone: an argument
+// list with the declaration it substitutes into (ordinary Specialization
+// kind, since the enclosing specializations' arguments are concrete values
+// that Rewrite-kind substitution cannot carry).
+struct ConstraintSubstLevel {
+  Decl *AssociatedDecl;
+  ArrayRef<TemplateArgument> Args;
+};
+
+// Collects the template arguments of every class template specialization
+// enclosing the given source member, innermost first. A member of an
+// instantiated class keeps its *constraint* expressions unsubstituted, in
+// the pattern's depth space: its own parameters one depth below each
+// enclosing class's, whose parameters the expressions still reference.
+// Constraint checking on the source compensates by supplying these
+// arguments as outer levels; a clone leaves that machinery behind, so it
+// must bake them in when substituting the source's constraints (and only
+// the constraints -- the rest of the source declaration is already in the
+// instantiated, depth-0 space).
+static void collectSourceConstraintOuterLevels(
+    const Decl *SourceMember, SmallVectorImpl<ConstraintSubstLevel> &Levels) {
+  for (const DeclContext *Ctx = SourceMember->getDeclContext(); Ctx;
+       Ctx = Ctx->getParent()) {
+    if (auto *SD = dyn_cast<ClassTemplateSpecializationDecl>(
+            const_cast<DeclContext *>(Ctx)))
+      Levels.push_back({SD, SD->getTemplateInstantiationArgs().asArray()});
+    if (!isa<CXXRecordDecl>(Ctx))
+      break;
+  }
+}
+
+// Builds the constraint-space substitution from its levels, innermost
+// first: the cloned parameters (at the source pattern's own depth), then
+// the source's enclosing specializations' arguments below them.
+static MultiLevelTemplateArgumentList
+clonedConstraintSubst(ArrayRef<ConstraintSubstLevel> Levels) {
+  MultiLevelTemplateArgumentList Args;
+  for (const ConstraintSubstLevel &Level : Levels)
+    Args.addOuterTemplateArguments(Level.AssociatedDecl, Level.Args,
+                                   /*Final=*/false);
+  return Args;
+}
+
+// Clones one template parameter for an injected declaration description
+// (std::meta::declaration_of), renaming it per the description's naming
+// policy and remapping references to earlier parameters through 'Levels'
+// (see clonedParameterRewrite). Follows the recipe of CTAD deduction-guide
+// synthesis. 'ConstraintLevels' is the complete constraint-space
+// substitution, innermost first (see clonedConstraintSubst); its innermost
+// level's Args are expected to match Levels' innermost (the parameters
+// cloned so far).
+static NamedDecl *transformClonedTemplateParam(
+    Sema &SemaRef, DeclContext *DC, NamedDecl *Param,
+    ArrayRef<ArrayRef<TemplateArgument>> Levels,
+    ArrayRef<ConstraintSubstLevel> ConstraintLevels, unsigned NewIndex,
+    IdentifierInfo *NewName, SourceLocation Loc, unsigned NewDepth = 0,
+    bool KeepDefaults = true) {
+  ASTContext &C = SemaRef.Context;
+  MultiLevelTemplateArgumentList Args = clonedParameterRewrite(Levels);
+
+  if (auto *TTP = dyn_cast<TemplateTypeParmDecl>(Param)) {
+    auto *NewTTP = TemplateTypeParmDecl::Create(
+        C, DC, Loc, Loc, NewDepth, NewIndex, NewName,
+        TTP->wasDeclaredWithTypename(), TTP->isParameterPack(),
+        TTP->hasTypeConstraint(), TTP->getNumExpansionParameters());
+    if (const auto *TC = TTP->getTypeConstraint()) {
+      // The type-constraint lives in the source pattern's depth space, not
+      // the instantiated member's: substitute it against the cloned
+      // parameters *and* the enclosing specializations' arguments, so the
+      // clone's constraint is self-contained. EvaluateConstraint=true here
+      // means "substitute now rather than defer" -- the rebuilt constraint
+      // still names the new parameter, so nothing is eagerly satisfied.
+      MultiLevelTemplateArgumentList CArgs =
+          clonedConstraintSubst(ConstraintLevels);
+      SemaRef.SubstTypeConstraint(NewTTP, TC, CArgs,
+                                  /*EvaluateConstraint=*/true);
+    }
+    if (KeepDefaults && TTP->hasDefaultArgument()) {
+      TemplateArgumentLoc InstantiatedDefaultArg;
+      if (!SemaRef.SubstTemplateArgument(
+              TTP->getDefaultArgument(), Args, InstantiatedDefaultArg,
+              TTP->getDefaultArgumentLoc(), TTP->getDeclName()))
+        NewTTP->setDefaultArgument(C, InstantiatedDefaultArg);
+    }
+    SemaRef.CurrentInstantiationScope->InstantiatedLocal(TTP, NewTTP);
+    return NewTTP;
+  }
+
+  if (auto *NTTP = dyn_cast<NonTypeTemplateParmDecl>(Param)) {
+    if (NTTP->isExpandedParameterPack())
+      return nullptr;
+
+    TypeSourceInfo *NewTSI = SemaRef.SubstType(
+        NTTP->getTypeSourceInfo(), Args, NTTP->getLocation(),
+        NTTP->getDeclName());
+    if (!NewTSI)
+      return nullptr;
+    QualType NewT =
+        SemaRef.CheckNonTypeTemplateParameterType(NewTSI, NTTP->getLocation());
+    if (NewT.isNull())
+      return nullptr;
+
+    auto *NewNTTP = NonTypeTemplateParmDecl::Create(
+        C, DC, Loc, Loc, NewDepth, NewIndex, NewName, NewT,
+        NTTP->isParameterPack(), NewTSI);
+
+    if (AutoTypeLoc AutoLoc =
+            NewTSI->getTypeLoc().getContainedAutoTypeLoc();
+        AutoLoc && AutoLoc.isConstrained()) {
+      SourceLocation EllipsisLoc;
+      if (auto *Constraint = dyn_cast_if_present<CXXFoldExpr>(
+              NTTP->getPlaceholderTypeConstraint()))
+        EllipsisLoc = Constraint->getEllipsisLoc();
+      if (SemaRef.AttachTypeConstraint(AutoLoc, /*NewConstrainedParm=*/NewNTTP,
+                                       /*OrigConstrainedParm=*/NTTP,
+                                       EllipsisLoc))
+        return nullptr;
+    }
+
+    if (KeepDefaults && NTTP->hasDefaultArgument()) {
+      TemplateArgumentLoc InstantiatedDefaultArg;
+      if (!SemaRef.SubstTemplateArgument(
+              NTTP->getDefaultArgument(), Args, InstantiatedDefaultArg,
+              NTTP->getDefaultArgumentLoc(), NTTP->getDeclName()))
+        NewNTTP->setDefaultArgument(C, InstantiatedDefaultArg);
+    }
+    SemaRef.CurrentInstantiationScope->InstantiatedLocal(NTTP, NewNTTP);
+    return NewNTTP;
+  }
+
+  // Template template parameters: the nested parameter list is cloned too.
+  // Its names keep their spelling (they are a separate scope and do not
+  // participate in forwarding), but its parameters' types, constraints and
+  // defaults can refer to the enclosing list's parameters -- which are being
+  // renamed and reindexed -- and they live one depth below them.
+  if (auto *TTPD = dyn_cast<TemplateTemplateParmDecl>(Param)) {
+    if (TTPD->isExpandedParameterPack())
+      return nullptr;
+
+    TemplateParameterList *OldTPL = TTPD->getTemplateParameters();
+    SmallVector<NamedDecl *, 4> NestedParams;
+    SmallVector<TemplateArgument, 4> NestedArgs;
+    for (unsigned I = 0, N = OldTPL->size(); I != N; ++I) {
+      // Earlier parameters of this list (innermost), then the enclosing
+      // lists. NestedArgs is read before it grows.
+      SmallVector<ArrayRef<TemplateArgument>, 4> NestedLevels;
+      NestedLevels.push_back(NestedArgs);
+      NestedLevels.append(Levels.begin(), Levels.end());
+      NamedDecl *OldNested = OldTPL->getParam(I);
+      SmallVector<ConstraintSubstLevel, 8> NestedCLevels;
+      NestedCLevels.push_back({TTPD, NestedArgs});
+      NestedCLevels.append(ConstraintLevels.begin(), ConstraintLevels.end());
+      NamedDecl *NewNested = transformClonedTemplateParam(
+          SemaRef, DC, OldNested, NestedLevels, NestedCLevels, I,
+          OldNested->getIdentifier(), Loc, NewDepth + 1, /*KeepDefaults=*/true);
+      if (!NewNested)
+        return nullptr;
+      NestedArgs.push_back(C.getInjectedTemplateArg(NewNested));
+      NestedParams.push_back(NewNested);
+    }
+    Expr *NestedRC = nullptr;
+    if (Expr *OldRC = OldTPL->getRequiresClause()) {
+      SmallVector<ConstraintSubstLevel, 8> NestedCLevels;
+      NestedCLevels.push_back({TTPD, NestedArgs});
+      NestedCLevels.append(ConstraintLevels.begin(), ConstraintLevels.end());
+      MultiLevelTemplateArgumentList RCArgs =
+          clonedConstraintSubst(NestedCLevels);
+      ExprResult R =
+          SemaRef.SubstConstraintExprWithoutSatisfaction(OldRC, RCArgs);
+      if (R.isInvalid())
+        return nullptr;
+      NestedRC = R.get();
+    }
+    TemplateParameterList *NewTPL = TemplateParameterList::Create(
+        C, OldTPL->getTemplateLoc(), OldTPL->getLAngleLoc(), NestedParams,
+        OldTPL->getRAngleLoc(), NestedRC);
+
+    auto *NewTTPD = TemplateTemplateParmDecl::Create(
+        C, DC, Loc, NewDepth, NewIndex, TTPD->isParameterPack(), NewName,
+        TTPD->templateParameterKind(), TTPD->wasDeclaredWithTypename(),
+        NewTPL);
+    if (KeepDefaults && TTPD->hasDefaultArgument()) {
+      TemplateArgumentLoc InstantiatedDefaultArg;
+      if (!SemaRef.SubstTemplateArgument(
+              TTPD->getDefaultArgument(), Args, InstantiatedDefaultArg,
+              TTPD->getDefaultArgumentLoc(), TTPD->getDeclName()))
+        NewTTPD->setDefaultArgument(C, InstantiatedDefaultArg);
+    }
+    SemaRef.CurrentInstantiationScope->InstantiatedLocal(TTPD, NewTTPD);
+    return NewTTPD;
+  }
+
+  return nullptr;
+}
+
+bool Sema::ActOnInjectedTemplateParameters(
+    Scope *S, TemplateParamListSpec *TPS, unsigned Depth, SourceLocation Loc,
+    SmallVectorImpl<NamedDecl *> &TemplateParams) {
+  FunctionDeclSpec *Spec = TPS->Spec;
+
+  TemplateParameterList *OldTPL = nullptr;
+  if (auto *CTD = dyn_cast<ClassTemplateDecl>(Spec->Source))
+    OldTPL = CTD->getTemplateParameters();
+  else if (auto *FTD = dyn_cast<FunctionTemplateDecl>(Spec->Source))
+    OldTPL = FTD->getTemplateParameters();
+  if (!OldTPL) {
+    Diag(Loc, diag::err_decl_spec_wrong_context);
+    return true;
+  }
+
+  // Clone the source's parameters at the *destination's* depth and starting
+  // position (the fragment can follow written parameters), renaming per the
+  // description and remapping references to earlier cloned parameters --
+  // the same Rewrite-substitution recipe as function-head cloning. Note the
+  // source's own requires-clause is not carried: it constrains the
+  // *primary's* arguments, and any actual specialization the injected
+  // declaration could match already satisfies it.
+  // Substitution needs a code-synthesis context even outside any
+  // instantiation (a namespace-scope fragment): the same one CTAD's guide
+  // synthesis uses, as the function-declaration path does.
+  LocalInstantiationScope InstScope(*this);
+  InstantiatingTemplate BDG(*this, Loc, cast<TemplateDecl>(Spec->Source),
+                            InstantiatingTemplate::BuildingDeductionGuidesTag{});
+  if (BDG.isInvalid())
+    return true;
+
+  SmallVector<ConstraintSubstLevel, 4> SrcOuterLevels;
+  collectSourceConstraintOuterLevels(cast<Decl>(Spec->Source), SrcOuterLevels);
+
+  SmallVector<TemplateArgument, 8> NewParamArgs;
+  unsigned StartIndex = TemplateParams.size();
+  for (unsigned I = 0, N = OldTPL->size(); I != N; ++I) {
+    // Read before NewParamArgs grows.
+    ArrayRef<TemplateArgument> Cloned = NewParamArgs;
+    SmallVector<ConstraintSubstLevel, 8> CLevels;
+    CLevels.push_back({cast<Decl>(Spec->Source), Cloned});
+    CLevels.append(SrcOuterLevels.begin(), SrcOuterLevels.end());
+    IdentifierInfo *NewName = &Context.Idents.get(
+        Spec->TemplateParameterPrefix + std::to_string(I));
+    NamedDecl *NewParam = transformClonedTemplateParam(
+        *this, CurContext, OldTPL->getParam(I), Cloned, CLevels,
+        StartIndex + I, NewName, Loc, Depth, TPS->KeepDefaults);
+    if (!NewParam) {
+      Diag(Loc, diag::err_decl_spec_clone_failed)
+          << cast<NamedDecl>(Spec->Source);
+      return true;
+    }
+    NewParamArgs.push_back(Context.getInjectedTemplateArg(NewParam));
+    // Make the new parameter visible to the rest of the template
+    // declaration being parsed.
+    if (NewParam->getDeclName())
+      PushOnScopeChains(NewParam, S);
+    TemplateParams.push_back(NewParam);
+  }
+  return false;
+}
+
+NamedDecl *Sema::ActOnInjectedFunctionDeclSpec(Scope *S, FunctionDeclSpec *Spec,
+                                               AccessSpecifier AS,
+                                               SourceLocation Loc) {
+  auto *RD = dyn_cast<CXXRecordDecl>(CurContext);
+  if (!RD || !RD->isBeingDefined()) {
+    Diag(Loc, diag::err_decl_spec_wrong_context);
+    return nullptr;
+  }
+
+  if (isa<ClassTemplateDecl>(Spec->Source)) {
+    Diag(Loc, diag::err_decl_spec_wrong_context);
+    return nullptr;
+  }
+
+  auto *SrcFTD = dyn_cast<FunctionTemplateDecl>(Spec->Source);
+  auto *SrcMD = cast<CXXMethodDecl>(Spec->Source->getAsFunction());
+  const auto *SrcProto = SrcMD->getType()->castAs<FunctionProtoType>();
+
+  auto Fail = [&]() -> NamedDecl * {
+    Diag(Loc, diag::err_decl_spec_clone_failed) << SrcMD;
+    return nullptr;
+  };
+
+  LocalInstantiationScope InstScope(*this);
+  std::optional<InstantiatingTemplate> BDG;
+  if (SrcFTD) {
+    BDG.emplace(*this, Loc, SrcFTD,
+                InstantiatingTemplate::BuildingDeductionGuidesTag{});
+    if (BDG->isInvalid())
+      return nullptr;
+  }
+
+  // The source's constraint expressions (type-constraints, the template
+  // head's requires-clause, the trailing requires-clause) are left
+  // unsubstituted when a member of a class template is instantiated, so
+  // they are still written in the pattern's depth space and reference the
+  // enclosing class's parameters. The source relies on constraint checking
+  // to supply the enclosing specialization's arguments; the clone cannot
+  // (its own enclosing class is unrelated), so bake them in now.
+  SmallVector<ConstraintSubstLevel, 4> SrcOuterLevels;
+  collectSourceConstraintOuterLevels(SrcMD, SrcOuterLevels);
+
+  // Clone the template head, renaming each parameter and remapping
+  // references to earlier parameters (Rewrite-kind substitution, as CTAD
+  // deduction-guide synthesis does).
+  MultiLevelTemplateArgumentList Args;
+  Args.setKind(TemplateSubstitutionKind::Rewrite);
+  TemplateParameterList *NewTPL = nullptr;
+  // Referenced by 'Args' beyond the block below; must outlive it.
+  SmallVector<TemplateArgument, 8> NewParamArgs;
+  if (SrcFTD) {
+    TemplateParameterList *OldTPL = SrcFTD->getTemplateParameters();
+    SmallVector<NamedDecl *, 8> NewParams;
+    for (unsigned I = 0, N = OldTPL->size(); I != N; ++I) {
+      // Read before NewParamArgs grows.
+      ArrayRef<TemplateArgument> Cloned = NewParamArgs;
+      SmallVector<ConstraintSubstLevel, 8> CLevels;
+      CLevels.push_back({SrcFTD, Cloned});
+      CLevels.append(SrcOuterLevels.begin(), SrcOuterLevels.end());
+      IdentifierInfo *NewName = &Context.Idents.get(
+          Spec->TemplateParameterPrefix + std::to_string(I));
+      NamedDecl *NewParam = transformClonedTemplateParam(
+          *this, RD, OldTPL->getParam(I), Cloned, CLevels, I, NewName, Loc);
+      if (!NewParam)
+        return Fail();
+      NewParamArgs.push_back(Context.getInjectedTemplateArg(NewParam));
+      NewParams.push_back(NewParam);
+    }
+    Args.addOuterTemplateArguments(NewParamArgs);
+
+    Expr *NewRC = nullptr;
+    if (Expr *OldRC = OldTPL->getRequiresClause()) {
+      SmallVector<ConstraintSubstLevel, 8> CLevels;
+      CLevels.push_back({SrcFTD, NewParamArgs});
+      CLevels.append(SrcOuterLevels.begin(), SrcOuterLevels.end());
+      MultiLevelTemplateArgumentList CArgs = clonedConstraintSubst(CLevels);
+      ExprResult R = SubstConstraintExprWithoutSatisfaction(OldRC, CArgs);
+      if (R.isInvalid())
+        return Fail();
+      NewRC = R.get();
+    }
+    NewTPL = TemplateParameterList::Create(Context, Loc, Loc, NewParams, Loc,
+                                           NewRC);
+  }
+
+  // Clone the function parameters with new names.
+  SmallVector<ParmVarDecl *, 8> NewParms;
+  SmallVector<QualType, 8> NewParamTys;
+  bool KeepsPatternDefaults = false;
+  for (unsigned I = 0, N = SrcMD->getNumParams(); I != N; ++I) {
+    ParmVarDecl *OldParm = SrcMD->getParamDecl(I);
+    TypeSourceInfo *NewTSI = OldParm->getTypeSourceInfo();
+    if (SrcFTD) {
+      NewTSI = SubstType(NewTSI, Args, Loc, OldParm->getDeclName());
+      if (!NewTSI)
+        return Fail();
+    }
+    IdentifierInfo *NewName =
+        &Context.Idents.get(Spec->ParameterPrefix + std::to_string(I));
+    // Arrays and functions adjust to pointers, as for any declared parameter;
+    // the written form is preserved in the type source info.
+    QualType AdjustedTy = Context.getAdjustedParameterType(NewTSI->getType());
+    auto *NewParm = ParmVarDecl::Create(Context, CurContext, Loc, Loc, NewName,
+                                        AdjustedTy, NewTSI, SC_None,
+                                        /*DefArg=*/nullptr);
+    NewParm->setScopeInfo(0, I);
+
+    Expr *OldDefault = nullptr;
+    if (OldParm->hasUninstantiatedDefaultArg())
+      OldDefault = OldParm->getUninstantiatedDefaultArg();
+    else if (OldParm->hasUnparsedDefaultArg())
+      return Fail();
+    else if (OldParm->hasDefaultArg())
+      OldDefault = OldParm->getDefaultArg();
+    if (OldDefault) {
+      if (OldParm->hasUninstantiatedDefaultArg()) {
+        // An uninstantiated default is the *pattern's* expression, which
+        // the source member (a member of a class template specialization)
+        // instantiates only when a call uses it. The clone does the same --
+        // see Sema::InstantiateDefaultArgument, which resolves it against
+        // the source specialization. Instantiating it now would turn an
+        // unused, invalid default into an error and move its point of
+        // instantiation.
+        NewParm->setUninstantiatedDefaultArg(OldDefault);
+        KeepsPatternDefaults = true;
+      } else if (SrcFTD) {
+        ExprResult R = SubstExpr(OldDefault, Args);
+        if (R.isInvalid())
+          return Fail();
+        NewParm->setDefaultArg(R.get());
+      } else {
+        NewParm->setDefaultArg(OldDefault);
+      }
+    }
+
+    CurrentInstantiationScope->InstantiatedLocal(OldParm, NewParm);
+    NewParms.push_back(NewParm);
+    NewParamTys.push_back(AdjustedTy);
+  }
+
+  // The return type, remapped for the new head.
+  QualType NewRet = SrcProto->getReturnType();
+  if (SrcFTD) {
+    NewRet = SubstType(NewRet, Args, Loc, DeclarationName());
+    if (NewRet.isNull())
+      return Fail();
+  }
+
+  // The prototype keeps the source's cv/ref-qualifiers but deliberately not
+  // its exception specification: the new body has its own exception
+  // behavior, and silently cloning noexcept would be a correctness trap.
+  FunctionProtoType::ExtProtoInfo EPI = SrcProto->getExtProtoInfo();
+  EPI.ExceptionSpec = FunctionProtoType::ExceptionSpecInfo();
+  // ... unless the description was transformed with make_noexcept.
+  if (Spec->MarkNoexcept)
+    EPI.ExceptionSpec = FunctionProtoType::ExceptionSpecInfo(EST_BasicNoexcept);
+  QualType NewFT = Context.getFunctionType(NewRet, NewParamTys, EPI);
+  TypeSourceInfo *NewFTSI = Context.getTrivialTypeSourceInfo(NewFT, Loc);
+  if (auto ProtoLoc =
+          NewFTSI->getTypeLoc().IgnoreParens().getAs<FunctionProtoTypeLoc>())
+    for (unsigned I = 0, N = NewParms.size(); I != N; ++I)
+      ProtoLoc.setParam(I, NewParms[I]);
+
+  // The trailing requires-clause; it may reference the (remapped) template
+  // and function parameters, and -- like every constraint of a member of an
+  // instantiated class -- the enclosing class's parameters, still in the
+  // pattern's depth space.
+  AssociatedConstraint NewTRC;
+  if (const AssociatedConstraint &OldTRC = SrcMD->getTrailingRequiresClause()) {
+    if (SrcFTD || !SrcOuterLevels.empty()) {
+      SmallVector<ConstraintSubstLevel, 8> CLevels;
+      if (SrcFTD)
+        CLevels.push_back({SrcFTD, NewParamArgs});
+      CLevels.append(SrcOuterLevels.begin(), SrcOuterLevels.end());
+      MultiLevelTemplateArgumentList CArgs = clonedConstraintSubst(CLevels);
+      ExprResult R = SubstConstraintExprWithoutSatisfaction(
+          const_cast<Expr *>(OldTRC.ConstraintExpr), CArgs);
+      if (R.isInvalid())
+        return Fail();
+      NewTRC = AssociatedConstraint(R.get(), OldTRC.ArgPackSubstIndex);
+    } else {
+      NewTRC = OldTRC;
+    }
+  }
+
+  DeclarationName Name = SrcMD->getDeclName();
+  if (Spec->Name)
+    Name = DeclarationName(&Context.Idents.get(*Spec->Name));
+
+  auto *Method = CXXMethodDecl::Create(
+      Context, RD, Loc, DeclarationNameInfo(Name, Loc), NewFT, NewFTSI,
+      SC_None, SrcMD->UsesFPIntrin(), /*isInline=*/true,
+      SrcMD->getConstexprKind(), Loc, NewTRC);
+  for (ParmVarDecl *P : NewParms)
+    P->setOwningFunction(Method);
+  Method->setParams(NewParms);
+  Method->setAccess(AS);
+  Method->setLexicalDeclContext(CurContext);
+  if (KeepsPatternDefaults)
+    ClonedDeclarationSources[Method] = SrcMD;
+
+  // A clone with the same name and signature as an inherited virtual
+  // implicitly overrides it (that is how mock<Interface> implements an
+  // abstract base). Register the overrides as an ordinary declaration
+  // would, and enforce a make_override transformation like a written
+  // 'override' specifier.
+  if (!SrcFTD) {
+    AddOverriddenMethods(RD, Method);
+    if (Spec->MarkOverride)
+      Method->addAttr(OverrideAttr::Create(Context, Loc));
+    CheckOverrideControl(Method);
+  }
+
+  NamedDecl *Introduced = Method;
+  if (SrcFTD) {
+    auto *NewFTD = FunctionTemplateDecl::Create(Context, RD, Loc, Name, NewTPL,
+                                                Method);
+    Method->setDescribedFunctionTemplate(NewFTD);
+    NewFTD->setAccess(AS);
+    NewFTD->setLexicalDeclContext(CurContext);
+    Introduced = NewFTD;
+  }
+
+  PushOnScopeChains(Introduced, S, /*AddToContext=*/true);
+  return Introduced;
+}
+
+const FunctionDecl *
+Sema::getClonedDeclarationSource(const FunctionDecl *FD) const {
+  // The clone itself, a specialization of a clone template, or an
+  // instantiation of a clone declared in a class template.
+  for (const FunctionDecl *D = FD; D;) {
+    auto It = ClonedDeclarationSources.find(D->getCanonicalDecl());
+    if (It != ClonedDeclarationSources.end())
+      return It->second;
+    const FunctionDecl *Next = nullptr;
+    if (const FunctionTemplateDecl *Primary = D->getPrimaryTemplate())
+      Next = Primary->getTemplatedDecl();
+    else
+      Next = D->getTemplateInstantiationPattern(/*ForDefinition=*/false);
+    if (Next == D)
+      break;
+    D = Next;
+  }
+  return nullptr;
 }
 
 ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
@@ -1475,6 +2598,9 @@ ExprResult Sema::BuildCXXMetafunctionExpr(
       return false;
     case Metafunction::MFRK_metaInfo:
       Result = Context.MetaInfoTy;
+      return false;
+    case Metafunction::MFRK_tokenSequence:
+      Result = Context.TokenSequenceTy;
       return false;
     case Metafunction::MFRK_sizeT:
       Result = Context.getSizeType();
@@ -1906,7 +3032,9 @@ ExprResult Sema::BuildReflectionSpliceExpr(SourceLocation TemplateKWLoc,
     }
     case ReflectionKind::Parameter:
     case ReflectionKind::DataMemberSpec:
+    case ReflectionKind::DeclarationSpec:
     case ReflectionKind::Annotation:
+    case ReflectionKind::Expression:
       Diag(Splice->getBeginLoc(),
            diag::err_unexpected_reflection_kind_in_splice)
           << 1 << Splice->getSourceRange();
@@ -1960,6 +3088,13 @@ Decl *Sema::BuildConstevalBlockDeclaration(SourceLocation ConstevalLoc,
                                             EvaluatingExpr);
   CurContext->addDecl(Result);
 
+  // Evaluated per specialization of a class template, a consteval block may
+  // inject members the pattern does not have.
+  if (EvaluatingExpr->isTypeDependent() || EvaluatingExpr->isValueDependent())
+    if (auto *RD = dyn_cast<CXXRecordDecl>(CurContext);
+        RD && RD->isDependentContext())
+      ClassesWithPendingInjections.insert(RD->getCanonicalDecl());
+
   if (!EvaluatingExpr->isTypeDependent() &&
       !EvaluatingExpr->isValueDependent()) {
     SmallVector<PartialDiagnosticAt, 4> Diags;
@@ -1971,9 +3106,278 @@ Decl *Sema::BuildConstevalBlockDeclaration(SourceLocation ConstevalLoc,
       Diag(ConstevalLoc, diag::err_consteval_block_not_constexpr);
       for (PartialDiagnosticAt PD : Diags)
         Diag(PD.first, PD.second);
+    } else {
+      // Collect any pending token injections from queue_injection calls.
+      PendingInjections.append(ER.PendingInjections.begin(),
+                               ER.PendingInjections.end());
     }
   }
   return Result;
+}
+
+bool Sema::mayHaveMembersFromInstantiation(const CXXRecordDecl *RD) {
+  if (!RD || !RD->isDependentContext())
+    return false;
+  if (RD->hasDefinition() && RD->hasAnyDependentBases())
+    return true;
+  return mayHaveInjectedMembers(RD);
+}
+
+bool Sema::mayHaveInjectedMembers(const CXXRecordDecl *RD) {
+  if (!RD || !RD->isDependentContext())
+    return false;
+  if (ClassesWithPendingInjections.contains(RD->getCanonicalDecl()))
+    return true;
+  // An annotation that injects members per specialization: one with an
+  // inject_members callback, or one whose type is dependent (so whether it
+  // has one is not known).
+  const CXXRecordDecl *Def = RD->getDefinition();
+  for (const auto *A : (Def ? Def : RD)->specific_attrs<CXX26AnnotationAttr>()) {
+    const Expr *Arg = A->getArg();
+    if (!Arg || Arg->isTypeDependent())
+      return true;
+    const auto *AnnotRD = Arg->getType()->getAsCXXRecordDecl();
+    if (!AnnotRD || !AnnotRD->hasDefinition())
+      continue;
+    LookupResult R(*this, &Context.Idents.get("inject_members"),
+                   A->getLocation(), LookupMemberName);
+    if (LookupQualifiedName(R, const_cast<CXXRecordDecl *>(AnnotRD)))
+      return true;
+  }
+  return false;
+}
+
+void Sema::ProcessPendingTokenInjections() {
+  if (PendingInjections.empty() || !CanProcessTokenInjections())
+    return;
+  // Move the injections out so the callback doesn't re-process them.
+  SmallVector<Expr::EvalStatus::TokenInjection, 4>
+      Injections = std::move(PendingInjections);
+  PendingInjections.clear();
+  DiagnosticErrorTrap Trap(Diags);
+  ProcessTokenInjectionsFromParserBridge(Injections);
+  // The parser's diagnostics do not show the instantiation context.
+  if (Trap.hasErrorOccurred())
+    PrintContextStack();
+}
+
+bool Sema::EvaluateInjectMembersAnnotation(Decl *TagDecl, unsigned Index,
+                                           TokenSequenceData &Out) {
+  Out = TokenSequenceData();
+
+  // inject_members always runs on a non-dependent, being-completed class:
+  // at parse time for ordinary classes, and per specialization during
+  // instantiation for class templates. It never runs on a dependent pattern
+  // -- there the member types are dependent (and the member walk sees
+  // nothing), so any decision computed from them would be garbage.
+  if (auto *CT = dyn_cast_or_null<ClassTemplateDecl>(TagDecl))
+    TagDecl = CT->getTemplatedDecl();
+  auto *RD = dyn_cast_or_null<CXXRecordDecl>(TagDecl);
+  if (!RD || RD->isDependentType())
+    return false;
+
+  // Find the Index'th annotation.
+  CXX26AnnotationAttr *A = nullptr;
+  unsigned Seen = 0;
+  for (auto *Attr : RD->attrs())
+    if (auto *AA = dyn_cast<CXX26AnnotationAttr>(Attr))
+      if (Seen++ == Index) {
+        A = AA;
+        break;
+      }
+  if (!A)
+    return false;
+
+  // A dependent annotation cannot be evaluated at definition time.
+  if (A->getArg()->isTypeDependent() || A->getArg()->isValueDependent())
+    return true;
+
+  QualType AnnotTy = A->getArg()->getType();
+  auto *AnnotRD = AnnotTy->getAsCXXRecordDecl();
+  if (!AnnotRD)
+    return true;
+
+  IdentifierInfo *II = &Context.Idents.get("inject_members");
+  SourceLocation Loc = RD->getEndLoc();
+  DeclarationNameInfo DNI(II, Loc);
+  LookupResult R(*this, DNI, LookupMemberName);
+  if (!LookupQualifiedName(R, AnnotRD))
+    return true;
+
+  // Build and evaluate: annotation_value.inject_members(^^RD). The class is
+  // not yet complete; the returned tokens are parsed as members before it
+  // becomes so.
+  EnterExpressionEvaluationContext ConstantEvaluated(
+      *this, ExpressionEvaluationContext::ImmediateFunctionContext);
+
+  Expr *ObjExpr = const_cast<Expr *>(A->getArg());
+
+  // The reflection of the class's type. For a class template pattern that
+  // type is dependent (it is the type the members themselves see), so a
+  // ^^-expression for it could not be constant-evaluated; hand the callback
+  // a pre-evaluated reflection constant instead.
+  QualType ClassTy = Context.getCanonicalTagType(RD);
+  APValue ReflVal(ReflectionKind::Type, ClassTy.getAsOpaquePtr());
+  Expr *OVE = new (Context)
+      OpaqueValueExpr(Loc, Context.MetaInfoTy, VK_PRValue);
+  Expr *ReflArg = ConstantExpr::Create(Context, OVE, ReflVal);
+
+  CXXScopeSpec SS;
+  ExprResult MemberRef = BuildMemberReferenceExpr(
+      ObjExpr, AnnotTy, Loc, /*IsArrow=*/false, SS, SourceLocation(), nullptr,
+      R, nullptr, nullptr);
+  if (MemberRef.isInvalid())
+    return true;
+
+  Expr *Args[] = {ReflArg};
+  ExprResult Call = BuildCallExpr(nullptr, MemberRef.get(), Loc, Args, Loc);
+  if (Call.isInvalid())
+    return true;
+
+  SmallVector<PartialDiagnosticAt, 4> Diags;
+  Expr::EvalResult ER;
+  ER.Diag = &Diags;
+  ConstantExprKind Kind = ConstantExprKind::PlainlyConstantEvaluated;
+  if (!Call.get()->EvaluateAsConstantExpr(ER, Context, Kind, RD)) {
+    Diag(Loc, diag::err_consteval_block_not_constexpr);
+    for (auto &PD : Diags)
+      Diag(PD.first, PD.second);
+    return true;
+  }
+  if (!ER.Val.isTokenSequence()) {
+    Diag(Loc, diag::err_annotation_inject_members_not_tokens) << AnnotTy;
+    return true;
+  }
+  Out = ER.Val.getTokenSequence();
+
+  // Injections queued by the callback target scopes outside the class; they
+  // drain after the class completes, like on_complete's.
+  PendingInjections.append(ER.PendingInjections.begin(),
+                           ER.PendingInjections.end());
+  return true;
+}
+
+void Sema::HandleAnnotationOnComplete(Decl *TheDecl) {
+  // For a class template, the parser hands us the ClassTemplateDecl.
+  if (auto *CT = dyn_cast_or_null<ClassTemplateDecl>(TheDecl))
+    TheDecl = CT->getTemplatedDecl();
+  auto *RD = dyn_cast_or_null<TagDecl>(TheDecl);
+  if (!RD)
+    return;
+
+  ClassTemplateDecl *CTD = nullptr;
+  bool OwnAnnotationsOnly = false;
+  if (auto *ED = dyn_cast<EnumDecl>(RD)) {
+    // Complete once defined (enumerators and all), or as soon as declared
+    // with a fixed underlying type. A dependent enumeration -- a member of a
+    // class template, or local to a function template -- runs its callbacks
+    // per instantiation. Each declaration runs only the annotations written
+    // on it, not those it inherits from an earlier one, so an
+    // opaque-enum-declaration followed by the definition runs none twice.
+    if (!ED->isComplete() || ED->isDependentContext())
+      return;
+    OwnAnnotationsOnly = true;
+  } else {
+    if (!isa<CXXRecordDecl>(RD) || !RD->isCompleteDefinition())
+      return;
+
+    // For the pattern of a class template, annotations fire their
+    // on_template_defined callback with a reflection of the template itself;
+    // on_complete fires for each specialization once it is instantiated.
+    // Other dependent definitions (partial specializations, members of class
+    // templates) fire neither here: the primary template's callback already
+    // covers every specialization.
+    if (cast<CXXRecordDecl>(RD)->isDependentType()) {
+      CTD = cast<CXXRecordDecl>(RD)->getDescribedClassTemplate();
+      if (!CTD || CTD->getDeclContext()->isDependentContext())
+        return;
+    }
+  }
+
+  for (auto *Attr : RD->attrs()) {
+    auto *A = dyn_cast<CXX26AnnotationAttr>(Attr);
+    if (!A)
+      continue;
+    if (OwnAnnotationsOnly && A->isInherited())
+      continue;
+
+    // A dependent annotation cannot be evaluated at definition time.
+    if (CTD &&
+        (A->getArg()->isTypeDependent() || A->getArg()->isValueDependent()))
+      continue;
+
+    QualType AnnotTy = A->getArg()->getType();
+    auto *AnnotRD = AnnotTy->getAsCXXRecordDecl();
+    if (!AnnotRD)
+      continue;
+
+    // Look up the callback in the annotation's type.
+    IdentifierInfo *II =
+        &Context.Idents.get(CTD ? "on_template_defined" : "on_complete");
+    SourceLocation Loc = RD->getEndLoc();
+    DeclarationNameInfo DNI(II, Loc);
+    LookupResult R(*this, DNI, LookupMemberName);
+    if (!LookupQualifiedName(R, AnnotRD))
+      continue;
+
+    // Build: annotation_value.on_complete(^^RD), or
+    // annotation_value.on_template_defined(^^CTD) for a pattern.
+    // Use ImmediateFunctionContext so that consteval calls and
+    // queue_injection inside the callback are treated as plainly
+    // constant-evaluated.
+    EnterExpressionEvaluationContext ConstantEvaluated(
+        *this, ExpressionEvaluationContext::ImmediateFunctionContext);
+
+    // 1. Object expression from the annotation's ConstantExpr.
+    Expr *ObjExpr = const_cast<Expr *>(A->getArg());
+
+    // 2. ^^RD or ^^CTD
+    ExprResult ReflExpr =
+        CTD ? BuildCXXReflectExpr(Loc, Loc, TemplateName(CTD))
+            : BuildCXXReflectExpr(Loc, Loc, Context.getCanonicalTagType(RD));
+    if (ReflExpr.isInvalid())
+      continue;
+
+    // 3. Build member reference: ObjExpr.<callback>
+    CXXScopeSpec SS;
+    ExprResult MemberRef = BuildMemberReferenceExpr(
+        ObjExpr, AnnotTy, Loc, /*IsArrow=*/false,
+        SS, SourceLocation(), nullptr, R, nullptr, nullptr);
+    if (MemberRef.isInvalid())
+      continue;
+
+    // 4. Build call: ObjExpr.<callback>(ReflExpr)
+    Expr *Args[] = {ReflExpr.get()};
+    ExprResult Call = BuildCallExpr(nullptr, MemberRef.get(),
+                                    Loc, Args, Loc);
+    if (Call.isInvalid())
+      continue;
+
+    // 5. Evaluate as constant expression (like consteval block).
+    SmallVector<PartialDiagnosticAt, 4> Diags;
+    Expr::EvalResult ER;
+    ER.Diag = &Diags;
+
+    ConstantExprKind Kind = ConstantExprKind::PlainlyConstantEvaluated;
+    if (!Call.get()->EvaluateAsConstantExpr(ER, Context, Kind, RD)) {
+      Diag(Loc, diag::err_consteval_block_not_constexpr);
+      for (auto &PD : Diags)
+        Diag(PD.first, PD.second);
+      continue;
+    }
+
+    // 6. Collect pending token injections. A callback's unary
+    // queue_injection goes to the nearest namespace enclosing the type --
+    // not to an enclosing class still being defined, a function body, or (in
+    // an instantiation) the type itself -- which is where declarations about
+    // the type, found by argument-dependent lookup, belong.
+    DeclContext *NS = RD->getDeclContext()->getEnclosingNamespaceContext();
+    for (Expr::EvalStatus::TokenInjection Inj : ER.PendingInjections) {
+      if (!Inj.TargetDC)
+        Inj.TargetDC = NS;
+      PendingInjections.push_back(Inj);
+    }
+  }
 }
 
 DeclContext *Sema::TryFindDeclContextOf(SpliceSpecifier *Splice) {
@@ -2046,7 +3450,9 @@ DeclContext *Sema::TryFindDeclContextOf(SpliceSpecifier *Splice) {
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
+  case ReflectionKind::Expression:
     Diag(Splice->getBeginLoc(), diag::err_expected_class_or_namespace)
         << "spliced entity" << getLangOpts().CPlusPlus;
     return nullptr;

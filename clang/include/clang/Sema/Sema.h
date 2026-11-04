@@ -192,6 +192,7 @@ class TemplateInstantiationCallback;
 class TemplatePartialOrderingContext;
 class TemplateSpecCandidateSet;
 class Token;
+struct TokenSequenceData;
 class TypeConstraint;
 class TypoCorrectionConsumer;
 class TypeLocBuilder;
@@ -855,6 +856,12 @@ void inferNoReturnAttr(Sema &S, Decl *D);
 #endif
 /// Sema - This implements semantic analysis and AST building for C.
 /// \nosubgrouping
+/// How a macro parameter takes its argument: as an expression (bound to a
+/// reflection), as raw tokens, or -- for a pack of raw parameters,
+/// 'std::meta::token_sequence... args' -- each remaining argument as raw
+/// tokens.
+enum class MacroParamKind : unsigned char { Expression, Raw, RawPack };
+
 class Sema final : public SemaBase {
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
@@ -1330,14 +1337,242 @@ public:
   sema::AnalysisBasedWarnings AnalysisWarnings;
   threadSafety::BeforeSet *ThreadSafetyDeclCache;
 
-  /// Callback to the parser to parse templated functions when needed.
-  typedef void LateTemplateParserCB(void *P, LateParsedTemplate &LPT);
-  LateTemplateParserCB *LateTemplateParser;
-  void *OpaqueParser;
+  /// Bridge back into the parser for late parsing and token injection.
+  class SemaParserBridge {
+  public:
+    typedef void LateTemplateParserCB(void *P, LateParsedTemplate &LPT);
+    typedef void LateTemplateParserCleanupCB(void *P);
+    typedef void TokenInjectionCB(
+        void *P, SmallVectorImpl<Expr::EvalStatus::TokenInjection> &);
+    // Parse or discard late-parsed portions of injected members whose
+    // processing was deferred until their (being-defined) class was complete.
+    typedef void DeferredInjectedDefsCB(void *P, const Decl *ForClass,
+                                        bool ShouldParse);
+    // Parse an expression macro's token sequence as a single expression, in
+    // place of the invocation \p Invocation (name through closing bracket);
+    // the expansion's tokens are located as expanded there.
+    typedef ExprResult ExpressionMacroExpansionCB(void *P,
+                                                  TokenSequenceData TSD,
+                                                  SourceRange Invocation);
+    // Parse a mem-initializer macro's token sequence as a (possibly empty)
+    // mem-initializer-list of \p Ctor, appending to \p Out. Returns true on
+    // error.
+    typedef bool
+    MemInitMacroExpansionCB(void *P, Decl *Ctor, TokenSequenceData TSD,
+                            SourceRange Invocation,
+                            SmallVectorImpl<CXXCtorInitializer *> &Out);
+    // Parse the argument list of a macro invocation, captured as tokens when
+    // the macro's parameter shape was unknown, according to \p RawParams.
+    // Returns true on error.
+    typedef bool DeferredMacroArgumentsCB(void *P, ArrayRef<MacroParamKind> RawParams,
+                                          bool Braced, TokenSequenceData TSD,
+                                          SourceLocation Loc, DeclContext *Ctx,
+                                          ArrayRef<NamedDecl *> TemplateParams,
+                                          SmallVectorImpl<Expr *> &Args);
 
-  void SetLateTemplateParser(LateTemplateParserCB *LTP, void *P) {
-    LateTemplateParser = LTP;
-    OpaqueParser = P;
+    void setParser(void *P) { OpaqueParser = P; }
+
+    void setLateTemplateParser(LateTemplateParserCB *LTP,
+                               LateTemplateParserCleanupCB *LTPCleanup) {
+      LateTemplateParser = LTP;
+      LateTemplateParserCleanup = LTPCleanup;
+    }
+
+    void setTokenInjectionCallback(TokenInjectionCB *CB) {
+      TokenInjectionCallback = CB;
+    }
+
+    void setDeferredInjectedDefsCallback(DeferredInjectedDefsCB *CB) {
+      DeferredInjectedDefsCallback = CB;
+    }
+
+    void setExpressionMacroExpansionCallback(
+        ExpressionMacroExpansionCB *CB) {
+      ExpressionMacroExpansionCallback = CB;
+    }
+
+    void setMemInitMacroExpansionCallback(MemInitMacroExpansionCB *CB) {
+      MemInitMacroExpansionCallback = CB;
+    }
+
+    void setDeferredMacroArgumentsCallback(DeferredMacroArgumentsCB *CB) {
+      DeferredMacroArgumentsCallback = CB;
+    }
+
+    bool canParseDeferredMacroArguments() const {
+      return DeferredMacroArgumentsCallback && OpaqueParser;
+    }
+
+    bool parseDeferredMacroArguments(ArrayRef<MacroParamKind> RawParams, bool Braced,
+                                     TokenSequenceData TSD, SourceLocation Loc,
+                                     DeclContext *Ctx,
+                                     ArrayRef<NamedDecl *> TemplateParams,
+                                     SmallVectorImpl<Expr *> &Args) const {
+      assert(DeferredMacroArgumentsCallback && OpaqueParser &&
+             "deferred macro arguments parsed without a parser");
+      return DeferredMacroArgumentsCallback(
+          OpaqueParser, RawParams, Braced, TSD, Loc, Ctx, TemplateParams, Args);
+    }
+
+    bool canParseMemInitMacroExpansion() const {
+      return MemInitMacroExpansionCallback && OpaqueParser;
+    }
+
+    bool parseMemInitMacroExpansion(
+        Decl *Ctor, TokenSequenceData TSD, SourceRange Invocation,
+        SmallVectorImpl<CXXCtorInitializer *> &Out) const {
+      assert(MemInitMacroExpansionCallback && OpaqueParser &&
+             "mem-initializer macro expansion requested without a parser");
+      return MemInitMacroExpansionCallback(OpaqueParser, Ctor, TSD, Invocation,
+                                           Out);
+    }
+
+    bool canParseExpressionMacroExpansion() const {
+      return ExpressionMacroExpansionCallback && OpaqueParser;
+    }
+
+    ExprResult parseExpressionMacroExpansion(TokenSequenceData TSD,
+                                             SourceRange Invocation) const {
+      assert(ExpressionMacroExpansionCallback && OpaqueParser &&
+             "expression macro expansion requested without a parser bridge");
+      return ExpressionMacroExpansionCallback(OpaqueParser, TSD, Invocation);
+    }
+
+    // Speculatively parse a token sequence as an expression with diagnostics
+    // suppressed (std::meta::test_expression).
+    void setSpeculativeExpressionCallback(ExpressionMacroExpansionCB *CB) {
+      SpeculativeExpressionCallback = CB;
+    }
+
+    bool canParseSpeculativeExpression() const {
+      return SpeculativeExpressionCallback && OpaqueParser;
+    }
+
+    ExprResult parseSpeculativeExpression(TokenSequenceData TSD,
+                                          SourceRange Invocation) const {
+      assert(SpeculativeExpressionCallback && OpaqueParser &&
+             "speculative expression parse requested without a parser bridge");
+      return SpeculativeExpressionCallback(OpaqueParser, TSD, Invocation);
+    }
+
+    bool hasLateTemplateParser() const { return LateTemplateParser; }
+
+    void parseLateTemplate(LateParsedTemplate &LPT) const {
+      assert(LateTemplateParser && OpaqueParser &&
+             "late template parsing requested without a parser bridge");
+      LateTemplateParser(OpaqueParser, LPT);
+    }
+
+    void cleanup() const {
+      if (LateTemplateParserCleanup && OpaqueParser)
+        LateTemplateParserCleanup(OpaqueParser);
+    }
+
+    bool canProcessTokenInjections() const {
+      return TokenInjectionCallback && OpaqueParser;
+    }
+
+    void processTokenInjections(
+        SmallVectorImpl<Expr::EvalStatus::TokenInjection> &Injections) const {
+      assert(TokenInjectionCallback && OpaqueParser &&
+             "token injection requested without a parser bridge");
+      TokenInjectionCallback(OpaqueParser, Injections);
+    }
+
+    bool canProcessDeferredInjectedDefs() const {
+      return DeferredInjectedDefsCallback && OpaqueParser;
+    }
+
+    void processDeferredInjectedDefs(const Decl *ForClass,
+                                     bool ShouldParse) const {
+      assert(DeferredInjectedDefsCallback && OpaqueParser &&
+             "deferred injected defs requested without a parser bridge");
+      DeferredInjectedDefsCallback(OpaqueParser, ForClass, ShouldParse);
+    }
+
+  private:
+    LateTemplateParserCB *LateTemplateParser = nullptr;
+    LateTemplateParserCleanupCB *LateTemplateParserCleanup = nullptr;
+    TokenInjectionCB *TokenInjectionCallback = nullptr;
+    DeferredInjectedDefsCB *DeferredInjectedDefsCallback = nullptr;
+    ExpressionMacroExpansionCB *ExpressionMacroExpansionCallback = nullptr;
+    ExpressionMacroExpansionCB *SpeculativeExpressionCallback = nullptr;
+    MemInitMacroExpansionCB *MemInitMacroExpansionCallback = nullptr;
+    DeferredMacroArgumentsCB *DeferredMacroArgumentsCallback = nullptr;
+    void *OpaqueParser = nullptr;
+  };
+
+  void SetParserBridge(void *P) { ParserBridge.setParser(P); }
+  void SetLateTemplateParser(
+      SemaParserBridge::LateTemplateParserCB *LTP,
+      SemaParserBridge::LateTemplateParserCleanupCB *LTPCleanup) {
+    ParserBridge.setLateTemplateParser(LTP, LTPCleanup);
+  }
+  void SetTokenInjectionCallback(SemaParserBridge::TokenInjectionCB *CB) {
+    ParserBridge.setTokenInjectionCallback(CB);
+  }
+  void SetDeferredInjectedDefsCallback(
+      SemaParserBridge::DeferredInjectedDefsCB *CB) {
+    ParserBridge.setDeferredInjectedDefsCallback(CB);
+  }
+  void SetExpressionMacroExpansionCallback(
+      SemaParserBridge::ExpressionMacroExpansionCB *CB) {
+    ParserBridge.setExpressionMacroExpansionCallback(CB);
+  }
+  bool CanParseExpressionMacroExpansion() const {
+    return ParserBridge.canParseExpressionMacroExpansion();
+  }
+  void SetMemInitMacroExpansionCallback(
+      SemaParserBridge::MemInitMacroExpansionCB *CB) {
+    ParserBridge.setMemInitMacroExpansionCallback(CB);
+  }
+  void SetDeferredMacroArgumentsCallback(
+      SemaParserBridge::DeferredMacroArgumentsCB *CB) {
+    ParserBridge.setDeferredMacroArgumentsCallback(CB);
+  }
+  bool CanParseMemInitMacroExpansion() const {
+    return ParserBridge.canParseMemInitMacroExpansion();
+  }
+  bool ParseMemInitMacroExpansionFromParserBridge(
+      Decl *Ctor, TokenSequenceData TSD, SourceRange Invocation,
+      SmallVectorImpl<CXXCtorInitializer *> &Out) {
+    return ParserBridge.parseMemInitMacroExpansion(Ctor, TSD, Invocation, Out);
+  }
+  ExprResult ParseExpressionMacroExpansionFromParserBridge(
+      TokenSequenceData TSD, SourceRange Invocation) {
+    return ParserBridge.parseExpressionMacroExpansion(TSD, Invocation);
+  }
+  void SetSpeculativeExpressionCallback(
+      SemaParserBridge::ExpressionMacroExpansionCB *CB) {
+    ParserBridge.setSpeculativeExpressionCallback(CB);
+  }
+  bool CanParseSpeculativeExpression() const {
+    return ParserBridge.canParseSpeculativeExpression();
+  }
+  ExprResult ParseSpeculativeExpressionFromParserBridge(TokenSequenceData TSD,
+                                                        SourceRange Invocation) {
+    return ParserBridge.parseSpeculativeExpression(TSD, Invocation);
+  }
+  bool HasLateTemplateParser() const {
+    return ParserBridge.hasLateTemplateParser();
+  }
+  void ParseLateTemplate(LateParsedTemplate &LPT) {
+    ParserBridge.parseLateTemplate(LPT);
+  }
+  void CleanupParserBridge() { ParserBridge.cleanup(); }
+  bool CanProcessTokenInjections() const {
+    return ParserBridge.canProcessTokenInjections();
+  }
+  void ProcessTokenInjectionsFromParserBridge(
+      SmallVectorImpl<Expr::EvalStatus::TokenInjection> &Injections) {
+    ParserBridge.processTokenInjections(Injections);
+  }
+  /// Parse late-parsed portions of members that were injected into \p ForClass
+  /// while it was still being defined (deferred until it became complete).
+  void ProcessDeferredInjectedDefsFromParserBridge(const Decl *ForClass,
+                                                   bool ShouldParse) {
+    if (ParserBridge.canProcessDeferredInjectedDefs())
+      ParserBridge.processDeferredInjectedDefs(ForClass, ShouldParse);
   }
 
   /// Callback to the parser to parse a type expressed as a string.
@@ -3497,6 +3732,14 @@ public:
                                               const DeclSpec &DS,
                                               SourceLocation ColonColonLoc,
                                               QualType Type);
+
+  /// The parser has seen an already-annotated type (e.g. a type reflection
+  /// interpolated into an injected token sequence) followed by '::', forming
+  /// a nested-name-specifier.
+  bool ActOnCXXNestedNameSpecifierTypeAnnotation(CXXScopeSpec &SS,
+                                                 ParsedType Type,
+                                                 SourceLocation TypeNameLoc,
+                                                 SourceLocation ColonColonLoc);
 
   /// IsInvalidUnlessNestedName - This method is used for error recovery
   /// purposes to determine whether the specified identifier is only valid as
@@ -14016,6 +14259,20 @@ public:
       bool SkipForSpecialization = false,
       bool ForDefaultArgumentSubstitution = false);
 
+  /// Determine whether a member template living in \p DC was injected into a
+  /// class template specialization (e.g. by a consteval block) rather than
+  /// instantiated from the corresponding member of the class template pattern.
+  ///
+  /// Such a member is parsed directly into the specialization, so its template
+  /// parameters start at depth 0 and the enclosing specialization's arguments
+  /// must not be added as an outer level.
+  ///
+  /// \param Pattern the template to test for an instantiated-from-member link;
+  ///        may be null, in which case this returns false.
+  static bool
+  isInjectedIntoSpecialization(const DeclContext *DC,
+                               const RedeclarableTemplateDecl *Pattern);
+
   /// RAII object to handle the state changes required to synthesize
   /// a function body.
   class SynthesizedFunctionScope {
@@ -16237,6 +16494,382 @@ public:
                                  ParsedTemplateArgument Template);
   ExprResult ActOnCXXReflectExpr(SourceLocation OpLoc, CXXSpliceExpr *E);
 
+  /// A token sequence written in scope \p S. Identifiers that name template
+  /// parameters there are recorded (see TokenSequenceParamBinding).
+  ExprResult ActOnCXXTokenSequenceReflection(Scope *S, SourceLocation OpLoc,
+                                             SourceRange OperandRange,
+                                             ArrayRef<Token> Tokens);
+
+  ExprResult ActOnTokenSequenceInterpolation(Expr *E);
+  /// '\(e1, e2, ...; sep)' in a token sequence: each element (a pack
+  /// expansion, possibly) and the separator are converted as an interpolation
+  /// is.
+  ExprResult BuildTokenInterpolationList(SourceLocation BeginLoc,
+                                         ArrayRef<Expr *> Elements,
+                                         Expr *Separator,
+                                         SourceLocation EndLoc);
+
+  // Expression macros: '__macro' declarations invoked as 'name!(args)'.
+  static bool IsExpressionMacro(const NamedDecl *D);
+  /// Determine which parameters of the macros in \p R are raw token-sequence
+  /// parameters. Diagnoses and returns true if \p R does not name macros or
+  /// the overloads disagree.
+  bool GetMacroParameterShape(LookupResult &R,
+                              SmallVectorImpl<MacroParamKind> &RawParams);
+  /// Look up the macros 'SS name' names and determine their parameter shape,
+  /// as for GetMacroParameterShape. If \p SS is dependent and names no known
+  /// class, the macros cannot be found until instantiation: sets
+  /// \p ShapeUnknown instead.
+  bool GetQualifiedMacroParameterShape(Scope *S, CXXScopeSpec &SS,
+                                       const IdentifierInfo *II,
+                                       SourceLocation NameLoc,
+                                       SmallVectorImpl<MacroParamKind> &RawParams,
+                                       bool &ShapeUnknown);
+  /// \p ArgsUnparsed: the shape was unknown, and the single argument is the
+  /// argument list as tokens (see CXXMacroInvocationExpr::areArgsUnparsed).
+  ExprResult
+  ActOnMacroInvocation(Scope *S, CXXScopeSpec &SS, const IdentifierInfo *II,
+                       SourceLocation NameLoc, SourceLocation ExclaimLoc,
+                       SourceLocation LParenLoc, MultiExprArg Args,
+                       SourceLocation RParenLoc, bool ArgsUnparsed = false,
+                       const TemplateArgumentListInfo *TemplateArgs = nullptr);
+  /// The callee of a non-member macro invocation: the macros \p Macros found
+  /// for \p NameInfo (qualified by \p QualifierLoc), with the explicit
+  /// template arguments \p TemplateArgs of 'name!<Args>(...)', if any.
+  ExprResult BuildMacroCallee(NestedNameSpecifierLoc QualifierLoc,
+                              const DeclarationNameInfo &NameInfo,
+                              const UnresolvedSetImpl &Macros,
+                              const TemplateArgumentListInfo *TemplateArgs);
+  /// For 'name!<Args>(...)': diagnose (and return true) if \p R found no
+  /// macro template.
+  bool CheckMacroTemplateArgs(const LookupResult &R,
+                              const TemplateArgumentListInfo *TemplateArgs);
+  /// For an invocation whose qualifier was dependent when parsed: look up
+  /// the macros in the substituted qualifier \p QualifierLoc, producing the
+  /// callee and parameter shape. Sets \p StillDependent (and the callee, with
+  /// no declarations) if the qualifier is still dependent.
+  bool LookupDeferredQualifiedMacro(
+      NestedNameSpecifierLoc QualifierLoc, const DeclarationNameInfo &NameInfo,
+      UnresolvedLookupExpr *&Callee, SmallVectorImpl<MacroParamKind> &RawParams,
+      bool &StillDependent,
+      const TemplateArgumentListInfo *TemplateArgs = nullptr);
+  /// Parse the argument list of \p E, captured as tokens when the macro's
+  /// shape was unknown, according to the now-known shape \p RawParams. The
+  /// arguments are parsed where they were written, as part of the template,
+  /// so \p PatternArgs are to be substituted into like any other part of it.
+  bool ParseDeferredMacroArguments(ArrayRef<MacroParamKind> RawParams,
+                                   const CXXMacroInvocationExpr *E,
+                                   SmallVectorImpl<Expr *> &PatternArgs);
+  /// Mark the arguments of \p E unparsed, to be parsed where they are
+  /// written: in the current context, with the template parameters in scope
+  /// \p S.
+  void SetUnparsedMacroEnvironment(CXXMacroInvocationExpr *E, Scope *S);
+  /// Raw (token sequence) macro arguments are consumed by the macro's
+  /// evaluation; they are not consteval-only values escaping into the
+  /// enclosing expression.
+  void ForgetConsumedMacroArguments(ArrayRef<Expr *> Args);
+  /// Resolve and expand a macro invocation, or defer it (as a
+  /// CXXMacroInvocationExpr) if anything about it is dependent. When called
+  /// from instantiation, \p InstantiationPattern is the deferred node being
+  /// instantiated; the locals visible before it are made visible to the
+  /// expansion.
+  ExprResult BuildMacroInvocation(Scope *S, UnresolvedLookupExpr *Callee,
+                                  SourceLocation ExclaimLoc,
+                                  SourceLocation LParenLoc, MultiExprArg Args,
+                                  SourceLocation RParenLoc,
+                                  const Stmt *InstantiationPattern = nullptr);
+  /// Determine the parameter shape of the member macros 'base.name' (or
+  /// 'base->name') would find. Sets \p ShapeUnknown if the class is not yet
+  /// known; diagnoses and returns true if the name does not denote macros of
+  /// that class.
+  bool GetMemberMacroParameterShape(Expr *Base, tok::TokenKind OpKind,
+                                    const IdentifierInfo *II,
+                                    SourceLocation NameLoc,
+                                    SmallVectorImpl<MacroParamKind> &RawParams,
+                                    bool &ShapeUnknown);
+  ExprResult ActOnMemberMacroInvocation(
+      Scope *S, Expr *Base, SourceLocation OpLoc, tok::TokenKind OpKind,
+      const IdentifierInfo *II, SourceLocation NameLoc,
+      SourceLocation ExclaimLoc, SourceLocation LParenLoc, MultiExprArg Args,
+      SourceLocation RParenLoc, bool ArgsUnparsed = false,
+      const TemplateArgumentListInfo *TemplateArgs = nullptr);
+  /// Resolve and expand 'base.name!(args)', binding the object expression to
+  /// the macro's explicit object parameter, or defer it if anything about it
+  /// is dependent.
+  ExprResult BuildMemberMacroInvocation(
+      Expr *Base, bool IsArrow, SourceLocation OpLoc,
+      const DeclarationNameInfo &NameInfo, SourceLocation ExclaimLoc,
+      SourceLocation LParenLoc, MultiExprArg Args, SourceLocation RParenLoc,
+      const Stmt *InstantiationPattern = nullptr,
+      const TemplateArgumentListInfo *TemplateArgs = nullptr);
+  /// Resolve 'base.name!(args)' (non-dependent) to a member macro and hand
+  /// the selected candidate, with the object argument prepended to the
+  /// arguments, to \p Finish. Returns true on (diagnosed) error, or whatever
+  /// \p Finish returns.
+  bool ResolveMemberMacroInvocation(
+      Expr *Base, bool IsArrow, SourceLocation OpLoc,
+      const DeclarationNameInfo &NameInfo, MultiExprArg Args,
+      llvm::function_ref<bool(const OverloadCandidate &Best,
+                              ArrayRef<Expr *> MacroArgs,
+                              bool HadMultipleCandidates)>
+          Finish,
+      const TemplateArgumentListInfo *TemplateArgs = nullptr);
+  /// Resolve 'base.name!(args)' and evaluate the member macro, producing its
+  /// expansion without parsing it (as for a mem-initializer macro).
+  bool EvaluateMemberMacroInvocation(
+      Expr *Base, bool IsArrow, SourceLocation OpLoc,
+      const DeclarationNameInfo &NameInfo, SourceLocation LParenLoc,
+      MultiExprArg Args, SourceLocation RParenLoc, TokenSequenceData &Expansion,
+      const TemplateArgumentListInfo *TemplateArgs = nullptr);
+  /// Expand the macro that overload resolution selected for an operator
+  /// expression or a member invocation. \p Args are the operands as written
+  /// (the object expression first, for a member macro).
+  /// Evaluate the macro overload resolution selected, with \p Args (the
+  /// object argument first, for a non-static member macro), producing its
+  /// expansion without parsing it. Returns true on (diagnosed) error.
+  bool EvaluateMacroCandidate(const OverloadCandidate &Best,
+                              ArrayRef<Expr *> Args, SourceLocation Loc,
+                              SourceLocation RParenLoc,
+                              bool HadMultipleCandidates,
+                              TokenSequenceData &Expansion);
+  /// \p NameLoc, if valid, is where the macro is named (a member macro's
+  /// name); otherwise \p Loc (an operator) is.
+  ///
+  /// \p Defer, if given, builds the deferred invocation to return when the
+  /// macro asks to wait for instantiation (see EvaluateMacroExpansion).
+  ExprResult BuildMacroCandidateExpansion(
+      const OverloadCandidate &Best, ArrayRef<Expr *> Args, SourceLocation Loc,
+      SourceLocation RParenLoc, bool HadMultipleCandidates,
+      const Stmt *InstantiationPattern = nullptr,
+      SourceLocation NameLoc = SourceLocation(),
+      llvm::function_ref<ExprResult()> Defer = nullptr);
+  /// The pattern expression currently being transformed by template
+  /// instantiation. An operator or member-access rebuild that selects a macro
+  /// has no deferred node of its own to name; this is what it uses to
+  /// reconstruct the locals visible at the invocation.
+  const Stmt *MacroInstantiationPattern = nullptr;
+  /// Collect the instantiations of the local declarations that are visible
+  /// before \p PatternStmt in the function template being instantiated, one
+  /// inner vector per lexical scope, outermost first.
+  /// Collect the local declarations of \p FD visible at \p Target, a
+  /// statement of its body, one level per scope, outermost first.
+  void CollectLocalDeclsForLookup(
+      const FunctionDecl *FD, const Stmt *Target,
+      SmallVectorImpl<SmallVector<NamedDecl *, 4>> &ScopeLevels);
+  void CollectInstantiatedLocalDeclsForLookup(
+      const Stmt *PatternStmt,
+      SmallVectorImpl<SmallVector<NamedDecl *, 4>> &ScopeLevels);
+  /// The scope levels collected for the macro expansion currently being
+  /// parsed during template instantiation (empty otherwise).
+  SmallVector<SmallVector<NamedDecl *, 4>, 4> MacroExpansionLocalScopes;
+  /// A declaration cloned by std::meta::declaration_of from a member of a
+  /// class template specialization keeps that member's *pattern* default
+  /// arguments and instantiates them on use, as the member itself would.
+  /// Maps such a clone to its source member.
+  llvm::DenseMap<const FunctionDecl *, const FunctionDecl *>
+      ClonedDeclarationSources;
+  /// The source member recorded for \p FD, or for the clone \p FD is a
+  /// specialization or instantiation of; null if \p FD is not such a clone.
+  const FunctionDecl *getClonedDeclarationSource(const FunctionDecl *FD) const;
+  /// Evaluate an expression-position macro and parse its expansion. If the
+  /// macro asks to wait for instantiation, returns what \p Defer builds (the
+  /// deferred invocation); without \p Defer, that is an error.
+  ExprResult BuildExpressionMacroExpansion(
+      Expr *Fn, FunctionDecl *Macro, SourceLocation LParenLoc,
+      ArrayRef<Expr *> Args, SourceLocation RParenLoc,
+      CallExpr::ADLCallKind UsesADL,
+      llvm::function_ref<ExprResult()> Defer = nullptr);
+  /// Overload resolution for a macro invocation. Returns true on (diagnosed)
+  /// error.
+  bool ResolveMacroCallee(Scope *S, UnresolvedLookupExpr *Callee,
+                          MultiExprArg Args, SourceLocation LParenLoc,
+                          SourceLocation RParenLoc, ExprResult &FnOut,
+                          FunctionDecl *&MacroOut,
+                          CallExpr::ADLCallKind &UsesADLOut);
+  /// The number of macro expansions currently being parsed, one inside
+  /// another. Checked against -fmacro-expansion-depth before a macro body is
+  /// evaluated, so a macro that (directly or indirectly) expands to itself is
+  /// diagnosed rather than overflowing the stack.
+  unsigned MacroExpansionDepth = 0;
+
+  /// Set once the depth limit has been diagnosed (a fatal error), so that the
+  /// levels of expansion unwinding from it do not each add a note.
+  bool MacroExpansionDepthExceeded = false;
+
+  /// Counts one level of macro expansion for the lifetime of the object.
+  class MacroExpansionDepthRAII {
+    Sema &S;
+
+  public:
+    explicit MacroExpansionDepthRAII(Sema &S) : S(S) {
+      ++S.MacroExpansionDepth;
+    }
+    ~MacroExpansionDepthRAII() { --S.MacroExpansionDepth; }
+    MacroExpansionDepthRAII(const MacroExpansionDepthRAII &) = delete;
+    MacroExpansionDepthRAII &operator=(const MacroExpansionDepthRAII &) =
+        delete;
+  };
+
+  /// Bind the arguments, evaluate the macro's body, and produce the expansion
+  /// token sequence. Returns true on (diagnosed) error.
+  ///
+  /// If the body calls std::meta::expand_at_instantiation() in a templated
+  /// context, returns true without a diagnostic and sets \p *Deferred; the
+  /// caller then defers the invocation to instantiation. A caller that cannot
+  /// defer passes null, and that case is diagnosed.
+  bool EvaluateMacroExpansion(Expr *Fn, FunctionDecl *Macro,
+                              SourceLocation LParenLoc, ArrayRef<Expr *> Args,
+                              SourceLocation RParenLoc,
+                              CallExpr::ADLCallKind UsesADL,
+                              TokenSequenceData &Expansion,
+                              bool *Deferred = nullptr);
+  /// Class templates (patterns) whose specializations receive members the
+  /// pattern does not have: a class-scope macro invocation or a consteval
+  /// block is expanded or evaluated per specialization. See
+  /// mayHaveMembersFromInstantiation.
+  llvm::SmallPtrSet<const CXXRecordDecl *, 4> ClassesWithPendingInjections;
+
+  /// Whether the dependent class \p RD may have members that are not known
+  /// until instantiation: members of a dependent base, or members injected
+  /// per specialization (by a deferred class-scope macro invocation, a
+  /// consteval block, or an annotation whose inject_members callback -- or
+  /// whose type, being dependent -- is not known). A name not found in such a
+  /// class (as 'this->x' or 'C::x') is looked up again at instantiation
+  /// rather than diagnosed.
+  bool mayHaveMembersFromInstantiation(const CXXRecordDecl *RD);
+  /// The part of mayHaveMembersFromInstantiation that is about members
+  /// injected per specialization (not a dependent base's).
+  bool mayHaveInjectedMembers(const CXXRecordDecl *RD);
+
+  /// A statement-position macro invocation, 'name!(args);' as a whole
+  /// statement. Returns true on (diagnosed) error. Otherwise either sets
+  /// \p Result -- a statement standing for the invocation (one deferred to
+  /// instantiation) -- or fills \p Expansion, which the parser parses,
+  /// followed by the ';' at \p SemiLoc, as statements in place.
+  /// (\p SS and \p ArgsUnparsed as for ActOnDeclMacroInvocation.)
+  bool ActOnStmtMacroInvocation(
+      Scope *S, CXXScopeSpec &SS, const IdentifierInfo *II,
+      SourceLocation NameLoc, SourceLocation ExclaimLoc,
+      SourceLocation LParenLoc, MultiExprArg Args, SourceLocation RParenLoc,
+      SourceLocation SemiLoc, TokenSequenceData &Expansion, StmtResult &Result,
+      bool ArgsUnparsed,
+      const TemplateArgumentListInfo *TemplateArgs = nullptr);
+  /// The evaluate-once check of the arguments interpolated into
+  /// \p Expansion, over the statements parsed from it. Returns true on
+  /// (diagnosed) error.
+  bool CheckMacroArgumentEvaluation(const TokenSequenceData &Expansion,
+                                    ArrayRef<Stmt *> Stmts);
+  /// A declaration-position macro invocation ('name!(args);' at namespace or
+  /// class scope): resolve and evaluate; the parser parses \p Expansion as
+  /// declarations in place. In a dependent class the invocation is instead
+  /// recorded as a member (starting access \p AS) that expands per
+  /// specialization, and \p Expansion is left empty. Returns true on
+  /// (diagnosed) error.
+  /// \p SS is the invocation's qualifier, if any; \p ArgsUnparsed if it is
+  /// dependent, so that the macro, and the shape of its arguments, are not
+  /// known (the single argument is then the captured argument list).
+  bool ActOnDeclMacroInvocation(
+      Scope *S, CXXScopeSpec &SS, const IdentifierInfo *II,
+      SourceLocation NameLoc, SourceLocation ExclaimLoc,
+      SourceLocation LParenLoc, MultiExprArg Args, SourceLocation RParenLoc,
+      AccessSpecifier AS, TokenSequenceData &Expansion, bool ArgsUnparsed,
+      const TemplateArgumentListInfo *TemplateArgs = nullptr);
+
+  /// Substitute into the callee and arguments of a macro invocation deferred
+  /// from a template, then evaluate the macro. Returns true on (diagnosed)
+  /// error.
+  bool SubstAndEvaluateMacroInvocation(
+      CXXMacroInvocationExpr *E,
+      const MultiLevelTemplateArgumentList &TemplateArgs,
+      TokenSequenceData &Expansion);
+
+  /// Expand a declaration macro invocation deferred from a class template
+  /// (recorded as \p D) into the class being instantiated.
+  void InstantiateDeclMacroInvocation(
+      ConstevalBlockDecl *D,
+      const MultiLevelTemplateArgumentList &TemplateArgs);
+
+  /// A macro invocation as an entry of a ctor-initializer. In a dependent
+  /// constructor the invocation is recorded (at \p Position among the
+  /// written mem-initializers) for expansion at instantiation, and
+  /// \p Deferred is set; otherwise the macro is evaluated and the parser
+  /// parses \p Expansion as zero or more mem-initializers in place. Returns
+  /// true on (diagnosed) error.
+  bool ActOnMemInitMacroInvocation(
+      Scope *S, Decl *ConstructorDecl, unsigned Position, CXXScopeSpec &SS,
+      const IdentifierInfo *II, SourceLocation NameLoc,
+      SourceLocation ExclaimLoc, SourceLocation LParenLoc, MultiExprArg Args,
+      SourceLocation RParenLoc, bool ArgsUnparsed, TokenSequenceData &Expansion,
+      bool &Deferred, const TemplateArgumentListInfo *TemplateArgs = nullptr);
+
+  /// Resolve and evaluate a macro invocation that was deferred from a
+  /// template, with already-substituted callee and arguments.
+  bool EvaluateMacroInvocation(Scope *S, UnresolvedLookupExpr *Callee,
+                               SourceLocation LParenLoc, MultiExprArg Args,
+                               SourceLocation RParenLoc,
+                               TokenSequenceData &Expansion);
+
+  /// A mem-initializer of a dependent constructor that waits for
+  /// instantiation: a macro invocation (Macro), or an initializer of a member
+  /// the class does not have yet (Name), which may be injected per
+  /// specialization. Position is its place among the written
+  /// mem-initializers: the number of (non-deferred) ones before it.
+  struct DeferredMemInit {
+    unsigned Position;
+    CXXMacroInvocationExpr *Macro = nullptr;
+    IdentifierInfo *Name = nullptr;
+    SourceLocation NameLoc;
+    Expr *Init = nullptr;
+    SourceLocation EllipsisLoc;
+  };
+
+  /// Deferred mem-initializers, keyed by the (canonical) constructor, in
+  /// source order. Expanded or built by InstantiateMemInitializers.
+  llvm::DenseMap<const CXXConstructorDecl *, SmallVector<DeferredMemInit, 1>>
+      DeferredMemInitMacros;
+
+  /// While the parser builds a mem-initializer: its position among the
+  /// written ones (see DeferredMemInit). ~0u otherwise, e.g. when
+  /// instantiating, which never defers.
+  unsigned CurrentMemInitPosition = ~0u;
+
+  /// Build a mem-initializer, deferred from the pattern, of a member that may
+  /// have been injected into the specialization \p New belongs to.
+  MemInitResult
+  BuildDeferredNamedMemInitializer(CXXConstructorDecl *New,
+                                   const DeferredMemInit &D,
+                                   const MultiLevelTemplateArgumentList &Args);
+
+  ExprResult ActOnCXXBuiltinInject(SourceLocation KwLoc,
+                                   SourceLocation LParenLoc,
+                                   ArrayRef<Expr *> Args,
+                                   SourceLocation RParenLoc);
+
+  ExprResult ActOnCXXBuiltinReportTokens(SourceLocation KwLoc,
+                                         SourceLocation LParenLoc,
+                                         ArrayRef<Expr *> Args,
+                                         SourceLocation RParenLoc);
+
+  ExprResult ActOnCXXBuiltinId(SourceLocation KwLoc,
+                               SourceLocation LParenLoc,
+                               ArrayRef<Expr *> Args,
+                               SourceLocation RParenLoc);
+
+  ExprResult ActOnCXXBuiltinStrLiteral(SourceLocation KwLoc,
+                                       SourceLocation LParenLoc,
+                                       ArrayRef<Expr *> Args,
+                                       SourceLocation RParenLoc);
+
+  ExprResult ActOnCXXBuiltinTokenize(SourceLocation KwLoc,
+                                     SourceLocation LParenLoc,
+                                     ArrayRef<Expr *> Args,
+                                     SourceLocation RParenLoc);
+
+  ExprResult ActOnCXXBuiltinStringize(SourceLocation KwLoc,
+                                      SourceLocation LParenLoc,
+                                      ArrayRef<Expr *> Args,
+                                      SourceLocation RParenLoc);
+
   ExprResult ActOnCXXMetafunction(SourceLocation KwLoc,
                                   SourceLocation LParenLoc,
                                   SmallVectorImpl<Expr *> &Args,
@@ -16272,6 +16905,22 @@ public:
 
   Decl *ActOnConstevalBlockDeclaration(SourceLocation ConstevalLoc,
                                        Expr *EvaluatingExpr);
+
+  /// The parser encountered an interpolated declaration description
+  /// (std::meta::declaration_of) in member-declaration position. Clones the
+  /// described member function into the current class with the description's
+  /// naming policy and returns the introduced declaration (the
+  /// FunctionTemplateDecl for a member template), or null on error.
+  /// Materialize the cloned template parameters of a
+  /// std::meta::template_parameter_list_for fragment at the current position
+  /// inside a template parameter list being parsed. Returns true on error.
+  bool ActOnInjectedTemplateParameters(
+      Scope *S, TemplateParamListSpec *TPS, unsigned Depth, SourceLocation Loc,
+      SmallVectorImpl<NamedDecl *> &TemplateParams);
+
+  NamedDecl *ActOnInjectedFunctionDeclSpec(Scope *S, FunctionDeclSpec *Spec,
+                                           AccessSpecifier AS,
+                                           SourceLocation Loc);
 
   // Reflection of non-expression operands.
   ExprResult BuildCXXReflectExpr(SourceLocation OperatorLoc,
@@ -16360,7 +17009,44 @@ public:
     return nullptr;
   }
 
+  // Token sequences pending injection from consteval block evaluation.
+  SmallVector<Expr::EvalStatus::TokenInjection> PendingInjections;
+
+  // Statements parsed from injected token sequences that need to be added
+  // to the enclosing compound statement.
+  SmallVector<Stmt *> PendingInjectedStmts;
+
+  // Declarations used to seed temporary parser scopes so later injected token
+  // sequences can look up earlier visible locals during template
+  // instantiation. This normally holds locals parsed from injected token
+  // sequences in the current compound statement, and template instantiation
+  // may temporarily preload already-visible source locals as well.
+  SmallVector<NamedDecl *> InjectedLocalDeclsForLookup;
+
+  void ProcessPendingTokenInjections();
+
+  /// After a class or enumeration becomes complete, check its [[=expr]]
+  /// annotations for an on_complete member function and call it with
+  /// ^^TheType. A class is complete at the end of its definition; an
+  /// enumeration at the end of its definition (once its enumerators exist),
+  /// or at an opaque-enum-declaration (fixed underlying type, no
+  /// enumerators). Each enumeration declaration runs only the annotations
+  /// written on it, so a declaration followed by the definition does not run
+  /// one twice.
+  void HandleAnnotationOnComplete(Decl *TagDecl);
+
+  /// Evaluate the inject_members callback of the \p Index'th annotation of
+  /// \p TagDecl, called right before the class is completed: the returned
+  /// tokens are parsed as additional members. Returns false once \p Index is
+  /// past the last annotation; an annotation without the callback yields an
+  /// empty sequence. The parser interleaves evaluation and parsing so each
+  /// callback sees the members injected by the previous ones.
+  bool EvaluateInjectMembersAnnotation(Decl *TagDecl, unsigned Index,
+                                       TokenSequenceData &Out);
+
 private:
+  SemaParserBridge ParserBridge;
+
   // Lambdas having bound references to this Sema object, used to evaluate
   // metafunction (C++26, CXX26) at constant evaluation time.
   llvm::SmallDenseMap<unsigned, std::unique_ptr<CXXMetafunctionExpr::ImplFn>>

@@ -3246,6 +3246,70 @@ def err_reflect_intervening_lambda : Error<
   "cannot take the reflection of a local entity for which there is an "
   "intervening lambda expression">;
 
+def err_interpolation_not_constant : Error<
+  "interpolation expression is not a constant expression">;
+def err_macro_requires_invocation : Error<
+  "%0 is an expression macro and must be invoked as %1">;
+def err_undeclared_macro : Error<"use of undeclared expression macro %0">;
+def err_not_a_macro : Error<"%0 is not an expression macro">;
+def err_macro_overload_shape : Error<
+  "overloads of expression macro %0 disagree on which parameters are "
+  "token sequences">;
+def err_macro_undefined : Error<
+  "expression macro %0 is invoked before it is defined">;
+def err_macro_token_argument_not_constant : Error<
+  "token sequence argument of expression macro is not a constant expression">;
+def err_macro_evaluation_failed : Error<
+  "expression macro %0 did not produce a token sequence">;
+def err_macro_reported_error : Error<
+  "expression macro %0 reported an error">;
+def err_macro_raw_pack_not_last : Error<
+  "a pack of raw macro parameters must be the last parameter">;
+def err_macro_expand_at_instantiation_unsupported : Error<
+  "macro %0 cannot wait for template instantiation in this position">;
+def err_builtin_constexpr_diag_arg : Error<
+  "argument %0 of '%1' must be %select{an integer|a pointer to 'char'|"
+  "a pointer to 'char' or 'char8_t'}2">;
+def err_macro_argument_evaluated_twice : Error<
+  "expansion of expression macro would evaluate this argument more than once">;
+def note_macro_expanded_here : Note<"in expansion of expression macro %0">;
+def err_macro_expansion_depth_exceeded : Error<
+  "recursive expansion of expression macro %0 exceeded maximum depth of %1">,
+  DefaultFatal, NoSFINAE;
+def note_macro_expansion_depth : Note<
+  "use -fmacro-expansion-depth=N to increase the maximum depth of nested "
+  "expression macro expansions">, NoSFINAE;
+def err_token_sequence_param_pack : Error<
+  "template parameter pack %0 cannot be substituted into a token sequence">;
+def err_macro_member : Error<
+  "a non-static member expression macro must have an explicit object "
+  "parameter">;
+def err_macro_virtual : Error<"an expression macro cannot be virtual">;
+def err_macro_operator_kind : Error<
+  "%select{a conversion function|a literal operator|an allocation or "
+  "deallocation function|operator co_await}0 cannot be an expression macro">;
+def err_macro_operator_raw_parameter : Error<
+  "an operator expression macro cannot have a token sequence parameter">;
+def err_macro_defaulted_deleted : Error<
+  "an expression macro cannot be %select{defaulted|deleted}0">;
+def err_macro_static_member_via_object : Error<
+  "static member expression macro %0 must be invoked as %1">;
+def err_annotation_inject_members_not_tokens : Error<
+  "'inject_members' callback of annotation type %0 must return a token "
+  "sequence">;
+def err_decl_macro_dependent : Error<
+  "macro %0 cannot form declarations in a dependent context; use "
+  "'consteval { queue_injection(...); }' to defer the injection to "
+  "instantiation">;
+def err_operator_macro_requires_operator : Error<
+  "%0 is an expression macro and can only be invoked with operator syntax">;
+def err_macro_argument_in_lambda : Error<
+  "an expression argument cannot be interpolated into the body of a lambda">;
+def err_decl_spec_wrong_context : Error<
+  "a declaration description can only declare a member of a class currently "
+  "being defined">;
+def err_decl_spec_clone_failed : Error<
+  "could not declare a clone of %0 here">;
 def err_splice_operand_not_reflection : Error<
   "splice operand must be a reflection">;
 def err_splice_operand_not_constexpr : Error<

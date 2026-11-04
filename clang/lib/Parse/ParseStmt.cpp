@@ -143,6 +143,16 @@ StmtResult Parser::ParseStatementOrDeclarationAfterAttributes(
   // the token to end in a semicolon (in which case SemiError should be set),
   // or they directly 'return;' if not.
 Retry:
+  // 'ns::name!(args);' as a whole statement: a qualified statement macro
+  // invocation. (The unqualified form is handled with identifiers below.)
+  if (TryAnnotateQualifiedMacroScope(/*EnteringContext=*/false))
+    return StmtError();
+  if (Tok.is(tok::annot_cxxscope) && isStartOfStmtMacroInvocation()) {
+    ProhibitAttributes(CXX11Attrs);
+    ProhibitAttributes(GNUAttrs);
+    return ParseStmtMacroInvocation(StmtCtx);
+  }
+
   tok::TokenKind Kind  = Tok.getKind();
   SourceLocation AtLoc;
   switch (Kind) {
@@ -160,6 +170,13 @@ Retry:
 
   case tok::identifier:
   ParseIdentifier: {
+    // 'name!(args);' as a whole statement: a statement macro invocation.
+    if (isStartOfStmtMacroInvocation()) {
+      ProhibitAttributes(CXX11Attrs);
+      ProhibitAttributes(GNUAttrs);
+      return ParseStmtMacroInvocation(StmtCtx);
+    }
+
     Token Next = NextToken();
     if (Next.is(tok::colon)) { // C99 6.8.1: labeled-statement
       // Both C++11 and GNU attributes preceding the label appertain to the
@@ -1228,6 +1245,18 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr, bool isDoExpr) {
       (isStmtExpr ? ParsedStmtContext::InStmtExpr : ParsedStmtContext()) |
       (isDoExpr ? ParsedStmtContext::InDoExpr : ParsedStmtContext());
 
+  // Save outer pending injected stmts so a nested compound being parsed
+  // through this loop can't drain stmts that belong to the enclosing scope.
+  SmallVector<Stmt *> SavedPendingInjected;
+  SavedPendingInjected.swap(Actions.PendingInjectedStmts);
+  unsigned SavedInjectedLocalDeclsForLookupSize =
+      Actions.InjectedLocalDeclsForLookup.size();
+  auto RestorePending = llvm::make_scope_exit([&] {
+    SavedPendingInjected.swap(Actions.PendingInjectedStmts);
+    Actions.InjectedLocalDeclsForLookup.resize(
+        SavedInjectedLocalDeclsForLookupSize);
+  });
+
   bool LastIsError = false;
   while (!tryParseMisplacedModuleImport() && Tok.isNot(tok::r_brace) &&
          Tok.isNot(tok::eof)) {
@@ -1286,6 +1315,14 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr, bool isDoExpr) {
     if (R.isUsable())
       Stmts.push_back(R.get());
     LastIsError = R.isInvalid();
+
+    // Pick up any statements injected by consteval blocks
+    // (e.g., return statements from queue_injection).
+    if (!Actions.PendingInjectedStmts.empty()) {
+      Stmts.append(Actions.PendingInjectedStmts.begin(),
+                   Actions.PendingInjectedStmts.end());
+      Actions.PendingInjectedStmts.clear();
+    }
   }
   // StmtExpr needs to do copy initialization for last statement.
   // If last statement is invalid, the last statement in `Stmts` will be

@@ -35,6 +35,35 @@ def note_constexpr_invalid_function : Note<
 def note_constexpr_invalid_inhctor : Note<
   "constructor inherited from base class %0 cannot be used in a "
   "constant expression; derived class cannot be implicitly initialized">;
+def note_constexpr_macro_operator_not_token : Note<
+  "operator '%0' is not a single token and cannot be interpolated">;
+def note_constexpr_invalid_punctuator : Note<
+  "%0 is not a std::meta::punctuator enumerator">;
+def note_constexpr_id_not_identifier : Note<
+  "std::meta::id produces '%0', which %select{is not an identifier|"
+  "is a keyword}1">;
+// P2758: std::constexpr_print_str / constexpr_warning_str / constexpr_error_str
+// (via __builtin_constexpr_diag). The err/warn/note trio is emitted directly
+// by the constant evaluator when the call is manifestly constant-evaluated;
+// note_constexpr_message additionally serves as the failure note when an
+// expression macro reports an error.
+def note_constexpr_message : Note<"constexpr message: %0">,
+  ShowInSystemHeader;
+def note_constexpr_token_index_out_of_range : Note<
+  "token index %0 is out of range for a token sequence of %1 token%s1">;
+def note_constexpr_message_tag : Note<
+  "constexpr message with tag '%0': %1">, ShowInSystemHeader;
+def warn_constexpr_message : Warning<"constexpr message: %0">,
+  InGroup<ConstexprMessages>, ShowInSystemHeader;
+def warn_constexpr_message_tag : Warning<
+  "constexpr message with tag '%0': %1">,
+  InGroup<ConstexprMessages>, ShowInSystemHeader;
+def err_constexpr_message : Error<"constexpr message: %0">;
+def err_constexpr_message_tag : Error<
+  "constexpr message with tag '%0': %1">;
+def note_constexpr_diag_bad_tag : Note<
+  "tag of a constexpr message may only contain letters, digits, '_', '-', "
+  "and '='">;
 def note_constexpr_no_return : Note<
   "control reached end of constexpr function">;
 def note_constexpr_virtual_call : Note<

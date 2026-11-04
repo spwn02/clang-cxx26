@@ -1028,6 +1028,66 @@ bool Parser::ConsumeAndStoreFunctionPrologue(CachedTokens &Toks) {
       ConsumeToken();
       continue;
     }
+
+    // A macro invocation, 'name!(...)', whose expansion is mem-initializers.
+    // The arguments are bracketed by any of (), {} or [], and may be preceded
+    // by explicit template arguments, 'name!<Args>(...)'.
+    if (getLangOpts().CPlusPlus29 && isMacroInvocationExclaim()) {
+      Toks.push_back(Tok);
+      ConsumeToken();
+      auto CloserOf = [](tok::TokenKind K) {
+        return K == tok::l_paren   ? tok::r_paren
+               : K == tok::l_brace ? tok::r_brace
+                                   : tok::r_square;
+      };
+      if (Tok.is(tok::less)) {
+        unsigned Depth = 0;
+        do {
+          tok::TokenKind K = Tok.getKind();
+          if (K == tok::eof || K == tok::semi)
+            return Diag(Tok, diag::err_expected) << tok::greater;
+          Toks.push_back(Tok);
+          ConsumeAnyToken();
+          if (isMacroArgumentListOpener(K)) {
+            if (!ConsumeAndStoreUntil(CloserOf(K), Toks, /*StopAtSemi=*/true))
+              return Diag(Tok, diag::err_expected) << CloserOf(K);
+          } else if (K == tok::less) {
+            ++Depth;
+          } else if (K == tok::greater) {
+            --Depth;
+          } else if (K == tok::greatergreater) {
+            Depth -= std::min(Depth, 2u);
+          }
+        } while (Depth);
+        if (!isMacroArgumentListOpener(Tok.getKind()))
+          return Diag(Tok, diag::err_expected) << tok::l_paren;
+      }
+      tok::TokenKind OpenKind = Tok.getKind();
+      tok::TokenKind CloseKind = OpenKind == tok::l_paren   ? tok::r_paren
+                                 : OpenKind == tok::l_brace ? tok::r_brace
+                                                            : tok::r_square;
+      SourceLocation OpenLoc = Tok.getLocation();
+      Toks.push_back(Tok);
+      ConsumeAnyToken();
+      if (!ConsumeAndStoreUntil(CloseKind, Toks, /*StopAtSemi=*/true)) {
+        Diag(Tok, diag::err_expected) << CloseKind;
+        Diag(OpenLoc, diag::note_matching) << OpenKind;
+        return true;
+      }
+      if (Tok.is(tok::comma)) {
+        Toks.push_back(Tok);
+        ConsumeToken();
+        continue;
+      }
+      if (Tok.is(tok::l_brace)) {
+        Toks.push_back(Tok);
+        ConsumeBrace();
+        return false;
+      }
+      return Diag(Tok.getLocation(), diag::err_expected_either)
+             << tok::l_brace << tok::comma;
+    }
+
     if (Tok.is(tok::less))
       MightBeTemplateArgument = true;
 
@@ -1373,8 +1433,16 @@ bool Parser::ConsumeAndStoreInitializer(CachedTokens &Toks,
     consume_token:
       // If it's an annotation token, then we've run out of tokens and should
       // bail out. Otherwise, cache the token and consume it.
-      if (Tok.isAnnotation())
+      if (Tok.isAnnotation()) {
+        // annot_typename and annot_token_seq_expr can appear in initializers
+        // when using token sequence injection (e.g., = \(type)()).
+        if (Tok.isOneOf(tok::annot_typename, tok::annot_token_seq_expr)) {
+          Toks.push_back(Tok);
+          ConsumeAnnotationToken();
+          break;
+        }
         return false;
+      }
 
       Toks.push_back(Tok);
       ConsumeToken();

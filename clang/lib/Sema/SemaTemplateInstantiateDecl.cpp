@@ -34,11 +34,342 @@
 #include "clang/Sema/SemaSwift.h"
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateInstCallback.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/TimeProfiler.h"
 #include <optional>
 
 using namespace clang;
+
+static void addLocalDeclForLookup(const NamedDecl *ND,
+                                  SmallVectorImpl<const NamedDecl *> &Decls) {
+  auto AddDecl = [&](const NamedDecl *D) {
+    if (!D->getDeclName() || llvm::is_contained(Decls, D))
+      return;
+    Decls.push_back(D);
+  };
+
+  AddDecl(ND);
+  if (const auto *ED = dyn_cast<EnumDecl>(ND))
+    for (const auto *ECD : ED->enumerators())
+      AddDecl(ECD);
+  if (const auto *DD = dyn_cast<DecompositionDecl>(ND))
+    for (const auto *BD : DD->bindings())
+      AddDecl(BD);
+}
+
+static void collectLocalDeclsForLookup(
+    const DeclStmt *DS, SmallVectorImpl<const NamedDecl *> &Decls) {
+  for (const Decl *D : DS->decls())
+    if (const auto *ND = dyn_cast<NamedDecl>(D))
+      addLocalDeclForLookup(ND, Decls);
+}
+
+/// The target lives in one of the initializers of \p DS: names declared
+/// earlier in the same declaration-statement, and the one whose initializer
+/// holds the target, are in scope there ([basic.scope.pdecl]).
+static void collectLocalDeclsUpToTarget(
+    const DeclStmt *DS, llvm::function_ref<bool(const Stmt *)> Contains,
+    SmallVectorImpl<const NamedDecl *> &Decls) {
+  for (const Decl *D : DS->decls()) {
+    if (const auto *ND = dyn_cast<NamedDecl>(D))
+      addLocalDeclForLookup(ND, Decls);
+    if (const auto *VD = dyn_cast<VarDecl>(D);
+        VD && VD->getInit() && Contains(VD->getInit()))
+      return;
+  }
+}
+
+static bool containsConstevalBlockDecl(const Stmt *S,
+                                       const ConstevalBlockDecl *Target) {
+  if (!S)
+    return false;
+
+  if (auto *DS = dyn_cast<DeclStmt>(S))
+    for (const Decl *D : DS->decls())
+      if (D == Target)
+        return true;
+
+  for (const Stmt *Child : S->children())
+    if (containsConstevalBlockDecl(Child, Target))
+      return true;
+  return false;
+}
+
+using LocalDeclLevels = SmallVector<SmallVector<const NamedDecl *, 4>, 4>;
+
+/// Case labels, ordinary labels, and statement attributes do not introduce a
+/// scope: a declaration in their substatement is declared directly in the
+/// enclosing block.
+static const Stmt *skipLabelsAndAttributes(const Stmt *S) {
+  while (true) {
+    if (const auto *SC = dyn_cast_or_null<SwitchCase>(S))
+      S = SC->getSubStmt();
+    else if (const auto *LS = dyn_cast_or_null<LabelStmt>(S))
+      S = LS->getSubStmt();
+    else if (const auto *AS = dyn_cast_or_null<AttributedStmt>(S))
+      S = AS->getSubStmt();
+    else
+      return S;
+  }
+}
+
+/// Collect the local declarations visible before the statement matched by
+/// \p Contains, one inner vector per lexical scope, outermost first. New
+/// levels start when descending into a nested scope, so a caller can
+/// reconstruct shadowing.
+static bool collectVisibleLocalDeclsBefore(
+    const Stmt *S, llvm::function_ref<bool(const Stmt *)> Contains,
+    LocalDeclLevels &Levels) {
+  if (!S)
+    return false;
+
+  // Descend into a nested scope: everything below this statement is a new
+  // shadowing level.
+  auto DescendInto = [&](const Stmt *Child) {
+    Levels.emplace_back();
+    return collectVisibleLocalDeclsBefore(Child, Contains, Levels);
+  };
+  // Handle a statement that shares the current scope (a declaration, or the
+  // statement holding the target). Returns true if the walk is done, with
+  // \p Found as the result.
+  auto InCurrentScope = [&](const Stmt *Child, bool &Found) {
+    Child = skipLabelsAndAttributes(Child);
+    if (const auto *DS = dyn_cast_or_null<DeclStmt>(Child)) {
+      if (Contains(DS)) {
+        collectLocalDeclsUpToTarget(DS, Contains, Levels.back());
+        Found = true;
+        return true;
+      }
+      collectLocalDeclsForLookup(DS, Levels.back());
+      return false;
+    }
+    if (Child && Contains(Child)) {
+      Found = DescendInto(Child);
+      return true;
+    }
+    return false;
+  };
+
+  if (isa<DeclStmt>(S)) {
+    bool Found = false;
+    InCurrentScope(S, Found);
+    return Found;
+  }
+
+  if (auto *CS = dyn_cast<CompoundStmt>(S)) {
+    for (const Stmt *Child : CS->body()) {
+      bool Found = false;
+      if (InCurrentScope(Child, Found))
+        return Found;
+    }
+    return false;
+  }
+
+  if (auto *IS = dyn_cast<IfStmt>(S)) {
+    if (Contains(IS->getInit()))
+      return DescendInto(IS->getInit());
+    collectVisibleLocalDeclsBefore(IS->getInit(), Contains, Levels);
+
+    auto AddCondDecls = [&] {
+      if (const DeclStmt *Cond = IS->getConditionVariableDeclStmt())
+        collectLocalDeclsForLookup(Cond, Levels.back());
+    };
+
+    if (Contains(IS->getThen())) {
+      AddCondDecls();
+      return DescendInto(IS->getThen());
+    }
+    if (Contains(IS->getElse())) {
+      AddCondDecls();
+      return DescendInto(IS->getElse());
+    }
+    return false;
+  }
+
+  if (auto *SS = dyn_cast<SwitchStmt>(S)) {
+    if (Contains(SS->getInit()))
+      return DescendInto(SS->getInit());
+    collectVisibleLocalDeclsBefore(SS->getInit(), Contains, Levels);
+
+    if (Contains(SS->getBody())) {
+      if (const DeclStmt *Cond = SS->getConditionVariableDeclStmt())
+        collectLocalDeclsForLookup(Cond, Levels.back());
+      return DescendInto(SS->getBody());
+    }
+    return false;
+  }
+
+  if (auto *WS = dyn_cast<WhileStmt>(S)) {
+    if (Contains(WS->getBody())) {
+      if (const DeclStmt *Cond = WS->getConditionVariableDeclStmt())
+        collectLocalDeclsForLookup(Cond, Levels.back());
+      return DescendInto(WS->getBody());
+    }
+    return false;
+  }
+
+  if (auto *FS = dyn_cast<ForStmt>(S)) {
+    if (Contains(FS->getInit()))
+      return DescendInto(FS->getInit());
+    collectVisibleLocalDeclsBefore(FS->getInit(), Contains, Levels);
+
+    if (Contains(FS->getBody())) {
+      if (const DeclStmt *Cond = FS->getConditionVariableDeclStmt())
+        collectLocalDeclsForLookup(Cond, Levels.back());
+      return DescendInto(FS->getBody());
+    }
+    return false;
+  }
+
+  if (auto *FRS = dyn_cast<CXXForRangeStmt>(S)) {
+    if (Contains(FRS->getInit()))
+      return DescendInto(FRS->getInit());
+    collectVisibleLocalDeclsBefore(FRS->getInit(), Contains, Levels);
+
+    if (Contains(FRS->getLoopVarStmt()))
+      return DescendInto(FRS->getLoopVarStmt());
+    collectVisibleLocalDeclsBefore(FRS->getLoopVarStmt(), Contains, Levels);
+
+    if (Contains(FRS->getBody()))
+      return DescendInto(FRS->getBody());
+    return false;
+  }
+
+  if (auto *TS = dyn_cast<CXXTryStmt>(S)) {
+    if (Contains(TS->getTryBlock()))
+      return DescendInto(TS->getTryBlock());
+    for (unsigned I = 0, N = TS->getNumHandlers(); I != N; ++I) {
+      const CXXCatchStmt *H = TS->getHandler(I);
+      if (!Contains(H))
+        continue;
+      Levels.emplace_back();
+      if (const VarDecl *Ex = H->getExceptionDecl())
+        addLocalDeclForLookup(Ex, Levels.back());
+      return DescendInto(H->getHandlerBlock());
+    }
+    return false;
+  }
+
+  for (const Stmt *Child : S->children())
+    if (Contains(Child))
+      return DescendInto(Child);
+  return false;
+}
+
+/// Collect the local declarations visible before the consteval block
+/// \p Target within \p S.
+static bool collectVisibleLocalDeclsForConstevalBlock(
+    const Stmt *S, const ConstevalBlockDecl *Target,
+    SmallVectorImpl<const NamedDecl *> &Decls) {
+  LocalDeclLevels Levels(1);
+  if (!collectVisibleLocalDeclsBefore(
+          S,
+          [&](const Stmt *C) { return containsConstevalBlockDecl(C, Target); },
+          Levels))
+    return false;
+  for (const auto &Level : Levels)
+    Decls.append(Level.begin(), Level.end());
+  return true;
+}
+
+static bool containsStmt(const Stmt *S, const Stmt *Target) {
+  if (!S)
+    return false;
+  if (S == Target)
+    return true;
+  for (const Stmt *Child : S->children())
+    if (containsStmt(Child, Target))
+      return true;
+  return false;
+}
+
+void Sema::CollectLocalDeclsForLookup(
+    const FunctionDecl *FD, const Stmt *Target,
+    SmallVectorImpl<SmallVector<NamedDecl *, 4>> &ScopeLevels) {
+  if (!FD->hasBody() || !containsStmt(FD->getBody(), Target))
+    return;
+  LocalDeclLevels Levels(1);
+  collectVisibleLocalDeclsBefore(
+      FD->getBody(), [&](const Stmt *C) { return containsStmt(C, Target); },
+      Levels);
+  for (const auto &Level : Levels) {
+    SmallVector<NamedDecl *, 4> &Out = ScopeLevels.emplace_back();
+    for (const NamedDecl *ND : Level)
+      Out.push_back(const_cast<NamedDecl *>(ND));
+  }
+}
+
+void Sema::CollectInstantiatedLocalDeclsForLookup(
+    const Stmt *PatternStmt,
+    SmallVectorImpl<SmallVector<NamedDecl *, 4>> &ScopeLevels) {
+  LocalInstantiationScope *Scope = CurrentInstantiationScope;
+  if (!Scope)
+    return;
+
+  // Find the function template whose body contains the pattern statement; a
+  // lambda inside it is instantiated within the same synthesis context.
+  const Stmt *Body = nullptr;
+  for (const CodeSynthesisContext &Ctx : llvm::reverse(CodeSynthesisContexts)) {
+    const auto *FD = dyn_cast_or_null<FunctionDecl>(Ctx.Entity);
+    const FunctionDecl *Pattern =
+        FD ? FD->getTemplateInstantiationPattern() : nullptr;
+    if (Pattern && Pattern->hasBody() &&
+        containsStmt(Pattern->getBody(), PatternStmt)) {
+      Body = Pattern->getBody();
+      break;
+    }
+  }
+  if (!Body)
+    return;
+
+  LocalDeclLevels PatternLevels(1);
+  collectVisibleLocalDeclsBefore(
+      Body, [&](const Stmt *C) { return containsStmt(C, PatternStmt); },
+      PatternLevels);
+
+  llvm::SmallPtrSet<const NamedDecl *, 16> Seen;
+  for (const auto &Level : PatternLevels) {
+    SmallVector<NamedDecl *, 4> Mapped;
+    for (const NamedDecl *ND : Level) {
+      auto *Inst = Scope->getInstantiationOfIfExists(ND);
+      if (!Inst)
+        continue;
+      auto *InstND = dyn_cast_or_null<NamedDecl>(Inst->dyn_cast<Decl *>());
+      if (!InstND || !InstND->getDeclName() || !Seen.insert(InstND).second)
+        continue;
+      Mapped.push_back(InstND);
+    }
+    if (!Mapped.empty())
+      ScopeLevels.push_back(std::move(Mapped));
+  }
+}
+
+static void collectInstantiatedLocalDeclsForConstevalLookup(
+    Sema &SemaRef, const ConstevalBlockDecl *PatternBlock,
+    SmallVectorImpl<NamedDecl *> &Decls) {
+  auto *Scope = SemaRef.CurrentInstantiationScope;
+  auto *FD = dyn_cast<FunctionDecl>(PatternBlock->getDeclContext());
+  if (!Scope || !FD || !FD->hasBody())
+    return;
+
+  SmallVector<const NamedDecl *, 8> VisiblePatternDecls;
+  if (!collectVisibleLocalDeclsForConstevalBlock(FD->getBody(), PatternBlock,
+                                                 VisiblePatternDecls))
+    return;
+
+  for (const NamedDecl *ND : VisiblePatternDecls) {
+    auto *Inst = Scope->getInstantiationOfIfExists(ND);
+    if (!Inst)
+      continue;
+
+    auto *InstDecl = Inst->dyn_cast<Decl *>();
+    auto *InstND = dyn_cast_or_null<NamedDecl>(InstDecl);
+    if (!InstND || !InstND->getDeclName() || llvm::is_contained(Decls, InstND))
+      continue;
+    Decls.push_back(InstND);
+  }
+}
 
 static bool isDeclWithinFunction(const Decl *D) {
   const DeclContext *DC = D->getDeclContext();
@@ -2226,6 +2557,38 @@ Decl *TemplateDeclInstantiator::VisitStaticAssertDecl(StaticAssertDecl *D) {
       InstantiatedMessageExpr.get(), D->getRParenLoc(), D->isFailed());
 }
 
+void Sema::InstantiateDeclMacroInvocation(
+    ConstevalBlockDecl *D, const MultiLevelTemplateArgumentList &TemplateArgs) {
+  CXXMacroInvocationExpr *E = D->getDeclMacroInvocation();
+  assert(E && "not a declaration macro invocation");
+  TokenSequenceData Expansion;
+  if (SubstAndEvaluateMacroInvocation(E, TemplateArgs, Expansion) ||
+      Expansion.empty())
+    return;
+
+  SourceLocation NameLoc = E->isMemberInvocation()
+                               ? E->getMemberNameInfo().getLoc()
+                               : E->getCallee()->getNameLoc();
+  Expr::EvalStatus::TokenInjection Inj;
+  Inj.Loc = E->getRParenLoc();
+  Inj.TSD = Expansion;
+  Inj.AS = D->getAccess();
+  Inj.Invocation = SourceRange(NameLoc, E->getRParenLoc());
+  Inj.Terminated = true;
+  PendingInjections.push_back(Inj);
+  size_t FirstInjected = PendingInjectedStmts.size();
+  {
+    MacroExpansionDepthRAII Depth(*this);
+    ProcessPendingTokenInjections();
+  }
+  // A statement macro's arguments are run-time expressions, each evaluated
+  // exactly once.
+  if (D->getDeclContext()->isFunctionOrMethod() &&
+      PendingInjectedStmts.size() > FirstInjected)
+    CheckMacroArgumentEvaluation(
+        Expansion, ArrayRef(PendingInjectedStmts).drop_front(FirstInjected));
+}
+
 Decl *TemplateDeclInstantiator::VisitConstevalBlockDecl(ConstevalBlockDecl *D) {
   Expr *EvaluatingExpr = D->getEvaluatingExpr();
 
@@ -2233,13 +2596,50 @@ Decl *TemplateDeclInstantiator::VisitConstevalBlockDecl(ConstevalBlockDecl *D) {
   EnterExpressionEvaluationContext ConstantEvaluated(
       SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
 
+  // Tokens injected into a function body are parsed with the instantiated
+  // locals that precede this point visible.
+  SmallVector<NamedDecl *> AddedInjectedLocalDeclsForLookup;
+  auto RestoreLookupDecls = llvm::make_scope_exit([&] {
+    for (NamedDecl *ND : AddedInjectedLocalDeclsForLookup)
+      llvm::erase(SemaRef.InjectedLocalDeclsForLookup, ND);
+  });
+  auto SeedLocalsForLookup = [&] {
+    SmallVector<NamedDecl *> VisibleLocalDeclsForLookup;
+    collectInstantiatedLocalDeclsForConstevalLookup(SemaRef, D,
+                                                    VisibleLocalDeclsForLookup);
+    for (NamedDecl *ND : VisibleLocalDeclsForLookup) {
+      if (llvm::is_contained(SemaRef.InjectedLocalDeclsForLookup, ND))
+        continue;
+      SemaRef.InjectedLocalDeclsForLookup.push_back(ND);
+      AddedInjectedLocalDeclsForLookup.push_back(ND);
+    }
+  };
+
+  // A declaration (or statement) macro invocation expands in place; nothing
+  // of it remains in the specialization but its expansion.
+  if (D->getDeclMacroInvocation()) {
+    if (D->getDeclContext()->isFunctionOrMethod())
+      SeedLocalsForLookup();
+    SemaRef.InstantiateDeclMacroInvocation(D, TemplateArgs);
+    return nullptr;
+  }
+
   ExprResult InstantiatedEvaluatingExpr = SemaRef.SubstExpr(EvaluatingExpr,
                                                             TemplateArgs);
   if (InstantiatedEvaluatingExpr.isInvalid())
     return nullptr;
 
-  return SemaRef.BuildConstevalBlockDeclaration(
+  Decl *Result = SemaRef.BuildConstevalBlockDeclaration(
        D->getLocation(), InstantiatedEvaluatingExpr.get());
+
+  // Process any pending token injections from queue_injection calls.
+  // During normal parsing, ParseConstevalBlockDeclaration handles this,
+  // but during template instantiation we need to invoke the parser via
+  // callback.
+  SeedLocalsForLookup();
+  SemaRef.ProcessPendingTokenInjections();
+
+  return Result;
 }
 
 Decl *TemplateDeclInstantiator::VisitExpansionStmtDecl(ExpansionStmtDecl *D) {
@@ -2371,6 +2771,15 @@ Decl *TemplateDeclInstantiator::VisitEnumDecl(EnumDecl *D) {
     }
   }
 
+  // An opaque-enum-declaration is complete as declared: its annotations'
+  // on_complete callbacks run now. (A definition's run once its enumerators
+  // are instantiated; see InstantiateEnumDefinition.)
+  if (!D->isThisDeclarationADefinition() && Enum->isComplete() &&
+      !Enum->isInvalidDecl()) {
+    SemaRef.HandleAnnotationOnComplete(Enum);
+    SemaRef.ProcessPendingTokenInjections();
+  }
+
   return Enum;
 }
 
@@ -2432,6 +2841,14 @@ void TemplateDeclInstantiator::InstantiateEnumDefinition(
 
   SemaRef.ActOnEnumBody(Enum->getLocation(), Enum->getBraceRange(), Enum,
                         Enumerators, nullptr, ParsedAttributesView());
+
+  // Its annotations' on_complete callbacks, now that the enumerators exist.
+  // (A scoped member enumeration's definition is instantiated only when
+  // needed, so its callbacks run then.)
+  if (!Enum->isInvalidDecl()) {
+    SemaRef.HandleAnnotationOnComplete(Enum);
+    SemaRef.ProcessPendingTokenInjections();
+  }
 }
 
 Decl *TemplateDeclInstantiator::VisitEnumConstantDecl(EnumConstantDecl *D) {
@@ -5539,6 +5956,34 @@ bool Sema::InstantiateDefaultArgument(SourceLocation CallLoc, FunctionDecl *FD,
                                       ParmVarDecl *Param) {
   assert(Param->hasUninstantiatedDefaultArg());
 
+  // A clone made by std::meta::declaration_of keeps the *pattern* default of
+  // the member it was cloned from, and instantiates it as that member would:
+  // with the source specialization's arguments -- plus the clone's own
+  // template arguments, if it is a template -- and with the pattern's
+  // parameters standing for the clone's.
+  if (const FunctionDecl *Src = getClonedDeclarationSource(FD)) {
+    std::optional<ArrayRef<TemplateArgument>> Innermost;
+    if (const TemplateArgumentList *TAL = FD->getTemplateSpecializationArgs())
+      Innermost = TAL->asArray();
+    MultiLevelTemplateArgumentList TemplateArgs = getTemplateInstantiationArgs(
+        Src, /*DC=*/nullptr, /*Final=*/false, Innermost);
+
+    LocalInstantiationScope Scope(*this);
+    const FunctionDecl *SrcPattern =
+        Src->getTemplateInstantiationPattern(/*ForDefinition=*/false);
+    for (const FunctionDecl *P : {SrcPattern, Src})
+      if (P && P->getNumParams() == FD->getNumParams())
+        for (unsigned I = 0, N = FD->getNumParams(); I != N; ++I)
+          Scope.InstantiatedLocal(P->getParamDecl(I), FD->getParamDecl(I));
+
+    if (SubstDefaultArgument(CallLoc, Param, TemplateArgs,
+                             /*ForCallExpr=*/false))
+      return true;
+    if (ASTMutationListener *L = getASTMutationListener())
+      L->DefaultArgumentInstantiated(Param);
+    return false;
+  }
+
   // FIXME: We don't track member specialization info for non-defining
   // friend declarations, so we will not be able to later find the function
   // pattern. As a workaround, don't instantiate the default argument in this
@@ -5930,7 +6375,7 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
 
   // Postpone late parsed template instantiations.
   if (PatternDecl->isLateTemplateParsed() &&
-      !LateTemplateParser) {
+      !HasLateTemplateParser()) {
     Function->setInstantiationIsPending(true);
     LateParsedInstantiations.push_back(
         std::make_pair(Function, PointOfInstantiation));
@@ -5964,7 +6409,7 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
   // Call the LateTemplateParser callback if there is a need to late parse
   // a templated function definition.
   if (!Pattern && PatternDecl->isLateTemplateParsed() &&
-      LateTemplateParser) {
+      HasLateTemplateParser()) {
     // FIXME: Optimize to allow individual templates to be deserialized.
     if (PatternDecl->isFromASTFile())
       ExternalSource->ReadLateParsedTemplates(LateParsedTemplateMap);
@@ -5972,7 +6417,7 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
     auto LPTIter = LateParsedTemplateMap.find(PatternDecl);
     assert(LPTIter != LateParsedTemplateMap.end() &&
            "missing LateParsedTemplate");
-    LateTemplateParser(OpaqueParser, *LPTIter->second);
+    ParseLateTemplate(*LPTIter->second);
     Pattern = PatternDecl->getBody(PatternDecl);
     updateAttrsForLateParsedTemplate(PatternDecl, Function);
   }
@@ -6197,6 +6642,14 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
       else
         DC = (*It)->getLexicalDeclContext();
       Innermost.emplace(Function->getTemplateSpecializationArgs()->asArray());
+
+      // If this function template was injected into a class template
+      // specialization (rather than instantiated from a member of the class
+      // template pattern), its template parameters are at depth 0. We should
+      // not walk up to the enclosing class template specialization to add
+      // its template arguments, as that would create a depth collision.
+      if (isInjectedIntoSpecialization(Function->getDeclContext(), Primary))
+        DC = Function->getASTContext().getTranslationUnitDecl();
     }
     MultiLevelTemplateArgumentList TemplateArgs = getTemplateInstantiationArgs(
         Function, DC, /*Final=*/false, Innermost, false, PatternDecl);
@@ -6833,6 +7286,133 @@ void Sema::InstantiateVariableDefinition(SourceLocation PointOfInstantiation,
   GlobalInstantiations.perform();
 }
 
+bool Sema::SubstAndEvaluateMacroInvocation(
+    CXXMacroInvocationExpr *E, const MultiLevelTemplateArgumentList &TemplateArgs,
+    TokenSequenceData &Expansion) {
+  // Locals of an enclosing expansion are not visible here.
+  SmallVector<SmallVector<NamedDecl *, 4>, 4> SavedScopes;
+  SavedScopes.swap(MacroExpansionLocalScopes);
+  auto RestoreScopes = llvm::make_scope_exit(
+      [&] { SavedScopes.swap(MacroExpansionLocalScopes); });
+
+  // A raw (token sequence) argument is consumed by the macro's evaluation
+  // and never reaches the enclosing declaration, so it is not a
+  // consteval-only value escaping into it.
+  auto ForgetRawArgs = [&](ArrayRef<Expr *> Args) {
+    for (Expr *Arg : Args)
+      if (Arg->getType()->isTokenSequenceType())
+        ExprEvalContexts.back().ConstevalOnly.erase(Arg);
+  };
+
+  // The explicit template arguments of 'name!<Args>(...)', if any: the
+  // callee's, or the member invocation's own.
+  TemplateArgumentListInfo MacroTemplateArgsBuffer;
+  const TemplateArgumentListInfo *MacroTemplateArgs = nullptr;
+  auto SubstMacroTemplateArgs = [&](ArrayRef<TemplateArgumentLoc> In,
+                                    SourceLocation LAngleLoc,
+                                    SourceLocation RAngleLoc) {
+    MacroTemplateArgsBuffer.setLAngleLoc(LAngleLoc);
+    MacroTemplateArgsBuffer.setRAngleLoc(RAngleLoc);
+    MacroTemplateArgs = &MacroTemplateArgsBuffer;
+    return SubstTemplateArguments(In, TemplateArgs, MacroTemplateArgsBuffer);
+  };
+  if (const ASTTemplateArgumentListInfo *In = E->getMemberTemplateArgs()) {
+    if (SubstMacroTemplateArgs(In->arguments(), In->LAngleLoc, In->RAngleLoc))
+      return true;
+  } else if (UnresolvedLookupExpr *Callee = E->getCallee();
+             Callee && Callee->hasExplicitTemplateArgs()) {
+    if (SubstMacroTemplateArgs(Callee->template_arguments(),
+                               Callee->getLAngleLoc(), Callee->getRAngleLoc()))
+      return true;
+  }
+
+  SmallVector<Expr *, 4> Args;
+  if (E->isMemberInvocation()) {
+    // An implicit member access, 'this->name!(...)'.
+    ExprResult Base = SubstExpr(E->getBase(), TemplateArgs);
+    if (Base.isInvalid() ||
+        SubstExprs(E->getArgs(), /*IsCall=*/true, TemplateArgs, Args))
+      return true;
+    ForgetRawArgs(Args);
+    return EvaluateMemberMacroInvocation(
+        Base.get(), E->isArrow(), E->getOperatorLoc(), E->getMemberNameInfo(),
+        E->getLParenLoc(), Args, E->getRParenLoc(), Expansion,
+        MacroTemplateArgs);
+  }
+
+  UnresolvedLookupExpr *Old = E->getCallee();
+  ExprResult Callee;
+  if (E->areArgsUnparsed()) {
+    // A dependent qualifier: look the macros up now, then parse the
+    // arguments (captured as tokens) according to their shape.
+    NestedNameSpecifierLoc QualifierLoc =
+        SubstNestedNameSpecifierLoc(Old->getQualifierLoc(), TemplateArgs);
+    if (!QualifierLoc)
+      return true;
+    UnresolvedLookupExpr *Found = nullptr;
+    SmallVector<MacroParamKind, 4> RawParams;
+    bool StillDependent = false;
+    if (LookupDeferredQualifiedMacro(QualifierLoc, Old->getNameInfo(), Found,
+                                     RawParams, StillDependent,
+                                     MacroTemplateArgs))
+      return true;
+    assert(!StillDependent && "instantiated context still dependent");
+    // The arguments are parsed as part of the template, then substituted
+    // into.
+    SmallVector<Expr *, 4> PatternArgs;
+    if (ParseDeferredMacroArguments(RawParams, E, PatternArgs) ||
+        SubstExprs(PatternArgs, /*IsCall=*/true, TemplateArgs, Args))
+      return true;
+    Callee = Found;
+  } else {
+    UnresolvedSet<8> Macros;
+    for (auto I = Old->decls_begin(), End = Old->decls_end(); I != End; ++I) {
+      auto *D = cast_or_null<NamedDecl>(
+          FindInstantiatedDecl(Old->getNameLoc(), *I, TemplateArgs));
+      if (!D)
+        return true;
+      Macros.addDecl(D, I.getAccess());
+    }
+    NestedNameSpecifierLoc QualifierLoc = Old->getQualifierLoc();
+    if (QualifierLoc) {
+      QualifierLoc = SubstNestedNameSpecifierLoc(QualifierLoc, TemplateArgs);
+      if (!QualifierLoc)
+        return true;
+    }
+    Callee = BuildMacroCallee(QualifierLoc, Old->getNameInfo(), Macros,
+                              MacroTemplateArgs);
+    if (Callee.isInvalid())
+      return true;
+
+    if (SubstExprs(E->getArgs(), /*IsCall=*/true, TemplateArgs, Args))
+      return true;
+  }
+  ForgetRawArgs(Args);
+  return EvaluateMacroInvocation(
+      /*S=*/nullptr, cast<UnresolvedLookupExpr>(Callee.get()),
+      E->getLParenLoc(), Args, E->getRParenLoc(), Expansion);
+}
+
+/// Expand a mem-initializer macro invocation deferred from the constructor
+/// template: substitute into the callee and arguments, evaluate the macro
+/// (its macro_expansion_context() is now the instantiated constructor, of a
+/// complete class), and parse the expansion as mem-initializers.
+static bool
+expandDeferredMemInitMacro(Sema &S, CXXConstructorDecl *New,
+                           CXXMacroInvocationExpr *E,
+                           const MultiLevelTemplateArgumentList &TemplateArgs,
+                           SmallVectorImpl<CXXCtorInitializer *> &Out) {
+  TokenSequenceData Expansion;
+  if (S.SubstAndEvaluateMacroInvocation(E, TemplateArgs, Expansion))
+    return true;
+  SourceLocation NameLoc = E->isMemberInvocation()
+                               ? E->getMemberNameInfo().getLoc()
+                               : E->getCallee()->getNameLoc();
+  assert(S.CanParseMemInitMacroExpansion() && "no parser to expand into");
+  return S.ParseMemInitMacroExpansionFromParserBridge(
+      New, Expansion, SourceRange(NameLoc, E->getRParenLoc()), Out);
+}
+
 void
 Sema::InstantiateMemInitializers(CXXConstructorDecl *New,
                                  const CXXConstructorDecl *Tmpl,
@@ -6841,12 +7421,47 @@ Sema::InstantiateMemInitializers(CXXConstructorDecl *New,
   SmallVector<CXXCtorInitializer*, 4> NewInits;
   bool AnyErrors = Tmpl->isInvalidDecl();
 
+  // Mem-initializer macro invocations were deferred to here; each expands in
+  // place, at its position among the written initializers. (Copied: an
+  // expansion may instantiate further constructors.)
+  // So were initializers of members the pattern did not have, which may have
+  // been injected into the specialization.
+  SmallVector<DeferredMemInit, 1> Macros;
+  if (auto It = DeferredMemInitMacros.find(Tmpl->getCanonicalDecl());
+      It != DeferredMemInitMacros.end())
+    Macros.assign(It->second.begin(), It->second.end());
+  unsigned NextMacro = 0;
+  auto ExpandMacrosThrough = [&](unsigned Position) {
+    for (; NextMacro != Macros.size() &&
+           Macros[NextMacro].Position <= Position;
+         ++NextMacro) {
+      const DeferredMemInit &D = Macros[NextMacro];
+      bool Failed;
+      if (D.Macro) {
+        Failed = expandDeferredMemInitMacro(*this, New, D.Macro, TemplateArgs,
+                                            NewInits);
+      } else {
+        MemInitResult R =
+            BuildDeferredNamedMemInitializer(New, D, TemplateArgs);
+        Failed = R.isInvalid();
+        if (!Failed)
+          NewInits.push_back(R.get());
+      }
+      if (Failed) {
+        AnyErrors = true;
+        New->setInvalidDecl();
+      }
+    }
+  };
+  unsigned WrittenPosition = 0;
+
   // Instantiate all the initializers.
   for (const auto *Init : Tmpl->inits()) {
     // Only instantiate written initializers, let Sema re-construct implicit
     // ones.
     if (!Init->isWritten())
       continue;
+    ExpandMacrosThrough(WrittenPosition++);
 
     SourceLocation EllipsisLoc;
 
@@ -6969,6 +7584,8 @@ Sema::InstantiateMemInitializers(CXXConstructorDecl *New,
       NewInits.push_back(NewInit.get());
     }
   }
+
+  ExpandMacrosThrough(~0u);
 
   // Assign all the initializers to the new constructor.
   ActOnMemInitializers(New,

@@ -11,6 +11,10 @@
 let Component = "Metafn" in {
 
 // General diagnostics.
+// Accessibility.
+def metafn_access_query_class_being_defined : Note<
+  "cannot query the access of a member of class %0 currently being defined">;
+
 def metafn_expected_reflection_of : Note<"expected a reflection of %0">;
 def metafn_expected_reflection_of_but_got : Note<
   "expected a reflection of %0, but got %1">;
@@ -55,6 +59,9 @@ def metafn_undeduced_placeholder : Note<
   "placeholder">;
 def metafn_substitution_failed : Note<
   "substitution of the given template arguments into %0 failed">;
+def metafn_undeduced_return_type : Note<
+  "cannot query the return type of %select{function %1|function type %1}0, "
+  "which has not been deduced yet">;
 def metafn_cannot_invoke : Note<"cannot invoke %0">;
 def metafn_no_specialization_found : Note<
   "no specialization of the function template %0 matched the provided "
@@ -78,10 +85,6 @@ def metafn_function_returns_void : Note<
 // Layout.
 def metafn_offset_virtual_base_of_abstract : Note<
   "cannot query the layout of a virtual base class of an abstract class">;
-
-// Accessibility.
-def metafn_access_query_class_being_defined : Note<
-  "cannot query the access of a member of class %0 currently being defined">;
 
 // Extraction.
 def metafn_cannot_extract : Note<
@@ -113,5 +116,29 @@ def metafn_injected_decl_non_plainly_consteval : Note<
   "constant-evaluated context">;
 
 // Annotation injection.
+
+// Token injection.
+def metafn_builtin_inject_not_token_sequence : Note<
+  "argument to queue_injection is not a token sequence">;
+def metafn_builtin_inject_target_not_namespace : Note<
+  "first argument of two-argument queue_injection must be a namespace "
+  "reflection">;
+def metafn_interpolation_not_type_reflection : Note<
+  "interpolated reflection is not a type reflection">;
+
+def metafn_no_macro_expansion_context : Note<
+  "std::meta::macro_expansion_context() is only available while expanding an "
+  "expression macro">;
+def metafn_expand_at_instantiation : Note<
+  "expansion of the macro waits for template instantiation">;
+def metafn_no_expand_at_instantiation_context : Note<
+  "std::meta::expand_at_instantiation() is only available while expanding a "
+  "macro">;
+
+def metafn_cannot_clone_declaration : Note<
+  "cannot produce a declaration description: %0">;
+
+def metafn_cannot_forward_declaration : Note<
+  "cannot generate a forwarding call: %0">;
 
 }  // end of metafn component

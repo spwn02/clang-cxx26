@@ -776,6 +776,147 @@ static bool is_string_literal(APValue &Result, ASTContext &C, MetaActions &Meta,
 // header file.
 // -----------------------------------------------------------------------------
 
+// Expression macros
+static bool source_text_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+                           EvalFn Evaluator, DiagFn Diagnoser,
+                           bool AllowInjection, QualType ResultTy,
+                           SourceRange Range, ArrayRef<Expr *> Args,
+                           Decl *ContainingDecl);
+
+static bool is_binary_operation(APValue &Result, ASTContext &C,
+                                MetaActions &Meta, EvalFn Evaluator,
+                                DiagFn Diagnoser, bool AllowInjection,
+                                QualType ResultTy, SourceRange Range,
+                                ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool get_ith_operand_of(APValue &Result, ASTContext &C,
+                               MetaActions &Meta, EvalFn Evaluator,
+                               DiagFn Diagnoser, bool AllowInjection,
+                               QualType ResultTy, SourceRange Range,
+                               ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool token_count(APValue &Result, ASTContext &C, MetaActions &Meta,
+                        EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                        QualType ResultTy, SourceRange Range,
+                        ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool token_kind_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl);
+
+static bool operator_of_token(APValue &Result, ASTContext &C,
+                              MetaActions &Meta, EvalFn Evaluator,
+                              DiagFn Diagnoser, bool AllowInjection,
+                              QualType ResultTy, SourceRange Range,
+                              ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool identifier_of_token(APValue &Result, ASTContext &C,
+                                MetaActions &Meta, EvalFn Evaluator,
+                                DiagFn Diagnoser, bool AllowInjection,
+                                QualType ResultTy, SourceRange Range,
+                                ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool is_constant_expression(APValue &Result, ASTContext &C,
+                                   MetaActions &Meta, EvalFn Evaluator,
+                                   DiagFn Diagnoser, bool AllowInjection,
+                                   QualType ResultTy, SourceRange Range,
+                                   ArrayRef<Expr *> Args,
+                                   Decl *ContainingDecl);
+
+static bool test_expression(APValue &Result, ASTContext &C, MetaActions &Meta,
+                            EvalFn Evaluator, DiagFn Diagnoser,
+                            bool AllowInjection, QualType ResultTy,
+                            SourceRange Range, ArrayRef<Expr *> Args,
+                            Decl *ContainingDecl);
+
+static bool as_lvalue(APValue &Result, ASTContext &C, MetaActions &Meta,
+                      EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                      QualType ResultTy, SourceRange Range,
+                      ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool macro_expansion_context(APValue &Result, ASTContext &C,
+                                    MetaActions &Meta, EvalFn Evaluator,
+                                    DiagFn Diagnoser, bool AllowInjection,
+                                    QualType ResultTy, SourceRange Range,
+                                    ArrayRef<Expr *> Args,
+                                    Decl *ContainingDecl);
+
+// This tree has no entity-proxy reflections: nothing to unproxy.
+static APValue MaybeUnproxy(ASTContext &, const APValue &RV, bool /*Dealias*/) {
+  return RV;
+}
+
+static bool declaration_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+                           EvalFn Evaluator, DiagFn Diagnoser,
+                           bool AllowInjection, QualType ResultTy,
+                           SourceRange Range, ArrayRef<Expr *> Args,
+                           Decl *ContainingDecl);
+
+static bool forwarding_call_for(APValue &Result, ASTContext &C,
+                                MetaActions &Meta, EvalFn Evaluator,
+                                DiagFn Diagnoser, bool AllowInjection,
+                                QualType ResultTy, SourceRange Range,
+                                ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool argument_list_for(APValue &Result, ASTContext &C,
+                              MetaActions &Meta, EvalFn Evaluator,
+                              DiagFn Diagnoser, bool AllowInjection,
+                              QualType ResultTy, SourceRange Range,
+                              ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool expand_at_instantiation(APValue &Result, ASTContext &C,
+                                    MetaActions &Meta, EvalFn Evaluator,
+                                    DiagFn Diagnoser, bool AllowInjection,
+                                    QualType ResultTy, SourceRange Range,
+                                    ArrayRef<Expr *> Args,
+                                    Decl *ContainingDecl);
+
+static bool punctuator_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl);
+
+static bool is_declaration_spec(APValue &Result, ASTContext &C,
+                                MetaActions &Meta, EvalFn Evaluator,
+                                DiagFn Diagnoser, bool AllowInjection,
+                                QualType ResultTy, SourceRange Range,
+                                ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool make_override(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl);
+
+static bool make_noexcept(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl);
+
+static bool template_parameter_list_for(APValue &Result, ASTContext &C,
+                                        MetaActions &Meta, EvalFn Evaluator,
+                                        DiagFn Diagnoser, bool AllowInjection,
+                                        QualType ResultTy, SourceRange Range,
+                                        ArrayRef<Expr *> Args,
+                                        Decl *ContainingDecl);
+
+static bool template_argument_list_for(APValue &Result, ASTContext &C,
+                                       MetaActions &Meta, EvalFn Evaluator,
+                                       DiagFn Diagnoser, bool AllowInjection,
+                                       QualType ResultTy, SourceRange Range,
+                                       ArrayRef<Expr *> Args,
+                                       Decl *ContainingDecl);
+
+static bool get_ith_token(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl);
+
 static constexpr Metafunction Metafunctions[] = {
   // Kind, MinArgs, MaxArgs, Impl
 
@@ -910,6 +1051,32 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 1, 1, is_closure_type },
   { Metafunction::MFRK_bool, 1, 1, is_string_literal },
   { Metafunction::MFRK_metaInfo, 6, 6, reflect_array_object, true },
+
+  // Expression macros
+  { Metafunction::MFRK_spliceFromArg, 2, 2, source_text_of },
+  { Metafunction::MFRK_bool, 1, 1, is_binary_operation },
+  { Metafunction::MFRK_metaInfo, 2, 2, get_ith_operand_of },
+  { Metafunction::MFRK_sizeT, 1, 1, token_count },
+  { Metafunction::MFRK_tokenSequence, 2, 2, get_ith_token },
+  { Metafunction::MFRK_sizeT, 1, 1, token_kind_of },
+  { Metafunction::MFRK_sizeT, 1, 1, operator_of_token },
+  { Metafunction::MFRK_spliceFromArg, 3, 3, identifier_of_token },
+  { Metafunction::MFRK_bool, 1, 1, is_constant_expression },
+  { Metafunction::MFRK_metaInfo, 1, 1, test_expression },
+  { Metafunction::MFRK_metaInfo, 1, 1, as_lvalue },
+  { Metafunction::MFRK_metaInfo, 0, 0, macro_expansion_context,
+    /*Throws=*/false, /*WantsMacroExpansionContext=*/true },
+  { Metafunction::MFRK_metaInfo, 6, 6, declaration_of },
+  { Metafunction::MFRK_tokenSequence, 3, 3, forwarding_call_for },
+  { Metafunction::MFRK_bool, 1, 1, is_declaration_spec },
+  { Metafunction::MFRK_metaInfo, 1, 1, make_override },
+  { Metafunction::MFRK_metaInfo, 1, 1, make_noexcept },
+  { Metafunction::MFRK_tokenSequence, 2, 2, template_parameter_list_for },
+  { Metafunction::MFRK_tokenSequence, 1, 1, template_argument_list_for },
+  { Metafunction::MFRK_tokenSequence, 2, 2, argument_list_for },
+  { Metafunction::MFRK_bool, 0, 0, expand_at_instantiation,
+    /*Throws=*/false, /*WantsMacroExpansionContext=*/true },
+  { Metafunction::MFRK_sizeT, 1, 1, punctuator_of },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
                                             sizeof(Metafunction);
@@ -938,6 +1105,12 @@ bool Metafunction::evaluate(APValue &Result, ASTContext &C,
     return Meta.ThrowMetaException(Range.getBegin(),
                                    "invalid reflection operand");
   return Failed;
+}
+
+bool Metafunction::isSafeOnValueDependentExpressions() const {
+  return ImplFn == source_text_of || ImplFn == source_location_of ||
+         ImplFn == type_of || ImplFn == is_binary_operation ||
+         ImplFn == operator_of || ImplFn == get_ith_operand_of;
 }
 
 bool Metafunction::Lookup(unsigned ID, const Metafunction *&result) {
@@ -987,6 +1160,10 @@ static APValue makeReflection(CXXBaseSpecifier *Base) {
 
 static APValue makeReflection(TagDataMemberSpec *TDMS) {
   return APValue(ReflectionKind::DataMemberSpec, TDMS);
+}
+
+static APValue makeReflection(FunctionDeclSpec *FDS) {
+  return APValue(ReflectionKind::DeclarationSpec, FDS);
 }
 
 static APValue makeReflection(CXX26AnnotationAttr *A) {
@@ -1781,10 +1958,17 @@ StringRef DescriptionOf(APValue RV, bool Granular = true) {
   case ReflectionKind::DataMemberSpec: {
     return "a description of a non-static data member";
   }
+  case ReflectionKind::DeclarationSpec: {
+    return "a declaration description";
+  }
   case ReflectionKind::Annotation: {
     return "an annotation";
   }
+  case ReflectionKind::Expression: {
+    return "an expression";
   }
+  }
+  llvm_unreachable("unknown reflection kind");
 }
 
 bool DiagnoseReflectionKind(DiagFn Diagnoser, SourceRange Range,
@@ -1843,7 +2027,7 @@ bool get_begin_enumerator_decl_of(APValue &Result, ASTContext &C,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation: {
     return DiagnoseReflectionKind(Diagnoser, Range, "an enum type",
                                   DescriptionOf(RV));
@@ -1886,7 +2070,7 @@ bool get_next_enumerator_decl_of(APValue &Result, ASTContext &C,
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
-
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation: {
     llvm_unreachable("should have failed in 'get_begin_enumerator_decl_of'");
   }
@@ -1924,10 +2108,22 @@ bool get_ith_base_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     Decl *typeDecl = findTypeDecl(QT);
 
     if (auto cxxRecordDecl = dyn_cast_or_null<CXXRecordDecl>(typeDecl)) {
-      Meta.EnsureInstantiated(typeDecl, Range);
-      if (isIncompleteInReflectionContext(C, RV.getReflectedType()))
-        return Diagnoser(Range.getBegin(), diag::metafn_cannot_introspect_type)
-            << 0 << 0 << Range;
+      // A class that is currently being defined is incomplete, but its bases
+      // are already known (the base-clause precedes the member-specification),
+      // so base introspection is allowed mid-definition in C++29 (token
+      // sequence injection, P4380). Do not (re-)instantiate it in that case:
+      // it is already being instantiated, and instantiating its member
+      // definitions requires the complete type. A type incomplete for any
+      // other reason cannot be introspected.
+      bool BeingDefined =
+          C.getLangOpts().CPlusPlus29 && cxxRecordDecl->isBeingDefined();
+      if (!BeingDefined) {
+        Meta.EnsureInstantiated(typeDecl, Range);
+        if (isIncompleteInReflectionContext(C, RV.getReflectedType()))
+          return Diagnoser(Range.getBegin(),
+                           diag::metafn_cannot_introspect_type)
+              << 0 << 0 << Range;
+      }
 
       auto numBases = cxxRecordDecl->getNumBases();
       if (idx >= numBases)
@@ -1949,6 +2145,7 @@ bool get_ith_base_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return DiagnoseReflectionKind(Diagnoser, Range, "a class type",
@@ -2011,6 +2208,7 @@ bool get_ith_template_argument_of(APValue &Result, ASTContext &C,
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return DiagnoseReflectionKind(Diagnoser, Range, "a template specialization",
@@ -2056,21 +2254,33 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       return Meta.ThrowMetaException(Range.getBegin(),
                                      "invalid reflection operand");
 
-    if (!Meta.EnsureInstantiated(typeDecl, Range))
-      return true;
+    // A class that is currently being defined (e.g. when 'members_of' is called
+    // from a consteval block within the class's member-specification) is
+    // incomplete. In C++29 (token sequence injection, P4380) the members
+    // declared so far can be introspected so that members can be injected
+    // conditioned on the members already present; a type that is incomplete
+    // for any other reason is ill-formed. Such a class is neither (re-)
+    // instantiated -- it is already being instantiated, and instantiating its
+    // member definitions requires the complete type -- nor given its implicit
+    // special members, which depend on the complete member-specification.
+    bool BeingDefined = false;
+    if (C.getLangOpts().CPlusPlus29)
+      if (auto *TD = dyn_cast<TagDecl>(typeDecl); TD && TD->isBeingDefined())
+        BeingDefined = true;
 
-    if (isIncompleteInReflectionContext(C, QT))
-      return Meta.ThrowMetaException(Range.getBegin(),
-                                     "invalid reflection operand");
+    if (!BeingDefined) {
+      if (!Meta.EnsureInstantiated(typeDecl, Range))
+        return true;
+
+      if (isIncompleteInReflectionContext(C, QT))
+        return Meta.ThrowMetaException(Range.getBegin(),
+                                       "invalid reflection operand");
       // NOTE(CXX26): Uncomment to allow 'members_of' within member
       // specification.
-      /*
-      if (auto *TD = dyn_cast<TagDecl>(typeDecl); !TD || !TD->isBeingDefined())
-        return true;
-      */
 
-    if (auto *CXXRD = dyn_cast<CXXRecordDecl>(typeDecl))
-      Meta.EnsureDeclarationOfImplicitMembers(CXXRD);
+      if (auto *CXXRD = dyn_cast<CXXRecordDecl>(typeDecl))
+        Meta.EnsureDeclarationOfImplicitMembers(CXXRD);
+    }
 
     DeclContext *declContext = dyn_cast<DeclContext>(typeDecl);
     assert(declContext && "no DeclContext?");
@@ -2115,6 +2325,7 @@ bool get_begin_member_decl_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Value:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return Meta.ThrowMetaException(Range.getBegin(),
@@ -2190,6 +2401,278 @@ bool map_decl_to_entity(APValue &Result, ASTContext &C, MetaActions &Meta,
     return SetAndSucceed(Result, makeReflection(QT));
   }
   return SetAndSucceed(Result, makeReflection(D));
+}
+
+
+// -----------------------------------------------------------------------------
+// Expression macros
+// -----------------------------------------------------------------------------
+
+/// Strip the implicit conversions wrapped around an operand of a binary
+/// operation, giving back the operand as written. Temporaries bound by a
+/// CXXBindTemporaryExpr are kept: that node owns the destructor call.
+static Expr *operandAsWritten(Expr *E) {
+  while (true) {
+    if (auto *ICE = dyn_cast<ImplicitCastExpr>(E))
+      E = ICE->getSubExprAsWritten();
+    else if (auto *MTE = dyn_cast<MaterializeTemporaryExpr>(E))
+      E = MTE->getSubExpr();
+    else if (auto *CE = dyn_cast<CXXConstructExpr>(E);
+             CE && !isa<CXXTemporaryObjectExpr>(CE) && CE->getNumArgs() == 1 &&
+             CE->getConstructor()->isCopyOrMoveConstructor())
+      E = CE->getArg(0);
+    else
+      return E;
+  }
+}
+
+/// If \p E applies a binary operator (built-in, overloaded, or rewritten),
+/// report the operator and the operands as written.
+static bool decomposeBinaryOperation(Expr *E, OverloadedOperatorKind &OO,
+                                     Expr *&LHS, Expr *&RHS) {
+  E = E->IgnoreParenImpCasts();
+  if (auto *BO = dyn_cast<BinaryOperator>(E)) {
+    OO = BinaryOperator::getOverloadedOperator(BO->getOpcode());
+    LHS = BO->getLHS();
+    RHS = BO->getRHS();
+  } else if (auto *OC = dyn_cast<CXXOperatorCallExpr>(E)) {
+    if (OC->getNumArgs() != 2 || !OC->isInfixBinaryOp())
+      return false;
+    OO = OC->getOperator();
+    LHS = OC->getArg(0);
+    RHS = OC->getArg(1);
+  } else if (auto *RBO = dyn_cast<CXXRewrittenBinaryOperator>(E)) {
+    CXXRewrittenBinaryOperator::DecomposedForm DF = RBO->getDecomposedForm();
+    OO = BinaryOperator::getOverloadedOperator(DF.Opcode);
+    LHS = const_cast<Expr *>(DF.LHS);
+    RHS = const_cast<Expr *>(DF.RHS);
+  } else {
+    return false;
+  }
+  if (OO == OO_None)
+    return false;
+  LHS = operandAsWritten(LHS);
+  RHS = operandAsWritten(RHS);
+  return true;
+}
+
+bool source_text_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+                    EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                    QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                    Decl *ContainingDecl) {
+  assert(Args[1]->getType()->isReflectionType());
+
+  APValue RV;
+  if (!Evaluator(RV, Args[1], true))
+    return true;
+  if (!RV.isReflectedExpression())
+    return DiagnoseReflectionKind(Diagnoser, Range, "an expression",
+                                  DescriptionOf(RV));
+
+  const Expr *E = RV.getReflectedExpression();
+  bool Invalid = false;
+  StringRef Text = Lexer::getSourceText(
+      CharSourceRange::getTokenRange(E->getSourceRange()),
+      C.getSourceManager(), C.getLangOpts(), &Invalid);
+  if (Invalid)
+    Text = "";
+
+  Expr *StrLit = makeStrLiteral(Text, C, /*Utf8=*/false);
+  APValue::LValuePathEntry Path[1] = {APValue::LValuePathEntry::ArrayIndex(0)};
+  return SetAndSucceed(Result,
+                       APValue(StrLit, CharUnits::Zero(), Path, false));
+}
+
+bool is_binary_operation(APValue &Result, ASTContext &C, MetaActions &Meta,
+                         EvalFn Evaluator, DiagFn Diagnoser,
+                         bool AllowInjection, QualType ResultTy,
+                         SourceRange Range, ArrayRef<Expr *> Args,
+                         Decl *ContainingDecl) {
+  assert(Args[0]->getType()->isReflectionType());
+
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+
+  OverloadedOperatorKind OO;
+  Expr *LHS, *RHS;
+  bool Is = RV.isReflectedExpression() &&
+            decomposeBinaryOperation(RV.getReflectedExpression(), OO, LHS, RHS);
+  return SetAndSucceed(Result, makeBool(C, Is));
+}
+
+bool get_ith_operand_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+                        EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                        QualType ResultTy, SourceRange Range,
+                        ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  assert(Args[0]->getType()->isReflectionType());
+
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+  APValue Idx;
+  if (!Evaluator(Idx, Args[1], true))
+    return true;
+
+  OverloadedOperatorKind OO;
+  Expr *LHS, *RHS;
+  if (!RV.isReflectedExpression() ||
+      !decomposeBinaryOperation(RV.getReflectedExpression(), OO, LHS, RHS))
+    return DiagnoseReflectionKind(Diagnoser, Range, "a binary operation",
+                                  DescriptionOf(RV));
+
+  Expr *Operand = Idx.getInt().getZExtValue() == 0 ? LHS : RHS;
+  return SetAndSucceed(Result, APValue(ReflectionKind::Expression, Operand));
+}
+
+bool token_count(APValue &Result, ASTContext &C, MetaActions &Meta,
+                 EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                 QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                 Decl *ContainingDecl) {
+  assert(ResultTy == C.getSizeType());
+
+  APValue TS;
+  if (!Evaluator(TS, Args[0], true))
+    return true;
+  if (!TS.isTokenSequence())
+    return DiagnoseReflectionKind(Diagnoser, Range, "a token sequence");
+
+  return SetAndSucceed(Result, APValue(C.MakeIntValue(
+                                   TS.getTokenSequence().size(),
+                                   C.getSizeType())));
+}
+
+// Evaluate Args[0] as a token sequence; if it is exactly one token, put it in
+// Tok (annotation tokens included). Returns false on evaluation failure.
+static bool getSingleToken(EvalFn Evaluator, Expr *Arg,
+                           std::optional<Token> &Tok) {
+  APValue TS;
+  if (!Evaluator(TS, Arg, true))
+    return false;
+  if (TS.isTokenSequence() && TS.getTokenSequence().size() == 1)
+    Tok = TS.getTokenSequence()[0];
+  return true;
+}
+
+/// identifier_of(token_sequence): the spelling of a single identifier token,
+/// as a string literal of the requested character type (Args[0] is the
+/// result type, Args[2] selects UTF-8), like identifier_of(info).
+bool identifier_of_token(APValue &Result, ASTContext &C, MetaActions &Meta,
+                         EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                         QualType ResultTy, SourceRange Range,
+                         ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  std::optional<Token> Tok;
+  if (!getSingleToken(Evaluator, Args[1], Tok))
+    return true;
+
+  bool IsUtf8;
+  {
+    APValue Scratch;
+    if (!Evaluator(Scratch, Args[2], true))
+      return true;
+    IsUtf8 = Scratch.getInt().getBoolValue();
+  }
+
+  if (!Tok || !Tok->is(tok::identifier))
+    return DiagnoseReflectionKind(Diagnoser, Range,
+                                  "a single identifier token");
+
+  Expr *StrLit =
+      makeStrLiteral(Tok->getIdentifierInfo()->getName(), C, IsUtf8);
+  APValue::LValuePathEntry Path[1] = {APValue::LValuePathEntry::ArrayIndex(0)};
+  return SetAndSucceed(Result,
+                       APValue(StrLit, CharUnits::Zero(), Path, false));
+}
+
+// Ordinals must match std::meta::token_kind in <meta>.
+enum class MetaTokenKind : uint64_t {
+  Identifier = 0,
+  Keyword = 1,
+  Literal = 2,
+  Punctuator = 3,
+  Annotation = 4,
+  Unknown = 5,
+};
+
+bool token_kind_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+                   EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                   QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                   Decl *ContainingDecl) {
+  assert(ResultTy == C.getSizeType());
+  std::optional<Token> Tok;
+  if (!getSingleToken(Evaluator, Args[0], Tok))
+    return true;
+  MetaTokenKind K = MetaTokenKind::Unknown;
+  if (Tok) {
+    tok::TokenKind TK = Tok->getKind();
+    if (Tok->isAnnotation())
+      K = MetaTokenKind::Annotation;
+    else if (TK == tok::identifier)
+      K = MetaTokenKind::Identifier;
+    else if (tok::getKeywordSpelling(TK))
+      K = MetaTokenKind::Keyword;
+    else if (tok::isLiteral(TK))
+      K = MetaTokenKind::Literal;
+    else if (tok::getPunctuatorSpelling(TK))
+      K = MetaTokenKind::Punctuator;
+  }
+  return SetAndSucceed(
+      Result, APValue(C.MakeIntValue(static_cast<uint64_t>(K),
+                                     C.getSizeType())));
+}
+
+bool operator_of_token(APValue &Result, ASTContext &C, MetaActions &Meta,
+                       EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                       QualType ResultTy, SourceRange Range,
+                       ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  assert(ResultTy == C.getSizeType());
+  std::optional<Token> Tok;
+  if (!getSingleToken(Evaluator, Args[0], Tok))
+    return true;
+  OverloadedOperatorKind OO =
+      Tok ? getOverloadedOperatorForTokenKind(Tok->getKind()) : OO_None;
+  if (OO == OO_None)
+    return DiagnoseReflectionKind(Diagnoser, Range, "a single operator token");
+  return SetAndSucceed(
+      Result, APValue(C.MakeIntValue(getMetaIndexForOverloadedOperator(OO),
+                                     C.getSizeType())));
+}
+
+bool punctuator_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+                   EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                   QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                   Decl *ContainingDecl) {
+  assert(ResultTy == C.getSizeType());
+  std::optional<Token> Tok;
+  if (!getSingleToken(Evaluator, Args[0], Tok))
+    return true;
+  unsigned Index = Tok ? getMetaIndexForPunctuator(Tok->getKind()) : ~0u;
+  if (Index == ~0u)
+    return DiagnoseReflectionKind(Diagnoser, Range, "a single punctuator token");
+  return SetAndSucceed(Result,
+                       APValue(C.MakeIntValue(Index, C.getSizeType())));
+}
+
+bool get_ith_token(APValue &Result, ASTContext &C, MetaActions &Meta,
+                   EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                   QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                   Decl *ContainingDecl) {
+  APValue TS;
+  if (!Evaluator(TS, Args[0], true))
+    return true;
+  APValue Idx;
+  if (!Evaluator(Idx, Args[1], true))
+    return true;
+  if (!TS.isTokenSequence())
+    return DiagnoseReflectionKind(Diagnoser, Range, "a token sequence");
+
+  TokenSequenceData TSD = TS.getTokenSequence();
+  uint64_t I = Idx.getInt().getZExtValue();
+  if (I >= TSD.size())
+    return DiagnoseReflectionKind(Diagnoser, Range, "a valid token index");
+
+  Token Toks[] = {*(TSD.begin() + I)};
+  return SetAndSucceed(Result, APValue(CreateTokenSequenceData(C, Toks)));
 }
 
 bool identifier_of(APValue &Result, ASTContext &C, MetaActions &Meta,
@@ -2307,6 +2790,14 @@ bool identifier_of(APValue &Result, ASTContext &C, MetaActions &Meta,
       Name = *TDMS->Name;
     break;
   }
+  case ReflectionKind::DeclarationSpec: {
+    FunctionDeclSpec *FDS = RV.getReflectedFunctionDeclSpec();
+    if (FDS->Name)
+      Name = *FDS->Name;
+    else if (IdentifierInfo *II = FDS->Source->getIdentifier())
+      Name = II->getName();
+    break;
+  }
   case ReflectionKind::BaseSpecifier: {
     CXXBaseSpecifier *Base = RV.getReflectedBaseSpecifier();
     QualType QT = Base->getType();
@@ -2321,6 +2812,7 @@ bool identifier_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Annotation:
+  case ReflectionKind::Expression:
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_have_name)
         << DescriptionOf(RV) << Range;
     llvm_unreachable("proxies should already have been unwrapped");
@@ -2410,6 +2902,12 @@ bool has_identifier(APValue &Result, ASTContext &C, MetaActions &Meta,
     HasIdentifier = TDMS->Name && !TDMS->Name->empty();
     break;
   }
+  case ReflectionKind::DeclarationSpec: {
+    FunctionDeclSpec *FDS = RV.getReflectedFunctionDeclSpec();
+    HasIdentifier = FDS->Name ? !FDS->Name->empty()
+                              : FDS->Source->getIdentifier() != nullptr;
+    break;
+  }
   case ReflectionKind::Null:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Object:
@@ -2429,28 +2927,8 @@ bool operator_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   assert(Args[0]->getType()->isReflectionType());
   assert(ResultTy == C.getSizeType());
 
-  static constexpr OverloadedOperatorKind OperatorIndices[] = {
-    OO_None, OO_New, OO_Delete, OO_Array_New, OO_Array_Delete, OO_Coawait,
-    OO_Call, OO_Subscript, OO_Arrow, OO_ArrowStar, OO_Tilde, OO_Exclaim,
-    OO_Plus, OO_Minus, OO_Star, OO_Slash, OO_Percent, OO_Caret, OO_Amp, OO_Pipe,
-    OO_Equal, OO_PlusEqual, OO_MinusEqual, OO_StarEqual, OO_SlashEqual,
-    OO_PercentEqual, OO_CaretEqual, OO_AmpEqual, OO_PipeEqual, OO_EqualEqual,
-    OO_ExclaimEqual, OO_Less, OO_Greater, OO_LessEqual, OO_GreaterEqual,
-    OO_Spaceship, OO_AmpAmp, OO_PipePipe, OO_LessLess, OO_GreaterGreater,
-    OO_LessLessEqual, OO_GreaterGreaterEqual, OO_PlusPlus, OO_MinusMinus,
-    OO_Comma,
-  };
-
   auto findOperatorOf = [](FunctionDecl *FD) -> size_t {
-    OverloadedOperatorKind OO = FD->getOverloadedOperator();
-    if (OO == OO_None)
-      return 0;
-
-    auto *OpPtr = std::find(std::begin(OperatorIndices),
-                            std::end(OperatorIndices), OO);
-    assert(OpPtr < std::end(OperatorIndices));
-
-    return (OpPtr - OperatorIndices);
+    return getMetaIndexForOverloadedOperator(FD->getOverloadedOperator());
   };
 
   APValue RV;
@@ -2466,6 +2944,11 @@ bool operator_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   } else if (RV.isReflectedDecl()) {
     if (auto *FD = dyn_cast<FunctionDecl>(RV.getReflectedDecl()))
       OperatorId = findOperatorOf(FD);
+  } else if (RV.isReflectedExpression()) {
+    OverloadedOperatorKind OO;
+    Expr *LHS, *RHS;
+    if (decomposeBinaryOperation(RV.getReflectedExpression(), OO, LHS, RHS))
+      OperatorId = getMetaIndexForOverloadedOperator(OO);
   }
 
   if (OperatorId == 0)
@@ -2510,10 +2993,18 @@ bool source_location_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     return findAnnotLoc(Result, C, Evaluator, ResultTy,
                         RV.getReflectedAnnotation());
 
+  case ReflectionKind::Expression: {
+    SourceLocExpr *SLE = new (C) SourceLocExpr(
+        C, SourceLocIdentKind::SourceLocStruct, ResultTy,
+        RV.getReflectedExpression()->getBeginLoc(), SourceLocation(),
+        /*ParentContext=*/nullptr);
+    return !Evaluator(Result, SLE, true);
+  }
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::Null:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
     return findDeclLoc(Result, C, Evaluator, ResultTy, nullptr);
   }
   llvm_unreachable("unknown reflection kind");
@@ -2535,6 +3026,7 @@ bool type_of(APValue &Result, ASTContext &C, MetaActions &Meta,
 
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
+  case ReflectionKind::DeclarationSpec:
     return Diagnoser(Range.getBegin(), diag::metafn_no_associated_property)
         << DescriptionOf(RV) << 0 << Range;
   case ReflectionKind::Object:
@@ -2542,6 +3034,26 @@ bool type_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     QualType QT = desugarType(RV.getTypeOfReflectedResult(C),
                               /*UnwrapAliases=*/true, /*DropCV=*/false,
                               /*DropRefs=*/false);
+    return SetAndSucceed(Result, makeReflection(QT));
+  }
+  case ReflectionKind::Expression: {
+    // The type of a reflected expression follows decltype: the declared type
+    // of an unparenthesized id-expression or member access, otherwise the
+    // expression's type adjusted for its value category.
+    Expr *E = RV.getReflectedExpression();
+    QualType QT;
+    if (const auto *DRE = dyn_cast<DeclRefExpr>(E))
+      QT = DRE->getDecl()->getType();
+    else if (const auto *ME = dyn_cast<MemberExpr>(E);
+             ME && isa<FieldDecl, VarDecl>(ME->getMemberDecl()))
+      QT = ME->getMemberDecl()->getType();
+    else
+      QT = C.getReferenceQualifiedType(E);
+    // A variable declared with 'auto' has its declared type in terms of the
+    // placeholder; report the type it was deduced to.
+    QT = stripDeducedTypeSugar(C, QT);
+    QT = desugarType(QT, /*UnwrapAliases=*/true, /*DropCV=*/false,
+                     /*DropRefs=*/false);
     return SetAndSucceed(Result, makeReflection(QT));
   }
   case ReflectionKind::Declaration: {
@@ -2623,6 +3135,7 @@ bool parent_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     if (Diagnoser)
@@ -2744,6 +3257,7 @@ bool underlying_entity_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return SetAndSucceed(Result, RV);
@@ -2847,6 +3361,7 @@ bool object_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Template:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
@@ -2855,6 +3370,28 @@ bool object_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   llvm_unreachable("unknown reflection kind");
 }
 
+/// The value of a macro's argument as a constant expression. It is evaluated
+/// as a template argument would be: manifestly constant-evaluated. That
+/// matters for a converted argument (a string literal bound to a
+/// std::string_view parameter), whose conversion may take a different path
+/// when constant-evaluated. A glvalue argument's value is read from the
+/// object it names.
+static bool evaluateMacroArgument(const Expr *E, ASTContext &C, APValue *Out) {
+  if (E->isValueDependent())
+    return false;
+  if (!E->isPRValue()) {
+    APValue Scratch;
+    return E->isCXX11ConstantExpr(C, Out ? Out : &Scratch);
+  }
+  Expr::EvalResult ER;
+  SmallVector<PartialDiagnosticAt, 4> Notes;
+  ER.Diag = &Notes;
+  if (!E->EvaluateAsConstantExpr(ER, C) || ER.HasSideEffects || !Notes.empty())
+    return false;
+  if (Out)
+    *Out = std::move(ER.Val);
+  return true;
+}
 
 bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
                  EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
@@ -2981,6 +3518,25 @@ bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     }
     return SetAndSucceed(Result, Constant.Lift(ConstantTy));
   }
+  case ReflectionKind::Expression: {
+    // The argument of an expression macro: the value it has as a constant
+    // expression, which is how a macro turns an operand into a template
+    // argument (e.g. 'elems[0]' expanding to 'get<0>(elems)').
+    const Expr *E = RV.getReflectedExpression();
+    APValue Constant;
+    if (!evaluateMacroArgument(E, C, &Constant))
+      return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
+          << 2 << "an expression that is not a constant expression" << Range;
+
+    QualType ConstantTy = ComputeResultType(E->getType(), Constant);
+    if (ConstantTy->isRecordType()) {
+      auto *TPO = C.getTemplateParamObjectDecl(ConstantTy, Constant);
+      Constant = APValue(APValue::LValueBase{TPO}, CharUnits::Zero(), {}, false,
+                    false);
+      ConstantTy = QualType{};
+    }
+    return SetAndSucceed(Result, Constant.Lift(ConstantTy));
+  }
   case ReflectionKind::Null:
   case ReflectionKind::Type:
   case ReflectionKind::Template:
@@ -2988,10 +3544,705 @@ bool constant_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
         << 2 << DescriptionOf(RV) << Range;
   }
   llvm_unreachable("unknown reflection kind");
+}
+
+// Whether the reflected macro argument is a constant expression, i.e. whether
+// constant_of would succeed on it. Any other reflection kind is 'false'.
+bool is_constant_expression(APValue &Result, ASTContext &C, MetaActions &Meta,
+                            EvalFn Evaluator, DiagFn Diagnoser,
+                            bool AllowInjection, QualType ResultTy,
+                            SourceRange Range, ArrayRef<Expr *> Args,
+                            Decl *ContainingDecl) {
+  assert(Args[0]->getType()->isReflectionType());
+  assert(ResultTy == C.BoolTy);
+
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+
+  bool IsConstant = false;
+  if (RV.getReflectionKind() == ReflectionKind::Expression) {
+    const Expr *E = RV.getReflectedExpression();
+    IsConstant = evaluateMacroArgument(E, C, nullptr);
+  }
+  return SetAndSucceed(Result, makeBool(C, IsConstant));
+}
+
+// Speculatively parse a token sequence as a single expression at the
+// expansion site (diagnostics suppressed). Returns a reflection of the
+// parsed expression, or the null reflection if the tokens do not form a
+// valid expression there. This is what lets a macro implement a
+// ranges::begin-style ladder: probe "auto(\(e).begin())", inspect the
+// result's type, and interpolate the already-parsed expression on success.
+bool test_expression(APValue &Result, ASTContext &C, MetaActions &Meta,
+                     EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                     QualType ResultTy, SourceRange Range,
+                     ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  assert(ResultTy == C.MetaInfoTy);
+
+  APValue TS;
+  if (!Evaluator(TS, Args[0], true))
+    return true;
+  if (!TS.isTokenSequence())
+    return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
+        << 2 << "a value that is not a token sequence" << Range;
+
+  Expr *E = Meta.TestExpression(TS.getTokenSequence(), Range.getBegin());
+  if (!E)
+    return SetAndSucceed(Result, makeReflection(nullptr));
+  return SetAndSucceed(Result, APValue(ReflectionKind::Expression, E));
+}
+
+// View a reflected expression as an lvalue, as if it had been bound to
+// 'auto&& tmp' and then named: identity for an lvalue, an lvalue view for an
+// xvalue, and a materialized temporary (living until the end of the
+// enclosing full-expression) for a prvalue. This is how a macro reproduces
+// the semantics of a function's named parameter -- e.g. the 't' of
+// [range.access.begin] -- for an operand it received unevaluated.
+bool as_lvalue(APValue &Result, ASTContext &C, MetaActions &Meta,
+               EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+               QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+               Decl *ContainingDecl) {
+  assert(ResultTy == C.MetaInfoTy);
+
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+  if (RV.getReflectionKind() != ReflectionKind::Expression)
+    return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
+        << 2 << DescriptionOf(RV) << Range;
+
+  Expr *E = RV.getReflectedExpression();
+  if (E->isLValue())
+    return SetAndSucceed(Result, RV);
+
+  Expr *View;
+  if (E->isXValue()) {
+    // The object already exists; only the view changes. A unique opaque
+    // value keeps the source-expression chain intact for the evaluate-once
+    // analysis and is emitted in place.
+    auto *OVE = new (C) OpaqueValueExpr(E->getExprLoc(), E->getType(),
+                                        VK_LValue, OK_Ordinary, E);
+    OVE->setIsUnique(true);
+    View = OVE;
+  } else {
+    View = new (C) MaterializeTemporaryExpr(E->getType(), E,
+                                            /*BoundToLvalueReference=*/true);
+  }
+  return SetAndSucceed(Result, APValue(ReflectionKind::Expression, View));
+}
+
+bool macro_expansion_context(APValue &Result, ASTContext &C, MetaActions &Meta,
+                             EvalFn Evaluator, DiagFn Diagnoser,
+                             bool AllowInjection, QualType ResultTy,
+                             SourceRange Range, ArrayRef<Expr *> Args,
+                             Decl *ContainingDecl) {
+  assert(ResultTy == C.MetaInfoTy);
+
+  // ContainingDecl is threaded from the macro invocation's enclosing context,
+  // so this reflects where the expansion lands rather than where the macro was
+  // defined. Every expansion position has one: a function (expression
+  // position, or declaration position inside a function), a class (a member
+  // declaration), or a namespace.
+  if (!ContainingDecl)
+    return Diagnoser(Range.getBegin(), diag::metafn_no_macro_expansion_context)
+        << Range;
+
+  if (auto *RD = dyn_cast<CXXRecordDecl>(ContainingDecl))
+    return SetAndSucceed(Result, makeReflection(C.getCanonicalTagType(RD)));
+
+  return SetAndSucceed(Result, makeReflection(ContainingDecl));
+}
+
+// In a templated invocation context, ends the macro's evaluation so that the
+// expansion waits for instantiation, where the macro is evaluated again (and
+// this is a no-op). The caller recognizes the note; it is not an error.
+bool expand_at_instantiation(APValue &Result, ASTContext &C, MetaActions &Meta,
+                             EvalFn Evaluator, DiagFn Diagnoser,
+                             bool AllowInjection, QualType ResultTy,
+                             SourceRange Range, ArrayRef<Expr *> Args,
+                             Decl *ContainingDecl) {
+  assert(ResultTy == C.BoolTy);
+
+  if (!ContainingDecl)
+    return Diagnoser(Range.getBegin(),
+                     diag::metafn_no_expand_at_instantiation_context)
+           << Range;
+
+  if (cast<DeclContext>(ContainingDecl)->isDependentContext())
+    return Diagnoser(Range.getBegin(), diag::metafn_expand_at_instantiation)
+           << Range;
+
+  return SetAndSucceed(Result, makeBool(C, true));
+}
+
+// Reads a (length, const char *) argument pair produced by flattening a
+// string_view in the library wrapper. Mirrors the technique used by
+// data_member_spec.
+static bool readStringArguments(ASTContext &C, EvalFn Evaluator,
+                                SourceRange Range, Expr *LenArg, Expr *DataArg,
+                                std::string &Out) {
+  APValue Scratch;
+  if (!Evaluator(Scratch, LenArg, true))
+    return false;
+  size_t Len = Scratch.getInt().getExtValue();
+  Out.assign(Len, '\0');
+
+  for (uint64_t K = 0; K < Len; ++K) {
+    llvm::APInt Idx(C.getTypeSize(C.getSizeType()), K, false);
+    Expr *Synthesized = IntegerLiteral::Create(C, Idx, C.getSizeType(),
+                                               DataArg->getExprLoc());
+    Synthesized = new (C) ArraySubscriptExpr(DataArg, Synthesized,
+                                             C.getConstType(C.CharTy),
+                                             VK_LValue, OK_Ordinary,
+                                             Range.getBegin());
+    if (Synthesized->isValueDependent() || Synthesized->isTypeDependent())
+      return false;
+    if (!Evaluator(Scratch, Synthesized, true))
+      return false;
+    Out[K] = static_cast<char>(Scratch.getInt().getExtValue());
+  }
+  return true;
+}
+
+// Lexes 'Text' as C++ source and appends the resulting tokens, following the
+// approach of the 'tokenize' builtin.
+static void appendLexedTokens(ASTContext &C, StringRef Text,
+                              SourceLocation ExpansionLoc,
+                              SmallVectorImpl<Token> &Tokens) {
+  SmallString<64> Content(Text);
+  Content.push_back('\0');
+
+  SourceManager &SM = C.getSourceManager();
+  std::unique_ptr<llvm::MemoryBuffer> Buffer =
+      llvm::MemoryBuffer::getMemBufferCopy(Content, "<forwarding-call>");
+  FileID FID = SM.createFileID(std::move(Buffer));
+  SourceLocation BufStartLoc = SM.getLocForStartOfFile(FID);
+
+  const char *BufStart = SM.getCharacterData(BufStartLoc);
+  const char *BufEnd = BufStart + Content.size() - 1;
+
+  Lexer RawLex(BufStartLoc, C.getLangOpts(), BufStart, BufStart, BufEnd);
+
+  Token Tok;
+  while (true) {
+    RawLex.LexFromRawLexer(Tok);
+    if (Tok.is(tok::eof))
+      break;
+
+    if (Tok.is(tok::raw_identifier)) {
+      IdentifierInfo &II = C.Idents.get(StringRef(Tok.getRawIdentifier()));
+      Tok.setKind(II.getTokenID());
+      Tok.setIdentifierInfo(&II);
+    }
+
+    if (Tok.isLiteral() && Tok.getLiteralData()) {
+      unsigned Len = Tok.getLength();
+      char *StoredData = new (C) char[Len + 1];
+      std::memcpy(StoredData, Tok.getLiteralData(), Len);
+      StoredData[Len] = '\0';
+      Tok.setLiteralData(StoredData);
+    }
+
+    SourceLocation SpellingLoc = Tok.getLocation();
+    SourceLocation TokExpLoc = SM.createExpansionLoc(
+        SpellingLoc, ExpansionLoc, ExpansionLoc, Tok.getLength());
+    Tok.setLocation(TokExpLoc);
+
+    Tokens.push_back(Tok);
+  }
+}
+
+// Resolves a reflection to the method (and enclosing template, if any) it
+// designates for cloning purposes. Returns null on unsupported input, with
+// *WhyNot set to a diagnosable reason.
+static CXXMethodDecl *resolveCloneSource(APValue &RV, NamedDecl *&Source,
+                                         const char *&WhyNot) {
+  FunctionDecl *FD = nullptr;
+  if (RV.isReflectedDecl()) {
+    Source = dyn_cast<NamedDecl>(RV.getReflectedDecl());
+    FD = dyn_cast_or_null<FunctionDecl>(RV.getReflectedDecl());
+  } else if (RV.getReflectionKind() == ReflectionKind::Template) {
+    auto *TD = RV.getReflectedTemplate().getAsTemplateDecl();
+    Source = TD;
+    if (auto *FTD = dyn_cast_or_null<FunctionTemplateDecl>(TD))
+      FD = FTD->getTemplatedDecl();
+  }
+  if (!FD) {
+    WhyNot = "operand does not designate a function or function template";
+    return nullptr;
+  }
+
+  auto *MD = dyn_cast<CXXMethodDecl>(FD);
+  if (!MD || MD->isStatic()) {
+    WhyNot = "only non-static member functions are supported";
+    return nullptr;
+  }
+  if (isa<CXXConstructorDecl, CXXDestructorDecl, CXXConversionDecl>(MD)) {
+    WhyNot = "constructors, destructors, and conversion functions are not "
+             "supported";
+    return nullptr;
+  }
+  // Note that a *pure virtual* source is fine: the clone is a fresh
+  // declaration in another class, not a redeclaration, so it can have a
+  // body -- that is exactly how a mock implements an abstract interface.
+  if (MD->isDeleted() || MD->isDefaulted()) {
+    WhyNot = "deleted and defaulted functions cannot be cloned";
+    return nullptr;
+  }
+  if (MD->getParent()->isDependentContext()) {
+    WhyNot = "the enclosing class must be a concrete type (members of "
+             "templates are cloned from a specialization)";
+    return nullptr;
+  }
+  if (MD->getDescribedFunctionTemplate() &&
+      !isa<FunctionTemplateDecl>(Source)) {
+    WhyNot = "a member function template must be designated by its template "
+             "(reflect the template, not a specialization)";
+    return nullptr;
+  }
+  return MD;
+}
+
+bool declaration_of(APValue &Result, ASTContext &C, MetaActions &Meta,
+                    EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                    QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                    Decl *ContainingDecl) {
+  assert(Args[0]->getType()->isReflectionType());
+  assert(ResultTy == C.MetaInfoTy);
+
+  auto Refuse = [&](const char *Why) {
+    return Diagnoser(Range.getBegin(), diag::metafn_cannot_clone_declaration)
+        << Why << Range;
+  };
+
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+
+  RV = MaybeUnproxy(C, RV, /*Dealias=*/false);
+
+  // A class template: the description describes only its *template head*
+  // (there is no whole-declaration meaning); it is consumed by
+  // template_parameter_list_for / template_argument_list_for rather than
+  // interpolated directly.
+  NamedDecl *Source = nullptr;
+  CXXMethodDecl *MD = nullptr;
+  if (RV.getReflectionKind() == ReflectionKind::Template) {
+    if (auto *CTD = dyn_cast_or_null<ClassTemplateDecl>(
+            RV.getReflectedTemplate().getAsTemplateDecl())) {
+      if (CTD->getDeclContext()->isDependentContext())
+        return Refuse("the enclosing context of the template must be "
+                      "concrete");
+      Source = CTD;
+    }
+  }
+  if (!Source) {
+    const char *WhyNot = nullptr;
+    MD = resolveCloneSource(RV, Source, WhyNot);
+    if (!MD)
+      return Refuse(WhyNot);
+  }
+
+  // The replacement name: an empty token sequence keeps the source's name;
+  // otherwise a single identifier token.
+  APValue NameTS;
+  if (!Evaluator(NameTS, Args[1], true) || !NameTS.isTokenSequence())
+    return true;
+  std::optional<std::string> Name;
+  TokenSequenceData NameTSD = NameTS.getTokenSequence();
+  if (!NameTSD.empty()) {
+    if (!MD)
+      return Refuse("a class template head description cannot be renamed");
+    if (NameTSD.size() != 1 || !NameTSD.front().is(tok::identifier))
+      return Refuse("the replacement name must be a single identifier token");
+    Name = NameTSD.front().getIdentifierInfo()->getName().str();
+  }
+
+  std::string TemplateParamPrefix, ParamPrefix;
+  if (!readStringArguments(C, Evaluator, Range, Args[2], Args[3],
+                           TemplateParamPrefix) ||
+      !readStringArguments(C, Evaluator, Range, Args[4], Args[5], ParamPrefix))
+    return true;
+
+  for (const std::string &Prefix : {TemplateParamPrefix, ParamPrefix}) {
+    Lexer Lex(Range.getBegin(), C.getLangOpts(), Prefix.data(), Prefix.data(),
+              Prefix.data() + Prefix.size(), false);
+    std::string Copy = Prefix;
+    if (!Lex.validateIdentifier(Copy))
+      return Refuse("naming prefixes must be valid identifiers");
+  }
+
+  FunctionDeclSpec *FDS = new (C) FunctionDeclSpec{
+      Source, std::move(Name), std::move(TemplateParamPrefix),
+      std::move(ParamPrefix)};
+  return SetAndSucceed(Result, makeReflection(FDS));
+}
+
+bool is_declaration_spec(APValue &Result, ASTContext &C, MetaActions &Meta,
+                         EvalFn Evaluator, DiagFn Diagnoser,
+                         bool AllowInjection, QualType ResultTy,
+                         SourceRange Range, ArrayRef<Expr *> Args,
+                         Decl *ContainingDecl) {
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+  return SetAndSucceed(
+      Result, makeBool(C, RV.isReflectedFunctionDeclSpec()));
+}
+
+// Shared helper for the declaration transformations: evaluate a description
+// operand and produce a modified copy.
+static bool transformDeclSpec(APValue &Result, ASTContext &C, EvalFn Evaluator,
+                              DiagFn Diagnoser, SourceRange Range, Expr *Arg,
+                              llvm::function_ref<bool(FunctionDeclSpec &,
+                                                      const char *&)> Apply) {
+  APValue RV;
+  if (!Evaluator(RV, Arg, true))
+    return true;
+  if (!RV.isReflectedFunctionDeclSpec())
+    return Diagnoser(Range.getBegin(), diag::metafn_cannot_clone_declaration)
+        << "a declaration transformation requires a declaration description"
+        << Range;
+
+  FunctionDeclSpec *NewFDS =
+      new (C) FunctionDeclSpec(*RV.getReflectedFunctionDeclSpec());
+  const char *WhyNot = nullptr;
+  if (!Apply(*NewFDS, WhyNot))
+    return Diagnoser(Range.getBegin(), diag::metafn_cannot_clone_declaration)
+        << WhyNot << Range;
+  return SetAndSucceed(Result, makeReflection(NewFDS));
+}
+
+bool make_override(APValue &Result, ASTContext &C, MetaActions &Meta,
+                   EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                   QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                   Decl *ContainingDecl) {
+  return transformDeclSpec(
+      Result, C, Evaluator, Diagnoser, Range, Args[0],
+      [](FunctionDeclSpec &FDS, const char *&WhyNot) {
+        if (isa<FunctionTemplateDecl>(FDS.Source)) {
+          WhyNot = "a member function template cannot be declared override";
+          return false;
+        }
+        if (isa<ClassTemplateDecl>(FDS.Source)) {
+          WhyNot = "a class template head description cannot be declared "
+                   "override";
+          return false;
+        }
+        FDS.MarkOverride = true;
+        return true;
+      });
+}
+
+bool make_noexcept(APValue &Result, ASTContext &C, MetaActions &Meta,
+                   EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                   QualType ResultTy, SourceRange Range, ArrayRef<Expr *> Args,
+                   Decl *ContainingDecl) {
+  return transformDeclSpec(
+      Result, C, Evaluator, Diagnoser, Range, Args[0],
+      [](FunctionDeclSpec &FDS, const char *&WhyNot) {
+        if (isa<ClassTemplateDecl>(FDS.Source)) {
+          WhyNot = "a class template head description cannot be declared "
+                   "noexcept";
+          return false;
+        }
+        FDS.MarkNoexcept = true;
+        return true;
+      });
+}
+
+// Resolve the template parameter list a description's source carries, for
+// the fragment accessors. Null with a reason if the source is not a
+// template.
+static TemplateParameterList *headParamsOf(FunctionDeclSpec *FDS,
+                                           const char *&WhyNot) {
+  if (auto *CTD = dyn_cast<ClassTemplateDecl>(FDS->Source))
+    return CTD->getTemplateParameters();
+  if (auto *FTD = dyn_cast<FunctionTemplateDecl>(FDS->Source))
+    return FTD->getTemplateParameters();
+  WhyNot = "the description's source is not a template";
+  return nullptr;
+}
+
+bool template_parameter_list_for(APValue &Result, ASTContext &C,
+                                 MetaActions &Meta, EvalFn Evaluator,
+                                 DiagFn Diagnoser, bool AllowInjection,
+                                 QualType ResultTy, SourceRange Range,
+                                 ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  auto Refuse = [&](const char *Why) {
+    return Diagnoser(Range.getBegin(), diag::metafn_cannot_clone_declaration)
+        << Why << Range;
+  };
+
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+  if (!RV.isReflectedFunctionDeclSpec())
+    return Refuse("operand is not a declaration description");
+  FunctionDeclSpec *FDS = RV.getReflectedFunctionDeclSpec();
+
+  APValue KeepDefaults;
+  if (!Evaluator(KeepDefaults, Args[1], true))
+    return true;
+
+  const char *WhyNot = nullptr;
+  if (!headParamsOf(FDS, WhyNot))
+    return Refuse(WhyNot);
+
+  // One annotation token; the parser materializes the cloned parameters
+  // when it reaches it inside a written template<...> list, so constrained
+  // parameters keep their semantic bindings.
+  auto *TPS = new (C) TemplateParamListSpec{
+      FDS, KeepDefaults.getInt().getBoolValue()};
+  Token Tok;
+  Tok.startToken();
+  Tok.setKind(tok::annot_template_param_spec);
+  Tok.setLocation(Range.getBegin());
+  Tok.setAnnotationEndLoc(Range.getBegin());
+  Tok.setAnnotationValue(static_cast<void *>(TPS));
+  Token Toks[] = {Tok};
+  return SetAndSucceed(Result, APValue(CreateTokenSequenceData(C, Toks)));
+}
+
+bool template_argument_list_for(APValue &Result, ASTContext &C,
+                                MetaActions &Meta, EvalFn Evaluator,
+                                DiagFn Diagnoser, bool AllowInjection,
+                                QualType ResultTy, SourceRange Range,
+                                ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  auto Refuse = [&](const char *Why) {
+    return Diagnoser(Range.getBegin(), diag::metafn_cannot_forward_declaration)
+        << Why << Range;
+  };
+
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+  if (!RV.isReflectedFunctionDeclSpec())
+    return Refuse("operand is not a declaration description");
+  FunctionDeclSpec *FDS = RV.getReflectedFunctionDeclSpec();
+
+  const char *WhyNot = nullptr;
+  TemplateParameterList *TPL = headParamsOf(FDS, WhyNot);
+  if (!TPL)
+    return Refuse(WhyNot);
+
+  // 'T0, T1...': the cloned parameters spelled by name, packs expanded. A
+  // pack anywhere but last makes the resulting template argument list a
+  // non-deduced context ([temp.deduct.type]), so a specialization written
+  // with it could never be matched; refuse, exactly as forwarding_call_for
+  // refuses the analogous explicit-argument list.
+  std::string List;
+  for (unsigned I = 0, N = TPL->size(); I != N; ++I) {
+    bool IsPack = TPL->getParam(I)->isTemplateParameterPack();
+    if (IsPack && I + 1 != N)
+      return Refuse("a template parameter pack followed by more template "
+                    "parameters cannot be forwarded as a deducible "
+                    "argument list");
+    if (I != 0)
+      List += ", ";
+    List += FDS->TemplateParameterPrefix + std::to_string(I);
+    if (IsPack)
+      List += "...";
+  }
+
+  SmallVector<Token, 16> Toks;
+  appendLexedTokens(C, List, Range.getBegin(), Toks);
+  return SetAndSucceed(Result, APValue(CreateTokenSequenceData(C, Toks)));
+}
+
+// The spelling of the description's parameters as call arguments:
+// 'static_cast<decltype(p0)&&>(p0), p1...' when forwarding, 'p0, p1...' as
+// lvalues. Packs expand positionally, so (unlike a template argument list)
+// a nonterminal pack is fine here.
+static std::string buildArgumentList(const FunctionDeclSpec *FDS,
+                                     const CXXMethodDecl *MD, bool Forward) {
+  std::string List;
+  for (unsigned I = 0, N = MD->getNumParams(); I != N; ++I) {
+    if (I)
+      List += ", ";
+    std::string PName = FDS->ParameterPrefix + std::to_string(I);
+    if (Forward)
+      List += "static_cast<decltype(" + PName + ")&&>(" + PName + ")";
+    else
+      List += PName;
+    if (MD->getParamDecl(I)->isParameterPack())
+      List += "...";
+  }
+  return List;
+}
+
+bool argument_list_for(APValue &Result, ASTContext &C, MetaActions &Meta,
+                       EvalFn Evaluator, DiagFn Diagnoser, bool AllowInjection,
+                       QualType ResultTy, SourceRange Range,
+                       ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  auto Refuse = [&](const char *Why) {
+    return Diagnoser(Range.getBegin(), diag::metafn_cannot_forward_declaration)
+        << Why << Range;
+  };
+
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+  if (!RV.isReflectedFunctionDeclSpec())
+    return Refuse("operand is not a declaration description");
+  FunctionDeclSpec *FDS = RV.getReflectedFunctionDeclSpec();
+
+  APValue Forward;
+  if (!Evaluator(Forward, Args[1], true))
+    return true;
+
+  if (isa<ClassTemplateDecl>(FDS->Source))
+    return Refuse("a class template head description has no function "
+                  "parameters");
+  auto *MD = cast<CXXMethodDecl>(FDS->Source->getAsFunction());
+
+  if (MD->isExplicitObjectMemberFunction())
+    return Refuse("explicit object member functions are not supported (the "
+                  "cloned object parameter deduces to the wrapper, not the "
+                  "wrapped object)");
+  if (MD->getType()->castAs<FunctionProtoType>()->isVariadic())
+    return Refuse("a C-style variadic parameter list cannot be forwarded");
+
+  SmallVector<Token, 32> Toks;
+  appendLexedTokens(C, buildArgumentList(FDS, MD, Forward.getInt().getBoolValue()),
+                    Range.getBegin(), Toks);
+  return SetAndSucceed(Result, APValue(CreateTokenSequenceData(C, Toks)));
+}
+
+bool forwarding_call_for(APValue &Result, ASTContext &C, MetaActions &Meta,
+                         EvalFn Evaluator, DiagFn Diagnoser,
+                         bool AllowInjection, QualType ResultTy,
+                         SourceRange Range, ArrayRef<Expr *> Args,
+                         Decl *ContainingDecl) {
+  assert(Args[0]->getType()->isReflectionType());
+
+  auto Refuse = [&](const char *Why) {
+    return Diagnoser(Range.getBegin(), diag::metafn_cannot_forward_declaration)
+        << Why << Range;
+  };
+
+  APValue RV;
+  if (!Evaluator(RV, Args[0], true))
+    return true;
+  if (!RV.isReflectedFunctionDeclSpec())
+    return Refuse("operand is not a declaration description");
+  FunctionDeclSpec *FDS = RV.getReflectedFunctionDeclSpec();
+
+  APValue RecvTS;
+  if (!Evaluator(RecvTS, Args[1], true) || !RecvTS.isTokenSequence())
+    return true;
+  TokenSequenceData Recv = RecvTS.getTokenSequence();
+  if (Recv.empty())
+    return Refuse("the receiver must not be empty");
+
+  if (isa<ClassTemplateDecl>(FDS->Source))
+    return Refuse("a class template head description has no call to forward "
+                  "(use template_argument_list_for)");
+
+  auto *FTD = dyn_cast<FunctionTemplateDecl>(FDS->Source);
+  auto *MD = cast<CXXMethodDecl>(FDS->Source->getAsFunction());
+  const auto *Proto = MD->getType()->castAs<FunctionProtoType>();
+
+  if (MD->isExplicitObjectMemberFunction())
+    return Refuse("explicit object member functions are not supported (the "
+                  "cloned object parameter deduces to the wrapper, not the "
+                  "wrapped object)");
+  if (Proto->isVariadic())
+    return Refuse("a C-style variadic parameter list cannot be forwarded");
+  if (FTD) {
+    TemplateParameterList *TPL = FTD->getTemplateParameters();
+    for (unsigned I = 0, N = TPL->size(); I != N; ++I)
+      if (TPL->getParam(I)->isTemplateParameterPack() && I + 1 != N)
+        return Refuse("a template parameter pack followed by more template "
+                      "parameters cannot be forwarded with an explicit "
+                      "template argument list");
+  }
+
+  // The member name on the receiver: always the *source* member's name --
+  // a renamed clone still forwards to the member it was cloned from.
+  std::string MemberName;
+  if (IdentifierInfo *II = MD->getIdentifier())
+    MemberName = II->getName().str();
+  else if (MD->getDeclName().getNameKind() ==
+           DeclarationName::CXXOperatorName)
+    MemberName = std::string("operator") +
+                 getOperatorSpelling(MD->getOverloadedOperator());
+  else
+    return Refuse("the member's name cannot be spelled in a call");
+
+  SmallVector<Token, 32> Toks;
+  SourceLocation Loc = Range.getBegin();
+
+  // Receiver, adjusted for the member's cv- and ref-qualifiers so the call
+  // dispatches to the *described* member: a const clone must call the const
+  // overload even when the receiver expression is non-const there (mutable
+  // member, pointer to mutable storage), and an rvalue-qualified clone must
+  // move its receiver. The receiver is always parenthesized so its grouping
+  // survives the member access (e.g. a '*ptr' receiver), and is evaluated
+  // exactly once (the decltype operand is unevaluated).
+  //
+  // The cast spells ::std::remove_reference_t, so a translation unit
+  // expanding a forwarding call with a qualified member needs <type_traits>
+  // (which <meta> already provides).
+  Qualifiers MethodQuals = Proto->getMethodQuals();
+  RefQualifierKind RQ = Proto->getRefQualifier();
+  bool NeedsCast =
+      MethodQuals.hasConst() || MethodQuals.hasVolatile() || RQ != RQ_None;
+  if (NeedsCast) {
+    appendLexedTokens(C, "static_cast<::std::remove_reference_t<decltype((",
+                      Loc, Toks);
+    Toks.append(Recv.begin(), Recv.end());
+    std::string Tail = "))>";
+    if (MethodQuals.hasConst())
+      Tail += " const";
+    if (MethodQuals.hasVolatile())
+      Tail += " volatile";
+    Tail += (RQ == RQ_RValue) ? "&&" : "&";
+    Tail += ">((";
+    appendLexedTokens(C, Tail, Loc, Toks);
+    Toks.append(Recv.begin(), Recv.end());
+    appendLexedTokens(C, "))", Loc, Toks);
+  } else {
+    appendLexedTokens(C, "(", Loc, Toks);
+    Toks.append(Recv.begin(), Recv.end());
+    appendLexedTokens(C, ")", Loc, Toks);
+  }
+
+  std::string CallText = ".";
+  if (FTD)
+    CallText += "template ";
+  CallText += MemberName;
+
+  if (FTD) {
+    CallText += "<";
+    TemplateParameterList *TPL = FTD->getTemplateParameters();
+    for (unsigned I = 0, N = TPL->size(); I != N; ++I) {
+      if (I)
+        CallText += ", ";
+      CallText += FDS->TemplateParameterPrefix + std::to_string(I);
+      if (TPL->getParam(I)->isTemplateParameterPack())
+        CallText += "...";
+    }
+    CallText += ">";
+  }
+
+  APValue Forward;
+  if (!Evaluator(Forward, Args[2], true))
+    return true;
+
+  CallText += "(";
+  CallText += buildArgumentList(FDS, MD, Forward.getInt().getBoolValue());
+  CallText += ")";
+
+  appendLexedTokens(C, CallText, Loc, Toks);
+
+  return SetAndSucceed(Result, APValue(CreateTokenSequenceData(C, Toks)));
 }
 
 bool template_of(APValue &Result, ASTContext &C, MetaActions &Meta,
@@ -3030,6 +4281,7 @@ bool template_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return DiagnoseReflectionKind(Diagnoser, Range, "a template specialization",
@@ -3055,6 +4307,7 @@ static bool CanActAsTemplateArg(const APValue &RV) {
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
   case ReflectionKind::Null:
@@ -3665,6 +4918,7 @@ bool extract(APValue &Result, ASTContext &C, MetaActions &Meta,
 
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_extract)
         << (ReturnsLValue ? 1 : 0) << DescriptionOf(RV) << Range;
   }
@@ -3710,6 +4964,7 @@ bool is_ACCESS(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Parameter:
   case ReflectionKind::Annotation:
   case ReflectionKind::Namespace:
@@ -3807,6 +5062,7 @@ bool is_virtual(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Namespace:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return SetAndSucceed(Result, makeBool(C, IsVirtual));
@@ -4024,6 +5280,7 @@ bool is_const(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return SetAndSucceed(Result, makeBool(C, false));
@@ -4062,7 +5319,7 @@ bool is_volatile(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Parameter:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
-
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
     return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Type: {
@@ -4449,6 +5706,7 @@ bool is_static_member(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return SetAndSucceed(Result, makeBool(C, result));
@@ -4579,6 +5837,7 @@ bool is_alias(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Declaration:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Parameter:
   case ReflectionKind::Annotation:
 
@@ -4675,6 +5934,7 @@ bool has_complete_definition(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     break;
@@ -4721,6 +5981,7 @@ bool is_enumerable_type(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     break;
@@ -5016,6 +6277,7 @@ bool has_template_arguments(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return SetAndSucceed(Result, makeBool(C, false));
@@ -5125,7 +6387,7 @@ bool is_constructor(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
     return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Declaration: {
@@ -5275,7 +6537,7 @@ bool is_destructor(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
     return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Declaration: {
@@ -5308,7 +6570,7 @@ bool is_special_member_function(APValue &Result, ASTContext &C,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
     return SetAndSucceed(Result, makeBool(C, false));
   case ReflectionKind::Declaration: {
@@ -5813,7 +7075,7 @@ bool offset_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Namespace:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
     return DiagnoseReflectionKind(Diagnoser, Range, "a non-static data member",
                                   DescriptionOf(RV));
@@ -5885,6 +7147,7 @@ bool size_of(APValue &Result, ASTContext &C, MetaActions &Meta,
     return SetAndSucceed(Result, APValue(C.MakeIntValue(Sz, C.getSizeType())));
   }
   case ReflectionKind::Null:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
   case ReflectionKind::BaseSpecifier:
@@ -5916,7 +7179,7 @@ bool bit_offset_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Namespace:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
-
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
     return DiagnoseReflectionKind(Diagnoser, Range, "a non-static data member",
                                   DescriptionOf(RV));
@@ -6026,6 +7289,7 @@ bool bit_size_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   }
 
   case ReflectionKind::Null:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
   case ReflectionKind::BaseSpecifier:
@@ -6094,6 +7358,7 @@ bool alignment_of(APValue &Result, ASTContext &C, MetaActions &Meta,
                          APValue(C.MakeIntValue(Align, C.getSizeType())));
   }
   case ReflectionKind::Null:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Template:
   case ReflectionKind::Namespace:
   case ReflectionKind::BaseSpecifier:
@@ -6164,6 +7429,7 @@ bool get_ith_parameter_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return Meta.ThrowMetaException(Range.getBegin(),
@@ -6197,6 +7463,7 @@ bool is_vararg_function(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return SetAndSucceed(Result, makeBool(C, false));
@@ -6248,6 +7515,7 @@ bool has_default_argument(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Namespace:
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return SetAndSucceed(Result, makeBool(C, false));
@@ -6331,6 +7599,7 @@ bool return_type_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_query_property)
@@ -6484,6 +7753,7 @@ bool get_ith_annotation_of(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Object:
   case ReflectionKind::Value:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return Meta.ThrowMetaException(Range.getBegin(),
@@ -6686,7 +7956,12 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
     if (!NamingCls)
       NamingCls = DC;
 
-    if (DC && DC->isBeingDefined())
+    // A member declared while its class is still being defined already has a
+    // fixed access specifier, and the class's bases are known, so accessibility
+    // can be computed. In C++29 (P4380) this lets 'members_of' work
+    // mid-definition (e.g. from a consteval block injecting members based on
+    // those already present); before it, the query is diagnosed.
+    if (DC && DC->isBeingDefined() && !C.getLangOpts().CPlusPlus29)
       return Diagnoser(Range.getBegin(),
                        diag::metafn_access_query_class_being_defined)
           << DC << Range;
@@ -6762,7 +8037,9 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
     QualType BaseTy = BaseSpec->getType();
 
     CXXRecordDecl *DerivedDecl = BaseSpec->getDerived();
-    if (DerivedDecl->isBeingDefined())
+    // The base-clause is complete once the class is being defined, so the
+    // base's access specifier is known; C++29 (P4380) allows the query then.
+    if (DerivedDecl->isBeingDefined() && !C.getLangOpts().CPlusPlus29)
       return Diagnoser(Range.getBegin(),
                        diag::metafn_access_query_class_being_defined)
           << DerivedDecl << Range;
@@ -6791,6 +8068,7 @@ bool is_accessible(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Namespace:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return SetAndSucceed(Result, makeBool(C, false));
@@ -6850,6 +8128,7 @@ bool is_access_specified(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::Namespace:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return SetAndSucceed(Result, makeBool(C, false));
@@ -7026,6 +8305,7 @@ bool reflect_invoke(APValue &Result, ASTContext &C, MetaActions &Meta,
   case ReflectionKind::BaseSpecifier:
   case ReflectionKind::Parameter:
   case ReflectionKind::DataMemberSpec:
+  case ReflectionKind::DeclarationSpec:
   case ReflectionKind::Annotation:
 
     return Diagnoser(Range.getBegin(), diag::metafn_cannot_invoke)

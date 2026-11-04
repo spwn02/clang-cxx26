@@ -5250,6 +5250,47 @@ void CXXNameMangler::mangleReflection(const APValue &R) {
     mangleExpression(R.getReflectedAnnotation()->getArg());
     break;
   }
+  case ReflectionKind::DeclarationSpec: {
+    Out << "sfd";
+
+    // The source member's identity -- enclosing (specialized) class, member
+    // name, signature, and template head arity -- followed by the naming
+    // policy. Distinct sources must mangle distinctly.
+    FunctionDeclSpec *FDS = R.getReflectedFunctionDeclSpec();
+    if (auto *CTD = dyn_cast<ClassTemplateDecl>(FDS->Source)) {
+      // A class template head description: the template's identity plus the
+      // naming policy.
+      Out << "H$";
+      ArrayRef<TemplateArgument> NoArgs;
+      mangleTemplateName(CTD, NoArgs);
+      Out << "T$" << FDS->TemplateParameterPrefix << '$';
+      Out << "P$" << FDS->ParameterPrefix << '$';
+      break;
+    }
+    auto *MD = cast<CXXMethodDecl>(FDS->Source->getAsFunction());
+    Context.mangleCanonicalTypeName(
+        getASTContext().getCanonicalTagType(MD->getParent()), Out, false);
+    Out << "M$" << MD->getDeclName().getAsString() << '$';
+    Context.mangleCanonicalTypeName(MD->getType(), Out, false);
+    // Overloads with the same signature can still differ in their template
+    // heads (parameter kinds, constraints) and trailing requires-clauses;
+    // mangle those in full, as a lambda's template head is.
+    if (auto *FTD = dyn_cast<FunctionTemplateDecl>(FDS->Source))
+      mangleTemplateParameterList(FTD->getTemplateParameters());
+    if (const Expr *TRC = MD->getTrailingRequiresClause().ConstraintExpr)
+      mangleRequiresClause(TRC);
+    if (FDS->Name)
+      Out << "N$" << *FDS->Name << '$';
+    Out << "T$" << FDS->TemplateParameterPrefix << '$';
+    Out << "P$" << FDS->ParameterPrefix << '$';
+    if (FDS->MarkOverride)
+      Out << 'O';
+    if (FDS->MarkNoexcept)
+      Out << 'X';
+    break;
+  }
+  case ReflectionKind::Expression:
+    llvm_unreachable("token sequences and identifiers cannot be mangled");
   }
   Out << 'E';
 }
@@ -5355,6 +5396,10 @@ recurse:
   case Expr::CXXInheritedCtorInitExprClass:
   case Expr::CXXParenListInitExprClass:
   case Expr::PackIndexingExprClass:
+  case Expr::CXXBuiltinInjectExprClass:
+  case Expr::CXXBuiltinReportTokensExprClass:
+  case Expr::CXXTokenInterpolationListExprClass:
+  case Expr::CXXBuiltinIdExprClass:
     llvm_unreachable("unexpected statement kind");
 
   case Expr::ExplDependentCallExprClass:
@@ -5369,6 +5414,10 @@ recurse:
       mangleReflection(RE->getReflection());
     break;
   }
+
+  case Expr::CXXTokenSequenceExprClass:
+    // FIXME: Token sequences in mangled names are not yet supported.
+    break;
 
   case Expr::ConstantExprClass:
     E = cast<ConstantExpr>(E)->getSubExpr();
@@ -5460,8 +5509,13 @@ recurse:
     return;
   }
 
-  // These are used for internal purposes and cannot be meaningfully mangled.
+  // These are used for internal purposes and cannot be meaningfully mangled,
+  // except that an interpolated macro argument stands for its source.
   case Expr::OpaqueValueExprClass:
+    if (const Expr *Source = cast<OpaqueValueExpr>(E)->getSourceExpr()) {
+      mangleExpression(Source, Arity);
+      break;
+    }
     llvm_unreachable("cannot mangle opaque value; mangling wrong thing?");
 
   case Expr::InitListExprClass: {

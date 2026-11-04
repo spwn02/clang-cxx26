@@ -59,6 +59,7 @@ namespace clang {
   class ParmVarDecl;
   class StringLiteral;
   class TargetInfo;
+  struct TokenSequenceData;
   class ValueDecl;
   class WarnUnusedResultAttr;
 
@@ -643,6 +644,25 @@ public:
     /// to a string representation).
     SmallVectorImpl<PartialDiagnosticAt> *Diag = nullptr;
 
+    /// A token injection request from std::meta::queue_injection.
+    struct TokenInjection {
+      SourceLocation Loc;
+      DeclContext *TargetDC = nullptr; // null = inject at current context
+      TokenSequenceData TSD;
+      /// Starting access for members injected into a class.
+      AccessSpecifier AS = AS_public;
+      /// For the expansion of a declaration macro deferred to instantiation:
+      /// the invocation, so the tokens read as expanded from it.
+      SourceRange Invocation = SourceRange();
+      /// The expansion of a whole-declaration invocation 'name!(args);': the
+      /// invocation's ';' terminates it, so one follows the tokens (at Loc).
+      bool Terminated = false;
+    };
+
+    /// Token sequences pending injection from std::meta::queue_injection calls
+    /// during consteval block evaluation.
+    SmallVector<TokenInjection> PendingInjections;
+
     EvalStatus() = default;
 
     /// Return true if the evaluated expression has
@@ -748,6 +768,19 @@ public:
                              SmallVectorImpl<PartialDiagnosticAt> &Notes,
                              bool IsConstantInitializer,
                              bool EvaluateContracts = true) const;
+
+  /// Evaluate the body of an expression macro with its parameters bound to
+  /// \p ParamValues (reflections of the argument expressions, or token
+  /// sequences for raw parameters). On success \p Result holds the returned
+  /// token sequence. \p InvocationContext is the declaration enclosing the
+  /// macro invocation (e.g. the function it appears in), so that reflection
+  /// queries such as std::meta::current_function() resolve against the call
+  /// site rather than the macro definition.
+  static bool EvaluateMacroBody(const FunctionDecl *Macro,
+                                ArrayRef<APValue> ParamValues, APValue &Result,
+                                const ASTContext &Ctx,
+                                SmallVectorImpl<PartialDiagnosticAt> &Diags,
+                                Decl *InvocationContext = nullptr);
 
   /// EvaluateWithSubstitution - Evaluate an expression as if from the context
   /// of a call to the given function with the given arguments, inside an

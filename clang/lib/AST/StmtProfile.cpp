@@ -2462,8 +2462,56 @@ void StmtProfiler::VisitCXXReflectExpr(const CXXReflectExpr *E) {
   }
 }
 
+void StmtProfiler::VisitCXXTokenSequenceExpr(const CXXTokenSequenceExpr *E) {
+  VisitExpr(E);
+  E->getValue().Profile(ID);
+}
+
 void StmtProfiler::VisitCXXMetafunctionExpr(const CXXMetafunctionExpr *E) {
   VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXBuiltinInjectExpr(const CXXBuiltinInjectExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXBuiltinReportTokensExpr(
+    const CXXBuiltinReportTokensExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXTokenInterpolationListExpr(
+    const CXXTokenInterpolationListExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXBuiltinIdExpr(const CXXBuiltinIdExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXBuiltinStrLiteralExpr(
+    const CXXBuiltinStrLiteralExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXBuiltinTokenizeExpr(
+    const CXXBuiltinTokenizeExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXBuiltinStringizeExpr(
+    const CXXBuiltinStringizeExpr *E) {
+  VisitExpr(E);
+}
+
+void StmtProfiler::VisitCXXMacroInvocationExpr(
+    const CXXMacroInvocationExpr *E) {
+  VisitExpr(E);
+  ID.AddBoolean(E->areArgsUnparsed());
+  if (E->isMemberInvocation()) {
+    ID.AddBoolean(E->isArrow());
+    VisitName(E->getMemberNameInfo().getName());
+  }
 }
 
 void StmtProfiler::VisitCXXSpliceExpr(const CXXSpliceExpr *E) {

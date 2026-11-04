@@ -34,6 +34,8 @@ bool Parser::isCXXDeclarationStatement(
   case tok::kw_static_assert:
   case tok::kw__Static_assert:
     return true;
+  case tok::kw___macro:
+    return true;
   case tok::kw_consteval:
     // consteval-block-declaration
     if (getLangOpts().Reflection)
@@ -1233,6 +1235,7 @@ Parser::isCXXDeclarationSpecifier(ImplicitTypenameContext AllowImplicitTypename,
   case tok::kw_constexpr:
   case tok::kw_consteval:
   case tok::kw_constinit:
+  case tok::kw___macro:
     // storage-class-specifier
   case tok::kw_register:
   case tok::kw_static:
@@ -1348,6 +1351,17 @@ Parser::isCXXDeclarationSpecifier(ImplicitTypenameContext AllowImplicitTypename,
     }
     return TPResult::False;
   }
+  case tok::annot_template_name: {
+    if (!NextToken().is(tok::less))
+      return TPResult::False;
+    if (TryAnnotateTypeOrScopeToken(AllowImplicitTypename))
+      return TPResult::Error;
+    if (Tok.is(tok::annot_template_name))
+      return TPResult::False;
+    return isCXXDeclarationSpecifier(AllowImplicitTypename, BracedCastResult,
+                                     InvalidAsDeclSpec);
+  }
+
   case tok::annot_template_id: {
     TemplateIdAnnotation *TemplateId = takeTemplateIdAnnotation(Tok);
     // If lookup for the template-name found nothing, don't assume we have a
@@ -1513,6 +1527,17 @@ Parser::isCXXDeclarationSpecifier(ImplicitTypenameContext AllowImplicitTypename,
 
   case tok::annot_typename:
   case_typename:
+    // An already-annotated type followed by '::' -- e.g. a type reflection
+    // interpolated into an injected token sequence -- begins a
+    // nested-name-specifier, not a decl-specifier by itself. Annotate the
+    // scope and whatever follows it, then reconsider.
+    if (Tok.is(tok::annot_typename) && NextToken().is(tok::coloncolon)) {
+      if (TryAnnotateTypeOrScopeToken(AllowImplicitTypename))
+        return TPResult::Error;
+      return isCXXDeclarationSpecifier(AllowImplicitTypename, BracedCastResult,
+                                       InvalidAsDeclSpec);
+    }
+
     // In Objective-C, we might have a protocol-qualified type.
     if (getLangOpts().ObjC && NextToken().is(tok::less)) {
       // Tentatively parse the protocol qualifiers.

@@ -1890,10 +1890,20 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(DeclaratorContext Context,
       return ParseSimpleDeclaration(Context, DeclEnd, DeclAttrs, DeclSpecAttrs,
                                     true, nullptr, DeclSpecStart);
     [[fallthrough]];
-  case tok::kw_export:
+  case tok::kw_export: {
     ProhibitAttributes(DeclAttrs);
     ProhibitAttributes(DeclSpecAttrs);
-    return ParseDeclarationStartingWithTemplate(Context, DeclEnd, DeclAttrs);
+    DeclGroupPtrTy Result =
+        ParseDeclarationStartingWithTemplate(Context, DeclEnd, DeclAttrs);
+    // An annotation's on_template_defined callback may have queued token
+    // injections while the template's definition was being parsed; they were
+    // deferred so injected declarations are not parsed at an elevated
+    // template parameter depth.
+    if (TemplateParameterDepth == 0 && !Actions.PendingInjections.empty() &&
+        Actions.CurContext->isFileContext())
+      DrainPendingTokenInjections();
+    return Result;
+  }
   case tok::kw_inline:
     // Could be the start of an inline namespace. Allowed as an ext in C++03.
     if (getLangOpts().CPlusPlus && NextToken().is(tok::kw_namespace)) {
@@ -3859,6 +3869,32 @@ void Parser::ParseDeclarationSpecifiers(
       if (DS.hasTypeSpecifier() && DS.hasTagDefinition())
         goto DoneWithDeclSpec;
 
+      // An already-annotated type followed by '::' -- e.g. a type reflection
+      // interpolated into an injected token sequence -- begins a
+      // nested-name-specifier: either qualifying the type to come (no type
+      // specifier yet) or a qualified declarator-id (leave it for the
+      // declarator, which parses the scope itself).
+      if (NextToken().is(tok::coloncolon)) {
+        if (DS.hasTypeSpecifier())
+          goto DoneWithDeclSpec;
+
+        TypeResult T = getTypeAnnotation(Tok);
+        SourceLocation TypeNameLoc = Tok.getLocation();
+        ConsumeAnnotationToken();
+
+        CXXScopeSpec SS;
+        if (T.isInvalid() ||
+            Actions.ActOnCXXNestedNameSpecifierTypeAnnotation(
+                SS, T.get(), TypeNameLoc, Tok.getLocation())) {
+          ConsumeToken();
+          DS.SetTypeSpecError();
+          goto DoneWithDeclSpec;
+        }
+        ConsumeToken();
+        AnnotateScopeToken(SS, /*IsNewAnnotation=*/true);
+        continue;
+      }
+
       TypeResult T = getTypeAnnotation(Tok);
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_typename, Loc, PrevSpec,
                                      DiagID, T, Policy);
@@ -4042,6 +4078,18 @@ void Parser::ParseDeclarationSpecifiers(
 
       // Need to support trailing type qualifiers (e.g. "id<p> const").
       // If a type specifier follows, it will be diagnosed elsewhere.
+      continue;
+    }
+
+    case tok::annot_template_name: {
+      if (DS.hasTypeSpecifier() || !NextToken().is(tok::less))
+        goto DoneWithDeclSpec;
+      if (TryAnnotateTypeOrScopeToken(AllowImplicitTypename)) {
+        DS.SetTypeSpecError();
+        goto DoneWithDeclSpec;
+      }
+      if (Tok.is(tok::annot_template_name))
+        goto DoneWithDeclSpec;
       continue;
     }
 
@@ -4385,6 +4433,18 @@ void Parser::ParseDeclarationSpecifiers(
     case tok::kw_consteval:
       isInvalid = DS.SetConstexprSpec(ConstexprSpecKind::Consteval, Loc,
                                       PrevSpec, DiagID);
+      break;
+    case tok::kw___macro:
+      // An expression macro is a consteval function returning token_sequence;
+      // the specifier also marks the declaration so Sema treats it as a macro.
+      isInvalid = DS.setFunctionSpecMacro(Loc, PrevSpec, DiagID);
+      if (!isInvalid)
+        isInvalid = DS.SetConstexprSpec(ConstexprSpecKind::Consteval, Loc,
+                                        PrevSpec, DiagID);
+      if (!isInvalid)
+        isInvalid = DS.SetTypeSpecType(
+            DeclSpec::TST_typename, Loc, PrevSpec, DiagID,
+            ParsedType::make(Actions.getASTContext().TokenSequenceTy), Policy);
       break;
     case tok::kw_constinit:
       isInvalid = DS.SetConstexprSpec(ConstexprSpecKind::Constinit, Loc,
@@ -5506,6 +5566,19 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
     }
   }
 
+  // Annotation on_complete callbacks: after a definition's enumerators, or at
+  // an opaque-enum-declaration (complete as declared). As for a class, the
+  // injections they queue go to the nearest enclosing namespace, and wait
+  // while we are inside a template declaration (see the class case).
+  if (TUK == TagUseKind::Definition || TUK == TagUseKind::Declaration) {
+    Actions.HandleAnnotationOnComplete(TagDecl);
+    while (TemplateParameterDepth == 0 && !Actions.PendingInjections.empty()) {
+      auto Injections = std::move(Actions.PendingInjections);
+      Actions.PendingInjections.clear();
+      ProcessTokenInjections(Injections);
+    }
+  }
+
   if (DS.SetTypeSpecType(DeclSpec::TST_enum, StartLoc,
                          NameLoc.isValid() ? NameLoc : StartLoc,
                          PrevSpec, DiagID, TagDecl, Owned,
@@ -5717,6 +5790,15 @@ bool Parser::isTypeSpecifierQualifier() {
   switch (Tok.getKind()) {
   default: return false;
 
+  case tok::annot_template_name:
+    if (!NextToken().is(tok::less))
+      return false;
+    if (TryAnnotateTypeOrScopeToken())
+      return true;
+    if (getCurToken().is(tok::annot_template_name))
+      return false;
+    return isTypeSpecifierQualifier();
+
   case tok::identifier:   // foo::bar
     if (TryAltiVecVectorToken())
       return true;
@@ -5903,6 +5985,15 @@ bool Parser::isDeclarationSpecifier(
     return getLangOpts().OpenCL &&
            getLangOpts().getOpenCLCompatibleVersion() >= 200;
 
+  case tok::annot_template_name:
+    if (!NextToken().is(tok::less))
+      return false;
+    if (TryAnnotateTypeOrScopeToken(AllowImplicitTypename))
+      return true;
+    if (Tok.is(tok::annot_template_name))
+      return false;
+    return isDeclarationSpecifier(AllowImplicitTypename);
+
   case tok::identifier:   // foo::bar
     // Unfortunate hack to support "Class.factoryMethod" notation.
     if (getLangOpts().ObjC && NextToken().is(tok::period))
@@ -6048,6 +6139,7 @@ bool Parser::isDeclarationSpecifier(
     // C++20 consteval and constinit.
   case tok::kw_consteval:
   case tok::kw_constinit:
+  case tok::kw___macro:
 
     // C11 _Atomic
   case tok::kw__Atomic:
@@ -7359,6 +7451,12 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
   // lparen is already consumed!
   assert(D.isPastIdentifier() && "Should not call before identifier!");
 
+  // The parameters of a macro may include a raw pack (see
+  // ParseParameterDeclarationClause). A nested function declarator, e.g. a
+  // parameter of function type, is not a macro's.
+  llvm::SaveAndRestore InMacroParameters(ParsingMacroParameters,
+                                         D.getDeclSpec().isMacroSpecified());
+
   // This should be true when the function has typed arguments.
   // Otherwise, it is treated as a K&R-style function.
   bool HasProto = false;
@@ -7799,10 +7897,35 @@ void Parser::ParseParameterDeclarationClause(
         break;
       }
 
+      // P1219 (homogeneous variadic function parameters), only for macros and
+      // only for raw parameters: 'std::meta::token_sequence... args' takes
+      // each remaining argument as raw tokens. Like 'auto... args', it makes
+      // the macro a template, with an invented template parameter pack for
+      // its type (deduced as token_sequence from the raw arguments): the
+      // parameter is declared as that, and marked.
+      bool MacroRawPack = false;
+      if (ParsingMacroParameters && ParmDeclarator.hasEllipsis() &&
+          ParmDeclarator.getNumTypeObjects() == 0 &&
+          DS.getTypeSpecType() == DeclSpec::TST_typename) {
+        QualType T = Actions.GetTypeFromParser(DS.getRepAsType());
+        if (!T.isNull() && !T.hasQualifiers() && T->isTokenSequenceType()) {
+          SourceLocation Loc = DS.getTypeSpecTypeLoc();
+          const char *PrevSpec = nullptr;
+          unsigned DiagID = 0;
+          DS.ClearTypeSpecType();
+          DS.SetTypeSpecType(DeclSpec::TST_auto, Loc, PrevSpec, DiagID,
+                             Actions.getASTContext().getPrintingPolicy());
+          MacroRawPack = true;
+        }
+      }
+
       // Inform the actions module about the parameter declarator, so it gets
       // added to the current scope.
       Decl *Param =
           Actions.ActOnParamDeclarator(getCurScope(), ParmDeclarator, ThisLoc);
+      if (MacroRawPack)
+        if (auto *PVD = dyn_cast_or_null<ParmVarDecl>(Param))
+          PVD->setMacroRawPack();
       // Parse the default argument, if any. We parse the default
       // arguments in all dialects; the semantic analysis in
       // ActOnParamDefaultArgument will reject the default argument in

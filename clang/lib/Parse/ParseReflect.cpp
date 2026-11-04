@@ -14,13 +14,18 @@
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/LocInfoType.h"
+#include "clang/AST/Reflection.h"
 #include "clang/Basic/DiagnosticParse.h"
+#include "clang/Lex/Token.h"
 #include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
 #include "clang/Sema/Ownership.h"
 #include "clang/Sema/ParsedAttr.h"
 #include "clang/Sema/SemaCodeCompletion.h"
+#include "clang/Sema/Lookup.h"
+#include "clang/Sema/Template.h"
+#include "llvm/ADT/ScopeExit.h"
 using namespace clang;
 
 ExprResult Parser::ParseCXXReflectExpression(SourceLocation OpLoc) {
@@ -34,6 +39,294 @@ ExprResult Parser::ParseCXXReflectExpression(SourceLocation OpLoc) {
     cutOffParsing();
     Actions.CodeCompletion().CodeCompleteReflectOperand(getCurScope());
     return ExprError();
+  }
+
+  // Handle token sequence: ^^{ balanced tokens }
+  if (Tok.is(tok::l_brace)) {
+    SourceLocation LBraceLoc = ConsumeBrace();
+
+    auto IsBackslash = [&](const Token &T) {
+      return T.is(tok::unknown) && T.getLength() == 1 &&
+             *PP.getSourceManager().getCharacterData(T.getLocation()) == '\\';
+    };
+
+    SmallVector<Token, 16> Tokens;
+    unsigned BraceDepth = 1;
+    // The brace depths at which nested ^^{ } literals opened, innermost
+    // last. An interpolation binds to the innermost literal enclosing it;
+    // each additional backslash reaches one literal further out (as with
+    // nested backquotes). With D nested literals open, `\(e)` written with
+    // K backslashes is this literal's when K == D + 1; with fewer it belongs
+    // to a nested literal and is kept as tokens for when that literal is
+    // parsed in turn; with more it escapes past this literal.
+    SmallVector<unsigned, 2> NestedLiterals;
+    while (BraceDepth > 0 && Tok.isNot(tok::eof)) {
+      // A nested literal: keep its '^^{' and remember where it closes.
+      if (Tok.is(tok::caretcaret) && NextToken().is(tok::l_brace)) {
+        Tokens.push_back(Tok);
+        ConsumeToken();
+        ++BraceDepth;
+        NestedLiterals.push_back(BraceDepth);
+        Tokens.push_back(Tok);
+        ConsumeBrace();
+        continue;
+      }
+      if (Tok.is(tok::l_brace))
+        ++BraceDepth;
+      else if (Tok.is(tok::r_brace)) {
+        if (!NestedLiterals.empty() && NestedLiterals.back() == BraceDepth)
+          NestedLiterals.pop_back();
+        --BraceDepth;
+        if (BraceDepth == 0)
+          break;
+      }
+
+      unsigned Level = NestedLiterals.size() + 1;
+
+      // An interpolation's annotation token.
+      auto PushInterpolation = [&](ExprResult CE, SourceLocation Begin,
+                                   SourceLocation End, bool LeadingSpace) {
+        if (CE.isInvalid())
+          return;
+        Token AnnTok;
+        AnnTok.startToken();
+        AnnTok.setKind(tok::annot_token_seq_expr);
+        AnnTok.setLocation(Begin);
+        AnnTok.setAnnotationEndLoc(End);
+        // Keep the leading space so that stringize reproduces whitespace
+        // ("int \(id("x"))" is "int x", not "intx").
+        if (LeadingSpace)
+          AnnTok.setFlag(Token::LeadingSpace);
+        setExprAnnotation(AnnTok, CE);
+        Tokens.push_back(AnnTok);
+      };
+
+      // The operand of '\( ... )' or '${ ... }', through its closing token:
+      // 'e', or a list 'e1, e2, ...' whose elements may be pack expansions
+      // ('a...'), optionally followed by '; separator'.
+      auto ParseInterpolationOperand = [&](tok::TokenKind Close,
+                                           SourceLocation Begin,
+                                           SourceLocation &End) -> ExprResult {
+        SmallVector<Expr *, 4> Elements;
+        bool IsList = false, Invalid = false;
+        while (true) {
+          ExprResult Elt = ParseAssignmentExpression();
+          if (!Elt.isInvalid() && Tok.is(tok::ellipsis)) {
+            IsList = true;
+            Elt = Actions.ActOnPackExpansion(Elt.get(), ConsumeToken());
+          }
+          if (Elt.isInvalid()) {
+            Invalid = true;
+            break;
+          }
+          Elements.push_back(Elt.get());
+          if (!TryConsumeToken(tok::comma))
+            break;
+          IsList = true;
+        }
+        Expr *Separator = nullptr;
+        if (!Invalid && Tok.is(tok::semi)) {
+          ConsumeToken();
+          IsList = true;
+          ExprResult Sep = ParseAssignmentExpression();
+          if (Sep.isInvalid())
+            Invalid = true;
+          else
+            Separator = Sep.get();
+        }
+        if (Invalid) {
+          SkipUntil(Close, StopBeforeMatch);
+          if (Tok.is(Close))
+            ConsumeAnyToken();
+          return ExprError();
+        }
+        End = Tok.getLocation();
+        if (ExpectAndConsume(Close))
+          return ExprError();
+        return IsList ? Actions.BuildTokenInterpolationList(Begin, Elements,
+                                                            Separator, End)
+                      : Actions.ActOnTokenSequenceInterpolation(Elements[0]);
+      };
+
+      // '$' interpolation: '$name' or '${ ... }', one '$' per level as with
+      // backslashes. It is recognized on the tokens as written, however they
+      // were lexed: an identifier spelled with leading '$'s (where '$' may
+      // begin an identifier, the default), or '$' tokens followed by a name
+      // or '{'. Only tokens written in the literal are examined, never tokens
+      // that arrive by interpolation or as a macro's raw argument.
+      struct DollarForm {
+        unsigned Count = 0;        // the '$'s
+        unsigned DollarTokens = 0; // the tokens spelling them
+        IdentifierInfo *Name = nullptr;
+        SourceLocation NameLoc;
+        bool NameIsOwnToken = false; // '$' tokens, then an identifier
+        bool Brace = false;
+        bool Digit = false;
+      };
+      auto IsDollar = [&](const Token &T) {
+        return T.is(tok::unknown) && T.getLength() == 1 &&
+               *PP.getSourceManager().getCharacterData(T.getLocation()) == '$';
+      };
+      auto ScanDollar = [&](unsigned Ahead) {
+        DollarForm F;
+        Token T0 = GetLookAheadToken(Ahead);
+        if (T0.is(tok::identifier)) {
+          StringRef S = T0.getIdentifierInfo()->getName();
+          size_t N = S.find_first_not_of('$');
+          if (N == 0)
+            return F;
+          F.DollarTokens = 1;
+          if (N == StringRef::npos) {
+            F.Count = S.size();
+            F.Brace = GetLookAheadToken(Ahead + 1).is(tok::l_brace);
+            return F;
+          }
+          F.Count = N;
+          if (isDigit(S[N]))
+            F.Digit = true;
+          else {
+            F.Name = &PP.getIdentifierTable().get(S.substr(N));
+            F.NameLoc = T0.getLocation();
+          }
+          return F;
+        }
+        unsigned I = Ahead;
+        while (IsDollar(GetLookAheadToken(I)))
+          ++I;
+        F.Count = F.DollarTokens = I - Ahead;
+        if (!F.Count)
+          return F;
+        Token After = GetLookAheadToken(I);
+        if (After.is(tok::l_brace))
+          F.Brace = true;
+        else if (After.is(tok::numeric_constant))
+          F.Digit = true;
+        else if (IdentifierInfo *II = After.getIdentifierInfo()) {
+          F.Name = II;
+          F.NameLoc = After.getLocation();
+          F.NameIsOwnToken = true;
+        }
+        return F;
+      };
+
+      // '\$x' is the identifier '$x', not an interpolation.
+      if (IsBackslash(Tok)) {
+        DollarForm F = ScanDollar(1);
+        if (F.Count && F.Count == Level) {
+          ConsumeToken(); // the '\'
+          for (unsigned I = 0; I != F.DollarTokens; ++I) {
+            Tokens.push_back(Tok);
+            ConsumeAnyToken();
+          }
+          continue;
+        }
+      }
+
+      if (DollarForm F = ScanDollar(0); F.Count && F.Count >= Level) {
+        if (F.Count > Level)
+          Diag(Tok, diag::err_dollar_interpolation_escapes_token_sequence)
+              << F.Count << Level; // recover as this literal's
+        SourceLocation Begin = Tok.getLocation();
+        bool LeadingSpace = Tok.hasLeadingSpace();
+        Token First = Tok;
+        for (unsigned I = 0; I != F.DollarTokens; ++I)
+          ConsumeAnyToken();
+        if (F.Brace) {
+          ConsumeBrace();
+          SourceLocation End;
+          ExprResult E = ParseInterpolationOperand(tok::r_brace, Begin, End);
+          PushInterpolation(E, Begin, End, LeadingSpace);
+          continue;
+        }
+        if (F.Digit) {
+          Diag(First, diag::err_dollar_interpolation_digit);
+          continue;
+        }
+        if (!F.Name) {
+          Diag(First, diag::err_dollar_interpolation_expected);
+          continue;
+        }
+        if (F.NameIsOwnToken)
+          ConsumeAnyToken();
+        if (F.Name->isKeyword(getLangOpts())) {
+          Diag(First, diag::err_dollar_interpolation_keyword)
+              << F.Name->getName();
+          continue;
+        }
+        UnqualifiedId Id;
+        Id.setIdentifier(F.Name, F.NameLoc);
+        CXXScopeSpec SS;
+        ExprResult E = Actions.ActOnIdExpression(
+            getCurScope(), SS, SourceLocation(), Id,
+            /*HasTrailingLParen=*/false, /*IsAddressOfOperand=*/false);
+        if (!E.isInvalid())
+          E = Actions.ActOnTokenSequenceInterpolation(E.get());
+        PushInterpolation(E, Begin, F.NameLoc, LeadingSpace);
+        continue;
+      }
+
+      // Check for interpolation: \(expr), with one backslash per level.
+      unsigned Backslashes = 0;
+      if (IsBackslash(Tok)) {
+        Backslashes = 1;
+        while (IsBackslash(GetLookAheadToken(Backslashes)))
+          ++Backslashes;
+        if (GetLookAheadToken(Backslashes).isNot(tok::l_paren))
+          Backslashes = 0;
+      }
+      if (Backslashes > Level) {
+        Diag(Tok, diag::err_interpolation_escapes_token_sequence)
+            << Backslashes << Level;
+        Backslashes = Level; // recover as this literal's
+      }
+      if (Backslashes == Level) {
+        SourceLocation BackslashLoc = Tok.getLocation();
+        bool HadLeadingSpace = Tok.hasLeadingSpace();
+        while (IsBackslash(Tok))
+          ConsumeToken(); // consume the '\'s
+        ConsumeParen();   // consume '('
+        SourceLocation RParenLoc;
+        ExprResult CE =
+            ParseInterpolationOperand(tok::r_paren, BackslashLoc, RParenLoc);
+        PushInterpolation(CE, BackslashLoc, RParenLoc, HadLeadingSpace);
+        continue;
+      }
+
+      Tokens.push_back(Tok);
+      ConsumeAnyToken();
+    }
+
+    if (Tok.isNot(tok::r_brace)) {
+      Diag(LBraceLoc, diag::err_expected) << tok::r_brace;
+      return ExprError();
+    }
+    SourceLocation RBraceLoc = Tok.getLocation();
+    ConsumeBrace();
+
+    // Mark any identifiers in the token sequence that refer to local variables
+    // or parameters as referenced, to suppress -Wunused-parameter and
+    // -Wunused-variable warnings. The token sequence will use them when
+    // injected. Lookup happens in the capture scope — for the common case
+    // where capture and injection share a scope this is correct; for
+    // cross-scope cases this is a heuristic and may match unrelated names of
+    // the same spelling. Use \(expr) to interpolate when precision matters.
+    for (const Token &T : Tokens) {
+      if (T.is(tok::identifier)) {
+        if (IdentifierInfo *II = T.getIdentifierInfo()) {
+          LookupResult R(Actions, II, T.getLocation(),
+                         Sema::LookupOrdinaryName);
+          if (Actions.LookupName(R, getCurScope(),
+                                 /*AllowBuiltinCreation=*/false)) {
+            if (auto *VD = R.getAsSingle<VarDecl>())
+              VD->setReferenced();
+          }
+        }
+      }
+    }
+
+    SourceRange OperandRange(LBraceLoc, RBraceLoc);
+    return Actions.ActOnCXXTokenSequenceReflection(getCurScope(), OpLoc,
+                                                   OperandRange, Tokens);
   }
 
   Sema::ConstevalOnlyRecorder RecordConstevalOnly(Actions);
@@ -187,7 +480,33 @@ bool Parser::ParseSpliceSpecifier(bool TryParseSpecialization) {
   if (SpliceTokens.expectAndConsume())
     return true;
 
-  ExprResult ER = ParseConstantExpression();
+  ExprResult ER;
+  if (Tok.isOneOf(tok::annot_typename, tok::annot_template_name,
+                  tok::annot_splice) &&
+      NextToken().is(tok::r_splice)) {
+    // An interpolated type, template, or namespace (from a token sequence)
+    // used as the whole splice operand: splice what it designates.
+    SourceLocation Loc = Tok.getLocation();
+    if (Tok.is(tok::annot_splice)) {
+      SpliceResult Inner = getSpliceAnnotation(Tok);
+      ConsumeAnnotationToken();
+      ER = Inner.isInvalid() ? ExprError() : Inner.get()->getOperand();
+    } else if (Tok.is(tok::annot_typename)) {
+      // The annotation carries a bare type with no location information.
+      TypeResult T = getTypeAnnotation(Tok);
+      ConsumeAnnotationToken();
+      ER = T.isInvalid() ? ExprError()
+                         : Actions.BuildCXXReflectExpr(
+                               Loc, Loc, Sema::GetTypeFromParser(T.get()));
+    } else {
+      TemplateName Template =
+          TemplateName::getFromVoidPointer(Tok.getAnnotationValue());
+      ConsumeAnnotationToken();
+      ER = Actions.BuildCXXReflectExpr(Loc, Loc, Template);
+    }
+  } else {
+    ER = ParseConstantExpression();
+  }
   if (ER.isInvalid() || ER.get()->containsErrors()) {
     SpliceTokens.skipToEnd();
     return true;
@@ -283,4 +602,1145 @@ DeclResult Parser::ParseCXXSpliceAsNamespace() {
   ConsumeAnnotationToken();
 
   return Actions.ActOnCXXSpliceExpectingNamespace(Splice);
+}
+
+//===----------------------------------------------------------------------===//
+// Expression macros: name!(args), name!{args}, name![args]
+//===----------------------------------------------------------------------===//
+
+
+/// Parse the argument list of an expression-macro invocation and hand it to
+/// Sema. The macro name has already been consumed; the current token is '!',
+/// followed by whichever bracket the invocation chose.
+ExprResult Parser::ParseMacroInvocation(CXXScopeSpec &SS,
+                                        const IdentifierInfo *II,
+                                        SourceLocation NameLoc) {
+  assert(isMacroInvocationExclaim());
+
+  // The macro's parameter shape decides how each argument is parsed, so the
+  // macro has to be found before the arguments are read. (With a dependent
+  // qualifier it cannot be, and the arguments wait for instantiation.)
+  SmallVector<MacroParamKind, 4> RawParams;
+  bool ShapeUnknown = false;
+  // (An invalid qualifier has been diagnosed already.)
+  bool ShapeError = SS.isInvalid() || Actions.GetQualifiedMacroParameterShape(
+                                          getCurScope(), SS, II, NameLoc,
+                                          RawParams, ShapeUnknown);
+
+  SourceLocation ExclaimLoc = ConsumeToken();
+  std::optional<TemplateArgumentListInfo> TemplateArgs;
+  if (ParseMacroTemplateArguments(TemplateArgs))
+    return ExprError();
+  BalancedDelimiterTracker T(*this, Tok.getKind());
+  T.consumeOpen();
+
+  if (ShapeError) {
+    T.skipToEnd();
+    return ExprError();
+  }
+
+  ExprVector Args;
+  if (ParseMacroArguments(RawParams, ShapeUnknown, T, Args))
+    return ExprError();
+  if (T.consumeClose())
+    return ExprError();
+
+  ExprResult Result = Actions.ActOnMacroInvocation(
+      getCurScope(), SS, II, NameLoc, ExclaimLoc, T.getOpenLocation(), Args,
+      T.getCloseLocation(), ShapeUnknown,
+      TemplateArgs ? &*TemplateArgs : nullptr);
+  // As for a failed call: keep an error-containing placeholder, so the
+  // failure (already diagnosed) does not cascade -- e.g. into deducing 'void'
+  // for the enclosing 'auto' function from 'return m!();'.
+  if (Result.isInvalid())
+    Result = Actions.CreateRecoveryExpr(SS.isEmpty() ? NameLoc
+                                                     : SS.getBeginLoc(),
+                                        T.getCloseLocation(), Args);
+  return Result;
+}
+
+/// Parse 'obj.name!(args)' / 'obj->name!(args)'. The member name has been
+/// consumed; the current token is '!'. The object expression binds to the
+/// macro's explicit object parameter.
+ExprResult Parser::ParseMemberMacroInvocation(Expr *Base, SourceLocation OpLoc,
+                                              tok::TokenKind OpKind,
+                                              const IdentifierInfo *II,
+                                              SourceLocation NameLoc) {
+  assert(isMacroInvocationExclaim());
+
+  // If the object's class is not known yet (a dependent object expression),
+  // the arguments wait for instantiation.
+  SmallVector<MacroParamKind, 4> RawParams;
+  bool ShapeUnknown = false;
+  bool ShapeError = Actions.GetMemberMacroParameterShape(
+      Base, OpKind, II, NameLoc, RawParams, ShapeUnknown);
+
+  SourceLocation ExclaimLoc = ConsumeToken();
+  std::optional<TemplateArgumentListInfo> TemplateArgs;
+  if (ParseMacroTemplateArguments(TemplateArgs))
+    return ExprError();
+  BalancedDelimiterTracker T(*this, Tok.getKind());
+  T.consumeOpen();
+
+  if (ShapeError) {
+    T.skipToEnd();
+    return ExprError();
+  }
+
+  ExprVector Args;
+  if (ParseMacroArguments(RawParams, ShapeUnknown, T, Args))
+    return ExprError();
+  if (T.consumeClose())
+    return ExprError();
+
+  ExprResult Result = Actions.ActOnMemberMacroInvocation(
+      getCurScope(), Base, OpLoc, OpKind, II, NameLoc, ExclaimLoc,
+      T.getOpenLocation(), Args, T.getCloseLocation(), ShapeUnknown,
+      TemplateArgs ? &*TemplateArgs : nullptr);
+  if (Result.isInvalid()) {
+    Args.insert(Args.begin(), Base);
+    Result = Actions.CreateRecoveryExpr(Base->getBeginLoc(),
+                                        T.getCloseLocation(), Args);
+  }
+  return Result;
+}
+
+/// Parse a declaration-position macro invocation, 'name!(args);', at
+/// namespace or class scope, then parse the macro's expansion as a sequence
+/// of declarations in place. In a class template, Sema records the
+/// invocation instead and the expansion happens per specialization (the
+/// expansion parsed here is then empty).
+Parser::DeclGroupPtrTy Parser::ParseDeclMacroInvocation(AccessSpecifier AS,
+                                                        Decl *TagDecl) {
+  assert(isStartOfDeclMacroInvocation());
+
+  CXXScopeSpec SS;
+  if (Tok.is(tok::annot_cxxscope)) {
+    Actions.RestoreNestedNameSpecifierAnnotation(Tok.getAnnotationValue(),
+                                                 Tok.getAnnotationRange(), SS);
+    ConsumeAnnotationToken();
+  }
+  IdentifierInfo *II = Tok.getIdentifierInfo();
+  SourceLocation NameLoc = ConsumeToken();
+
+  // The arguments are constant expressions (or raw tokens).
+  EnterExpressionEvaluationContext ConstantEvaluated(
+      Actions, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+
+  // The macro's parameter shape decides how each argument is parsed. (With a
+  // dependent qualifier it cannot be known, and the arguments wait for
+  // instantiation.)
+  SmallVector<MacroParamKind, 4> RawParams;
+  bool ShapeUnknown = false;
+  // (An invalid qualifier has been diagnosed already.)
+  bool ShapeError = SS.isInvalid() || Actions.GetQualifiedMacroParameterShape(
+                                          getCurScope(), SS, II, NameLoc,
+                                          RawParams, ShapeUnknown);
+
+  SourceLocation ExclaimLoc = ConsumeToken();
+  std::optional<TemplateArgumentListInfo> TemplateArgs;
+  if (ParseMacroTemplateArguments(TemplateArgs))
+    return nullptr;
+  BalancedDelimiterTracker T(*this, Tok.getKind());
+  T.consumeOpen();
+
+  if (ShapeError) {
+    T.skipToEnd();
+    TryConsumeToken(tok::semi);
+    return nullptr;
+  }
+
+  ExprVector Args;
+  if (ParseMacroArguments(RawParams, ShapeUnknown, T, Args)) {
+    TryConsumeToken(tok::semi);
+    return nullptr;
+  }
+  if (T.consumeClose())
+    return nullptr;
+  // The ';' belongs to the invocation; it terminates the expansion (below).
+  SourceLocation SemiLoc =
+      Tok.is(tok::semi) ? Tok.getLocation() : T.getCloseLocation();
+  ExpectAndConsumeSemi(diag::err_expected_semi_declaration);
+
+  TokenSequenceData Expansion;
+  if (Actions.ActOnDeclMacroInvocation(
+          getCurScope(), SS, II, NameLoc, ExclaimLoc, T.getOpenLocation(), Args,
+          T.getCloseLocation(), AS, Expansion, ShapeUnknown,
+          TemplateArgs ? &*TemplateArgs : nullptr))
+    return nullptr;
+
+  // Parse the expansion, followed by the invocation's ';', as declarations
+  // at the current position, delimited by its own eof.
+  SmallVector<Token, 16> Toks(Expansion.begin(), Expansion.end());
+  relocateExpansionTokens(PP.getSourceManager(), Toks,
+                          SourceRange(SS.isEmpty() ? NameLoc : SS.getBeginLoc(),
+                                      T.getCloseLocation()));
+  Toks.push_back(makeInvocationTerminator(SemiLoc));
+  Token Eof;
+  Eof.startToken();
+  Eof.setKind(tok::eof);
+  Eof.setLocation(T.getCloseLocation());
+  Toks.push_back(Eof);
+
+  Token SavedTok = Tok;
+  PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
+                      /*IsReinject=*/true);
+  ConsumeAnyToken();
+
+  SmallVector<Decl *, 4> Decls;
+  Sema::MacroExpansionDepthRAII Depth(Actions);
+  Actions.runWithSufficientStackSpace(NameLoc, [&] {
+    if (Actions.CurContext->isRecord()) {
+      // Members of the class being parsed, under the current access specifier
+      // (the expansion may change it; the change does not leak out).
+      ParseTokensAsClassMembers(AS, TagDecl);
+    } else {
+      while (Tok.isNot(tok::eof)) {
+        SourceLocation Before = Tok.getLocation();
+        ParsedAttributes DeclAttrs(AttrFactory);
+        ParsedAttributes DeclSpecAttrs(AttrFactory);
+        DeclGroupPtrTy G = ParseExternalDeclaration(DeclAttrs, DeclSpecAttrs);
+        if (G)
+          for (Decl *D : G.get())
+            Decls.push_back(D);
+        // Guarantee progress on malformed tokens. (Location equality alone is
+        // not proof: repeated evaluations of one token sequence share
+        // locations, so only a parse that also produced nothing counts.)
+        if (!G && Tok.isNot(tok::eof) && Tok.getLocation() == Before) {
+          Diag(Tok, diag::err_unexpected_token_in_injected_members)
+              << Tok.getKind();
+          ConsumeAnyToken();
+        }
+      }
+    }
+  });
+  Tok = SavedTok;
+
+  if (Decls.empty())
+    return nullptr;
+  return DeclGroupPtrTy::make(
+      DeclGroupRef::Create(Actions.Context, Decls.data(), Decls.size()));
+}
+
+/// Whether the (whole) token sequence \p Toks is a do-expression,
+/// 'do -> T { ... }' or 'do { ... }' with nothing after the braces, rather
+/// than a do-while statement, whose braces 'while' follows.
+static bool isDoExpression(ArrayRef<Token> Toks) {
+  if (Toks.size() < 2 || Toks[0].isNot(tok::kw_do))
+    return false;
+  if (Toks[1].is(tok::arrow))
+    return true;
+  if (Toks[1].isNot(tok::l_brace))
+    return false;
+  unsigned Depth = 0;
+  for (size_t I = 1; I != Toks.size(); ++I) {
+    if (Toks[I].is(tok::l_brace))
+      ++Depth;
+    else if (Toks[I].is(tok::r_brace) && --Depth == 0)
+      return I + 1 == Toks.size() || Toks[I + 1].isNot(tok::kw_while);
+  }
+  return false;
+}
+
+void Parser::parenthesizeDoExpression(SmallVectorImpl<Token> &Toks,
+                                      SourceLocation CloseLoc) {
+  if (!isDoExpression(Toks))
+    return;
+  Token LParen, RParen;
+  LParen.startToken();
+  LParen.setKind(tok::l_paren);
+  LParen.setLocation(Toks.front().getLocation());
+  LParen.setLength(0);
+  RParen.startToken();
+  RParen.setKind(tok::r_paren);
+  RParen.setLocation(CloseLoc);
+  RParen.setLength(0);
+  Toks.insert(Toks.begin(), LParen);
+  Toks.push_back(RParen);
+}
+
+bool Parser::isStartOfStmtMacroInvocation() {
+  if (!isStartOfDeclMacroInvocation())
+    return false;
+  // Only an invocation that is the whole statement: look past the balanced
+  // argument list for the ';'.
+  TentativeParsingAction TPA(*this);
+  if (Tok.is(tok::annot_cxxscope))
+    ConsumeAnnotationToken();
+  ConsumeToken(); // name
+  ConsumeToken(); // '!'
+  bool WholeStatement = false;
+  if (SkipMacroTemplateArguments() &&
+      isMacroArgumentListOpener(Tok.getKind())) {
+    BalancedDelimiterTracker T(*this, Tok.getKind());
+    T.consumeOpen();
+    T.skipToEnd();
+    WholeStatement = Tok.is(tok::semi);
+  }
+  TPA.Revert();
+  return WholeStatement;
+}
+
+bool Parser::isStartOfQualifiedMacroInvocation() {
+  if (!getLangOpts().CPlusPlus29)
+    return false;
+  if (!Tok.is(tok::coloncolon) &&
+      !(Tok.is(tok::identifier) &&
+        NextToken().isOneOf(tok::coloncolon, tok::less)))
+    return false;
+  TentativeParsingAction TPA(*this);
+  bool Qualified = TryConsumeToken(tok::coloncolon);
+  bool Found = false;
+  while (Tok.is(tok::identifier)) {
+    if (NextToken().is(tok::exclaim)) {
+      ConsumeToken();
+      Found = Qualified && isMacroInvocationExclaim();
+      break;
+    }
+    ConsumeToken();
+    if (Tok.is(tok::less) && !SkipMacroTemplateArguments())
+      break;
+    if (!TryConsumeToken(tok::coloncolon))
+      break;
+    Qualified = true;
+    TryConsumeToken(tok::kw_template);
+  }
+  TPA.Revert();
+  return Found;
+}
+
+bool Parser::TryAnnotateQualifiedMacroScope(bool EnteringContext) {
+  if (!isStartOfQualifiedMacroInvocation())
+    return false;
+  return TryAnnotateCXXScopeToken(EnteringContext);
+}
+
+bool Parser::SkipMacroTemplateArguments() {
+  if (Tok.isNot(tok::less))
+    return true;
+  // Track the angle brackets; anything bracketed otherwise nests (a '>'
+  // inside parentheses is an operator, as in any template argument list).
+  ConsumeToken();
+  unsigned Depth = 1;
+  while (true) {
+    switch (Tok.getKind()) {
+    case tok::eof:
+    case tok::semi:
+    case tok::annot_module_begin:
+    case tok::annot_module_end:
+    case tok::annot_repl_input_end:
+      return false;
+    case tok::less:
+      ++Depth;
+      ConsumeToken();
+      break;
+    case tok::greater:
+      ConsumeToken();
+      if (--Depth == 0)
+        return true;
+      break;
+    case tok::greatergreater:
+      // Closes two levels (C++11 splits it); closing more than are open is
+      // left for the real parse to diagnose.
+      ConsumeToken();
+      if (Depth <= 2)
+        return true;
+      Depth -= 2;
+      break;
+    case tok::l_paren:
+    case tok::l_square:
+    case tok::l_brace: {
+      BalancedDelimiterTracker T(*this, Tok.getKind());
+      T.consumeOpen();
+      T.skipToEnd();
+      break;
+    }
+    case tok::r_paren:
+    case tok::r_square:
+    case tok::r_brace:
+      return false;
+    default:
+      ConsumeAnyToken();
+      break;
+    }
+  }
+}
+
+bool Parser::ParseMacroTemplateArguments(
+    std::optional<TemplateArgumentListInfo> &TemplateArgs) {
+  if (Tok.is(tok::less)) {
+    SourceLocation LAngleLoc, RAngleLoc;
+    TemplateArgList Args;
+    if (ParseTemplateIdAfterTemplateName(/*ConsumeLastToken=*/true, LAngleLoc,
+                                         Args, RAngleLoc))
+      return true;
+    TemplateArgs.emplace(LAngleLoc, RAngleLoc);
+    ASTTemplateArgsPtr ArgsPtr(Args);
+    Actions.translateTemplateArguments(ArgsPtr, *TemplateArgs);
+  }
+  if (!isMacroArgumentListOpener(Tok.getKind())) {
+    // 'name!<Args>' with no argument list: an empty one is written '()'.
+    Diag(Tok, diag::err_expected) << tok::l_paren;
+    return true;
+  }
+  return false;
+}
+
+/// Parse a statement-position macro invocation, 'name!(args);', and parse its
+/// expansion followed by the invocation's ';' as statements in place. The
+/// arguments are those of an expression macro (run-time expressions, or raw
+/// tokens); only the expansion is parsed differently.
+StmtResult Parser::ParseStmtMacroInvocation(ParsedStmtContext StmtCtx) {
+  assert(isStartOfStmtMacroInvocation());
+
+  CXXScopeSpec SS;
+  if (Tok.is(tok::annot_cxxscope)) {
+    Actions.RestoreNestedNameSpecifierAnnotation(Tok.getAnnotationValue(),
+                                                 Tok.getAnnotationRange(), SS);
+    ConsumeAnnotationToken();
+  }
+  IdentifierInfo *II = Tok.getIdentifierInfo();
+  SourceLocation NameLoc = ConsumeToken();
+
+  // The macro's parameter shape decides how each argument is parsed. (With a
+  // dependent qualifier it cannot be known, and the arguments wait for
+  // instantiation.)
+  SmallVector<MacroParamKind, 4> RawParams;
+  bool ShapeUnknown = false;
+  // (An invalid qualifier has been diagnosed already.)
+  bool ShapeError = SS.isInvalid() || Actions.GetQualifiedMacroParameterShape(
+                                          getCurScope(), SS, II, NameLoc,
+                                          RawParams, ShapeUnknown);
+
+  SourceLocation ExclaimLoc = ConsumeToken();
+  std::optional<TemplateArgumentListInfo> TemplateArgs;
+  if (ParseMacroTemplateArguments(TemplateArgs))
+    return StmtError();
+  BalancedDelimiterTracker T(*this, Tok.getKind());
+  T.consumeOpen();
+
+  if (ShapeError) {
+    T.skipToEnd();
+    TryConsumeToken(tok::semi);
+    return StmtError();
+  }
+
+  ExprVector Args;
+  if (ParseMacroArguments(RawParams, ShapeUnknown, T, Args)) {
+    TryConsumeToken(tok::semi);
+    return StmtError();
+  }
+  if (T.consumeClose())
+    return StmtError();
+  // The ';' belongs to the invocation; it terminates the expansion (below).
+  // (isStartOfStmtMacroInvocation saw it.)
+  SourceLocation SemiLoc = ConsumeToken();
+
+  bool InCompound =
+      (StmtCtx & ParsedStmtContext::Compound) == ParsedStmtContext::Compound;
+
+  TokenSequenceData Expansion;
+  StmtResult Result;
+  if (Actions.ActOnStmtMacroInvocation(
+          getCurScope(), SS, II, NameLoc, ExclaimLoc, T.getOpenLocation(), Args,
+          T.getCloseLocation(), SemiLoc, Expansion, Result, ShapeUnknown,
+          TemplateArgs ? &*TemplateArgs : nullptr))
+    return StmtError();
+  // Deferred to instantiation (or not a statement macro after all): a single
+  // statement. As a substatement, still a compound one: the statements the
+  // instantiation injects for it are collected by an enclosing compound.
+  if (Result.isUsable()) {
+    if (InCompound)
+      return Result;
+    Stmt *S = Result.get();
+    return Actions.ActOnCompoundStmt(NameLoc, SemiLoc, S, /*isStmtExpr=*/false);
+  }
+
+  // Parse the expansion, followed by the invocation's ';', as statements at
+  // the current position, delimited by its own eof. Directly in a compound
+  // statement this is the enclosing block's scope, so the expansion's
+  // declarations (e.g. a scope guard) live to the end of it. As a
+  // substatement, the statements are one compound statement, as if braced --
+  // which is what C++ makes of a substatement anyway.
+  SmallVector<Token, 16> Toks(Expansion.begin(), Expansion.end());
+  relocateExpansionTokens(PP.getSourceManager(), Toks,
+                          SourceRange(SS.isEmpty() ? NameLoc : SS.getBeginLoc(),
+                                      T.getCloseLocation()));
+  // An expansion that is a do-expression is an expression statement, as the
+  // expression macro it typically comes from intends. At the start of a
+  // statement 'do' would begin a do-while, so parenthesize it. (Knowing where
+  // the expansion ends makes this decidable: a do-while's body is followed by
+  // 'while'.)
+  parenthesizeDoExpression(Toks, T.getCloseLocation());
+  Toks.push_back(makeInvocationTerminator(SemiLoc));
+  Token Eof;
+  Eof.startToken();
+  Eof.setKind(tok::eof);
+  Eof.setLocation(SemiLoc);
+  Toks.push_back(Eof);
+
+  std::optional<ParseScope> SubStmtScope;
+  std::optional<Sema::CompoundScopeRAII> CompoundScope;
+  if (!InCompound) {
+    SubStmtScope.emplace(this, Scope::DeclScope);
+    CompoundScope.emplace(Actions);
+  }
+
+  Token SavedTok = Tok;
+  PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
+                      /*IsReinject=*/true);
+  ConsumeAnyToken();
+
+  // Statements injected while parsing the expansion (by a consteval block in
+  // it) belong in place among its own.
+  SmallVector<Stmt *> SavedPendingInjected;
+  SavedPendingInjected.swap(Actions.PendingInjectedStmts);
+
+  StmtVector Stmts;
+  {
+    Sema::MacroExpansionDepthRAII Depth(Actions);
+    Actions.runWithSufficientStackSpace(NameLoc, [&] {
+      while (Tok.isNot(tok::eof)) {
+        SourceLocation Before = Tok.getLocation();
+        size_t Count = Stmts.size();
+        StmtResult R =
+            ParseStatementOrDeclaration(Stmts, ParsedStmtContext::Compound);
+        if (R.isUsable())
+          Stmts.push_back(R.get());
+        Stmts.append(Actions.PendingInjectedStmts.begin(),
+                     Actions.PendingInjectedStmts.end());
+        Actions.PendingInjectedStmts.clear();
+        // Guarantee progress on malformed tokens.
+        if (Tok.isNot(tok::eof) && Tok.getLocation() == Before &&
+            Stmts.size() == Count)
+          ConsumeAnyToken();
+      }
+    });
+  }
+  Tok = SavedTok;
+  SavedPendingInjected.swap(Actions.PendingInjectedStmts);
+
+  bool Invalid = Actions.CheckMacroArgumentEvaluation(Expansion, Stmts);
+
+  if (!InCompound) {
+    StmtResult Compound = Actions.ActOnCompoundStmt(NameLoc, SemiLoc, Stmts,
+                                                    /*isStmtExpr=*/false);
+    return Invalid ? StmtError() : Compound;
+  }
+  if (Invalid)
+    return StmtError();
+  Actions.PendingInjectedStmts.append(Stmts.begin(), Stmts.end());
+  return StmtEmpty();
+}
+
+/// Parse the arguments of a macro invocation up to (not including) the
+/// closing bracket (the one matching the invocation's opener); raw parameters
+/// take their arguments as token sequences. Skips to the closing bracket and
+/// returns true on error.
+bool Parser::ParseMacroArguments(ArrayRef<MacroParamKind> RawParams, bool ShapeUnknown,
+                                 BalancedDelimiterTracker &T,
+                                 ExprVector &Args) {
+  tok::TokenKind Close = T.getCloseKind();
+  if (ShapeUnknown) {
+    ExprResult Blob = ParseMacroRawArgument(Close, /*Greedy=*/true);
+    if (Blob.isInvalid()) {
+      T.skipToEnd();
+      return true;
+    }
+    Args.push_back(Blob.get());
+    return false;
+  }
+  if (ParseMacroArgumentList(RawParams, Close, Close == tok::r_brace, Args)) {
+    T.skipToEnd();
+    return true;
+  }
+  return false;
+}
+
+bool Parser::ParseMacroArgumentList(ArrayRef<MacroParamKind> RawParams,
+                                    tok::TokenKind Close, bool Braced,
+                                    ExprVector &Args) {
+  if (Tok.isNot(Close)) {
+    while (true) {
+      // A raw pack (last) takes each remaining argument as raw tokens; a
+      // last raw parameter takes all of them, commas included.
+      unsigned Idx = Args.size();
+      MacroParamKind Kind = MacroParamKind::Expression;
+      if (Idx < RawParams.size())
+        Kind = RawParams[Idx];
+      else if (!RawParams.empty() &&
+               RawParams.back() == MacroParamKind::RawPack)
+        Kind = MacroParamKind::RawPack;
+      ExprResult Arg;
+      if (Kind != MacroParamKind::Expression)
+        Arg = ParseMacroRawArgument(
+            Close, /*Greedy=*/Kind == MacroParamKind::Raw &&
+                       Idx + 1 == RawParams.size());
+      else if (Tok.is(tok::l_brace))
+        Arg = ParseBraceInitializer();
+      else
+        Arg = ParseAssignmentExpression();
+      if (Arg.isInvalid())
+        return true;
+      Args.push_back(Arg.get());
+      if (!TryConsumeToken(tok::comma))
+        break;
+      // A braced argument list permits a trailing comma, as a braced
+      // initializer list does; the call-like brackets do not, as a call does
+      // not. (Requires at least one argument: 'f!{,}' is not an empty list.
+      // And a *greedy* raw parameter never reaches here -- it swallows
+      // top-level commas, so its trailing comma is tokens, not sugar.)
+      if (Braced && Tok.is(Close))
+        break;
+    }
+  }
+  // name!() is an empty argument list, never a single empty token sequence;
+  // a raw parameter that wants to permit an empty invocation declares a
+  // default argument.
+  return false;
+}
+
+/// Capture the tokens of a raw (token_sequence) macro argument: balanced
+/// parentheses, brackets and braces, ending at a top-level comma (unless the
+/// parameter is the last one and therefore greedy) or at \p Close, the
+/// bracket that closes the invocation's argument list.
+ExprResult Parser::ParseMacroRawArgument(tok::TokenKind Close, bool Greedy) {
+  SmallVector<Token, 16> Tokens;
+  SourceLocation StartLoc = Tok.getLocation();
+  SourceLocation EndLoc = StartLoc;
+  SmallVector<tok::TokenKind, 4> Closers;
+  while (true) {
+    // (\p Close is eof when re-parsing a captured argument list.)
+    if (Closers.empty() && (Tok.is(Close) || (Tok.is(tok::comma) && !Greedy)))
+      break;
+    if (Tok.is(tok::eof)) {
+      Diag(Tok, diag::err_expected)
+          << (Closers.empty() ? Close : Closers.back());
+      return ExprError();
+    }
+    if (Tok.is(tok::l_paren)) {
+      Closers.push_back(tok::r_paren);
+    } else if (Tok.is(tok::l_square)) {
+      Closers.push_back(tok::r_square);
+    } else if (Tok.is(tok::l_brace)) {
+      Closers.push_back(tok::r_brace);
+    } else if (Tok.isOneOf(tok::r_paren, tok::r_square, tok::r_brace)) {
+      // An unmatched closer of another kind is the wrong bracket for this
+      // invocation: 'id!(1]'.
+      if (Closers.empty() || Tok.isNot(Closers.back())) {
+        Diag(Tok, diag::err_expected)
+            << (Closers.empty() ? Close : Closers.back());
+        return ExprError();
+      }
+      Closers.pop_back();
+    }
+    Tokens.push_back(Tok);
+    EndLoc = Tok.getLocation();
+    ConsumeAnyToken();
+  }
+  return Actions.ActOnCXXTokenSequenceReflection(
+      getCurScope(), StartLoc, SourceRange(StartLoc, EndLoc), Tokens);
+}
+
+bool Parser::ParseDeferredMacroArguments(ArrayRef<MacroParamKind> RawParams, bool Braced,
+                                         TokenSequenceData TSD,
+                                         SourceLocation Loc, DeclContext *Ctx,
+                                         ArrayRef<NamedDecl *> TemplateParams,
+                                         SmallVectorImpl<Expr *> &Args) {
+  // The arguments are parsed where they were written, as part of the
+  // template: re-enter the template scopes and contexts around \p Ctx, as
+  // for a late-parsed template, so that names bind as they would have there.
+  // The chain is rooted at the translation unit's scope, not the current
+  // one: whatever is being parsed now is unrelated to the template.
+  Scope *SavedScope = Actions.CurScope;
+  Scope *Root = SavedScope;
+  while (Root->getParent())
+    Root = Root->getParent();
+  Actions.CurScope = Root;
+  auto RestoreScope =
+      llvm::make_scope_exit([&] { Actions.CurScope = SavedScope; });
+
+  TemplateParameterDepthRAII DepthTracker(TemplateParameterDepth);
+  Sema::ContextRAII SavedContext(Actions,
+                                 Actions.Context.getTranslationUnitDecl());
+  MultiParseScope Scopes(*this);
+  SmallVector<DeclContext *, 4> Contexts;
+  for (DeclContext *DC = Ctx; DC && !DC->isTranslationUnit();
+       DC = DC->getLexicalParent())
+    Contexts.push_back(DC);
+  for (DeclContext *DC : llvm::reverse(Contexts)) {
+    DepthTracker.addDepth(ReenterTemplateScopes(Scopes, cast<Decl>(DC)));
+    Scopes.Enter(Scope::DeclScope);
+    // The innermost function gets its own function scope below.
+    if (DC != Ctx || !DC->isFunctionOrMethod())
+      getCurScope()->setEntity(DC);
+    Actions.CurContext = DC;
+  }
+
+  // Template parameters of an enclosing template that is not a context (a
+  // variable or alias template, say) were not re-entered.
+  llvm::SmallPtrSet<Decl *, 8> Visible;
+  for (Scope *S = getCurScope(); S; S = S->getParent())
+    if (S->isTemplateParamScope())
+      Visible.insert(S->decls().begin(), S->decls().end());
+  SmallVector<NamedDecl *, 4> Extra;
+  for (NamedDecl *P : TemplateParams)
+    if (P->getDeclName() && !Visible.count(P))
+      Extra.push_back(P);
+  Scope *ExtraScope = nullptr;
+  if (!Extra.empty()) {
+    Scopes.Enter(Scope::TemplateParamScope);
+    DepthTracker.addDepth(1);
+    ExtraScope = getCurScope();
+    for (NamedDecl *P : Extra) {
+      ExtraScope->AddDecl(P);
+      Actions.IdResolver.AddDecl(P);
+    }
+  }
+  // They are not ours to pop (with the scope) off their identifiers.
+  auto RemoveExtra = llvm::make_scope_exit([&] {
+    for (NamedDecl *P : Extra) {
+      ExtraScope->RemoveDecl(P);
+      Actions.IdResolver.RemoveDecl(P);
+    }
+  });
+
+  // A function scope of its own, for anything (a lambda, say) the
+  // arguments contain; and one for each enclosing lambda, for captures of
+  // what it encloses. (The captures are redone when the arguments are
+  // substituted into; the local instantiation scope keeps what rebuilding
+  // the lambdas records out of the one being instantiated.)
+  LocalInstantiationScope CaptureScope(Actions,
+                                       /*CombineWithOuterScope=*/true);
+  Actions.PushFunctionScope();
+  unsigned NumFunctionScopes = 1;
+  for (DeclContext *DC : llvm::reverse(Contexts))
+    if (isLambdaCallOperator(DC)) {
+      Actions.CurContext = DC;
+      Actions.RebuildLambdaScopeInfo(cast<CXXMethodDecl>(DC));
+      ++NumFunctionScopes;
+    }
+  Actions.CurContext = Ctx;
+  auto PopFunctionScopes = llvm::make_scope_exit([&] {
+    while (NumFunctionScopes--)
+      Actions.PopFunctionScopeInfo();
+  });
+
+  // The tokens were captured at the invocation and keep their locations.
+  SmallVector<Token, 16> Toks(TSD.begin(), TSD.end());
+  Token Eof;
+  Eof.startToken();
+  Eof.setKind(tok::eof);
+  Eof.setLocation(Loc);
+  Toks.push_back(Eof);
+
+  Token SavedTok = Tok;
+  PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
+                      /*IsReinject=*/true);
+  ConsumeAnyToken();
+
+  bool Invalid;
+  {
+    MacroExpansionLookupScope LookupScope(*this);
+    GreaterThanIsOperatorScope G(GreaterThanIsOperator, true);
+    ColonProtectionRAIIObject ColonProtection(*this, false);
+    ExprVector Parsed;
+    Invalid = ParseMacroArgumentList(RawParams, tok::eof, Braced, Parsed);
+    if (!Invalid && Tok.isNot(tok::eof)) {
+      Diag(Tok, diag::err_expected) << tok::comma;
+      Invalid = true;
+    }
+    Args.append(Parsed.begin(), Parsed.end());
+  }
+  while (Tok.isNot(tok::eof))
+    ConsumeAnyToken();
+
+  Tok = SavedTok;
+  return Invalid;
+}
+
+bool Parser::DeferredMacroArgumentsCallback(
+    void *P, ArrayRef<MacroParamKind> RawParams, bool Braced, TokenSequenceData TSD,
+    SourceLocation Loc, DeclContext *Ctx, ArrayRef<NamedDecl *> TemplateParams,
+    SmallVectorImpl<Expr *> &Args) {
+  return static_cast<Parser *>(P)->ParseDeferredMacroArguments(
+      RawParams, Braced, TSD, Loc, Ctx, TemplateParams, Args);
+}
+
+ExprResult Parser::ExpressionMacroExpansionCallback(void *P,
+                                                    TokenSequenceData TSD,
+                                                    SourceRange Invocation) {
+  return static_cast<Parser *>(P)->ParseExpressionMacroExpansion(TSD,
+                                                                 Invocation);
+}
+
+ExprResult Parser::SpeculativeExpressionCallback(void *P,
+                                                 TokenSequenceData TSD,
+                                                 SourceRange Invocation) {
+  return static_cast<Parser *>(P)->ParseExpressionMacroExpansion(
+      TSD, Invocation, /*Speculative=*/true);
+}
+
+/// Locate a macro expansion's tokens as expanded at \p Invocation (the
+/// macro name through the closing bracket), spelled where the macro wrote
+/// them. A diagnostic inside the expansion then points at the invocation,
+/// with a "expanded from macro 'name'" note into the body -- exactly the
+/// presentation of a preprocessor macro, and via the same SourceManager
+/// machinery (the note's name is read from the expansion range's first
+/// token, which is why the range starts at the name). Tokens that already
+/// lie within the invocation -- a raw token argument's -- and interpolated
+/// argument expressions (located at the argument) are left where they are.
+Token Parser::makeInvocationTerminator(SourceLocation Loc) {
+  Token Semi;
+  Semi.startToken();
+  Semi.setKind(tok::semi);
+  Semi.setLocation(Loc);
+  Semi.setLength(1);
+  Semi.setFlag(Token::LeadingEmptyMacro);
+  InvocationTerminators.insert(Loc);
+  return Semi;
+}
+
+void Parser::relocateExpansionTokens(SourceManager &SM,
+                                     SmallVectorImpl<Token> &Toks,
+                                     SourceRange Invocation) {
+  if (Invocation.isInvalid())
+    return;
+  SourceLocation Begin = Invocation.getBegin(), End = Invocation.getEnd();
+  SourceLocation FileBegin = SM.getFileLoc(Begin), FileEnd = SM.getFileLoc(End);
+
+  auto Relocates = [&](const Token &Tok) {
+    SourceLocation Loc = Tok.getLocation();
+    return Loc.isValid() && Tok.isNot(tok::annot_primary_expr) &&
+           !SM.isPointWithin(SM.getFileLoc(Loc), FileBegin, FileEnd);
+  };
+  // A token's extent within its spelling buffer. (An annotation spans from
+  // its location to its end location; a different buffer for the end means
+  // it is treated as one character.)
+  auto Extent = [&](const Token &Tok) -> std::pair<unsigned, unsigned> {
+    auto [FID, Off] = SM.getDecomposedLoc(Tok.getLocation());
+    if (!Tok.isAnnotation())
+      return {Off, Off + Tok.getLength()};
+    if (SourceLocation EndLoc = Tok.getAnnotationEndLoc(); EndLoc.isValid()) {
+      auto [EndFID, EndOff] = SM.getDecomposedLoc(EndLoc);
+      if (EndFID == FID && EndOff >= Off)
+        return {Off, EndOff + 1};
+    }
+    return {Off, Off + 1};
+  };
+
+  // One expansion per spelling buffer, covering every relocated token in it
+  // (as the preprocessor makes one expansion of a macro's whole body), so
+  // consecutive tokens share an expansion context and each keeps its offset
+  // within the body. A token then maps to its spelling by offset.
+  struct Span {
+    unsigned MinOff = ~0u, MaxEnd = 0;
+    SourceLocation Base;
+  };
+  llvm::SmallDenseMap<FileID, Span, 4> Spans;
+  for (const Token &Tok : Toks) {
+    if (!Relocates(Tok))
+      continue;
+    Span &S = Spans[SM.getFileID(Tok.getLocation())];
+    auto [Off, EndOff] = Extent(Tok);
+    S.MinOff = std::min(S.MinOff, Off);
+    S.MaxEnd = std::max(S.MaxEnd, EndOff);
+  }
+  for (auto &[FID, S] : Spans)
+    S.Base = SM.createExpansionLoc(SM.getComposedLoc(FID, S.MinOff), Begin,
+                                   End, S.MaxEnd - S.MinOff);
+  for (Token &Tok : Toks) {
+    if (!Relocates(Tok))
+      continue;
+    const Span &S = Spans.find(SM.getFileID(Tok.getLocation()))->second;
+    auto [Off, EndOff] = Extent(Tok);
+    if (Tok.isAnnotation())
+      Tok.setAnnotationEndLoc(S.Base.getLocWithOffset(EndOff - 1 - S.MinOff));
+    Tok.setLocation(S.Base.getLocWithOffset(Off - S.MinOff));
+  }
+}
+
+/// Parse the token sequence produced by an expression macro as a single
+/// expression, in place of the invocation. In speculative mode
+/// (std::meta::test_expression) all diagnostics are suppressed and validity
+/// is reported only through the result.
+ExprResult Parser::ParseExpressionMacroExpansion(TokenSequenceData TSD,
+                                                 SourceRange Invocation,
+                                                 bool Speculative) {
+  SourceLocation Loc = Invocation.getEnd();
+  // The probe must not commit Sema to anything diagnostic-visible: parser
+  // and Sema errors are suppressed wholesale (the SFINAETrap additionally
+  // keeps Sema's error bookkeeping balanced), typo correction is disabled
+  // (a "corrected" expression is not the expression that was asked about),
+  // and failure is reported by an invalid or error-containing result or by
+  // the trap having fired.
+  std::optional<Sema::SFINAETrap> Trap;
+  DiagnosticsEngine &Diags = Actions.getDiagnostics();
+  bool OldSuppress = Diags.getSuppressAllDiagnostics();
+  bool OldDisableTypo = Actions.DisableTypoCorrection;
+  if (Speculative) {
+    Trap.emplace(Actions, /*ForValidityCheck=*/true);
+    Actions.DisableTypoCorrection = true;
+    Diags.setSuppressAllDiagnostics(true);
+  }
+  auto RestoreDiags = llvm::make_scope_exit([&] {
+    if (Speculative) {
+      Diags.setSuppressAllDiagnostics(OldSuppress);
+      Actions.DisableTypoCorrection = OldDisableTypo;
+    }
+  });
+
+  SmallVector<Token, 16> Toks(TSD.begin(), TSD.end());
+  // A probe (test_expression) has no invocation of its own to be expanded
+  // at; its tokens keep their locations.
+  if (!Speculative)
+    relocateExpansionTokens(PP.getSourceManager(), Toks, Invocation);
+  Token Eof;
+  Eof.startToken();
+  Eof.setKind(tok::eof);
+  Eof.setLocation(Loc);
+  Toks.push_back(Eof);
+
+  Token SavedTok = Tok;
+  PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
+                      /*IsReinject=*/true);
+  ConsumeAnyToken();
+
+  MacroExpansionLookupScope LookupScope(*this);
+  Sema::MacroExpansionDepthRAII Depth(Actions);
+
+  // The expansion is delimited by its own eof, so it is parsed free of the
+  // enclosing context's bracket rules. It may itself invoke macros, so this
+  // is where macro recursion recurses: make sure there is stack for it.
+  ExprResult Result;
+  {
+    GreaterThanIsOperatorScope G(GreaterThanIsOperator, true);
+    ColonProtectionRAIIObject ColonProtection(*this, false);
+    Actions.runWithSufficientStackSpace(Loc,
+                                        [&] { Result = ParseExpression(); });
+  }
+  if (!Result.isInvalid() && Tok.isNot(tok::eof)) {
+    Diag(Tok, diag::err_macro_expansion_not_single_expression);
+    Result = ExprError();
+  }
+  // Any error the trap absorbed invalidates the probe, even if Sema
+  // recovered a superficially usable expression.
+  if (Speculative && Trap->hasErrorOccurred())
+    Result = ExprError();
+  // Drain what is left so the enclosing token stream resumes cleanly.
+  while (Tok.isNot(tok::eof))
+    ConsumeAnyToken();
+
+  Tok = SavedTok;
+  return Result;
+}
+
+Parser::MacroExpansionLookupScope::MacroExpansionLookupScope(Parser &P) : P(P) {
+  Sema &Actions = P.Actions;
+  DeclContext *DC = Actions.CurContext;
+  if (!DC->isFunctionOrMethod())
+    return;
+  for (Scope *S = P.getCurScope(); S; S = S->getParent())
+    if (S->getEntity() == DC)
+      return;
+
+  FnScope.emplace(&P,
+                  Scope::FnScope | Scope::DeclScope | Scope::CompoundStmtScope);
+  P.getCurScope()->setEntity(DC);
+  if (auto *FD = dyn_cast<FunctionDecl>(DC))
+    for (ParmVarDecl *Param : FD->parameters())
+      seed(Param, Base);
+  for (NamedDecl *D : Actions.InjectedLocalDeclsForLookup)
+    seed(D, Base);
+  // Each level of locals Sema collected gets its own nested scope, so an
+  // inner declaration hides an outer one the way it did at the invocation.
+  for (const auto &Level : Actions.MacroExpansionLocalScopes) {
+    if (Level.empty())
+      continue;
+    P.EnterScope(Scope::DeclScope);
+    Levels.emplace_back();
+    for (NamedDecl *D : Level)
+      seed(D, Levels.back());
+  }
+}
+
+void Parser::MacroExpansionLookupScope::seed(
+    NamedDecl *D, SmallVectorImpl<NamedDecl *> &Out) {
+  if (!D->getDeclName() || !Seen.insert(D).second)
+    return;
+  P.getCurScope()->AddDecl(D);
+  P.Actions.IdResolver.AddDecl(D);
+  Out.push_back(D);
+}
+
+Parser::MacroExpansionLookupScope::~MacroExpansionLookupScope() {
+  for (unsigned I = Levels.size(); I--;) {
+    for (NamedDecl *D : Levels[I]) {
+      P.getCurScope()->RemoveDecl(D);
+      P.Actions.IdResolver.RemoveDecl(D);
+    }
+    P.ExitScope();
+  }
+  for (NamedDecl *D : Base) {
+    P.getCurScope()->RemoveDecl(D);
+    P.Actions.IdResolver.RemoveDecl(D);
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// Mem-initializer macros: C(...) : name!(args), ... { }
+//===----------------------------------------------------------------------===//
+
+bool Parser::ParseMemInitializerOrMacro(
+    Decl *ConstructorDecl, SmallVectorImpl<CXXCtorInitializer *> &MemInits) {
+  // '::'[opt] nested-name-specifier[opt], shared by both forms.
+  CXXScopeSpec SS;
+  // A mem-initializer-id is a class-or-decltype, a type-only context (CWG343).
+  if (ParseOptionalCXXScopeSpecifier(
+          SS, /*ObjectType=*/nullptr, /*ObjectHasErrors=*/false,
+          /*EnteringContext=*/false, /*MayBePseudoDestructor=*/nullptr,
+          /*IsTypename=*/false, /*LastII=*/nullptr, /*OnlyNamespace=*/false,
+          /*InUsingDeclaration=*/false, /*Disambiguation=*/false,
+          /*TypenameKWLoc=*/SourceLocation(), /*IsTypeOnlyContext=*/true))
+    return true;
+
+  if (getLangOpts().CPlusPlus29 && Tok.is(tok::identifier) &&
+      NextToken().is(tok::exclaim) &&
+      isMacroInvocationContinuation(GetLookAheadToken(2).getKind()))
+    return ParseMemInitMacroInvocation(ConstructorDecl, SS, MemInits);
+
+  MemInitResult MemInit;
+  {
+    // Where it goes among the written initializers, if Sema defers it (see
+    // Sema::DeferredMemInit).
+    llvm::SaveAndRestore Position(Actions.CurrentMemInitPosition,
+                                  unsigned(MemInits.size()));
+    MemInit = ParseMemInitializer(ConstructorDecl, SS);
+  }
+  if (MemInit.isInvalid())
+    return true;
+  // Null: deferred to instantiation.
+  if (MemInit.get())
+    MemInits.push_back(MemInit.get());
+  return false;
+}
+
+bool Parser::ParseMemInitMacroInvocation(
+    Decl *ConstructorDecl, CXXScopeSpec &SS,
+    SmallVectorImpl<CXXCtorInitializer *> &MemInits) {
+  assert(Tok.is(tok::identifier) && NextToken().is(tok::exclaim));
+
+  IdentifierInfo *II = Tok.getIdentifierInfo();
+  SourceLocation NameLoc = ConsumeToken();
+  SourceLocation StartLoc = SS.isEmpty() ? NameLoc : SS.getBeginLoc();
+
+  // The macro's parameter shape decides how each argument is parsed.
+  SmallVector<MacroParamKind, 4> RawParams;
+  bool ShapeUnknown = false;
+  // An invalid qualifier has already been diagnosed.
+  bool ShapeError = SS.isInvalid() || Actions.GetQualifiedMacroParameterShape(
+                                          getCurScope(), SS, II, NameLoc,
+                                          RawParams, ShapeUnknown);
+
+  SourceLocation ExclaimLoc = ConsumeToken();
+  std::optional<TemplateArgumentListInfo> TemplateArgs;
+  if (ParseMacroTemplateArguments(TemplateArgs))
+    return true;
+  BalancedDelimiterTracker T(*this, Tok.getKind());
+  T.consumeOpen();
+
+  if (ShapeError) {
+    T.skipToEnd();
+    return true;
+  }
+
+  ExprVector Args;
+  if (ParseMacroArguments(RawParams, ShapeUnknown, T, Args))
+    return true;
+  if (T.consumeClose())
+    return true;
+
+  TokenSequenceData Expansion;
+  bool Deferred = false;
+  if (Actions.ActOnMemInitMacroInvocation(
+          getCurScope(), ConstructorDecl, MemInits.size(), SS, II, NameLoc,
+          ExclaimLoc, T.getOpenLocation(), Args, T.getCloseLocation(),
+          ShapeUnknown, Expansion, Deferred,
+          TemplateArgs ? &*TemplateArgs : nullptr))
+    return true;
+  if (Deferred)
+    return false;
+
+  return ParseMemInitMacroExpansion(ConstructorDecl, Expansion,
+                                    SourceRange(StartLoc, T.getCloseLocation()),
+                                    MemInits);
+}
+
+bool Parser::ParseMemInitializersUntilEof(
+    Decl *ConstructorDecl, SmallVectorImpl<CXXCtorInitializer *> &MemInits) {
+  // Unlike a written mem-initializer-list, an expansion may be empty: the
+  // invocation itself is what the source wrote.
+  if (Tok.is(tok::eof))
+    return false;
+
+  while (true) {
+    // The rest of a malformed expansion is not worth diagnosing.
+    if (ParseMemInitializerOrMacro(ConstructorDecl, MemInits))
+      return true;
+
+    if (Tok.is(tok::eof))
+      break;
+    if (!TryConsumeToken(tok::comma)) {
+      Diag(Tok, diag::err_expected) << tok::comma;
+      return true;
+    }
+    // No trailing comma: 'a(x),' is not a mem-initializer-list.
+    if (Tok.is(tok::eof)) {
+      Diag(Tok, diag::err_expected_member_or_base_name);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool Parser::ParseMemInitMacroExpansion(
+    Decl *ConstructorDecl, TokenSequenceData TSD, SourceRange Invocation,
+    SmallVectorImpl<CXXCtorInitializer *> &Out) {
+  SmallVector<Token, 16> Toks(TSD.begin(), TSD.end());
+  relocateExpansionTokens(PP.getSourceManager(), Toks, Invocation);
+  Token Eof;
+  Eof.startToken();
+  Eof.setKind(tok::eof);
+  Eof.setLocation(Invocation.getEnd());
+  Toks.push_back(Eof);
+
+  Token SavedTok = Tok;
+  PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
+                      /*IsReinject=*/true);
+  ConsumeAnyToken();
+
+  bool Invalid;
+  {
+    MacroExpansionLookupScope LookupScope(*this);
+    Sema::MacroExpansionDepthRAII Depth(Actions);
+    GreaterThanIsOperatorScope G(GreaterThanIsOperator, true);
+    ColonProtectionRAIIObject ColonProtection(*this, false);
+    PoisonSEHIdentifiersRAIIObject PoisonSEHIdentifiers(*this, true);
+    Actions.runWithSufficientStackSpace(Invocation.getBegin(), [&] {
+      Invalid = ParseMemInitializersUntilEof(ConstructorDecl, Out);
+    });
+  }
+  // Drain what is left so the enclosing token stream resumes cleanly.
+  while (Tok.isNot(tok::eof))
+    ConsumeAnyToken();
+
+  Tok = SavedTok;
+  return Invalid;
+}
+
+bool Parser::MemInitMacroExpansionCallback(
+    void *P, Decl *ConstructorDecl, TokenSequenceData TSD,
+    SourceRange Invocation, SmallVectorImpl<CXXCtorInitializer *> &Out) {
+  return static_cast<Parser *>(P)->ParseMemInitMacroExpansion(
+      ConstructorDecl, TSD, Invocation, Out);
 }

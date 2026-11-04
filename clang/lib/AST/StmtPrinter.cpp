@@ -2875,6 +2875,11 @@ void StmtPrinter::VisitCXXReflectExpr(CXXReflectExpr *S) {
   }
 }
 
+void StmtPrinter::VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *S) {
+  // FIXME: Make this better — print the actual tokens.
+  OS << "^^{...}";
+}
+
 void StmtPrinter::VisitCXXMetafunctionExpr(CXXMetafunctionExpr *S) {
   OS << "__metafunction(";
   for (unsigned I = 0; I < S->getNumArgs(); ++I) {
@@ -2882,6 +2887,94 @@ void StmtPrinter::VisitCXXMetafunctionExpr(CXXMetafunctionExpr *S) {
     if (I + 1 != S->getNumArgs())
       OS << ", ";
   }
+  OS << ")";
+}
+
+void StmtPrinter::VisitCXXBuiltinInjectExpr(CXXBuiltinInjectExpr *S) {
+  OS << "std::meta::queue_injection(";
+  if (S->hasTargetNS()) {
+    PrintExpr(S->getTargetNS());
+    OS << ", ";
+  }
+  PrintExpr(S->getOperand());
+  OS << ")";
+}
+
+void StmtPrinter::VisitCXXBuiltinReportTokensExpr(
+    CXXBuiltinReportTokensExpr *S) {
+  OS << "std::meta::report_tokens(";
+  PrintExpr(S->getMessage());
+  OS << ", ";
+  PrintExpr(S->getOperand());
+  OS << ")";
+}
+
+void StmtPrinter::VisitCXXTokenInterpolationListExpr(
+    CXXTokenInterpolationListExpr *S) {
+  OS << "\\(";
+  for (unsigned I = 0; I < S->getNumElements(); ++I) {
+    if (I > 0)
+      OS << ", ";
+    PrintExpr(S->getElement(I));
+  }
+  if (Expr *Sep = S->getSeparator()) {
+    OS << "; ";
+    PrintExpr(Sep);
+  }
+  OS << ")";
+}
+
+void StmtPrinter::VisitCXXBuiltinIdExpr(CXXBuiltinIdExpr *S) {
+  OS << "std::meta::id(";
+  for (unsigned I = 0; I < S->getNumArgs(); ++I) {
+    if (I > 0) OS << ", ";
+    PrintExpr(S->getArg(I));
+  }
+  OS << ")";
+}
+
+void StmtPrinter::VisitCXXBuiltinStrLiteralExpr(CXXBuiltinStrLiteralExpr *S) {
+  OS << "std::meta::str_lit(";
+  for (unsigned I = 0; I < S->getNumArgs(); ++I) {
+    if (I > 0) OS << ", ";
+    PrintExpr(S->getArg(I));
+  }
+  OS << ")";
+}
+
+void StmtPrinter::VisitCXXBuiltinTokenizeExpr(CXXBuiltinTokenizeExpr *S) {
+  OS << "std::meta::tokenize(";
+  for (unsigned I = 0; I < S->getNumArgs(); ++I) {
+    if (I > 0) OS << ", ";
+    PrintExpr(S->getArg(I));
+  }
+  OS << ")";
+}
+
+void StmtPrinter::VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *S) {
+  if (S->isMemberInvocation()) {
+    PrintExpr(S->getBase());
+    OS << (S->isArrow() ? "->" : ".");
+    S->getMemberNameInfo().printName(OS, Policy);
+  } else {
+    PrintExpr(S->getCallee());
+  }
+  OS << "!(";
+  if (S->areArgsUnparsed()) {
+    OS << "...)";
+    return;
+  }
+  for (unsigned I = 0, N = S->getNumArgs(); I != N; ++I) {
+    if (I)
+      OS << ", ";
+    PrintExpr(S->getArg(I));
+  }
+  OS << ")";
+}
+
+void StmtPrinter::VisitCXXBuiltinStringizeExpr(CXXBuiltinStringizeExpr *S) {
+  OS << "std::meta::stringize(";
+  PrintExpr(S->getOperand());
   OS << ")";
 }
 

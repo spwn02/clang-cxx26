@@ -857,10 +857,17 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     break;
 
   case tok::annot_primary_expr:
+  case tok::annot_token_seq_expr:
   case tok::annot_overload_set:
     Res = getExprAnnotation(Tok);
     if (!Res.isInvalid() && Tok.getKind() == tok::annot_overload_set)
       Res = Actions.ActOnNameClassifiedAsOverloadSet(getCurScope(), Res.get());
+    // An interpolated reflection of a variable or function arrives as a
+    // reference built by the evaluator, outside Sema: it is used here, where
+    // it lands (so a function template specialization gets instantiated).
+    if (!Res.isInvalid() && Tok.getKind() == tok::annot_token_seq_expr)
+      if (auto *DRE = dyn_cast<DeclRefExpr>(Res.get()))
+        Actions.MarkDeclRefReferenced(DRE);
     ConsumeAnnotationToken();
     if (!Res.isInvalid() && Tok.is(tok::less))
       checkPotentialAngleBracket(Res);
@@ -949,6 +956,13 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     // '.'.
     IdentifierInfo &II = *Tok.getIdentifierInfo();
     SourceLocation ILoc = ConsumeToken();
+
+    // name!( ... ) is an expression-macro invocation.
+    if (getLangOpts().CPlusPlus29 && isMacroInvocationExclaim()) {
+      CXXScopeSpec MacroSS;
+      Res = ParseMacroInvocation(MacroSS, &II, ILoc);
+      break;
+    }
 
     // Support 'Class.property' and 'super.property' notation.
     if (getLangOpts().ObjC && Tok.is(tok::period) &&
@@ -1319,6 +1333,25 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     break;
 
   case tok::annot_typename:
+    // An already-annotated type followed by '::' -- e.g. a type reflection
+    // interpolated into an injected token sequence -- begins a qualified-id.
+    if (getLangOpts().CPlusPlus && NextToken().is(tok::coloncolon)) {
+      TypeResult T = getTypeAnnotation(Tok);
+      SourceLocation TypeNameLoc = Tok.getLocation();
+      ConsumeAnnotationToken();
+
+      CXXScopeSpec SS;
+      if (T.isInvalid() ||
+          Actions.ActOnCXXNestedNameSpecifierTypeAnnotation(
+              SS, T.get(), TypeNameLoc, Tok.getLocation()))
+        return ExprError();
+      ConsumeToken();
+      AnnotateScopeToken(SS, /*IsNewAnnotation=*/true);
+
+      return ParseCastExpression(ParseKind, isAddressOfOperand, NotCastExpr,
+                                 CorrectionBehavior, isVectorLiteral,
+                                 NotPrimaryExpression);
+    }
     if (isStartOfObjCClassMessageMissingOpenBracket()) {
       TypeResult Type = getTypeAnnotation(Tok);
 
@@ -1457,16 +1490,19 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     break;
   }
 
-  case tok::annot_splice: {
-    // An 'annot_splice' was parsed by 'TryAnnotateTypeOrScopeToken', but it
-    // could not be spliced as a type; it must be an expression.
-    Res = ParseCXXSpliceAsExpr(SourceLocation(),
-                               /*AllowMemberReference=*/isAddressOfOperand);
-    break;
-  }
-
+  case tok::annot_splice:
+    // An 'annot_splice' followed by '::' is a splice-scope-specifier (e.g.
+    // an interpolated namespace), handled below. Otherwise it was parsed by
+    // 'TryAnnotateTypeOrScopeToken' but could not be spliced as a type; it
+    // must be an expression.
+    if (!NextToken().is(tok::coloncolon)) {
+      Res = ParseCXXSpliceAsExpr(SourceLocation(),
+                                 /*AllowMemberReference=*/isAddressOfOperand);
+      break;
+    }
+    [[fallthrough]];
   case tok::l_splice:
-    if (ParseSpliceSpecifier())
+    if (Tok.is(tok::l_splice) && ParseSpliceSpecifier())
       return ExprError();
     [[fallthrough]];
   case tok::annot_cxxscope: { // [C++] id-expression: qualified-id
@@ -1502,6 +1538,24 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     // Parse as an id-expression.
     Res = ParseCXXIdExpression(isAddressOfOperand);
     break;
+  }
+
+  case tok::annot_template_name: {
+    // A template designated by an interpolated reflection. With a
+    // template-argument-list it becomes a template-id (possibly followed by
+    // '::'); on its own it is not an expression.
+    if (!NextToken().is(tok::less)) {
+      Diag(Tok, diag::err_expected_expression);
+      ConsumeAnnotationToken();
+      return ExprError();
+    }
+    if (TryAnnotateTypeOrScopeToken(ImplicitTypenameContext::No))
+      return ExprError();
+    if (Tok.is(tok::annot_template_name))
+      return ExprError();
+    return ParseCastExpression(ParseKind, isAddressOfOperand, NotCastExpr,
+                               CorrectionBehavior, isVectorLiteral,
+                               NotPrimaryExpression);
   }
 
   case tok::annot_template_id: { // [C++]          template-id
@@ -2122,10 +2176,70 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         IdentifierInfo *Id = Tok.getIdentifierInfo();
         SourceLocation Loc = ConsumeToken();
         Name.setIdentifier(Id, Loc);
-      } else if (Tok.is(tok::annot_splice)) {
-        ExprResult Res = ParseCXXSpliceAsExpr(TemplateKWLoc,
-                                              /*AllowMemberReference=*/true,
-                                              /*IsMemberAccess=*/true);
+      } else if (Tok.isOneOf(tok::annot_splice, tok::annot_token_seq_expr,
+                             tok::annot_template_name)) {
+        // For annot_splice, parse it directly as a splice expression.
+        // An interpolated member (\(r), for r a reflection) names that
+        // member, as its identifier would, but exactly: it is an implicit
+        // splice, so that a.\(r) works like a.[:r:].
+        ExprResult Res;
+        if (Tok.is(tok::annot_splice)) {
+          Res = ParseCXXSpliceAsExpr(TemplateKWLoc,
+                                     /*AllowMemberReference=*/true,
+                                     /*IsMemberAccess=*/true);
+        } else if (Tok.is(tok::annot_template_name)) {
+          // An interpolated template is a template-name, as if named by an
+          // identifier: no 'template' keyword is needed, and a following
+          // '<' begins its template argument list. That is
+          // a.template [:r:]<args>.
+          SourceLocation Loc = Tok.getLocation();
+          TemplateName Template =
+              TemplateName::getFromVoidPointer(Tok.getAnnotationValue());
+          ConsumeAnnotationToken();
+          ExprResult Operand = Actions.BuildCXXReflectExpr(Loc, Loc, Template);
+          SpliceResult SR = SpliceError();
+          if (Operand.isInvalid()) {
+            // Diagnosed.
+          } else if (Tok.is(tok::less)) {
+            TemplateArgList TArgs;
+            SourceLocation LAngleLoc, RAngleLoc;
+            if (!ParseTemplateIdAfterTemplateName(/*ConsumeLastToken=*/true,
+                                                  LAngleLoc, TArgs, RAngleLoc,
+                                                  /*Template=*/nullptr)) {
+              ASTTemplateArgsPtr TArgsPtr(TArgs.data(), TArgs.size());
+              SR = Actions.ActOnSpliceSpecifier(Loc, Operand.get(), Loc,
+                                                LAngleLoc, TArgsPtr,
+                                                RAngleLoc);
+            }
+          } else {
+            SR = Actions.ActOnSpliceSpecifier(Loc, Operand.get(), Loc);
+          }
+          Res = SR.isInvalid()
+                    ? ExprError()
+                    : Actions.ActOnCXXSpliceExpression(
+                          /*TemplateKWLoc=*/Loc, SR.get(),
+                          /*AllowMemberReference=*/true,
+                          /*IsMemberAccess=*/true);
+        } else {
+          Res = getExprAnnotation(Tok);
+          SourceLocation ExprLoc = Tok.getLocation();
+          ConsumeAnnotationToken();
+          // A member function or static data member is interpolated as a
+          // reference to it (so that, e.g., \(r)(args) calls it); here, the
+          // member it refers to is what is named.
+          if (!Res.isInvalid())
+            if (auto *DRE = dyn_cast<DeclRefExpr>(Res.get());
+                DRE && !DRE->getType()->isReflectionType())
+              Res = Actions.BuildCXXReflectExpr(ExprLoc, ExprLoc,
+                                                DRE->getDecl());
+          if (!Res.isInvalid()) {
+            auto *Splice = SpliceSpecifier::Create(
+                Actions.Context, ExprLoc, Res.get(), ExprLoc, nullptr);
+            Res = Actions.ActOnCXXSpliceExpression(
+                SourceLocation(), Splice, /*AllowMemberReference=*/true,
+                /*IsMemberAccess=*/true);
+          }
+        }
         if (!Res.isInvalid()) {
           LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(), OpLoc,
                                               OpKind,
@@ -2148,6 +2262,17 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
                      getLangOpts().MicrosoftExt && SS.isNotEmpty(),
                      /*AllowDeductionGuide=*/false, &TemplateKWLoc, Name)) {
         LHS = ExprError();
+      }
+
+      // obj.name!(args) is an expression-macro invocation whose object
+      // expression binds to the macro's explicit object parameter.
+      if (getLangOpts().CPlusPlus29 && !LHS.isInvalid() && SS.isEmpty() &&
+          !TemplateKWLoc.isValid() &&
+          Name.getKind() == UnqualifiedIdKind::IK_Identifier &&
+          isMacroInvocationExclaim()) {
+        LHS = ParseMemberMacroInvocation(LHS.get(), OpLoc, OpKind,
+                                         Name.Identifier, Name.StartLocation);
+        break;
       }
 
       if (!LHS.isInvalid())

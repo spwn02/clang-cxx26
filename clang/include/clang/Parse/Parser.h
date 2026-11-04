@@ -24,10 +24,12 @@
 #include "clang/Sema/SemaCodeCompletion.h"
 #include "clang/Sema/SemaObjC.h"
 #include "clang/Sema/SemaOpenMP.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Frontend/OpenMP/OMPContext.h"
 #include "llvm/Support/SaveAndRestore.h"
+#include <memory>
 #include <optional>
 #include <stack>
 
@@ -46,6 +48,7 @@ class ParsingDeclarator;
 class ParsingFieldDeclarator;
 class ColonProtectionRAIIObject;
 class InMessageExpressionRAIIObject;
+struct TokenSequenceData;
 class PoisonSEHIdentifiersRAIIObject;
 class OMPClause;
 class OpenACCClause;
@@ -2922,6 +2925,7 @@ private:
     ParsingClass(Decl *TagOrTemplate, bool TopLevelClass, bool IsInterface)
         : TopLevelClass(TopLevelClass), IsInterface(IsInterface),
           TagOrTemplate(TagOrTemplate) {}
+    ~ParsingClass();
 
     /// Whether this is a "top-level" class, meaning that it is
     /// not nested within another class.
@@ -3601,7 +3605,16 @@ private:
   ///         '::'[opt] nested-name-specifier[opt] class-name
   ///         identifier
   /// \endverbatim
-  MemInitResult ParseMemInitializer(Decl *ConstructorDecl);
+  ///
+  /// \p SS is the already-parsed optional nested-name-specifier.
+  MemInitResult ParseMemInitializer(Decl *ConstructorDecl, CXXScopeSpec &SS);
+
+  /// Parse one entry of a ctor-initializer: a mem-initializer, appended to
+  /// \p MemInits, or (with reflection) a possibly qualified macro invocation,
+  /// whose expansion is appended. Returns true on error.
+  bool
+  ParseMemInitializerOrMacro(Decl *ConstructorDecl,
+                             SmallVectorImpl<CXXCtorInitializer *> &MemInits);
 
   /// If the given declarator has any parts for which parsing has to be
   /// delayed, e.g., default arguments or an exception-specification, create a
@@ -4733,14 +4746,12 @@ private:
   ParseLambdaIntroducer(LambdaIntroducer &Intro,
                         LambdaIntroducerTentativeParse *Tentative = nullptr);
 
-  // Explicit 'ConstevalLoc' is allowed to facilitate C++2C consteval-blocks.
-  ExprResult ParseLambdaExpressionAfterIntroducer(LambdaIntroducer &Intro,
-                                                  SourceLocation ConstevalLoc,
-                                                  TypeResult ReturnTy = {});
-  ExprResult ParseLambdaExpressionAfterIntroducer(LambdaIntroducer &Intro) {
-    SourceLocation ConstevalLoc;
-    return ParseLambdaExpressionAfterIntroducer(Intro, ConstevalLoc);
-  }
+  /// Parse a lambda expression after the introducer.
+  /// \param ConstevalBlockLoc If set, this lambda is the implementation of a
+  ///        consteval block at the given location.
+  ExprResult ParseLambdaExpressionAfterIntroducer(
+      LambdaIntroducer &Intro,
+      std::optional<SourceLocation> ConstevalBlockLoc = {});
 
   //===--------------------------------------------------------------------===//
   // C++ 5.2p1: C++ Casts
@@ -8097,6 +8108,25 @@ private:
   void ParseLateTemplatedFuncDef(LateParsedTemplate &LPT);
 
   static void LateTemplateParserCallback(void *P, LateParsedTemplate &LPT);
+  static void TokenInjectionCallback(void *P,
+      SmallVectorImpl<Expr::EvalStatus::TokenInjection> &Injections);
+  void ProcessTokenInjections(
+      SmallVectorImpl<Expr::EvalStatus::TokenInjection> &Injections);
+
+  /// Drain any pending token injections accumulated on Sema, processing
+  /// each batch and any further injections produced by parsing them, until
+  /// no injections remain.
+  void DrainPendingTokenInjections();
+
+  /// Members injected into a class that was still being defined (e.g. a
+  /// class template specialization mid-instantiation) have their late-parsed
+  /// portions parsed lazily: declarations are added immediately, but default
+  /// arguments, member initializers, and bodies are deferred via these
+  /// stashed ParsingClass objects until the class becomes complete.
+  SmallVector<std::unique_ptr<ParsingClass>, 2> DeferredInjectedClasses;
+  static void DeferredInjectedDefsCallback(void *P, const Decl *ForClass,
+                                          bool ShouldParse);
+  void ProcessDeferredInjectedDecls(const Decl *ForClass, bool ShouldParse);
 
   /// We've parsed something that could plausibly be intended to be a template
   /// name (\p LHS) followed by a '<' token, and the following code can't
@@ -8371,6 +8401,8 @@ private:
   /// If an unrecoverable parse error occurs and no annotation token can be
   /// formed, this function returns true.
   ///
+  bool AnnotateInterpolatedTemplateName(CXXScopeSpec &SS,
+                                        bool AllowTypeAnnotation);
   bool AnnotateTemplateIdToken(TemplateTy Template, TemplateNameKind TNK,
                                CXXScopeSpec &SS, SourceLocation TemplateKWLoc,
                                UnqualifiedId &TemplateName,
@@ -8466,6 +8498,188 @@ private:
   // C++2c: Reflection [CXX26]
   ExprResult ParseCXXReflectExpression(SourceLocation OpLoc);
   ExprResult ParseCXXMetafunctionExpression();
+
+  // Expression macros: 'name!(args)' and 'obj.name!(args)'.
+  ExprResult ParseMacroInvocation(CXXScopeSpec &SS, const IdentifierInfo *II,
+                                  SourceLocation NameLoc);
+  /// True if \p K can open a macro argument list. As in Rust, an invocation
+  /// may bracket its arguments however reads best: 'name!(...)', 'name!{...}'
+  /// or 'name![...]' all mean the same thing.
+  static bool isMacroArgumentListOpener(tok::TokenKind K) {
+    return K == tok::l_paren || K == tok::l_brace || K == tok::l_square;
+  }
+  /// True if \p K, following 'name!', continues a macro invocation: an
+  /// argument-list opener, or the '<' of explicit template arguments,
+  /// 'name!<Args>(...)'. ('!' cannot follow a name otherwise, so neither is
+  /// ambiguous.)
+  static bool isMacroInvocationContinuation(tok::TokenKind K) {
+    return isMacroArgumentListOpener(K) || K == tok::less;
+  }
+  /// True if the current token is the '!' of a macro invocation: '!' followed
+  /// by an argument-list opener or by explicit template arguments.
+  bool isMacroInvocationExclaim() {
+    return Tok.is(tok::exclaim) &&
+           isMacroInvocationContinuation(NextToken().getKind());
+  }
+  /// True if the current token starts a declaration-position macro
+  /// invocation, 'identifier ! opener' or 'identifier ! <', possibly after an
+  /// annotated nested-name-specifier (see TryAnnotateQualifiedMacroScope).
+  bool isStartOfDeclMacroInvocation() {
+    if (!getLangOpts().CPlusPlus29)
+      return false;
+    unsigned N = Tok.is(tok::annot_cxxscope) ? 1 : 0;
+    return GetLookAheadToken(N).is(tok::identifier) &&
+           GetLookAheadToken(N + 1).is(tok::exclaim) &&
+           isMacroInvocationContinuation(GetLookAheadToken(N + 2).getKind());
+  }
+  /// True if the tokens look like the start of a qualified macro invocation,
+  /// '::'[opt] (identifier template-arguments[opt] '::')+ identifier '!'
+  /// followed by an opener or '<'. Only looks at tokens (no lookup).
+  bool isStartOfQualifiedMacroInvocation();
+  /// At the start of a declaration or statement: if a qualified macro
+  /// invocation follows, annotate its nested-name-specifier (as parsing the
+  /// declaration or statement would have, with \p EnteringContext), so that
+  /// isStartOfDeclMacroInvocation / isStartOfStmtMacroInvocation see it.
+  /// Returns true on error.
+  bool TryAnnotateQualifiedMacroScope(bool EnteringContext);
+  /// After the '!' of a macro invocation: parse the explicit template
+  /// arguments of 'name!<Args>(...)' into \p TemplateArgs, if present, and
+  /// check that an argument-list opener follows. Returns true on error.
+  bool ParseMacroTemplateArguments(
+      std::optional<TemplateArgumentListInfo> &TemplateArgs);
+  /// While looking ahead (tentatively): skip the explicit template arguments
+  /// of 'name!<Args>(...)', if present. Returns false if they are malformed.
+  bool SkipMacroTemplateArguments();
+  /// True if the current token starts a statement-position macro invocation:
+  /// 'identifier ! opener ... closer ;', the invocation being the whole
+  /// statement. (Anything else, e.g. 'm!(x) + 1;', is an expression.)
+  bool isStartOfStmtMacroInvocation();
+  /// Parse 'name!(args);' at block scope and parse the expansion, followed by
+  /// the invocation's ';', as statements in place. Directly in a compound
+  /// statement, the statements join the enclosing block (they are passed on
+  /// through Sema::PendingInjectedStmts, and an empty result is returned); as
+  /// a substatement, they form one compound statement.
+  StmtResult ParseStmtMacroInvocation(ParsedStmtContext StmtCtx);
+  /// Parse 'name!(args);' at namespace or class scope and parse the
+  /// expansion as declarations in place. At class scope the members are
+  /// added to the current class (with access \p AS); at namespace scope the
+  /// parsed declarations are returned.
+  DeclGroupPtrTy ParseDeclMacroInvocation(AccessSpecifier AS, Decl *TagDecl);
+  /// The ';' of a whole-declaration (or whole-statement) macro invocation,
+  /// 'name!(args);', placed after the expansion: the invocation's terminator
+  /// terminates the expansion. An expansion that needs no terminator (one
+  /// that is empty, or already ends in ';') leaves a ';' that is not
+  /// diagnosed as extra or as an empty body: it is flagged as following an
+  /// empty macro (which the statement-level checks honor) and recorded in
+  /// InvocationTerminators (which ConsumeExtraSemi checks).
+  Token makeInvocationTerminator(SourceLocation Loc);
+  /// Locations of the ';'s made by makeInvocationTerminator.
+  llvm::DenseSet<SourceLocation> InvocationTerminators;
+  /// Whether the parameter-declaration-clause being parsed is a macro's.
+  bool ParsingMacroParameters = false;
+  /// For the expansion of a statement macro: if \p Toks (the whole
+  /// expansion) is a do-expression rather than a do-while, parenthesize it,
+  /// so that it parses as the expression statement an expression macro
+  /// intends. (At the start of a statement, 'do' begins a do-while.)
+  static void parenthesizeDoExpression(SmallVectorImpl<Token> &Toks,
+                                       SourceLocation CloseLoc);
+  /// Relocate the tokens of a macro's expansion into a macro-expansion
+  /// SourceLocation of the invocation \p Invocation (from the macro name to
+  /// the closing bracket), so diagnostics read "expanded from macro".
+  static void relocateExpansionTokens(SourceManager &SM,
+                                      SmallVectorImpl<Token> &Toks,
+                                      SourceRange Invocation);
+  /// Parse an interpolated declaration description (annot_decl_spec) in
+  /// member-declaration position: declares the described clone in the
+  /// current class and caches a following body for late parsing.
+  DeclGroupPtrTy ParseInjectedDeclarationSpec(AccessSpecifier AS);
+  /// Parse an injected token stream (already entered, delimited by eof) as
+  /// member declarations of \p TagDecl, starting from access \p AS.
+  /// Guarantees progress on malformed tokens.
+  void ParseTokensAsClassMembers(AccessSpecifier AS, Decl *TagDecl);
+  ExprResult ParseMemberMacroInvocation(Expr *Base, SourceLocation OpLoc,
+                                        tok::TokenKind OpKind,
+                                        const IdentifierInfo *II,
+                                        SourceLocation NameLoc);
+  /// Parse the argument list of a macro invocation, up to (not including)
+  /// the closing bracket of \p T, according to the parameter shape
+  /// \p RawParams. If \p ShapeUnknown (the macro cannot be looked up until
+  /// instantiation), the whole list is captured as a single token sequence
+  /// instead, since even where the arguments split depends on the shape.
+  bool ParseMacroArguments(ArrayRef<MacroParamKind> RawParams, bool ShapeUnknown,
+                           BalancedDelimiterTracker &T, ExprVector &Args);
+  /// Parse a macro argument list ending at \p Close; \p Braced if the
+  /// invocation's brackets were braces (which permit a trailing comma).
+  /// Returns true on error, without skipping.
+  bool ParseMacroArgumentList(ArrayRef<MacroParamKind> RawParams, tok::TokenKind Close,
+                              bool Braced, ExprVector &Args);
+  ExprResult ParseMacroRawArgument(tok::TokenKind Close, bool Greedy);
+  /// Parse an argument list captured when the macro's shape was unknown
+  /// (see ParseMacroArguments), now that it is known: in the context \p Ctx
+  /// it was written in, with the template parameters of that context (and
+  /// \p TemplateParams) in scope, so producing dependent expressions.
+  bool ParseDeferredMacroArguments(ArrayRef<MacroParamKind> RawParams, bool Braced,
+                                   TokenSequenceData TSD, SourceLocation Loc,
+                                   DeclContext *Ctx,
+                                   ArrayRef<NamedDecl *> TemplateParams,
+                                   SmallVectorImpl<Expr *> &Args);
+  static bool DeferredMacroArgumentsCallback(
+      void *P, ArrayRef<MacroParamKind> RawParams, bool Braced, TokenSequenceData TSD,
+      SourceLocation Loc, DeclContext *Ctx,
+      ArrayRef<NamedDecl *> TemplateParams, SmallVectorImpl<Expr *> &Args);
+  ExprResult ParseExpressionMacroExpansion(TokenSequenceData TSD,
+                                           SourceRange Invocation,
+                                           bool Speculative = false);
+  static ExprResult ExpressionMacroExpansionCallback(void *P,
+                                                     TokenSequenceData TSD,
+                                                     SourceRange Invocation);
+  static ExprResult SpeculativeExpressionCallback(void *P,
+                                                  TokenSequenceData TSD,
+                                                  SourceRange Invocation);
+
+  /// Parse 'name!(args)' as an entry of a ctor-initializer, the optional
+  /// nested-name-specifier \p SS having been parsed. The expansion is zero or
+  /// more mem-initializers, appended to \p MemInits; in a dependent
+  /// constructor the invocation is recorded for expansion at instantiation
+  /// instead. Returns true on error.
+  bool
+  ParseMemInitMacroInvocation(Decl *ConstructorDecl, CXXScopeSpec &SS,
+                              SmallVectorImpl<CXXCtorInitializer *> &MemInits);
+  /// Parse an already-entered, eof-delimited token stream as a possibly empty
+  /// mem-initializer-list for \p ConstructorDecl. Returns true on error.
+  bool
+  ParseMemInitializersUntilEof(Decl *ConstructorDecl,
+                               SmallVectorImpl<CXXCtorInitializer *> &MemInits);
+  /// Parse the tokens produced by a mem-initializer macro, in place of the
+  /// invocation \p Invocation. Returns true on error.
+  bool ParseMemInitMacroExpansion(Decl *ConstructorDecl, TokenSequenceData TSD,
+                                  SourceRange Invocation,
+                                  SmallVectorImpl<CXXCtorInitializer *> &Out);
+  static bool
+  MemInitMacroExpansionCallback(void *P, Decl *ConstructorDecl,
+                                TokenSequenceData TSD, SourceRange Invocation,
+                                SmallVectorImpl<CXXCtorInitializer *> &Out);
+
+  /// While a macro expansion is parsed during template instantiation, the
+  /// parser is not positioned inside the function being instantiated. This
+  /// gives the expansion a function scope holding the instantiated
+  /// parameters and the locals Sema collected as visible at the invocation,
+  /// so unqualified names resolve as they would have in the template. Does
+  /// nothing when the parser already has a scope for the current function.
+  class MacroExpansionLookupScope {
+  public:
+    explicit MacroExpansionLookupScope(Parser &P);
+    ~MacroExpansionLookupScope();
+
+  private:
+    void seed(NamedDecl *D, SmallVectorImpl<NamedDecl *> &Out);
+
+    Parser &P;
+    std::optional<ParseScope> FnScope;
+    llvm::SmallPtrSet<NamedDecl *, 16> Seen;
+    SmallVector<NamedDecl *, 8> Base;
+    SmallVector<SmallVector<NamedDecl *, 4>, 4> Levels;
+  };
 
   bool ParseSpliceSpecifier(bool TryParseSpecialization = false);
 

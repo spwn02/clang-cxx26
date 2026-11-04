@@ -36,6 +36,7 @@
 #include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/Builtins.h"
+#include "clang/Basic/DiagnosticMetafn.h"
 #include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/SourceManager.h"
@@ -3314,9 +3315,56 @@ static bool ShouldLookupResultBeMultiVersionOverload(const LookupResult &R) {
          (FD->isCPUDispatchMultiVersion() || FD->isCPUSpecificMultiVersion());
 }
 
+
+//===----------------------------------------------------------------------===//
+// Expression macros
+//===----------------------------------------------------------------------===//
+
+static bool isExpressionMacro(const FunctionDecl *FD) {
+  return FD && FD->isExpressionMacro();
+}
+
+bool Sema::IsExpressionMacro(const NamedDecl *D) {
+  D = D->getUnderlyingDecl();
+  if (const auto *FTD = dyn_cast<FunctionTemplateDecl>(D))
+    D = FTD->getTemplatedDecl();
+  return isExpressionMacro(dyn_cast<FunctionDecl>(D));
+}
+
+static bool isExpressionMacroParameter(const ValueDecl *VD) {
+  const auto *PVD = dyn_cast<ParmVarDecl>(VD);
+  return PVD && isExpressionMacro(dyn_cast<FunctionDecl>(PVD->getDeclContext()));
+}
+
+static bool isRawMacroParameter(const ParmVarDecl *PVD) {
+  return PVD->isMacroRawPack() || PVD->getType()
+                                      .getNonReferenceType()
+                                      .getUnqualifiedType()
+                                      ->isTokenSequenceType();
+}
+
+static MacroParamKind getMacroParamKind(const ParmVarDecl *PVD) {
+  if (PVD->isMacroRawPack())
+    return MacroParamKind::RawPack;
+  return isRawMacroParameter(PVD) ? MacroParamKind::Raw
+                                  : MacroParamKind::Expression;
+}
+
 ExprResult Sema::BuildDeclarationNameExpr(const CXXScopeSpec &SS,
                                           LookupResult &R, bool NeedsADL,
                                           bool AcceptInvalidDecl) {
+  // A macro name is only meaningful as the callee of 'name!(...)', which is
+  // built directly from the lookup result and never comes through here. An
+  // operator name may name macros: the set is only ever used as the callee of
+  // an operator expression, where overload resolution may select one.
+  if (R.getLookupName().getNameKind() != DeclarationName::CXXOperatorName)
+    for (NamedDecl *D : R)
+      if (IsExpressionMacro(D)) {
+        Diag(R.getNameLoc(), diag::err_macro_requires_invocation)
+            << R.getLookupName() << (R.getLookupName().getAsString() + "!(...)");
+        return ExprError();
+      }
+
   // If this is a single, fully-resolved result and we don't need ADL,
   // just build an ordinary singleton decl ref.
   if (!NeedsADL && R.isSingleResult() &&
@@ -3595,6 +3643,17 @@ ExprResult Sema::BuildDeclarationNameExpr(
 
   if (ApplyConstification)
     type = type.withConst();
+  // Inside an expression-macro body a parameter names the reflection of the
+  // argument expression bound to it (or the raw token sequence), not a value
+  // of the declared type. (Not a parameter pack, which is dependent, as any
+  // function parameter pack is: the parameters it expands to are named this
+  // way when the macro is instantiated.)
+  if (isExpressionMacroParameter(VD) &&
+      !cast<ParmVarDecl>(VD)->isParameterPack()) {
+    type = isRawMacroParameter(cast<ParmVarDecl>(VD)) ? Context.TokenSequenceTy
+                                                      : Context.MetaInfoTy;
+    valueKind = VK_PRValue;
+  }
 
   auto *E =
       BuildDeclRefExpr(VD, type, valueKind, NameInfo, &SS, FoundD,
@@ -5481,6 +5540,15 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
     Qualifiers Combined = BaseQuals + MemberQuals;
     if (Combined != MemberQuals)
       ResultType = Context.getQualifiedType(ResultType, Combined);
+  } else if (LHSTy->isTokenSequenceType()) {
+    // ts[i]: the i-th token of a token sequence, as its own single-token
+    // sequence. A prvalue, and consteval-only like every token_sequence
+    // expression; evaluated by the constant evaluator.
+    BaseExpr = LHSExp;
+    IndexExpr = RHSExp;
+    ResultType = Context.TokenSequenceTy;
+    VK = VK_PRValue;
+    OK = OK_Ordinary;
   } else if (LHSTy->isArrayType()) {
     // If we see an array that wasn't promoted by
     // DefaultFunctionArrayLvalueConversion, it must be an array that
@@ -7093,6 +7161,1217 @@ ExprResult Sema::ActOnConvertVectorExpr(Expr *E, ParsedType ParsedDestTy,
   return ConvertVectorExpr(E, TInfo, BuiltinLoc, RParenLoc);
 }
 
+// Type alias for intercepted std::meta function handlers.
+// All intercepted functions have the same signature.
+using InterceptedMetaFnPtr = ExprResult (Sema::*)(SourceLocation KwLoc,
+                                                   SourceLocation LParenLoc,
+                                                   ArrayRef<Expr *> Args,
+                                                   SourceLocation RParenLoc);
+
+// Check if DC is namespace 'std::meta' (or an inline namespace within it).
+static bool isStdMetaNamespace(const DeclContext *DC) {
+  // Walk through any inline namespaces (e.g., std::meta::reflection_v2).
+  while (DC && DC->isInlineNamespace())
+    DC = DC->getParent();
+
+  // Should be namespace 'meta'.
+  auto *Meta = dyn_cast_or_null<NamespaceDecl>(DC);
+  if (!Meta || !Meta->getIdentifier() || Meta->getName() != "meta")
+    return false;
+
+  // Parent should be namespace 'std'.
+  DC = Meta->getParent();
+  while (DC && DC->isInlineNamespace())
+    DC = DC->getParent();
+
+  auto *Std = dyn_cast_or_null<NamespaceDecl>(DC);
+  if (!Std || !Std->getIdentifier() || Std->getName() != "std")
+    return false;
+
+  // Parent should be the translation unit.
+  return Std->getParent()->isTranslationUnit();
+}
+
+// Returns a pointer to the Sema handler for intercepted std::meta functions,
+// or nullptr if the function is not intercepted.
+static InterceptedMetaFnPtr getInterceptedMetaFn(const FunctionDecl *FDecl) {
+  if (!FDecl || !FDecl->getDeclName().isIdentifier())
+    return nullptr;
+
+  // Quick check: must be in std::meta namespace.
+  if (!isStdMetaNamespace(FDecl->getDeclContext()))
+    return nullptr;
+
+  // Map from unqualified name to handler.
+  static const llvm::StringMap<InterceptedMetaFnPtr> Handlers = {
+      {"id", &Sema::ActOnCXXBuiltinId},
+      {"str_lit", &Sema::ActOnCXXBuiltinStrLiteral},
+      {"tokenize", &Sema::ActOnCXXBuiltinTokenize},
+      {"stringize", &Sema::ActOnCXXBuiltinStringize},
+      {"queue_injection", &Sema::ActOnCXXBuiltinInject},
+      {"report_tokens", &Sema::ActOnCXXBuiltinReportTokens},
+  };
+
+  auto It = Handlers.find(FDecl->getName());
+  return It != Handlers.end() ? It->second : nullptr;
+}
+
+
+bool Sema::GetMacroParameterShape(LookupResult &R,
+                                  SmallVectorImpl<MacroParamKind> &RawParams) {
+  if (R.empty()) {
+    Diag(R.getNameLoc(), diag::err_undeclared_macro) << R.getLookupName();
+    return true;
+  }
+  const FunctionDecl *First = nullptr;
+  for (NamedDecl *D : R) {
+    if (!IsExpressionMacro(D)) {
+      Diag(R.getNameLoc(), diag::err_not_a_macro) << R.getLookupName();
+      Diag(D->getLocation(), diag::note_declared_at);
+      return true;
+    }
+    const NamedDecl *U = D->getUnderlyingDecl();
+    if (const auto *FTD = dyn_cast<FunctionTemplateDecl>(U))
+      U = FTD->getTemplatedDecl();
+    const auto *FD = cast<FunctionDecl>(U);
+
+    // The object expression of a member macro is never written as an
+    // argument, so the shape is that of the remaining parameters.
+    SmallVector<MacroParamKind, 4> Shape;
+    for (const ParmVarDecl *P : FD->parameters())
+      if (!P->isExplicitObjectParameter())
+        Shape.push_back(getMacroParamKind(P));
+    if (!First) {
+      First = FD;
+      RawParams.assign(Shape.begin(), Shape.end());
+    } else if (!llvm::equal(Shape, RawParams)) {
+      Diag(R.getNameLoc(), diag::err_macro_overload_shape) << R.getLookupName();
+      Diag(First->getLocation(), diag::note_declared_at);
+      Diag(FD->getLocation(), diag::note_declared_at);
+      return true;
+    }
+  }
+  return false;
+}
+
+/// True if \p SS is dependent and names no class known yet: the macros it
+/// qualifies cannot be looked up until instantiation.
+static bool isUnknownDependentScope(Sema &S, CXXScopeSpec &SS) {
+  return SS.isSet() && S.isDependentScopeSpecifier(SS) &&
+         !S.computeDeclContext(SS, /*EnteringContext=*/false);
+}
+
+bool Sema::GetQualifiedMacroParameterShape(Scope *S, CXXScopeSpec &SS,
+                                           const IdentifierInfo *II,
+                                           SourceLocation NameLoc,
+                                           SmallVectorImpl<MacroParamKind> &RawParams,
+                                           bool &ShapeUnknown) {
+  ShapeUnknown = isUnknownDependentScope(*this, SS);
+  if (ShapeUnknown)
+    return false;
+  LookupResult R(*this, II, NameLoc, LookupOrdinaryName);
+  LookupParsedName(R, S, &SS, /*ObjectType=*/QualType());
+  return GetMacroParameterShape(R, RawParams);
+}
+
+/// The callee of an invocation whose macros await a dependent qualifier: an
+/// UnresolvedLookupExpr with no declarations.
+ExprResult
+Sema::BuildMacroCallee(NestedNameSpecifierLoc QualifierLoc,
+                       const DeclarationNameInfo &NameInfo,
+                       const UnresolvedSetImpl &Macros,
+                       const TemplateArgumentListInfo *TemplateArgs) {
+  // Macros are found by ordinary lookup only; the shape of the argument list
+  // was already decided by that lookup, so ADL cannot add candidates.
+  if (!TemplateArgs)
+    return CreateUnresolvedLookupExpr(/*NamingClass=*/nullptr, QualifierLoc,
+                                      NameInfo, Macros, /*PerformADL=*/false);
+  // With explicit template arguments only the macro templates are
+  // candidates, as for a template-id naming a function.
+  UnresolvedSet<8> Templates;
+  for (auto I = Macros.begin(), E = Macros.end(); I != E; ++I)
+    if (isa<FunctionTemplateDecl>((*I)->getUnderlyingDecl()))
+      Templates.addDecl(*I, I.getAccess());
+  return UnresolvedLookupExpr::Create(
+      Context, /*NamingClass=*/nullptr, QualifierLoc,
+      /*TemplateKWLoc=*/SourceLocation(), NameInfo, /*RequiresADL=*/false,
+      TemplateArgs, Templates.begin(), Templates.end(),
+      /*KnownDependent=*/false, /*KnownInstantiationDependent=*/false);
+}
+
+bool Sema::CheckMacroTemplateArgs(
+    const LookupResult &R, const TemplateArgumentListInfo *TemplateArgs) {
+  if (!TemplateArgs || R.empty())
+    return false;
+  if (llvm::any_of(R, [](NamedDecl *D) {
+        return isa<FunctionTemplateDecl>(D->getUnderlyingDecl());
+      }))
+    return false;
+  Diag(R.getNameLoc(), diag::err_non_template_in_template_id)
+      << R.getLookupName()
+      << SourceRange(TemplateArgs->getLAngleLoc(),
+                     TemplateArgs->getRAngleLoc());
+  return true;
+}
+
+static ExprResult
+buildDependentMacroCallee(Sema &S, NestedNameSpecifierLoc QualifierLoc,
+                          const DeclarationNameInfo &Name,
+                          const TemplateArgumentListInfo *TemplateArgs) {
+  UnresolvedSet<1> None;
+  return S.BuildMacroCallee(QualifierLoc, Name, None, TemplateArgs);
+}
+
+bool Sema::LookupDeferredQualifiedMacro(
+    NestedNameSpecifierLoc QualifierLoc, const DeclarationNameInfo &NameInfo,
+    UnresolvedLookupExpr *&Callee, SmallVectorImpl<MacroParamKind> &RawParams,
+    bool &StillDependent, const TemplateArgumentListInfo *TemplateArgs) {
+  CXXScopeSpec SS;
+  SS.Adopt(QualifierLoc);
+  StillDependent = isUnknownDependentScope(*this, SS);
+  if (!StillDependent) {
+    LookupResult R(*this, NameInfo, LookupOrdinaryName);
+    LookupParsedName(R, /*S=*/nullptr, &SS, /*ObjectType=*/QualType());
+    if (GetMacroParameterShape(R, RawParams) ||
+        CheckMacroTemplateArgs(R, TemplateArgs))
+      return true;
+    UnresolvedSet<8> Macros;
+    for (LookupResult::iterator I = R.begin(), E = R.end(); I != E; ++I)
+      Macros.addDecl(*I, I.getAccess());
+    ExprResult Result =
+        BuildMacroCallee(QualifierLoc, NameInfo, Macros, TemplateArgs);
+    if (Result.isInvalid())
+      return true;
+    Callee = cast<UnresolvedLookupExpr>(Result.get());
+    return false;
+  }
+  ExprResult Result =
+      buildDependentMacroCallee(*this, QualifierLoc, NameInfo, TemplateArgs);
+  if (Result.isInvalid())
+    return true;
+  Callee = cast<UnresolvedLookupExpr>(Result.get());
+  return false;
+}
+
+bool Sema::ParseDeferredMacroArguments(ArrayRef<MacroParamKind> RawParams,
+                                       const CXXMacroInvocationExpr *E,
+                                       SmallVectorImpl<Expr *> &PatternArgs) {
+  assert(E->areArgsUnparsed() && "arguments already parsed");
+  auto *TSE =
+      dyn_cast<CXXTokenSequenceExpr>(E->getArg(0)->IgnoreParenImpCasts());
+  assert(TSE && "captured macro arguments are a token sequence");
+  // The captured list does not record its brackets; braces permit a trailing
+  // comma.
+  bool Braced = false;
+  if (SourceLocation LParenLoc = E->getLParenLoc(); LParenLoc.isValid()) {
+    SourceLocation Spelling = SourceMgr.getSpellingLoc(LParenLoc);
+    bool Invalid = false;
+    const char *C = SourceMgr.getCharacterData(Spelling, &Invalid);
+    Braced = !Invalid && *C == '{';
+  }
+
+  // The arguments may name the locals visible where they were written: the
+  // parameters of enclosing functions (those of the innermost one are added
+  // by the parser) and the locals declared before the invocation.
+  SmallVector<SmallVector<NamedDecl *, 4>, 4> SavedScopes;
+  SavedScopes.swap(MacroExpansionLocalScopes);
+  auto RestoreScopes = llvm::make_scope_exit(
+      [&] { SavedScopes.swap(MacroExpansionLocalScopes); });
+  DeclContext *Ctx = E->getUnparsedContext();
+  SmallVector<FunctionDecl *, 2> Functions;
+  for (DeclContext *DC = Ctx; DC && !DC->isFileContext();
+       DC = DC->getLexicalParent())
+    if (auto *FD = dyn_cast<FunctionDecl>(DC))
+      Functions.push_back(FD);
+  if (!Functions.empty()) {
+    SmallVector<NamedDecl *, 4> &Params =
+        MacroExpansionLocalScopes.emplace_back();
+    for (FunctionDecl *FD : llvm::reverse(llvm::drop_begin(Functions)))
+      Params.append(FD->param_begin(), FD->param_end());
+    CollectLocalDeclsForLookup(Functions.back(), E, MacroExpansionLocalScopes);
+  }
+
+  assert(ParserBridge.canParseDeferredMacroArguments() &&
+         "no parser for deferred macro arguments");
+  if (ParserBridge.parseDeferredMacroArguments(
+          RawParams, Braced, TSE->getTokenSequence(), E->getRParenLoc(), Ctx,
+          E->getUnparsedTemplateParams(), PatternArgs)) {
+    // The parser's diagnostics do not show the instantiation context.
+    PrintContextStack();
+    return true;
+  }
+  ForgetConsumedMacroArguments(PatternArgs);
+  return false;
+}
+
+void Sema::ForgetConsumedMacroArguments(ArrayRef<Expr *> Args) {
+  for (Expr *Arg : Args)
+    if (Arg->getType()->isTokenSequenceType())
+      ExprEvalContexts.back().ConstevalOnly.erase(Arg);
+}
+
+void Sema::SetUnparsedMacroEnvironment(CXXMacroInvocationExpr *E, Scope *S) {
+  SmallVector<NamedDecl *, 4> TemplateParams;
+  for (; S; S = S->getParent())
+    if (S->isTemplateParamScope())
+      for (Decl *D : S->decls())
+        if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->isTemplateParameter())
+          TemplateParams.push_back(ND);
+  E->setUnparsedEnvironment(Context, CurContext, TemplateParams);
+}
+
+/// True if \p R found non-static member macros: an unqualified invocation of
+/// the name is then an implicit member access on '*this'.
+static bool findsNonStaticMemberMacro(const LookupResult &R) {
+  return llvm::any_of(R, [](NamedDecl *D) {
+    const NamedDecl *U = D->getUnderlyingDecl();
+    if (const auto *FTD = dyn_cast<FunctionTemplateDecl>(U))
+      U = FTD->getTemplatedDecl();
+    const auto *MD = dyn_cast<CXXMethodDecl>(U);
+    return MD && !MD->isStatic();
+  });
+}
+
+ExprResult
+Sema::ActOnMacroInvocation(Scope *S, CXXScopeSpec &SS, const IdentifierInfo *II,
+                           SourceLocation NameLoc, SourceLocation ExclaimLoc,
+                           SourceLocation LParenLoc, MultiExprArg Args,
+                           SourceLocation RParenLoc, bool ArgsUnparsed,
+                           const TemplateArgumentListInfo *TemplateArgs) {
+  if (ArgsUnparsed) {
+    ExprResult Callee = buildDependentMacroCallee(
+        *this, SS.getWithLocInContext(Context),
+        DeclarationNameInfo(II, NameLoc), TemplateArgs);
+    if (Callee.isInvalid())
+      return ExprError();
+    auto *E = CXXMacroInvocationExpr::Create(
+        Context, cast<UnresolvedLookupExpr>(Callee.get()), Args, ExclaimLoc,
+        LParenLoc, RParenLoc);
+    SetUnparsedMacroEnvironment(E, S);
+    return E;
+  }
+
+  LookupResult R(*this, II, NameLoc, LookupOrdinaryName);
+  LookupParsedName(R, S, &SS, /*ObjectType=*/QualType());
+  SmallVector<MacroParamKind, 4> RawParams;
+  if (GetMacroParameterShape(R, RawParams) ||
+      CheckMacroTemplateArgs(R, TemplateArgs))
+    return ExprError();
+
+  // An unqualified name that finds non-static member macros is an implicit
+  // member access, as it would be for a function: '*this' is the object
+  // expression.
+  if (SS.isEmpty() && findsNonStaticMemberMacro(R)) {
+    ExprResult This = ActOnCXXThis(NameLoc);
+    if (This.isInvalid())
+      return ExprError();
+    return BuildMemberMacroInvocation(
+        This.get(), /*IsArrow=*/true, NameLoc, R.getLookupNameInfo(),
+        ExclaimLoc, LParenLoc, Args, RParenLoc,
+        /*InstantiationPattern=*/nullptr, TemplateArgs);
+  }
+
+  UnresolvedSet<8> Macros;
+  for (LookupResult::iterator I = R.begin(), E = R.end(); I != E; ++I)
+    Macros.addDecl(*I, I.getAccess());
+  ExprResult Callee =
+      BuildMacroCallee(SS.getWithLocInContext(Context), R.getLookupNameInfo(),
+                       Macros, TemplateArgs);
+  if (Callee.isInvalid())
+    return ExprError();
+  return BuildMacroInvocation(S, cast<UnresolvedLookupExpr>(Callee.get()),
+                              ExclaimLoc, LParenLoc, Args, RParenLoc);
+}
+
+ExprResult Sema::BuildMacroInvocation(Scope *S, UnresolvedLookupExpr *Callee,
+                                      SourceLocation ExclaimLoc,
+                                      SourceLocation LParenLoc,
+                                      MultiExprArg Args,
+                                      SourceLocation RParenLoc,
+                                      const Stmt *InstantiationPattern) {
+  // Raw arguments are consumed by the macro -- now, or when it is expanded at
+  // instantiation -- so they are not values of the program.
+  ForgetConsumedMacroArguments(Args);
+
+  // A dependent callee, or an argument whose type is dependent, defers
+  // expansion to instantiation, where the arguments are transformed like
+  // those of any other expression: the macro cannot be selected, nor its
+  // parameters bound, without the types. An argument that is only
+  // value-dependent does not: the macro is evaluated now, and its expansion
+  // waits for instantiation only if the body asks what such an argument
+  // evaluates to.
+  bool Dependent = Callee->isInstantiationDependent();
+  for (Expr *Arg : Args)
+    Dependent |=
+        Arg->isTypeDependent() || Arg->containsUnexpandedParameterPack();
+  if (Dependent)
+    return CXXMacroInvocationExpr::Create(Context, Callee, Args, ExclaimLoc,
+                                          LParenLoc, RParenLoc);
+
+  FunctionDecl *Macro = nullptr;
+  ExprResult Fn;
+  CallExpr::ADLCallKind UsesADL;
+  if (ResolveMacroCallee(S, Callee, Args, LParenLoc, RParenLoc, Fn, Macro,
+                         UsesADL))
+    return ExprError();
+
+  // During instantiation the parser has no scope for the function being
+  // instantiated; reconstruct the lexical scopes of the locals visible before
+  // the invocation, so the expansion's names resolve as they would have in
+  // the template, with inner declarations hiding outer ones.
+  SmallVector<SmallVector<NamedDecl *, 4>, 4> SavedScopes;
+  SavedScopes.swap(MacroExpansionLocalScopes);
+  auto RestoreScopes = llvm::make_scope_exit(
+      [&] { SavedScopes.swap(MacroExpansionLocalScopes); });
+  if (InstantiationPattern)
+    CollectInstantiatedLocalDeclsForLookup(InstantiationPattern,
+                                           MacroExpansionLocalScopes);
+
+  // std::meta::expand_at_instantiation() in the body defers the invocation
+  // as dependent arguments would have.
+  return BuildExpressionMacroExpansion(Fn.get(), Macro, LParenLoc, Args,
+                                       RParenLoc, UsesADL, [&]() -> ExprResult {
+                                         return CXXMacroInvocationExpr::Create(
+                                             Context, Callee, Args, ExclaimLoc,
+                                             LParenLoc, RParenLoc);
+                                       });
+}
+
+/// Overload resolution for a macro invocation: as for a call, but the result
+/// is never a call.
+bool Sema::ResolveMacroCallee(Scope *S, UnresolvedLookupExpr *Callee,
+                              MultiExprArg Args, SourceLocation LParenLoc,
+                              SourceLocation RParenLoc, ExprResult &FnOut,
+                              FunctionDecl *&MacroOut,
+                              CallExpr::ADLCallKind &UsesADLOut) {
+  OverloadCandidateSet CandidateSet(Callee->getNameLoc(),
+                                    OverloadCandidateSet::CSK_Normal);
+  ExprResult Result;
+  if (buildOverloadedCallSet(S, Callee, Callee, Args, RParenLoc, &CandidateSet,
+                             &Result))
+    return true;
+
+  OverloadCandidateSet::iterator Best;
+  OverloadingResult OR =
+      CandidateSet.BestViableFunction(*this, Callee->getBeginLoc(), Best);
+  if (OR != OR_Success) {
+    // Let the call machinery produce the usual overload diagnostics.
+    (void)BuildOverloadedCallExpr(S, Callee, Callee, LParenLoc, Args,
+                                  RParenLoc, /*ExecConfig=*/nullptr);
+    return true;
+  }
+
+  MacroOut = Best->Function;
+  CheckUnresolvedLookupAccess(Callee, Best->FoundDecl);
+  if (DiagnoseUseOfDecl(MacroOut, Callee->getNameLoc()))
+    return true;
+  FnOut = FixOverloadedFunctionReference(Callee, Best->FoundDecl, MacroOut);
+  if (FnOut.isInvalid())
+    return true;
+  UsesADLOut = static_cast<CallExpr::ADLCallKind>(Best->IsADLCandidate);
+  return false;
+}
+
+/// A declaration-position macro invocation, 'name!(args);' at namespace or
+/// class scope: resolve and evaluate the macro; the caller parses the
+/// resulting tokens as declarations in place. In a class template the
+/// expansion waits for instantiation, as the injection of
+/// 'consteval { queue_injection(...); }' would: the class the macro sees is
+/// only the pattern until then, and its arguments may be dependent.
+bool Sema::ActOnDeclMacroInvocation(
+    Scope *S, CXXScopeSpec &SS, const IdentifierInfo *II,
+    SourceLocation NameLoc, SourceLocation ExclaimLoc, SourceLocation LParenLoc,
+    MultiExprArg Args, SourceLocation RParenLoc, AccessSpecifier AS,
+    TokenSequenceData &Expansion, bool ArgsUnparsed,
+    const TemplateArgumentListInfo *TemplateArgs) {
+  // Record a deferred invocation as a member of the pattern; each
+  // specialization expands it in place, among the members that precede it.
+  auto DeferInClass = [&](CXXMacroInvocationExpr *E) {
+    auto *D = ConstevalBlockDecl::Create(Context, CurContext, NameLoc, E);
+    D->setAccess(AS);
+    CurContext->addDecl(D);
+    ClassesWithPendingInjections.insert(
+        cast<CXXRecordDecl>(CurContext)->getCanonicalDecl());
+    return false;
+  };
+
+  bool Dependent = ArgsUnparsed || CurContext->isDependentContext();
+  for (Expr *Arg : Args)
+    Dependent |= Arg->isInstantiationDependent() ||
+                 Arg->containsUnexpandedParameterPack();
+  // Outside a class there is nothing to instantiate later. (Declaration
+  // macros appear only at namespace and class scope, so this is not reached
+  // today; keep the diagnostic for the day block scope is allowed.)
+  if (Dependent && !CurContext->isRecord()) {
+    Diag(NameLoc, diag::err_decl_macro_dependent) << II;
+    return true;
+  }
+
+  // With a dependent qualifier, the macros and even the arguments await
+  // instantiation.
+  if (ArgsUnparsed) {
+    ExprResult Callee = buildDependentMacroCallee(
+        *this, SS.getWithLocInContext(Context),
+        DeclarationNameInfo(II, NameLoc), TemplateArgs);
+    if (Callee.isInvalid())
+      return true;
+    auto *E = CXXMacroInvocationExpr::Create(
+        Context, cast<UnresolvedLookupExpr>(Callee.get()), Args, ExclaimLoc,
+        LParenLoc, RParenLoc);
+    SetUnparsedMacroEnvironment(E, S);
+    return DeferInClass(E);
+  }
+
+  LookupResult R(*this, II, NameLoc, LookupOrdinaryName);
+  LookupParsedName(R, S, &SS, /*ObjectType=*/QualType());
+  SmallVector<MacroParamKind, 4> RawParams;
+  if (GetMacroParameterShape(R, RawParams) ||
+      CheckMacroTemplateArgs(R, TemplateArgs))
+    return true;
+
+  UnresolvedSet<8> Macros;
+  for (LookupResult::iterator I = R.begin(), E = R.end(); I != E; ++I)
+    Macros.addDecl(*I, I.getAccess());
+  ExprResult Callee =
+      BuildMacroCallee(SS.getWithLocInContext(Context), R.getLookupNameInfo(),
+                       Macros, TemplateArgs);
+  if (Callee.isInvalid())
+    return true;
+  auto *ULE = cast<UnresolvedLookupExpr>(Callee.get());
+
+  if (Dependent)
+    return DeferInClass(CXXMacroInvocationExpr::Create(
+        Context, ULE, Args, ExclaimLoc, LParenLoc, RParenLoc));
+
+  return EvaluateMacroInvocation(S, ULE, LParenLoc, Args, RParenLoc,
+                                 Expansion);
+}
+
+bool Sema::EvaluateMacroInvocation(Scope *S, UnresolvedLookupExpr *Callee,
+                                   SourceLocation LParenLoc, MultiExprArg Args,
+                                   SourceLocation RParenLoc,
+                                   TokenSequenceData &Expansion) {
+  FunctionDecl *Macro = nullptr;
+  ExprResult Fn;
+  CallExpr::ADLCallKind UsesADL;
+  if (ResolveMacroCallee(S, Callee, Args, LParenLoc, RParenLoc, Fn, Macro,
+                         UsesADL))
+    return true;
+
+  return EvaluateMacroExpansion(Fn.get(), Macro, LParenLoc, Args, RParenLoc,
+                                UsesADL, Expansion);
+}
+
+/// A statement-position macro invocation, 'name!(args);'. The arguments are
+/// those of an expression macro; the expansion is parsed as statements by the
+/// caller. Dependent arguments, or the macro asking to wait for instantiation
+/// (std::meta::expand_at_instantiation()), defer the invocation: it is
+/// recorded as a declaration-macro consteval block, which each instantiation
+/// expands in place among the function's statements.
+bool Sema::ActOnStmtMacroInvocation(
+    Scope *S, CXXScopeSpec &SS, const IdentifierInfo *II,
+    SourceLocation NameLoc, SourceLocation ExclaimLoc, SourceLocation LParenLoc,
+    MultiExprArg Args, SourceLocation RParenLoc, SourceLocation SemiLoc,
+    TokenSequenceData &Expansion, StmtResult &Result, bool ArgsUnparsed,
+    const TemplateArgumentListInfo *TemplateArgs) {
+  Result = StmtEmpty();
+  // Raw arguments are consumed by the macro (see BuildMacroInvocation).
+  ForgetConsumedMacroArguments(Args);
+
+  // Each instantiation expands a deferred invocation in place.
+  auto Defer = [&](CXXMacroInvocationExpr *E) {
+    auto *D = ConstevalBlockDecl::Create(Context, CurContext, NameLoc, E);
+    CurContext->addDecl(D);
+    Result = ActOnDeclStmt(ConvertDeclToDeclGroup(D), NameLoc, SemiLoc);
+    return Result.isInvalid();
+  };
+
+  // With a dependent qualifier, the macros and even the arguments await
+  // instantiation.
+  if (ArgsUnparsed) {
+    ExprResult Callee = buildDependentMacroCallee(
+        *this, SS.getWithLocInContext(Context),
+        DeclarationNameInfo(II, NameLoc), TemplateArgs);
+    if (Callee.isInvalid())
+      return true;
+    auto *E = CXXMacroInvocationExpr::Create(
+        Context, cast<UnresolvedLookupExpr>(Callee.get()), Args, ExclaimLoc,
+        LParenLoc, RParenLoc);
+    SetUnparsedMacroEnvironment(E, S);
+    return Defer(E);
+  }
+
+  LookupResult R(*this, II, NameLoc, LookupOrdinaryName);
+  LookupParsedName(R, S, &SS, /*ObjectType=*/QualType());
+  SmallVector<MacroParamKind, 4> RawParams;
+  if (GetMacroParameterShape(R, RawParams) ||
+      CheckMacroTemplateArgs(R, TemplateArgs))
+    return true;
+
+  // A non-static member macro named without an object is an implicit member
+  // access, as in expression position; it stays an expression statement.
+  if (SS.isEmpty() && findsNonStaticMemberMacro(R)) {
+    ExprResult This = ActOnCXXThis(NameLoc);
+    if (This.isInvalid())
+      return true;
+    ExprResult E = BuildMemberMacroInvocation(
+        This.get(), /*IsArrow=*/true, NameLoc, R.getLookupNameInfo(),
+        ExclaimLoc, LParenLoc, Args, RParenLoc,
+        /*InstantiationPattern=*/nullptr, TemplateArgs);
+    if (E.isInvalid())
+      return true;
+    Result = ActOnExprStmt(E, /*DiscardedValue=*/true);
+    return Result.isInvalid();
+  }
+
+  UnresolvedSet<8> Macros;
+  for (LookupResult::iterator I = R.begin(), E = R.end(); I != E; ++I)
+    Macros.addDecl(*I, I.getAccess());
+  ExprResult Callee =
+      BuildMacroCallee(SS.getWithLocInContext(Context), R.getLookupNameInfo(),
+                       Macros, TemplateArgs);
+  if (Callee.isInvalid())
+    return true;
+  auto *ULE = cast<UnresolvedLookupExpr>(Callee.get());
+
+  // As in BuildMacroInvocation: only dependent types defer up front.
+  bool Dependent = ULE->isInstantiationDependent();
+  for (Expr *Arg : Args)
+    Dependent |=
+        Arg->isTypeDependent() || Arg->containsUnexpandedParameterPack();
+
+  if (!Dependent) {
+    FunctionDecl *Macro = nullptr;
+    ExprResult Fn;
+    CallExpr::ADLCallKind UsesADL;
+    if (ResolveMacroCallee(S, ULE, Args, LParenLoc, RParenLoc, Fn, Macro,
+                           UsesADL))
+      return true;
+    bool Deferred = false;
+    if (!EvaluateMacroExpansion(Fn.get(), Macro, LParenLoc, Args, RParenLoc,
+                                UsesADL, Expansion, &Deferred))
+      return false;
+    if (!Deferred)
+      return true;
+  }
+
+  return Defer(CXXMacroInvocationExpr::Create(Context, ULE, Args, ExclaimLoc,
+                                              LParenLoc, RParenLoc));
+}
+
+/// A macro invocation as an entry of a ctor-initializer, 'C(...) : m!(...)'.
+/// Its expansion is zero or more mem-initializers. (Empty is fine: the
+/// invocation is what the source wrote, so the mem-initializer-list is not
+/// empty as written.) A dependent constructor defers the expansion to
+/// instantiation even when the arguments are not dependent: the class the
+/// macro would inspect is only the pattern until then, and members injected
+/// per specialization do not exist in it.
+bool Sema::ActOnMemInitMacroInvocation(
+    Scope *S, Decl *ConstructorDecl, unsigned Position, CXXScopeSpec &SS,
+    const IdentifierInfo *II, SourceLocation NameLoc, SourceLocation ExclaimLoc,
+    SourceLocation LParenLoc, MultiExprArg Args, SourceLocation RParenLoc,
+    bool ArgsUnparsed, TokenSequenceData &Expansion, bool &Deferred,
+    const TemplateArgumentListInfo *TemplateArgs) {
+  Deferred = false;
+  if (!ConstructorDecl)
+    return true;
+  AdjustDeclIfTemplate(ConstructorDecl);
+  auto *Ctor = dyn_cast<CXXConstructorDecl>(ConstructorDecl);
+  if (!Ctor) {
+    Diag(NameLoc, diag::err_only_constructors_take_base_inits);
+    return true;
+  }
+
+  // With a dependent qualifier, the macros and even the arguments await
+  // instantiation.
+  if (ArgsUnparsed) {
+    ExprResult Callee = buildDependentMacroCallee(
+        *this, SS.getWithLocInContext(Context),
+        DeclarationNameInfo(II, NameLoc), TemplateArgs);
+    if (Callee.isInvalid())
+      return true;
+    auto *E = CXXMacroInvocationExpr::Create(
+        Context, cast<UnresolvedLookupExpr>(Callee.get()), Args, ExclaimLoc,
+        LParenLoc, RParenLoc);
+    SetUnparsedMacroEnvironment(E, S);
+    DeferredMemInitMacros[Ctor->getCanonicalDecl()].push_back({Position, E});
+    Deferred = true;
+    return false;
+  }
+
+  LookupResult R(*this, II, NameLoc, LookupOrdinaryName);
+  LookupParsedName(R, S, &SS, /*ObjectType=*/QualType());
+  SmallVector<MacroParamKind, 4> RawParams;
+  if (GetMacroParameterShape(R, RawParams) ||
+      CheckMacroTemplateArgs(R, TemplateArgs))
+    return true;
+
+  bool Dependent = Ctor->isDependentContext();
+  for (Expr *Arg : Args)
+    Dependent |= Arg->isInstantiationDependent() ||
+                 Arg->containsUnexpandedParameterPack();
+
+  // An unqualified name that finds non-static member macros is an implicit
+  // member access on '*this', as in an expression.
+  if (SS.isEmpty() && findsNonStaticMemberMacro(R)) {
+    ExprResult This = ActOnCXXThis(NameLoc);
+    if (This.isInvalid())
+      return true;
+    DeclarationNameInfo NameInfo = R.getLookupNameInfo();
+    if (Dependent || This.get()->isInstantiationDependent()) {
+      auto *E = CXXMacroInvocationExpr::CreateMember(
+          Context, This.get(), /*IsArrow=*/true, NameLoc, NameInfo, Args,
+          ExclaimLoc, LParenLoc, RParenLoc, TemplateArgs);
+      DeferredMemInitMacros[Ctor->getCanonicalDecl()].push_back({Position, E});
+      Deferred = true;
+      return false;
+    }
+    return EvaluateMemberMacroInvocation(This.get(), /*IsArrow=*/true, NameLoc,
+                                         NameInfo, LParenLoc, Args, RParenLoc,
+                                         Expansion, TemplateArgs);
+  }
+
+  UnresolvedSet<8> Macros;
+  for (LookupResult::iterator I = R.begin(), E = R.end(); I != E; ++I)
+    Macros.addDecl(*I, I.getAccess());
+  ExprResult Callee =
+      BuildMacroCallee(SS.getWithLocInContext(Context), R.getLookupNameInfo(),
+                       Macros, TemplateArgs);
+  if (Callee.isInvalid())
+    return true;
+  auto *ULE = cast<UnresolvedLookupExpr>(Callee.get());
+
+  Dependent |= ULE->isInstantiationDependent();
+  if (Dependent) {
+    auto *E = CXXMacroInvocationExpr::Create(Context, ULE, Args, ExclaimLoc,
+                                             LParenLoc, RParenLoc);
+    DeferredMemInitMacros[Ctor->getCanonicalDecl()].push_back({Position, E});
+    Deferred = true;
+    return false;
+  }
+
+  return EvaluateMacroInvocation(S, ULE, LParenLoc, Args, RParenLoc, Expansion);
+}
+
+bool Sema::GetMemberMacroParameterShape(Expr *Base, tok::TokenKind OpKind,
+                                        const IdentifierInfo *II,
+                                        SourceLocation NameLoc,
+                                        SmallVectorImpl<MacroParamKind> &RawParams,
+                                        bool &ShapeUnknown) {
+  ShapeUnknown = false;
+  QualType ObjectType = Base->getType();
+  if (OpKind == tok::arrow)
+    if (const PointerType *PT = ObjectType->getAs<PointerType>())
+      ObjectType = PT->getPointeeType();
+
+  // The class is known if the type is not dependent or is the current
+  // instantiation; otherwise the shape is not known until instantiation.
+  auto *RD = dyn_cast_or_null<CXXRecordDecl>(computeDeclContext(ObjectType));
+  if (!RD) {
+    ShapeUnknown = ObjectType->isDependentType();
+    return false;
+  }
+  if (!ObjectType->isDependentType() &&
+      RequireCompleteType(NameLoc, ObjectType,
+                          diag::err_incomplete_member_access))
+    return true;
+
+  LookupResult R(*this, II, NameLoc, LookupMemberName);
+  LookupQualifiedName(R, RD);
+  return GetMacroParameterShape(R, RawParams);
+}
+
+ExprResult Sema::ActOnMemberMacroInvocation(
+    Scope *S, Expr *Base, SourceLocation OpLoc, tok::TokenKind OpKind,
+    const IdentifierInfo *II, SourceLocation NameLoc, SourceLocation ExclaimLoc,
+    SourceLocation LParenLoc, MultiExprArg Args, SourceLocation RParenLoc,
+    bool ArgsUnparsed, const TemplateArgumentListInfo *TemplateArgs) {
+  if (ArgsUnparsed) {
+    auto *E = CXXMacroInvocationExpr::CreateMember(
+        Context, Base, OpKind == tok::arrow, OpLoc,
+        DeclarationNameInfo(II, NameLoc), Args, ExclaimLoc, LParenLoc,
+        RParenLoc, TemplateArgs);
+    SetUnparsedMacroEnvironment(E, S);
+    return E;
+  }
+  return BuildMemberMacroInvocation(
+      Base, OpKind == tok::arrow, OpLoc, DeclarationNameInfo(II, NameLoc),
+      ExclaimLoc, LParenLoc, Args, RParenLoc,
+      /*InstantiationPattern=*/nullptr, TemplateArgs);
+}
+
+ExprResult Sema::BuildMemberMacroInvocation(
+    Expr *Base, bool IsArrow, SourceLocation OpLoc,
+    const DeclarationNameInfo &NameInfo, SourceLocation ExclaimLoc,
+    SourceLocation LParenLoc, MultiExprArg Args, SourceLocation RParenLoc,
+    const Stmt *InstantiationPattern,
+    const TemplateArgumentListInfo *TemplateArgs) {
+  // Raw arguments are consumed by the macro (see BuildMacroInvocation).
+  ForgetConsumedMacroArguments(Args);
+
+  // As in BuildMacroInvocation: only dependent types (or template arguments)
+  // defer up front.
+  bool Dependent =
+      Base->isTypeDependent() || Base->containsUnexpandedParameterPack();
+  for (Expr *Arg : Args)
+    Dependent |=
+        Arg->isTypeDependent() || Arg->containsUnexpandedParameterPack();
+  if (TemplateArgs)
+    for (const TemplateArgumentLoc &A : TemplateArgs->arguments())
+      Dependent |= A.getArgument().isInstantiationDependent() ||
+                   A.getArgument().containsUnexpandedParameterPack();
+  if (Dependent)
+    return CXXMacroInvocationExpr::CreateMember(
+        Context, Base, IsArrow, OpLoc, NameInfo, Args, ExclaimLoc, LParenLoc,
+        RParenLoc, TemplateArgs);
+
+  ExprResult Result;
+  if (ResolveMemberMacroInvocation(
+          Base, IsArrow, OpLoc, NameInfo, Args,
+          [&](const OverloadCandidate &Best, ArrayRef<Expr *> MacroArgs,
+              bool HadMultipleCandidates) {
+            Result = BuildMacroCandidateExpansion(
+                Best, MacroArgs, LParenLoc, RParenLoc, HadMultipleCandidates,
+                InstantiationPattern, NameInfo.getLoc(), [&]() -> ExprResult {
+                  return CXXMacroInvocationExpr::CreateMember(
+                      Context, Base, IsArrow, OpLoc, NameInfo, Args, ExclaimLoc,
+                      LParenLoc, RParenLoc, TemplateArgs);
+                });
+            return Result.isInvalid();
+          },
+          TemplateArgs))
+    return ExprError();
+  return Result;
+}
+
+bool Sema::ResolveMemberMacroInvocation(
+    Expr *Base, bool IsArrow, SourceLocation OpLoc,
+    const DeclarationNameInfo &NameInfo, MultiExprArg Args,
+    llvm::function_ref<bool(const OverloadCandidate &, ArrayRef<Expr *>, bool)>
+        Finish,
+    const TemplateArgumentListInfo *TemplateArgs) {
+  // Apply any operator-> chain and find the object type, as for a member
+  // access.
+  ParsedType ObjectTypeP;
+  bool MayBePseudoDestructor = false;
+  ExprResult BaseResult = ActOnStartCXXMemberReference(
+      /*S=*/nullptr, Base, OpLoc, IsArrow ? tok::arrow : tok::period,
+      ObjectTypeP, MayBePseudoDestructor);
+  if (BaseResult.isInvalid())
+    return true;
+  Base = BaseResult.get();
+  QualType ObjectType = GetTypeFromParser(ObjectTypeP);
+  auto *RD = ObjectType->getAsCXXRecordDecl();
+  if (!RD) {
+    Diag(NameInfo.getLoc(), diag::err_typecheck_member_reference_struct_union)
+        << ObjectType << Base->getSourceRange();
+    return true;
+  }
+
+  LookupResult R(*this, NameInfo, LookupMemberName);
+  LookupQualifiedName(R, RD);
+  SmallVector<MacroParamKind, 4> RawParams;
+  if (GetMacroParameterShape(R, RawParams) ||
+      CheckMacroTemplateArgs(R, TemplateArgs))
+    return true;
+
+  // The object expression binds to the explicit object parameter.
+  Expr *Object = Base;
+  if (IsArrow) {
+    ExprResult Deref = CreateBuiltinUnaryOp(OpLoc, UO_Deref, Base);
+    if (Deref.isInvalid())
+      return true;
+    Object = Deref.get();
+  }
+
+  OverloadCandidateSet CandidateSet(NameInfo.getLoc(),
+                                    OverloadCandidateSet::CSK_Normal);
+  // With explicit template arguments, as for a call, only the macro
+  // templates are candidates.
+  std::optional<TemplateArgumentListInfo> ExplicitArgs;
+  if (TemplateArgs)
+    ExplicitArgs = *TemplateArgs;
+  for (LookupResult::iterator I = R.begin(), E = R.end(); I != E; ++I) {
+    if (!ExplicitArgs) {
+      AddMethodCandidate(I.getPair(), ObjectType, Object->Classify(Context),
+                         Args, CandidateSet, /*SuppressUserConversion=*/false);
+      continue;
+    }
+    if (auto *FTD = dyn_cast<FunctionTemplateDecl>(I->getUnderlyingDecl()))
+      AddMethodTemplateCandidate(
+          FTD, I.getPair(), cast<CXXRecordDecl>(FTD->getDeclContext()),
+          &*ExplicitArgs, ObjectType, Object->Classify(Context), Args,
+          CandidateSet, /*SuppressUserConversions=*/false);
+  }
+
+  OverloadCandidateSet::iterator Best;
+  switch (CandidateSet.BestViableFunction(*this, NameInfo.getLoc(), Best)) {
+  case OR_Success:
+    break;
+  case OR_No_Viable_Function:
+    CandidateSet.NoteCandidates(
+        PartialDiagnosticAt(NameInfo.getLoc(),
+                            PDiag(diag::err_ovl_no_viable_member_function_in_call)
+                                << NameInfo.getName() << Base->getSourceRange()),
+        *this, OCD_AllCandidates, Args);
+    return true;
+  case OR_Ambiguous:
+    CandidateSet.NoteCandidates(
+        PartialDiagnosticAt(NameInfo.getLoc(),
+                            PDiag(diag::err_ovl_ambiguous_member_call)
+                                << NameInfo.getName() << Base->getSourceRange()),
+        *this, OCD_AmbiguousCandidates, Args);
+    return true;
+  case OR_Deleted: {
+    StringLiteral *Msg = Best->Function->getDeletedMessage();
+    CandidateSet.NoteCandidates(
+        PartialDiagnosticAt(NameInfo.getLoc(),
+                            PDiag(diag::err_ovl_deleted_call)
+                                << /*member*/ 1 << NameInfo.getName()
+                                << (Msg != nullptr)
+                                << (Msg ? Msg->getString() : StringRef())
+                                << Base->getSourceRange()),
+        *this, OCD_AllCandidates, Args);
+    return true;
+  }
+  }
+
+  auto *Macro = cast<CXXMethodDecl>(Best->Function);
+  if (Macro->isStatic()) {
+    Diag(NameInfo.getLoc(), diag::err_macro_static_member_via_object)
+        << Macro << (RD->getName() + "::" + Macro->getName() + "!(...)").str();
+    return true;
+  }
+  CheckMemberAccess(NameInfo.getLoc(), RD, Best->FoundDecl);
+
+  SmallVector<Expr *, 4> MacroArgs;
+  MacroArgs.push_back(Object);
+  MacroArgs.append(Args.begin(), Args.end());
+  return Finish(*Best, MacroArgs, CandidateSet.size() > 1);
+}
+
+bool Sema::EvaluateMemberMacroInvocation(
+    Expr *Base, bool IsArrow, SourceLocation OpLoc,
+    const DeclarationNameInfo &NameInfo, SourceLocation LParenLoc,
+    MultiExprArg Args, SourceLocation RParenLoc, TokenSequenceData &Expansion,
+    const TemplateArgumentListInfo *TemplateArgs) {
+  return ResolveMemberMacroInvocation(
+      Base, IsArrow, OpLoc, NameInfo, Args,
+      [&](const OverloadCandidate &Best, ArrayRef<Expr *> MacroArgs,
+          bool HadMultipleCandidates) {
+        return EvaluateMacroCandidate(Best, MacroArgs, LParenLoc, RParenLoc,
+                                      HadMultipleCandidates, Expansion);
+      },
+      TemplateArgs);
+}
+
+namespace {
+/// Counts how often each interpolated argument appears in a
+/// potentially-evaluated position of a macro expansion. A nested macro
+/// invocation within the expansion wraps the enclosing macro's opaque values
+/// as the sources of its own, so the counter follows source-expression
+/// chains back to the tracked ones. Lambda bodies are not visited: they are
+/// a separate function, and an expression argument cannot be interpolated
+/// into one.
+class MacroArgumentUseCounter
+    : public ConstEvaluatedExprVisitor<MacroArgumentUseCounter> {
+  using Inherited = ConstEvaluatedExprVisitor<MacroArgumentUseCounter>;
+
+  const llvm::SmallPtrSetImpl<const OpaqueValueExpr *> &Tracked;
+  llvm::SmallPtrSet<const OpaqueValueExpr *, 16> Visited;
+
+public:
+  llvm::SmallDenseMap<const OpaqueValueExpr *, unsigned, 8> Uses;
+  SmallVector<const LambdaExpr *, 2> Lambdas;
+
+  MacroArgumentUseCounter(
+      const ASTContext &Ctx,
+      const llvm::SmallPtrSetImpl<const OpaqueValueExpr *> &Tracked)
+      : Inherited(Ctx), Tracked(Tracked) {}
+
+  void VisitOpaqueValueExpr(const OpaqueValueExpr *E) {
+    // An interpolated argument is a *unique* opaque value, emitted in place:
+    // every occurrence in the expansion is an evaluation. (The same node
+    // recurs when a saved fragment holding it is spliced twice.) So is a
+    // nested macro's interpolation, whose source leads back to this macro's
+    // arguments.
+    if (Tracked.contains(E)) {
+      ++Uses[E];
+      return;
+    }
+    if (E->isUnique()) {
+      if (const Expr *Src = E->getSourceExpr())
+        this->Visit(Src);
+      return;
+    }
+    // A *bound* opaque value (a pseudo-object's, an array-init loop's) can
+    // appear several times in the semantic form of one construct; it is
+    // still bound - and its source evaluated - once.
+    if (!Visited.insert(E).second)
+      return;
+    if (const Expr *Src = E->getSourceExpr())
+      this->Visit(Src);
+  }
+  void VisitBinaryConditionalOperator(const BinaryConditionalOperator *E) {
+    // The common expression is a child of its own; the bound opaque value
+    // that carries it into the condition and result positions must not
+    // count it again.
+    Visited.insert(E->getOpaqueValue());
+    Inherited::VisitStmt(E);
+  }
+  void VisitPseudoObjectExpr(const PseudoObjectExpr *E) {
+    // Only the semantic form is evaluated (the syntactic form shares its
+    // subexpressions with it, through the bound opaque values).
+    for (const Expr *S : E->semantics())
+      this->Visit(S);
+  }
+  void VisitLambdaExpr(const LambdaExpr *LE) {
+    Lambdas.push_back(LE);
+    Inherited::VisitLambdaExpr(LE);
+  }
+};
+} // namespace
+
+/// Whether \p Needle appears within \p Haystack, following opaque values'
+/// source expressions (which is how a nested macro's expansion refers to the
+/// enclosing macro's interpolated arguments).
+static bool stmtContains(const Stmt *Haystack, const Stmt *Needle) {
+  if (Haystack == Needle)
+    return true;
+  if (const auto *OVE = dyn_cast<OpaqueValueExpr>(Haystack))
+    if (const Expr *Src = OVE->getSourceExpr())
+      if (stmtContains(Src, Needle))
+        return true;
+  for (const Stmt *Child : Haystack->children())
+    if (Child && stmtContains(Child, Needle))
+      return true;
+  return false;
+}
+
+/// Each interpolated argument expression is evaluated exactly once. Two
+/// interpolations of the same argument, or of an argument and one of its
+/// subexpressions, would evaluate part of it twice. An interpolation inside a
+/// lambda body would be evaluated whenever the lambda is called, with the
+/// argument's names never having been captured.
+static bool CheckMacroArgumentEvaluation(Sema &S, ArrayRef<Stmt *> Expansion,
+                                         ArrayRef<OpaqueValueExpr *> ArgOVEs) {
+  // Nothing interpolated, nothing to count. (Worth skipping: the expansion
+  // contains every nested expansion, so a recursive macro would otherwise
+  // walk a tree as deep as the recursion at every level.)
+  if (ArgOVEs.empty())
+    return false;
+  llvm::SmallPtrSet<const OpaqueValueExpr *, 8> Tracked(ArgOVEs.begin(),
+                                                        ArgOVEs.end());
+  MacroArgumentUseCounter Counter(S.Context, Tracked);
+  for (Stmt *St : Expansion)
+    if (St)
+      S.runWithSufficientStackSpace(St->getBeginLoc(),
+                                    [&] { Counter.Visit(St); });
+
+  for (const LambdaExpr *LE : Counter.Lambdas)
+    for (OpaqueValueExpr *OVE : ArgOVEs)
+      if (stmtContains(LE->getBody(), OVE)) {
+        S.Diag(OVE->getExprLoc(), diag::err_macro_argument_in_lambda);
+        return true;
+      }
+
+  SmallVector<OpaqueValueExpr *, 4> Used;
+  for (OpaqueValueExpr *OVE : ArgOVEs) {
+    unsigned N = Counter.Uses.lookup(OVE);
+    if (N > 1) {
+      S.Diag(OVE->getExprLoc(), diag::err_macro_argument_evaluated_twice);
+      return true;
+    }
+    if (N == 1)
+      Used.push_back(OVE);
+  }
+  for (OpaqueValueExpr *Outer : Used)
+    for (OpaqueValueExpr *Inner : Used)
+      if (Outer != Inner &&
+          stmtContains(Outer->getSourceExpr(), Inner->getSourceExpr())) {
+        S.Diag(Inner->getExprLoc(), diag::err_macro_argument_evaluated_twice);
+        return true;
+      }
+  return false;
+}
+
+/// The argument expressions interpolated into a macro's expansion, which were
+/// materialized as bare opaque values.
+static void
+collectInterpolatedArguments(const TokenSequenceData &Expansion,
+                             SmallVectorImpl<OpaqueValueExpr *> &Out) {
+  for (const Token &T : Expansion)
+    if (T.is(tok::annot_primary_expr))
+      if (auto *OVE = dyn_cast_or_null<OpaqueValueExpr>(
+              static_cast<Expr *>(T.getAnnotationValue())))
+        Out.push_back(OVE);
+}
+
+bool Sema::CheckMacroArgumentEvaluation(const TokenSequenceData &Expansion,
+                                        ArrayRef<Stmt *> Stmts) {
+  SmallVector<OpaqueValueExpr *, 4> ArgOVEs;
+  collectInterpolatedArguments(Expansion, ArgOVEs);
+  return ::CheckMacroArgumentEvaluation(*this, Stmts, ArgOVEs);
+}
+
+bool Sema::EvaluateMacroExpansion(Expr *Fn, FunctionDecl *Macro,
+                                  SourceLocation LParenLoc,
+                                  ArrayRef<Expr *> Args,
+                                  SourceLocation RParenLoc,
+                                  CallExpr::ADLCallKind UsesADL,
+                                  TokenSequenceData &Expansion,
+                                  bool *Deferred) {
+  if (Deferred)
+    *Deferred = false;
+  // Every kind of macro invocation (expression, member, operator,
+  // declaration, mem-initializer) comes through here before its body runs,
+  // and its expansion is parsed inside a MacroExpansionDepthRAII. Checking
+  // here bounds recursion however it arises.
+  if (MacroExpansionDepth >= getLangOpts().MacroExpansionDepth) {
+    Diag(LParenLoc, diag::err_macro_expansion_depth_exceeded)
+        << Macro << getLangOpts().MacroExpansionDepth;
+    // No location: the error already shows the (elided) expansion stack.
+    Diag(SourceLocation(), diag::note_macro_expansion_depth);
+    MacroExpansionDepthExceeded = true;
+    return true;
+  }
+
+  // The invocation never becomes a call to the (consteval) macro, so the
+  // reference to it must not be reported as an escaped immediate function.
+  if (auto *DRE = dyn_cast<DeclRefExpr>(Fn->IgnoreParenImpCasts()))
+    ExprEvalContexts.back().ReferenceToConsteval.erase(DRE);
+
+  // Bind the arguments to the parameters as for a call: this applies the
+  // conversions the parameter types ask for and checks the arguments.
+  const auto *Proto = Macro->getType()->castAs<FunctionProtoType>();
+  CallExpr *TheCall = CallExpr::Create(
+      Context, Fn, Args, Context.TokenSequenceTy, VK_PRValue, RParenLoc,
+      CurFPFeatureOverrides(), Proto->getNumParams(), UsesADL);
+  if (ConvertArgumentsForCall(TheCall, Fn, Macro, Proto, Args, RParenLoc))
+    return true;
+
+  if (!Macro->getBody() && Macro->getTemplateInstantiationPattern())
+    InstantiateFunctionDefinition(LParenLoc, Macro, /*Recursive=*/true,
+                                  /*DefinitionRequired=*/true);
+  if (Macro->isInvalidDecl())
+    return true;
+  if (!Macro->getBody()) {
+    Diag(LParenLoc, diag::err_macro_undefined) << Macro;
+    Diag(Macro->getLocation(), diag::note_declared_at);
+    return true;
+  }
+
+  SmallVector<APValue, 4> ParamValues;
+  for (unsigned I = 0, N = Macro->getNumParams(); I != N; ++I) {
+    Expr *Arg = TheCall->getArg(I);
+    if (isRawMacroParameter(Macro->getParamDecl(I))) {
+      Expr::EvalResult ER;
+      SmallVector<PartialDiagnosticAt, 4> Notes;
+      ER.Diag = &Notes;
+      if (!Arg->EvaluateAsRValue(ER, Context, /*InConstantContext=*/true) ||
+          !ER.Val.isTokenSequence()) {
+        Diag(Arg->getExprLoc(), diag::err_macro_token_argument_not_constant);
+        for (const PartialDiagnosticAt &PD : Notes)
+          Diag(PD.first, PD.second);
+        return true;
+      }
+      ParamValues.push_back(ER.Val);
+      continue;
+    }
+    // A reference parameter binds the argument expression itself; no
+    // temporary object exists for a macro parameter.
+    if (auto *MTE = dyn_cast<MaterializeTemporaryExpr>(Arg))
+      Arg = MTE->getSubExpr();
+    ParamValues.push_back(APValue(ReflectionKind::Expression, Arg));
+  }
+
+  APValue Result;
+  SmallVector<PartialDiagnosticAt, 8> Notes;
+  // The macro conceptually expands at the invocation, so
+  // macro_expansion_context() in its body must describe where the expansion
+  // lands, not where the macro was defined. Walk out of contexts that are not
+  // nameable entities (blocks, linkage specs, ...) to the enclosing function,
+  // class, or namespace.
+  Decl *InvocationContext = nullptr;
+  for (DeclContext *DC = CurContext; DC; DC = DC->getParent())
+    if (isa<FunctionDecl, CXXRecordDecl, NamespaceDecl, TranslationUnitDecl>(
+            DC)) {
+      InvocationContext = cast<Decl>(DC);
+      break;
+    }
+  if (!Expr::EvaluateMacroBody(Macro, ParamValues, Result, Context, Notes,
+                               InvocationContext) ||
+      !Result.isTokenSequence()) {
+    // std::meta::expand_at_instantiation() in a templated context: the
+    // expansion waits for instantiation, where the macro is evaluated again.
+    bool WaitsForInstantiation =
+        llvm::any_of(Notes, [](const PartialDiagnosticAt &PD) {
+          return PD.second.getDiagID() == diag::metafn_expand_at_instantiation;
+        });
+    if (WaitsForInstantiation) {
+      if (Deferred) {
+        *Deferred = true;
+        return true;
+      }
+      Diag(LParenLoc, diag::err_macro_expand_at_instantiation_unsupported)
+          << Macro;
+      return true;
+    }
+    // A std::constexpr_error_str in the body is the macro explicitly
+    // declining to produce an expansion, not a bug in it.
+    bool Explicit = llvm::any_of(Notes, [](const PartialDiagnosticAt &PD) {
+      return PD.second.getDiagID() == diag::note_constexpr_message ||
+             PD.second.getDiagID() == diag::note_constexpr_message_tag;
+    });
+    Diag(LParenLoc, Explicit ? diag::err_macro_reported_error
+                             : diag::err_macro_evaluation_failed)
+        << Macro;
+    for (const PartialDiagnosticAt &PD : Notes)
+      Diag(PD.first, PD.second);
+    return true;
+  }
+  Expansion = Result.getTokenSequence();
+  return false;
+}
+
+ExprResult Sema::BuildExpressionMacroExpansion(
+    Expr *Fn, FunctionDecl *Macro, SourceLocation LParenLoc,
+    ArrayRef<Expr *> Args, SourceLocation RParenLoc,
+    CallExpr::ADLCallKind UsesADL, llvm::function_ref<ExprResult()> Defer) {
+  TokenSequenceData Expansion;
+  bool Deferred = false;
+  if (EvaluateMacroExpansion(Fn, Macro, LParenLoc, Args, RParenLoc, UsesADL,
+                             Expansion, Defer ? &Deferred : nullptr))
+    return Deferred ? Defer() : ExprError();
+
+  // Interpolated argument expressions were materialized as bare opaque
+  // values; remember them for the evaluate-once check below.
+  SmallVector<OpaqueValueExpr *, 4> ArgOVEs;
+  collectInterpolatedArguments(Expansion, ArgOVEs);
+
+  assert(CanParseExpressionMacroExpansion() && "no parser to expand into");
+  // The invocation, name through closing bracket: what the expansion's
+  // tokens are located as expanded at. (The name is Fn's expression
+  // location for a qualified or member callee too.)
+  ExprResult Parsed = ParseExpressionMacroExpansionFromParserBridge(
+      Expansion, SourceRange(Fn->getExprLoc(), RParenLoc));
+  // Once the depth limit has been hit inside this expansion, every enclosing
+  // level would attach this note to that (fatal) error as the recursion
+  // unwinds -- one per level. The error already shows the expansion stack.
+  if ((Parsed.isInvalid() || Parsed.get()->containsErrors()) &&
+      !MacroExpansionDepthExceeded) {
+    Diag(LParenLoc, diag::note_macro_expanded_here) << Macro;
+    // A parse error, reported by the parser, did not show the instantiation
+    // context; the note (being a note) does not either.
+    PrintContextStack();
+  }
+  if (Parsed.isInvalid())
+    return ExprError();
+  if (::CheckMacroArgumentEvaluation(*this, {Parsed.get()}, ArgOVEs))
+    return ExprError();
+  return Parsed;
+}
+
 ExprResult Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
                                        SourceLocation LParenLoc,
                                        ArrayRef<Expr *> Args,
@@ -7127,6 +8406,32 @@ ExprResult Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
     if (DeferParent->Contains(*CurScope) &&
         (!Block || !DeferParent->Contains(*Block)))
       Diag(Fn->getExprLoc(), diag::err_defer_invalid_sjlj) << FDecl;
+  }
+
+  // Intercept calls to certain std::meta functions that are declared as
+  // consteval functions but implemented as compiler builtins.
+  if (auto Handler = getInterceptedMetaFn(FDecl)) {
+    // Because we intercept this call, remove it from undefined tracking.
+    UndefinedButUsed.erase(FDecl->getCanonicalDecl());
+    SourceLocation KwLoc = Fn->getBeginLoc();
+    return (this->*Handler)(KwLoc, LParenLoc, Args, RParenLoc);
+  }
+
+  // An expression macro never produces a call: its body runs now and the
+  // token sequence it returns is parsed in place of the invocation.
+  if (isExpressionMacro(FDecl)) {
+    if (FDecl->isOverloadedOperator())
+      Diag(Fn->getExprLoc(), diag::err_operator_macro_requires_operator)
+          << FDecl->getDeclName();
+    else
+      Diag(Fn->getExprLoc(), diag::err_macro_requires_invocation)
+          << FDecl->getDeclName()
+          << (FDecl->getDeclName().getAsString() + "!(...)");
+    // This was never a call, so don't also report the reference as an
+    // escaped immediate function.
+    if (auto *DRE = dyn_cast<DeclRefExpr>(Fn->IgnoreParenImpCasts()))
+      ExprEvalContexts.back().ReferenceToConsteval.erase(DRE);
+    return ExprError();
   }
 
   // Functions with 'interrupt' attribute cannot be called directly.
@@ -11559,6 +12864,14 @@ QualType Sema::CheckAdditionOperands(ExprResult &LHS, ExprResult &RHS,
                                      QualType* CompLHSTy) {
   checkArithmeticNull(*this, LHS, RHS, Loc, /*IsCompare=*/false);
 
+  // Token sequence concatenation: token_sequence + token_sequence.
+  if (LHS.get()->getType()->isTokenSequenceType() &&
+      RHS.get()->getType()->isTokenSequenceType()) {
+    if (CompLHSTy)
+      *CompLHSTy = Context.TokenSequenceTy;
+    return Context.TokenSequenceTy;
+  }
+
   if (LHS.get()->getType()->isVectorType() ||
       RHS.get()->getType()->isVectorType()) {
     QualType compType =
@@ -13319,6 +14632,14 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
   // Reflection equality.
   if (LHSType->isReflectionType() && RHSType->isReflectionType()) {
     // Only == and != are defined for meta::info values.
+    if (!BinaryOperator::isEqualityOp(Opc))
+      return InvalidOperands(Loc, LHS, RHS);
+    return computeResultTy();
+  }
+
+  // Token sequence equality.
+  if (LHSType->isTokenSequenceType() && RHSType->isTokenSequenceType()) {
+    // Only == and != are defined for token_sequence values.
     if (!BinaryOperator::isEqualityOp(Opc))
       return InvalidOperands(Loc, LHS, RHS);
     return computeResultTy();
@@ -19230,6 +20551,12 @@ HandleImmediateInvocations(Sema &SemaRef,
   for (auto *E : CurRec.ConstevalOnly) {
     if (E->isImmediateEscalating())
       continue;
+    // A reference to a macro is not a use of its consteval-only function type:
+    // the macro is expanded, never called.
+    if (auto *DRE = dyn_cast<DeclRefExpr>(E->IgnoreImplicit()))
+      if (auto *FD = dyn_cast<FunctionDecl>(DRE->getDecl());
+          FD && Sema::IsExpressionMacro(FD))
+        continue;
     if (SemaRef.getLangOpts().CPlusPlus26 &&
         !hasImmediateValue(E, SemaRef.Context))
       continue;

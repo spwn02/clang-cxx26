@@ -18,6 +18,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
+#include "clang/Basic/DiagnosticSerialization.h"
 #include "clang/Serialization/ASTReader.h"
 #include "clang/Serialization/ASTRecordWriter.h"
 #include "llvm/Bitstream/BitstreamWriter.h"
@@ -496,10 +497,31 @@ void ASTStmtWriter::VisitCXXReflectExpr(CXXReflectExpr *E) {
   if (E->hasDependentSubExpr()) {
     Record.AddStmt(E->getDependentSubExpr());
   } else {
+    // FIXME: Identifier reflections currently round-trip through PCH/modules
+    // as a Null reflection (see PropertiesBase.td). Implement proper
+    // serialization when this becomes load-bearing.
     Record.AddAPValue(E->getReflection());
     Record.AddSourceRange(E->getOperandRange());
   }
   Code = serialization::EXPR_REFLECT;
+}
+
+void ASTStmtWriter::VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
+  VisitExpr(E);
+  Record.writeUInt32(E->getNumInterpolationExprs());
+  Record.AddSourceLocation(E->getOperatorLoc());
+  // FIXME: Token sequences currently round-trip through PCH/modules as an
+  // empty token sequence (see PropertiesBase.td). Implement proper Token array
+  // serialization when this becomes load-bearing (#387).
+  if (E->getValue().isTokenSequence() &&
+      !E->getValue().getTokenSequence().empty())
+    Record.getASTContext().getDiagnostics().Report(E->getBeginLoc(),
+                                   diag::warn_token_sequence_not_serialized);
+  Record.AddAPValue(E->getValue());
+  for (Stmt *S : E->children())
+    Record.AddStmt(S);
+  Record.AddSourceRange(E->getOperandRange());
+  Code = serialization::EXPR_TOKEN_SEQUENCE;
 }
 
 void ASTStmtWriter::VisitCXXMetafunctionExpr(CXXMetafunctionExpr *E) {
@@ -516,6 +538,105 @@ void ASTStmtWriter::VisitCXXMetafunctionExpr(CXXMetafunctionExpr *E) {
   }
 
   Code = serialization::EXPR_METAFUNCTION;
+}
+
+void ASTStmtWriter::VisitCXXBuiltinInjectExpr(CXXBuiltinInjectExpr *E) {
+  VisitExpr(E);
+  Record.AddSourceLocation(E->getKwLoc());
+  Record.AddSourceLocation(E->getLParenLoc());
+  Record.AddSourceLocation(E->getRParenLoc());
+  Record.push_back(E->hasTargetNS());
+  Record.AddStmt(E->getOperand());
+  if (E->hasTargetNS())
+    Record.AddStmt(E->getTargetNS());
+  Code = serialization::EXPR_BUILTIN_INJECT;
+}
+
+void ASTStmtWriter::VisitCXXTokenInterpolationListExpr(
+    CXXTokenInterpolationListExpr *E) {
+  llvm_unreachable("token interpolation lists are not serialized");
+}
+
+void ASTStmtWriter::VisitCXXBuiltinReportTokensExpr(
+    CXXBuiltinReportTokensExpr *E) {
+  VisitExpr(E);
+  Record.AddSourceLocation(E->getKwLoc());
+  Record.AddSourceLocation(E->getLParenLoc());
+  Record.AddSourceLocation(E->getRParenLoc());
+  Record.AddStmt(E->getMessage());
+  Record.AddStmt(E->getMsgSizeCall());
+  Record.AddStmt(E->getMsgDataCall());
+  Record.AddStmt(E->getOperand());
+  Code = serialization::EXPR_BUILTIN_REPORT_TOKENS;
+}
+
+void ASTStmtWriter::VisitCXXBuiltinIdExpr(CXXBuiltinIdExpr *E) {
+  VisitExpr(E);
+  Record.push_back(E->getNumArgs());
+  Record.AddSourceLocation(E->getKwLoc());
+  Record.AddSourceLocation(E->getLParenLoc());
+  Record.AddSourceLocation(E->getRParenLoc());
+  // Per arg: original, then nullable (size, data) calls.
+  for (unsigned I = 0; I < E->getNumArgs(); ++I) {
+    Record.AddStmt(E->getArg(I));
+    Record.AddStmt(E->getSizeCall(I));
+    Record.AddStmt(E->getDataCall(I));
+  }
+  Code = serialization::EXPR_BUILTIN_ID;
+}
+
+void ASTStmtWriter::VisitCXXBuiltinStrLiteralExpr(CXXBuiltinStrLiteralExpr *E) {
+  VisitExpr(E);
+  Record.push_back(E->getNumArgs());
+  Record.AddSourceLocation(E->getKwLoc());
+  Record.AddSourceLocation(E->getLParenLoc());
+  Record.AddSourceLocation(E->getRParenLoc());
+  for (unsigned I = 0; I < E->getNumArgs(); ++I) {
+    Record.AddStmt(E->getArg(I));
+    Record.AddStmt(E->getSizeCall(I));
+    Record.AddStmt(E->getDataCall(I));
+  }
+  Code = serialization::EXPR_BUILTIN_STR_LITERAL;
+}
+
+void ASTStmtWriter::VisitCXXBuiltinTokenizeExpr(CXXBuiltinTokenizeExpr *E) {
+  VisitExpr(E);
+  Record.push_back(E->getNumArgs());
+  Record.AddSourceLocation(E->getKwLoc());
+  Record.AddSourceLocation(E->getLParenLoc());
+  Record.AddSourceLocation(E->getRParenLoc());
+  for (unsigned I = 0; I < E->getNumArgs(); ++I) {
+    Record.AddStmt(E->getArg(I));
+    Record.AddStmt(E->getSizeCall(I));
+    Record.AddStmt(E->getDataCall(I));
+  }
+  Code = serialization::EXPR_BUILTIN_TOKENIZE;
+}
+
+void ASTStmtWriter::VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
+  VisitExpr(E);
+  Record.push_back(E->getNumArgs());
+  Record.push_back(E->isArrow());
+  Record.push_back(E->areArgsUnparsed());
+  Record.AddDeclarationNameInfo(E->getMemberNameInfo());
+  Record.AddSourceLocation(E->getOperatorLoc());
+  Record.AddSourceLocation(E->getExclaimLoc());
+  Record.AddSourceLocation(E->getLParenLoc());
+  Record.AddSourceLocation(E->getRParenLoc());
+  Record.AddStmt(E->getCallee());
+  Record.AddStmt(E->getBase());
+  for (Expr *Arg : E->getArgs())
+    Record.AddStmt(Arg);
+  Code = serialization::EXPR_MACRO_INVOCATION;
+}
+
+void ASTStmtWriter::VisitCXXBuiltinStringizeExpr(CXXBuiltinStringizeExpr *E) {
+  VisitExpr(E);
+  Record.AddSourceLocation(E->getKwLoc());
+  Record.AddSourceLocation(E->getLParenLoc());
+  Record.AddSourceLocation(E->getRParenLoc());
+  Record.AddStmt(E->getOperand());
+  Code = serialization::EXPR_BUILTIN_STRINGIZE;
 }
 
 void ASTStmtWriter::VisitCXXSpliceExpr(CXXSpliceExpr *E) {

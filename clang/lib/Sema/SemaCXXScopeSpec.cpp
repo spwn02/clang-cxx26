@@ -547,7 +547,8 @@ bool Sema::BuildCXXNestedNameSpecifier(Scope *S, NestedNameSpecInfo &IdInfo,
   if (Found.empty() && isDependent &&
       !(LookupCtx && LookupCtx->isRecord() &&
         (!cast<CXXRecordDecl>(LookupCtx)->hasDefinition() ||
-         !cast<CXXRecordDecl>(LookupCtx)->hasAnyDependentBases()))) {
+         !mayHaveMembersFromInstantiation(
+             cast<CXXRecordDecl>(LookupCtx))))) {
     // Don't speculate if we're just trying to improve error recovery.
     if (ErrorRecoveryLookup)
       return true;
@@ -942,6 +943,31 @@ bool Sema::ActOnCXXNestedNameSpecifierIndexedPack(CXXScopeSpec &SS,
   PackIndexingTypeLoc PIT = TLB.push<PackIndexingTypeLoc>(Type);
   PIT.setEllipsisLoc(DS.getEllipsisLoc());
   SS.Make(Context, TLB.getTypeLocInContext(Context, Type), ColonColonLoc);
+  return false;
+}
+
+bool Sema::ActOnCXXNestedNameSpecifierTypeAnnotation(
+    CXXScopeSpec &SS, ParsedType Type, SourceLocation TypeNameLoc,
+    SourceLocation ColonColonLoc) {
+  if (SS.isInvalid())
+    return true;
+
+  TypeSourceInfo *TSI = nullptr;
+  QualType T = GetTypeFromParser(Type, &TSI);
+  if (T.isNull())
+    return true;
+
+  if (!T->isDependentType() && !isa<TagType>(T.getCanonicalType())) {
+    Diag(TypeNameLoc, diag::err_expected_class_or_namespace)
+        << T << getLangOpts().CPlusPlus;
+    return true;
+  }
+
+  assert(SS.isEmpty());
+
+  if (!TSI)
+    TSI = Context.getTrivialTypeSourceInfo(T, TypeNameLoc);
+  SS.Make(Context, TSI->getTypeLoc(), ColonColonLoc);
   return false;
 }
 

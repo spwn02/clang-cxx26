@@ -10272,6 +10272,78 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
                                               isVirtualOkay);
   if (!NewFD) return nullptr;
 
+  if (D.getDeclSpec().isMacroSpecified()) {
+    SourceLocation MacroLoc = D.getDeclSpec().getMacroSpecLoc();
+    NewFD->addAttr(ExpressionMacroAttr::CreateImplicit(Context, MacroLoc));
+    // A member macro is reached through an object expression, which binds to
+    // an explicit object parameter; there is no implicit 'this' to bind.
+    if (DC->isRecord() && !D.isStaticMember() &&
+        !D.isExplicitObjectMemberFunction()) {
+      Diag(MacroLoc, diag::err_macro_member);
+      NewFD->setInvalidDecl();
+    }
+    if (D.getDeclSpec().isVirtualSpecified()) {
+      Diag(MacroLoc, diag::err_macro_virtual);
+      NewFD->setInvalidDecl();
+    }
+    // Operators whose operands are not expressions of the operator expression
+    // (or that are not invoked through an expression at all).
+    int BadOperatorKind = -1;
+    switch (D.getName().getKind()) {
+    case UnqualifiedIdKind::IK_ConversionFunctionId:
+      BadOperatorKind = 0;
+      break;
+    case UnqualifiedIdKind::IK_LiteralOperatorId:
+      BadOperatorKind = 1;
+      break;
+    case UnqualifiedIdKind::IK_OperatorFunctionId:
+      switch (D.getName().OperatorFunctionId.Operator) {
+      case OO_New:
+      case OO_Delete:
+      case OO_Array_New:
+      case OO_Array_Delete:
+        BadOperatorKind = 2;
+        break;
+      case OO_Coawait:
+        BadOperatorKind = 3;
+        break;
+      default:
+        break;
+      }
+      break;
+    default:
+      break;
+    }
+    if (BadOperatorKind >= 0) {
+      Diag(MacroLoc, diag::err_macro_operator_kind) << BadOperatorKind;
+      NewFD->setInvalidDecl();
+    }
+    if (D.isFunctionDeclarator()) {
+      const DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
+      bool IsOperator =
+          D.getName().getKind() == UnqualifiedIdKind::IK_OperatorFunctionId;
+      for (unsigned I = 0; I != FTI.NumParams; ++I) {
+        auto *P = dyn_cast_or_null<ParmVarDecl>(FTI.Params[I].Param);
+        if (!P)
+          continue;
+        // Operator syntax supplies expression operands only.
+        if (IsOperator && (P->isMacroRawPack() ||
+                           P->getType()
+                               .getNonReferenceType()
+                               .getUnqualifiedType()
+                               ->isTokenSequenceType())) {
+          Diag(P->getLocation(), diag::err_macro_operator_raw_parameter);
+          NewFD->setInvalidDecl();
+        }
+        // A raw pack takes the remaining arguments, so it comes last.
+        if (P->isMacroRawPack() && I + 1 != FTI.NumParams) {
+          Diag(P->getLocation(), diag::err_macro_raw_pack_not_last);
+          NewFD->setInvalidDecl();
+        }
+      }
+    }
+  }
+
   if (OriginalLexicalContext && OriginalLexicalContext->isObjCContainer())
     NewFD->setTopLevelDeclInObjCContainer();
 

@@ -2572,11 +2572,11 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
 
   // If we're performing qualified name lookup into a dependent class,
   // then we are actually looking into a current instantiation. If we have any
-  // dependent base classes, then we either have to delay lookup until
-  // template instantiation time (at which point all bases will be available)
-  // or we have to fail.
+  // dependent base classes -- or members injected only per specialization --
+  // then we either have to delay lookup until template instantiation time (at
+  // which point all bases and members will be available) or we have to fail.
   if (!InUnqualifiedLookup && LookupRec->isDependentContext() &&
-      LookupRec->hasAnyDependentBases()) {
+      mayHaveMembersFromInstantiation(LookupRec)) {
     R.setNotFoundInCurrentInstantiation();
     return false;
   }
@@ -3344,7 +3344,7 @@ addAssociatedClassesAndNamespaces(AssociatedLookup &Result, QualType Ty) {
     T = Queue.pop_back_val();
   }
 
-  if (T->isReflectionType()) {
+  if (T->isReflectionType() || T->isTokenSequenceType()) {
     NamespaceDecl *StdMeta = Result.S.lookupStdMetaNamespace();
     if (StdMeta) {
       Result.Namespaces.insert(StdMeta);

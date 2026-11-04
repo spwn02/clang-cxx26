@@ -6491,6 +6491,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_ftemplate_depth_EQ);
   Args.AddLastArg(CmdArgs, options::OPT_foperator_arrow_depth_EQ);
   Args.AddLastArg(CmdArgs, options::OPT_fconstexpr_depth_EQ);
+  Args.AddLastArg(CmdArgs, options::OPT_fmacro_expansion_depth_EQ);
   Args.AddLastArg(CmdArgs, options::OPT_fconstexpr_steps_EQ);
 
   // The frontend predefines the [cpp.predefined] __STDCPP_FLOAT<N>_T__ macros
