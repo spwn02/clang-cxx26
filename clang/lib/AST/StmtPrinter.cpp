@@ -1486,6 +1486,12 @@ static bool printExprAsWritten(raw_ostream &OS, Expr *E,
 void StmtPrinter::VisitIntegerLiteral(IntegerLiteral *Node) {
   if (Policy.ConstantsAsWritten && printExprAsWritten(OS, Node, Context))
     return;
+  // A bool-typed constant made by the compiler (a macro's or metafunction's
+  // result).
+  if (Node->getType()->isBooleanType()) {
+    OS << (Node->getValue() == 0 ? "false" : "true");
+    return;
+  }
   bool isSigned = Node->getType()->isSignedIntegerType();
   OS << toString(Node->getValue(), 10, isSigned);
 

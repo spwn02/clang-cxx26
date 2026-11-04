@@ -111,6 +111,14 @@ TEST_F(ExtractVariableTest, Test) {
   )cpp";
   EXPECT_UNAVAILABLE(NoCrashCases);
 
+  // A user-defined postfix operator has two arguments, but is not a binary
+  // operator (selecting it used to hit an unreachable); extracting it is fine.
+  const char *PostfixOperator = R"cpp(
+    struct S { S operator++(int); };
+    void f(S s) { [[s++]]; }
+  )cpp";
+  EXPECT_AVAILABLE(PostfixOperator);
+
   const char *UnavailableCases = R"cpp(
     int xyz(int a = [[1]]) {
       struct T {

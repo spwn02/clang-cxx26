@@ -1434,6 +1434,21 @@ bool CursorVisitor::VisitNestedNameSpecifierLoc(
   }
   case NestedNameSpecifier::Kind::Type:
     return Visit(Qualifier.castAsTypeLoc());
+  case NestedNameSpecifier::Kind::Splice:
+  case NestedNameSpecifier::Kind::SpliceWithTemplate: {
+    // '[:expr:]::' : the splice operand is an expression like any other.
+    const SpliceSpecifier *Splice = NNS.getAsSplice();
+    if (Splice->getOperand() &&
+        Visit(MakeCXCursor(Splice->getOperand(), StmtParent, TU,
+                           RegionOfInterest)))
+      return true;
+    if (Splice->isSpecialization())
+      for (const TemplateArgumentLoc &Arg :
+           Splice->getTemplateArgs()->arguments())
+        if (VisitTemplateArgumentLoc(Arg))
+          return true;
+    return false;
+  }
   case NestedNameSpecifier::Kind::Null:
   case NestedNameSpecifier::Kind::Global:
   case NestedNameSpecifier::Kind::MicrosoftSuper:

@@ -91,6 +91,10 @@ private:
   // nested template parts by balancing curly braces.
   void handleTemplateStrings();
 
+  /// A token sequence literal '^^{ ... }' (P4380) is kept as written: it is a
+  /// single token to the formatter, since its whitespace is part of its value.
+  void handleTokenSequenceLiteral();
+
   void handleCSharpVerbatimAndInterpolatedStrings();
 
   // Handles TableGen multiline strings. It has the form [{ ... }].

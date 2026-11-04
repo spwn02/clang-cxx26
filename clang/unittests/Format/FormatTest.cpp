@@ -29166,3 +29166,34 @@ TEST_F(FormatTest, UnbalancedAngleBrackets) {
 } // namespace test
 } // namespace format
 } // namespace clang
+
+namespace clang {
+namespace format {
+namespace test {
+namespace {
+
+// P4380: token sequence literals and expression macro invocations.
+TEST_F(FormatTest, TokenSequenceLiteralsAreKeptAsWritten) {
+  // A literal is one token: its spacing is part of its value. (verifyNoChange:
+  // verifyFormat would first mess up the whitespace between '^^' and '{'.)
+  verifyNoChange("auto t = ^^{ int x=\\(n)+1; return   x; };");
+  verifyNoChange("auto t = ^^{ a b { c } \"str { }\" '}' /* } */ d };");
+  verifyNoChange("auto t = ^^{ int\n  x = \\(n);\n};");
+  // Code around it is still formatted.
+  verifyFormat("auto f(int n) {\n  auto t = ^^{ x   +   y };\n  return t;\n}",
+               "auto f(int n){auto t = ^^{ x   +   y };return t;}");
+  // Two carets that are not a literal are ordinary operators.
+  verifyFormat("int a = b ^ ^c;");
+}
+
+TEST_F(FormatTest, ExpressionMacroInvocations) {
+  verifyFormat("int h() { return add!(1, 2) + add!{3, 4}; }");
+  verifyFormat("auto x = ns::f<int>!(a, b);");
+  verifyFormat("bool b = a != !c;");
+  verifyFormat("bool b = !c;");
+}
+
+} // namespace
+} // namespace test
+} // namespace format
+} // namespace clang
