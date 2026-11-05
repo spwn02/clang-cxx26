@@ -2473,8 +2473,8 @@ CXXMacroInvocationExpr::CXXMacroInvocationExpr(
   assert((Callee != nullptr) != (Base != nullptr) &&
          "either a looked-up callee or an object expression");
   SubExprs[0] = Callee;
-  SubExprs[1] = Base;
-  SubExprs[2] = nullptr;
+  SubExprs[1] = nullptr;
+  SubExprs[2] = Base;
   for (unsigned I = 0; I != NumArgs; ++I)
     SubExprs[I + 3] = Args[I];
   setDependence(computeDependence(this));
@@ -2488,7 +2488,7 @@ CXXMacroInvocationExpr::CXXMacroInvocationExpr(ASTContext &C, EmptyShell Empty,
 }
 
 void CXXMacroInvocationExpr::setExpansion(Expr *Expansion) {
-  SubExprs[2] = Expansion;
+  SubExprs[1] = Expansion;
   if (!Expansion)
     return;
   setType(Expansion->getType());

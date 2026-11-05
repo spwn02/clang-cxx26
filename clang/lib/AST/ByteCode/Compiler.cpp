@@ -2198,6 +2198,14 @@ bool Compiler<Emitter>::VisitSubstNonTypeTemplateParmExpr(
 }
 
 template <class Emitter>
+bool Compiler<Emitter>::VisitCXXMacroInvocationExpr(
+    const CXXMacroInvocationExpr *E) {
+  if (!E->isResolved())
+    return false;
+  return this->delegate(E->getExpansion());
+}
+
+template <class Emitter>
 bool Compiler<Emitter>::VisitConstantExpr(const ConstantExpr *E) {
   OptPrimType T = classify(E->getType());
   if (T && E->hasAPValueResult()) {

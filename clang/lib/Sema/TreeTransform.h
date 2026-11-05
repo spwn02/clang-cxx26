@@ -9459,9 +9459,36 @@ template <typename Derived>
 ExprResult TreeTransform<Derived>::TransformCXXMacroInvocationExpr(
     CXXMacroInvocationExpr *E) {
   // A resolved invocation was expanded when it was written: only its
-  // expansion is transformed.
-  if (E->isResolved())
-    return getDerived().TransformExpr(E->getExpansion());
+  // expansion is transformed, and kept inside the same record of the
+  // invocation (so that, for one that expanded to nothing, an empty
+  // expression is not left in the statements).
+  if (E->isResolved()) {
+    // (An expansion that does not depend on the template, such as the empty
+    // one of a statement-position invocation, is shared as it is.)
+    if (!E->getExpansion()->isInstantiationDependent())
+      return E;
+    ExprResult Expansion = getDerived().TransformExpr(E->getExpansion());
+    if (Expansion.isInvalid())
+      return ExprError();
+    if (!getDerived().AlwaysRebuild() && Expansion.get() == E->getExpansion())
+      return E;
+    ASTContext &Ctx = SemaRef.Context;
+    CXXMacroInvocationExpr *New;
+    if (E->isMemberInvocation()) {
+      New = CXXMacroInvocationExpr::CreateMember(
+          Ctx, E->getBase(), E->isArrow(), E->getOperatorLoc(),
+          E->getMemberNameInfo(), E->getArgs(), E->getExclaimLoc(),
+          E->getLParenLoc(), E->getRParenLoc());
+      New->setCallee(E->getCallee());
+    } else {
+      New = CXXMacroInvocationExpr::Create(Ctx, E->getCallee(), E->getArgs(),
+                                           E->getExclaimLoc(),
+                                           E->getLParenLoc(),
+                                           E->getRParenLoc());
+    }
+    New->setExpansion(Expansion.get());
+    return New;
+  }
 
   // The explicit template arguments of 'name!<Args>(...)', if any: the
   // callee's, or the member invocation's own.

@@ -3337,6 +3337,14 @@ void ExprEngine::VisitCommonDeclRefExpr(const Expr *Ex, const NamedDecl *D,
   };
 
   if (const auto *VD = dyn_cast<VarDecl>(D)) {
+    // The parameter of an expression macro, used in a token literal, stands
+    // for a reflection of the argument expression: a prvalue of another type
+    // than the parameter, with no object to look up.
+    if (!Ex->isGLValue() && !VD->getType()->isVoidType() &&
+        Ex->getType() != VD->getType()) {
+      Bldr.generateNode(Ex, Pred, state->BindExpr(Ex, LCtx, UnknownVal()));
+      return;
+    }
     // C permits "extern void v", and if you cast the address to a valid type,
     // you can even do things with it. We simply pretend
     assert(Ex->isGLValue() || VD->getType()->isVoidType());

@@ -770,9 +770,10 @@ Parser::DeclGroupPtrTy Parser::ParseDeclMacroInvocation(AccessSpecifier AS,
   ExpectAndConsumeSemi(diag::err_expected_semi_declaration);
 
   TokenSequenceData Expansion;
+  Decl *Marker = nullptr;
   if (Actions.ActOnDeclMacroInvocation(
           getCurScope(), SS, II, NameLoc, ExclaimLoc, T.getOpenLocation(), Args,
-          T.getCloseLocation(), AS, Expansion, ShapeUnknown,
+          T.getCloseLocation(), AS, Expansion, Marker, ShapeUnknown,
           TemplateArgs ? &*TemplateArgs : nullptr))
     return nullptr;
 
@@ -795,6 +796,10 @@ Parser::DeclGroupPtrTy Parser::ParseDeclMacroInvocation(AccessSpecifier AS,
   ConsumeAnyToken();
 
   SmallVector<Decl *, 4> Decls;
+  // (At namespace scope the record is a top-level declaration; in a class it
+  // is already a member.)
+  if (Marker && !Actions.CurContext->isRecord())
+    Decls.push_back(Marker);
   Sema::MacroExpansionDepthRAII Depth(Actions);
   Actions.runWithSufficientStackSpace(NameLoc, [&] {
     if (Actions.CurContext->isRecord()) {
@@ -1048,9 +1053,11 @@ StmtResult Parser::ParseStmtMacroInvocation(ParsedStmtContext StmtCtx) {
 
   TokenSequenceData Expansion;
   StmtResult Result;
+  Expr *Marker = nullptr;
   if (Actions.ActOnStmtMacroInvocation(
           getCurScope(), SS, II, NameLoc, ExclaimLoc, T.getOpenLocation(), Args,
-          T.getCloseLocation(), SemiLoc, Expansion, Result, ShapeUnknown,
+          T.getCloseLocation(), SemiLoc, Expansion, Result, Marker,
+          ShapeUnknown,
           TemplateArgs ? &*TemplateArgs : nullptr))
     return StmtError();
   // Deferred to instantiation (or not a statement macro after all): a single
@@ -1104,6 +1111,8 @@ StmtResult Parser::ParseStmtMacroInvocation(ParsedStmtContext StmtCtx) {
   SavedPendingInjected.swap(Actions.PendingInjectedStmts);
 
   StmtVector Stmts;
+  if (Marker)
+    Stmts.push_back(Marker);
   {
     Sema::MacroExpansionDepthRAII Depth(Actions);
     Actions.runWithSufficientStackSpace(NameLoc, [&] {

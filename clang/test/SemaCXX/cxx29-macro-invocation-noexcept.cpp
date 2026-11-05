@@ -29,3 +29,14 @@ void use() {
   // treated as having side effects.
   safe!(1);
 }
+
+// A statement-position invocation in a template leaves no empty expression
+// statement behind at instantiation.
+__macro let(std::meta::token_sequence name, int init) {
+  return ^^{ auto \(name) = \(init) };
+}
+template <int N> int d() {
+  let!(x, N * 2);
+  return x + 1;
+}
+int use_d() { return d<2>(); }

@@ -9829,6 +9829,14 @@ QualType Sema::BuildCountAttributedArrayOrPointerType(QualType WrappedTy,
 /// that expression, according to the rules in C++11
 /// [dcl.type.simple]p4 and C++11 [expr.lambda.prim]p18.
 QualType Sema::getDecltypeForExpr(Expr *E) {
+  // A resolved macro invocation is its expansion: decltype(m!()) is
+  // decltype of what the macro expanded to (an unparenthesized name stays an
+  // id-expression).
+  while (auto *MI = dyn_cast<CXXMacroInvocationExpr>(E)) {
+    if (!MI->isResolved())
+      break;
+    E = MI->getExpansion();
+  }
 
   Expr *IDExpr = E;
   // Strip implicit casts for decltype, but NOT derived-to-base casts which

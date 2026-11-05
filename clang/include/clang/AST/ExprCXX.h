@@ -6310,13 +6310,14 @@ class CXXMacroInvocationExpr : public Expr {
 
   /// The callee (an UnresolvedLookupExpr naming the macros found by ordinary
   /// lookup; null for a member invocation, whose lookup awaits the object
-  /// type), the object expression of a member invocation (null otherwise),
-  /// the expansion (null while the invocation is dependent), then the
+  /// type), the expansion (null while the invocation is dependent), the
+  /// object expression of a member invocation (null otherwise), then the
   /// arguments. Once resolved, the invocation stands for its expansion: it has
   /// the expansion's type, value kind and dependence, and its only children
-  /// are the callee and the expansion (the arguments are inside the expansion
-  /// as the values the macro was given), so traversals see each expression
-  /// once and tools see the macro that was invoked.
+  /// are the callee and the expansion (the arguments and the object
+  /// expression are inside the expansion as the values the macro was given),
+  /// so traversals see each expression once and tools see the macro that was
+  /// invoked.
   Stmt **SubExprs;
   unsigned NumArgs;
   bool IsArrow = false;
@@ -6373,19 +6374,19 @@ public:
   /// Resolve the invocation to \p Expansion: the invocation takes its type,
   /// value kind, object kind and dependence.
   void setExpansion(Expr *Expansion);
-  bool isResolved() const { return SubExprs[2] != nullptr; }
+  bool isResolved() const { return SubExprs[1] != nullptr; }
   /// The expression the macro expanded to; null while the invocation is
   /// dependent.
-  Expr *getExpansion() const { return cast_or_null<Expr>(SubExprs[2]); }
+  Expr *getExpansion() const { return cast_or_null<Expr>(SubExprs[1]); }
 
   UnresolvedLookupExpr *getCallee() const {
     return cast_or_null<UnresolvedLookupExpr>(SubExprs[0]);
   }
   void setCallee(UnresolvedLookupExpr *E) { SubExprs[0] = E; }
 
-  bool isMemberInvocation() const { return SubExprs[1] != nullptr; }
-  Expr *getBase() const { return cast_or_null<Expr>(SubExprs[1]); }
-  void setBase(Expr *E) { SubExprs[1] = E; }
+  bool isMemberInvocation() const { return SubExprs[2] != nullptr; }
+  Expr *getBase() const { return cast_or_null<Expr>(SubExprs[2]); }
+  void setBase(Expr *E) { SubExprs[2] = E; }
   bool isArrow() const { return IsArrow; }
   void setIsArrow(bool A) { IsArrow = A; }
   bool areArgsUnparsed() const { return ArgsUnparsed; }
@@ -6434,11 +6435,11 @@ public:
   SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
 
   child_range children() {
-    return child_range(SubExprs, SubExprs + (isResolved() ? 3 : 3 + NumArgs));
+    return child_range(SubExprs, SubExprs + (isResolved() ? 2 : 3 + NumArgs));
   }
   const_child_range children() const {
     return const_child_range(SubExprs,
-                             SubExprs + (isResolved() ? 3 : 3 + NumArgs));
+                             SubExprs + (isResolved() ? 2 : 3 + NumArgs));
   }
 
   static bool classof(const Stmt *T) {

@@ -105,5 +105,53 @@
   "label": "refs-macro-use",
   "pre": 300,
   "wait": 500
+ },
+ {
+  "line": 44,
+  "col": 36,
+  "request": "textDocument/hover",
+  "label": "hover-member",
+  "pre": 300,
+  "wait": 500
+ },
+ {
+  "line": 44,
+  "col": 36,
+  "request": "textDocument/definition",
+  "label": "def-member",
+  "pre": 300,
+  "wait": 500
+ },
+ {
+  "line": 46,
+  "col": 4,
+  "request": "textDocument/hover",
+  "label": "hover-stmt",
+  "pre": 300,
+  "wait": 500
+ },
+ {
+  "line": 46,
+  "col": 4,
+  "request": "textDocument/definition",
+  "label": "def-stmt",
+  "pre": 300,
+  "wait": 500
+ },
+ {
+  "line": 49,
+  "col": 0,
+  "request": "textDocument/hover",
+  "label": "hover-decl",
+  "pre": 300,
+  "wait": 500
+ },
+ {
+  "line": 49,
+  "col": 0,
+  "request": "textDocument/definition",
+  "label": "def-decl",
+  "pre": 300,
+  "wait": 500
  }
 ]

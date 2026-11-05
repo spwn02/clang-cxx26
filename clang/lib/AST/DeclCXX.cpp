@@ -3736,7 +3736,10 @@ ConstevalBlockDecl *ConstevalBlockDecl::CreateDeserialized(ASTContext &C,
 }
 
 CXXMacroInvocationExpr *ConstevalBlockDecl::getDeclMacroInvocation() const {
-  return dyn_cast_or_null<CXXMacroInvocationExpr>(EvaluatingExpr);
+  // (A resolved invocation is only the record of one that was expanded in
+  // place, not a deferred invocation.)
+  auto *E = dyn_cast_or_null<CXXMacroInvocationExpr>(EvaluatingExpr);
+  return E && !E->isResolved() ? E : nullptr;
 }
 
 VarDecl *ValueDecl::getPotentiallyDecomposedVarDecl() {

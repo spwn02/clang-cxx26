@@ -16562,6 +16562,14 @@ public:
                               const DeclarationNameInfo &NameInfo,
                               const UnresolvedSetImpl &Macros,
                               const TemplateArgumentListInfo *TemplateArgs);
+  /// The record of a resolved statement- or declaration-position invocation:
+  /// an invocation whose expansion is the empty expression '(void)0' (the
+  /// expansion itself is parsed in place), kept so that tools see the macro
+  /// that was invoked.
+  CXXMacroInvocationExpr *
+  BuildMacroInvocationMarker(UnresolvedLookupExpr *Callee, ArrayRef<Expr *> Args,
+                             SourceLocation ExclaimLoc,
+                             SourceLocation LParenLoc, SourceLocation RParenLoc);
   /// For 'name!<Args>(...)': diagnose (and return true) if \p R found no
   /// macro template.
   bool CheckMacroTemplateArgs(const LookupResult &R,
@@ -16774,7 +16782,7 @@ public:
       SourceLocation NameLoc, SourceLocation ExclaimLoc,
       SourceLocation LParenLoc, MultiExprArg Args, SourceLocation RParenLoc,
       SourceLocation SemiLoc, TokenSequenceData &Expansion, StmtResult &Result,
-      bool ArgsUnparsed,
+      Expr *&Marker, bool ArgsUnparsed,
       const TemplateArgumentListInfo *TemplateArgs = nullptr);
   /// The evaluate-once check of the arguments interpolated into
   /// \p Expansion, over the statements parsed from it. Returns true on
@@ -16794,7 +16802,8 @@ public:
       Scope *S, CXXScopeSpec &SS, const IdentifierInfo *II,
       SourceLocation NameLoc, SourceLocation ExclaimLoc,
       SourceLocation LParenLoc, MultiExprArg Args, SourceLocation RParenLoc,
-      AccessSpecifier AS, TokenSequenceData &Expansion, bool ArgsUnparsed,
+      AccessSpecifier AS, TokenSequenceData &Expansion, Decl *&Marker,
+      bool ArgsUnparsed,
       const TemplateArgumentListInfo *TemplateArgs = nullptr);
 
   /// Substitute into the callee and arguments of a macro invocation deferred

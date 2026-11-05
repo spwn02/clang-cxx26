@@ -7364,6 +7364,21 @@ bool Sema::LookupDeferredQualifiedMacro(
   return false;
 }
 
+CXXMacroInvocationExpr *Sema::BuildMacroInvocationMarker(
+    UnresolvedLookupExpr *Callee, ArrayRef<Expr *> Args,
+    SourceLocation ExclaimLoc, SourceLocation LParenLoc,
+    SourceLocation RParenLoc) {
+  auto *Invocation = CXXMacroInvocationExpr::Create(
+      Context, Callee, Args, ExclaimLoc, LParenLoc, RParenLoc);
+  Expr *Zero = IntegerLiteral::Create(Context, llvm::APInt(32, 0),
+                                      Context.IntTy, LParenLoc);
+  Invocation->setExpansion(
+      ImplicitCastExpr::Create(Context, Context.VoidTy, CK_ToVoid, Zero,
+                               /*BasePath=*/nullptr, VK_PRValue,
+                               FPOptionsOverride()));
+  return Invocation;
+}
+
 bool Sema::ParseDeferredMacroArguments(ArrayRef<MacroParamKind> RawParams,
                                        const CXXMacroInvocationExpr *E,
                                        SmallVectorImpl<Expr *> &PatternArgs) {
@@ -7613,8 +7628,9 @@ bool Sema::ActOnDeclMacroInvocation(
     Scope *S, CXXScopeSpec &SS, const IdentifierInfo *II,
     SourceLocation NameLoc, SourceLocation ExclaimLoc, SourceLocation LParenLoc,
     MultiExprArg Args, SourceLocation RParenLoc, AccessSpecifier AS,
-    TokenSequenceData &Expansion, bool ArgsUnparsed,
+    TokenSequenceData &Expansion, Decl *&Marker, bool ArgsUnparsed,
     const TemplateArgumentListInfo *TemplateArgs) {
+  Marker = nullptr;
   // Record a deferred invocation as a member of the pattern; each
   // specialization expands it in place, among the members that precede it.
   auto DeferInClass = [&](CXXMacroInvocationExpr *E) {
@@ -7674,8 +7690,17 @@ bool Sema::ActOnDeclMacroInvocation(
     return DeferInClass(CXXMacroInvocationExpr::Create(
         Context, ULE, Args, ExclaimLoc, LParenLoc, RParenLoc));
 
-  return EvaluateMacroInvocation(S, ULE, LParenLoc, Args, RParenLoc,
-                                 Expansion);
+  if (EvaluateMacroInvocation(S, ULE, LParenLoc, Args, RParenLoc, Expansion))
+    return true;
+  // Record the invocation ahead of the declarations it expands to, as a block
+  // that does nothing.
+  auto *D = ConstevalBlockDecl::Create(
+      Context, CurContext, NameLoc,
+      BuildMacroInvocationMarker(ULE, Args, ExclaimLoc, LParenLoc, RParenLoc));
+  D->setAccess(AS);
+  CurContext->addDecl(D);
+  Marker = D;
+  return false;
 }
 
 bool Sema::EvaluateMacroInvocation(Scope *S, UnresolvedLookupExpr *Callee,
@@ -7703,9 +7728,10 @@ bool Sema::ActOnStmtMacroInvocation(
     Scope *S, CXXScopeSpec &SS, const IdentifierInfo *II,
     SourceLocation NameLoc, SourceLocation ExclaimLoc, SourceLocation LParenLoc,
     MultiExprArg Args, SourceLocation RParenLoc, SourceLocation SemiLoc,
-    TokenSequenceData &Expansion, StmtResult &Result, bool ArgsUnparsed,
-    const TemplateArgumentListInfo *TemplateArgs) {
+    TokenSequenceData &Expansion, StmtResult &Result, Expr *&Marker,
+    bool ArgsUnparsed, const TemplateArgumentListInfo *TemplateArgs) {
   Result = StmtEmpty();
+  Marker = nullptr;
   // Raw arguments are consumed by the macro (see BuildMacroInvocation).
   ForgetConsumedMacroArguments(Args);
 
@@ -7780,8 +7806,12 @@ bool Sema::ActOnStmtMacroInvocation(
       return true;
     bool Deferred = false;
     if (!EvaluateMacroExpansion(Fn.get(), Macro, LParenLoc, Args, RParenLoc,
-                                UsesADL, Expansion, &Deferred))
+                                UsesADL, Expansion, &Deferred)) {
+      // The invocation is recorded ahead of the statements it expands to.
+      Marker = BuildMacroInvocationMarker(ULE, Args, ExclaimLoc, LParenLoc,
+                                          RParenLoc);
       return false;
+    }
     if (!Deferred)
       return true;
   }
@@ -7961,14 +7991,33 @@ ExprResult Sema::BuildMemberMacroInvocation(
           Base, IsArrow, OpLoc, NameInfo, Args,
           [&](const OverloadCandidate &Best, ArrayRef<Expr *> MacroArgs,
               bool HadMultipleCandidates) {
+            bool Deferred = false;
             Result = BuildMacroCandidateExpansion(
                 Best, MacroArgs, LParenLoc, RParenLoc, HadMultipleCandidates,
                 InstantiationPattern, NameInfo.getLoc(), [&]() -> ExprResult {
+                  Deferred = true;
                   return CXXMacroInvocationExpr::CreateMember(
                       Context, Base, IsArrow, OpLoc, NameInfo, Args, ExclaimLoc,
                       LParenLoc, RParenLoc, TemplateArgs);
                 });
-            return Result.isInvalid();
+            if (Result.isInvalid() || Deferred)
+              return Result.isInvalid();
+            // Keep the invocation around its expansion, with the macro it
+            // selected as its callee (the member name is where it is named).
+            UnresolvedSet<1> Selected;
+            Selected.addDecl(Best.FoundDecl);
+            ExprResult Callee =
+                BuildMacroCallee(NestedNameSpecifierLoc(), NameInfo, Selected,
+                                 /*TemplateArgs=*/nullptr);
+            if (Callee.isInvalid())
+              return true;
+            auto *Invocation = CXXMacroInvocationExpr::CreateMember(
+                Context, Base, IsArrow, OpLoc, NameInfo, Args, ExclaimLoc,
+                LParenLoc, RParenLoc, TemplateArgs);
+            Invocation->setCallee(cast<UnresolvedLookupExpr>(Callee.get()));
+            Invocation->setExpansion(Result.get());
+            Result = Invocation;
+            return false;
           },
           TemplateArgs))
     return ExprError();

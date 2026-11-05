@@ -36,3 +36,14 @@ consteval std::meta::token_sequence g(int count) {
 
 __macro inc(int x) { return ^^{ (\(x) + 1) }; }
 int use_inc() { return inc!(1); }
+
+struct Holder {
+  int v;
+  __macro bump(this Holder& self, int n) { return ^^{ (\(self).v += \(n)) }; }
+};
+int use_member(Holder h) { return h.bump!(3); }
+void use_stmt(Holder h) {
+  h.bump!(4);
+}
+__macro declare_it(token_sequence name) { return ^^{ int \(name) = 1; }; }
+declare_it!(zz);

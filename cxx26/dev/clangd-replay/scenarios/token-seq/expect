@@ -19,3 +19,8 @@ hover-macro-use must-contain Parameters: - `int x` Value = `2` --- ```cpp conste
 def-macro-use must-contain 37:9
 refs-macro-use must-contain 37:9
 refs-macro-use must-contain 38:24
+def-member   must-contain 42:11
+def-stmt     must-contain 42:11
+def-decl     must-contain 48:9
+hover-member must-contain instance-method `bump`
+hover-decl   must-contain function `declare_it`

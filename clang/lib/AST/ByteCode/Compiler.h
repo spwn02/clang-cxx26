@@ -171,6 +171,7 @@ public:
   bool VisitDeclRefExpr(const DeclRefExpr *E);
   bool VisitImplicitValueInitExpr(const ImplicitValueInitExpr *E);
   bool VisitSubstNonTypeTemplateParmExpr(const SubstNonTypeTemplateParmExpr *E);
+  bool VisitCXXMacroInvocationExpr(const CXXMacroInvocationExpr *E);
   bool VisitArraySubscriptExpr(const ArraySubscriptExpr *E);
   bool VisitInitListExpr(const InitListExpr *E);
   bool VisitCXXParenListInitExpr(const CXXParenListInitExpr *E);

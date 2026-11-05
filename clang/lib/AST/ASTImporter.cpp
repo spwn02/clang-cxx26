@@ -8214,9 +8214,20 @@ ASTNodeImporter::VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
       return std::move(Err4);
     ToTA = &ToTAInfo;
   }
-  return CXXMacroInvocationExpr::CreateMember(
+  auto *ToE = CXXMacroInvocationExpr::CreateMember(
       Ctx, *ToBase, E->isArrow(), ToOperatorLoc, ToNI, ToArgs, ToExclaimLoc,
       ToLParenLoc, ToRParenLoc, ToTA);
+  if (E->isResolved()) {
+    auto ToCallee = import(E->getCallee());
+    if (!ToCallee)
+      return ToCallee.takeError();
+    auto ToExpansion = import(E->getExpansion());
+    if (!ToExpansion)
+      return ToExpansion.takeError();
+    ToE->setCallee(*ToCallee);
+    ToE->setExpansion(*ToExpansion);
+  }
+  return ToE;
 }
 
 ExpectedStmt

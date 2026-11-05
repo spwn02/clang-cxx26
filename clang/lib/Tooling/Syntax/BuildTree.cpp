@@ -72,7 +72,12 @@ static Expr *IgnoreCXXFunctionalCastExprWrappingConstructor(Expr *E) {
 }
 
 static Expr *IgnoreImplicit(Expr *E) {
-  return IgnoreExprNodes(E, IgnoreImplicitSingleStep,
+  // A resolved macro invocation is written source (its call-site tokens); the
+  // expansion behind it is not, so it is not looked through.
+  auto IgnoreImplicitUpToMacro = [](Expr *E) {
+    return isa<CXXMacroInvocationExpr>(E) ? E : IgnoreImplicitSingleStep(E);
+  };
+  return IgnoreExprNodes(E, IgnoreImplicitUpToMacro,
                          IgnoreImplicitConstructorSingleStep,
                          IgnoreCXXFunctionalCastExprWrappingConstructor);
 }
@@ -856,6 +861,15 @@ public:
       return RecursiveASTVisitor::TraverseStmt(IgnoreImplicit(E));
     }
     return RecursiveASTVisitor::TraverseStmt(S);
+  }
+
+  bool TraverseCXXMacroInvocationExpr(CXXMacroInvocationExpr *S,
+                                      DataRecursionQueue *Queue = nullptr) {
+    // Its tokens are the call site; the nodes of its expansion do not
+    // correspond to written syntax.
+    Builder.foldNode(Builder.getExprRange(S),
+                     new (allocator()) syntax::UnknownExpression, S);
+    return true;
   }
 
   bool TraverseOpaqueValueExpr(OpaqueValueExpr *VE) {
