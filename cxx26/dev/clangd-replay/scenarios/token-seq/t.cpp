@@ -26,3 +26,10 @@ consteval std::meta::token_sequence f(int count) {
   auto u = ^^{ y = \(count) + \(local) };
   return t;
 }
+
+consteval std::meta::token_sequence g(int count) {
+  return ^^{
+    int a = \(count);
+    int b = a + 1;
+  };
+}

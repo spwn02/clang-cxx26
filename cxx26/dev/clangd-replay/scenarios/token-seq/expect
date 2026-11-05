@@ -11,3 +11,4 @@ rename-interp must-contain 26:22
 sem          must-contain 26:22:5
 sem          must-contain 26:33:5
 fold         must-contain 23-27
+fold         must-contain 31-33

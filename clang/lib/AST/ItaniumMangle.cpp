@@ -5412,12 +5412,18 @@ recurse:
 
   case Expr::CXXMacroInvocationExprClass: {
     // A dependent invocation in a signature (decltype(m!(t))): there is no ABI
-    // for expression macros, so it is mangled as the call it looks like.
+    // for expression macros. A vendor extended expression (u <source-name>
+    // <template-arg>* E) keeps it from aliasing the call m(t) of a function.
     const auto *MI = cast<CXXMacroInvocationExpr>(E);
-    Out << "cl";
+    Out << "u15__macro_invoke";
+    Out << 'X';
     mangleExpression(MI->getCallee());
-    for (const Expr *Arg : MI->getArgs())
+    Out << 'E';
+    for (const Expr *Arg : MI->getArgs()) {
+      Out << 'X';
       mangleExpression(Arg);
+      Out << 'E';
+    }
     Out << 'E';
     break;
   }
