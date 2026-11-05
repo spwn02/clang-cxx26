@@ -34,3 +34,16 @@ struct [[clang::preferred_name(pmr::string)]] Named {
 template <class... Ts> void unnamed_pack(Ts...);
 // CHECK: 'Named'
 // CHECK: 'unnamed_pack'
+
+// A declaration whose trailing return type is a decltype ends at its closing
+// parenthesis (it used to end at the name), and an implicit conversion call
+// is not syntax.
+auto trailing(int) -> decltype(1);
+template <class T> auto trailing_member(T t) -> decltype(t.x);
+struct Ordering {
+  operator int() const;
+};
+int converted(Ordering o) { return o; }
+// CHECK: 'trailing'
+// CHECK: 'trailing_member'
+// CHECK: 'converted'

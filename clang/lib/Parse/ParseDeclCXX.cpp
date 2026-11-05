@@ -1662,6 +1662,9 @@ SourceLocation Parser::ParseDecltypeSpecifier(DeclSpec &DS) {
                                         PrevSpec, DiagID, Policy)) {
     Diag(StartLoc, DiagID) << PrevSpec;
     DS.SetTypeSpecError();
+  } else {
+    // The closing parenthesis is where the type's TypeLoc ends.
+    DS.setTypeArgumentRange(SourceRange(StartLoc, EndLoc));
   }
   return EndLoc;
 }

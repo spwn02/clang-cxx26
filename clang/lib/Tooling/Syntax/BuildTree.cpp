@@ -71,6 +71,17 @@ static Expr *IgnoreCXXFunctionalCastExprWrappingConstructor(Expr *E) {
   return E;
 }
 
+/// A call of a conversion function the compiler inserted ('weak_ordering w =
+/// strong;'): nothing of it is written, only the object converted.
+static Expr *IgnoreImplicitConversionCallSingleStep(Expr *E) {
+  if (auto *MCE = dyn_cast<CXXMemberCallExpr>(E))
+    if (isa_and_nonnull<CXXConversionDecl>(MCE->getMethodDecl()))
+      if (auto *ME = dyn_cast<MemberExpr>(MCE->getCallee()->IgnoreParens()))
+        if (ME->getMemberLoc().isInvalid())
+          return MCE->getImplicitObjectArgument();
+  return E;
+}
+
 static Expr *IgnoreImplicit(Expr *E) {
   // A resolved macro invocation is written source (its call-site tokens); the
   // expansion behind it is not, so it is not looked through.
@@ -78,6 +89,7 @@ static Expr *IgnoreImplicit(Expr *E) {
     return isa<CXXMacroInvocationExpr>(E) ? E : IgnoreImplicitSingleStep(E);
   };
   return IgnoreExprNodes(E, IgnoreImplicitUpToMacro,
+                         IgnoreImplicitConversionCallSingleStep,
                          IgnoreImplicitConstructorSingleStep,
                          IgnoreCXXFunctionalCastExprWrappingConstructor);
 }
