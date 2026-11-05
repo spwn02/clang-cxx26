@@ -652,6 +652,7 @@ namespace clang {
     ExpectedStmt VisitParenExpr(ParenExpr *E);
     ExpectedStmt VisitParenListExpr(ParenListExpr *E);
     ExpectedStmt VisitStmtExpr(StmtExpr *E);
+    ExpectedStmt VisitCXXReflectExpr(CXXReflectExpr *E);
     ExpectedStmt VisitUnaryOperator(UnaryOperator *E);
     ExpectedStmt VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr *E);
     ExpectedStmt VisitBinaryOperator(BinaryOperator *E);
@@ -8069,6 +8070,25 @@ ExpectedStmt ASTNodeImporter::VisitParenListExpr(ParenListExpr *E) {
                                ToExprs, *ToRParenLocOrErr);
 }
 
+ExpectedStmt ASTNodeImporter::VisitCXXReflectExpr(CXXReflectExpr *E) {
+  Error Err = Error::success();
+  auto ToOperatorLoc = importChecked(Err, E->getOperatorLoc());
+  if (E->hasDependentSubExpr()) {
+    auto ToSub = importChecked(Err, E->getDependentSubExpr());
+    if (Err)
+      return std::move(Err);
+    return CXXReflectExpr::Create(Importer.getToContext(), ToOperatorLoc,
+                                  ToSub);
+  }
+  auto ToRange = importChecked(Err, E->getOperandRange());
+  APValue FromValue = E->getReflection();
+  auto ToValue = importChecked(Err, FromValue);
+  if (Err)
+    return std::move(Err);
+  return CXXReflectExpr::Create(Importer.getToContext(), ToOperatorLoc,
+                                ToRange, ToValue);
+}
+
 ExpectedStmt ASTNodeImporter::VisitStmtExpr(StmtExpr *E) {
   Error Err = Error::success();
   auto ToSubStmt = importChecked(Err, E->getSubStmt());
@@ -10803,9 +10823,59 @@ ASTNodeImporter::ImportAPValue(const APValue &FromValue) {
   case APValue::FixedPoint:
   case APValue::ComplexInt:
   case APValue::ComplexFloat:
-  case APValue::Reflection:
     Result = FromValue;
     break;
+  case APValue::Reflection: {
+    // A reflection points into the context it was made in: import what it
+    // names. The kinds that carry other state (objects, values, base and
+    // member specifiers, annotations, expressions) and lifted reflections
+    // are not importable yet.
+    if (FromValue.getReflectionDepth() != 0)
+      return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+    switch (FromValue.getReflectionKind()) {
+    case ReflectionKind::Null:
+      Result = FromValue;
+      break;
+    case ReflectionKind::Type: {
+      auto ToTy = Importer.Import(FromValue.getReflectedType());
+      if (!ToTy)
+        return ToTy.takeError();
+      Result = APValue(ReflectionKind::Type, ToTy->getAsOpaquePtr());
+      break;
+    }
+    case ReflectionKind::Declaration: {
+      auto ToD = Importer.Import(FromValue.getReflectedDecl());
+      if (!ToD)
+        return ToD.takeError();
+      Result = APValue(ReflectionKind::Declaration, *ToD);
+      break;
+    }
+    case ReflectionKind::Namespace: {
+      auto ToD = Importer.Import(FromValue.getReflectedNamespace());
+      if (!ToD)
+        return ToD.takeError();
+      Result = APValue(ReflectionKind::Namespace, *ToD);
+      break;
+    }
+    case ReflectionKind::Parameter: {
+      auto ToD = Importer.Import(FromValue.getReflectedParameter());
+      if (!ToD)
+        return ToD.takeError();
+      Result = APValue(ReflectionKind::Parameter, *ToD);
+      break;
+    }
+    case ReflectionKind::Template: {
+      auto ToT = Importer.Import(FromValue.getReflectedTemplate());
+      if (!ToT)
+        return ToT.takeError();
+      Result = APValue(ReflectionKind::Template, ToT->getAsVoidPointer());
+      break;
+    }
+    default:
+      return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+    }
+    break;
+  }
   case APValue::Vector: {
     Result.MakeVector();
     MutableArrayRef<APValue> Elts =
