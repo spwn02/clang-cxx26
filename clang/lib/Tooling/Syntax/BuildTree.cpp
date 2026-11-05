@@ -281,7 +281,10 @@ static SourceLocation getQualifiedNameStart(NamedDecl *D) {
 static SourceRange getInitializerRange(Decl *D) {
   if (auto *V = dyn_cast<VarDecl>(D)) {
     auto *I = V->getInit();
-    // Initializers in range-based-for are not part of the declarator
+    // Initializers in range-based-for are not part of the declarator; nor is
+    // the default argument a redeclaration inherits.
+    if (const auto *P = dyn_cast<ParmVarDecl>(V); P && P->hasInheritedDefaultArg())
+      return SourceRange();
     if (I && !V->isCXXForRangeDecl())
       return I->getSourceRange();
   }
@@ -519,6 +522,12 @@ public:
     // We want to drop the template parameters for specializations.
     if (const auto *S = dyn_cast<TagDecl>(D))
       Tokens = getRange(S->TypeDecl::getBeginLoc(), S->getEndLoc());
+    else if (const auto *DD = dyn_cast<DeclaratorDecl>(D);
+             DD && DD->getNumTemplateParameterLists() > 0 &&
+             DD->getInnerLocStart().isValid())
+      // A declaration made outside its class template begins with the class
+      // template's parameter lists; its own tokens begin at its specifiers.
+      Tokens = getRange(DD->getInnerLocStart(), D->getEndLoc());
     else
       Tokens = getRange(D->getSourceRange());
     // The attributes written before a parameter ('[[maybe_unused]] int x') are
@@ -540,6 +549,16 @@ public:
           Tokens = llvm::ArrayRef(First, Tokens.end());
       }
     }
+    const Decl *Initialized = D;
+    if (const auto *VT = dyn_cast<VarTemplateDecl>(D))
+      Initialized = VT->getTemplatedDecl();
+    if (const auto *V = dyn_cast<VarDecl>(Initialized); V && V->getInit())
+      if (SourceLocation CallEnd = endOfBuiltinCall(V->getInit());
+          CallEnd.isValid()) {
+        const syntax::Token *Last = findToken(CallEnd);
+        if (Last >= Tokens.end())
+          Tokens = llvm::ArrayRef(Tokens.begin(), Last + 1);
+      }
     // The '...' of a parameter pack ('_Args...', 'Args... args') is part of the
     // parameter.
     if (const auto *P = dyn_cast<ParmVarDecl>(D); P && P->isParameterPack() &&
@@ -550,6 +569,47 @@ public:
     return maybeAppendSemicolon(Tokens, D);
   }
 
+  /// Whether \p E is what the compiler made of a call of a builtin that it
+  /// evaluates itself (__builtin_type_order(...) becomes arithmetic on
+  /// synthesized operands): all of it is located at the builtin's name.
+  bool isExpansionOfBuiltin(const Expr *E) const {
+    if (!isa<BinaryOperator, UnaryOperator, IntegerLiteral, ConditionalOperator,
+             ConstantExpr>(E))
+      return false;
+    SourceLocation Loc = E->getBeginLoc();
+    if (Loc.isInvalid() || Loc.isMacroID())
+      return false;
+    const syntax::Token *Tok = findToken(Loc);
+    if (!Tok || Tok->kind() == tok::numeric_constant)
+      return false;
+    return Tok->text(sourceManager()).starts_with("__builtin_");
+  }
+
+  /// The closing parenthesis of the call \p E was made of (see
+  /// isExpansionOfBuiltin), or an invalid location.
+  SourceLocation endOfBuiltinCall(const Expr *E) const {
+    E = IgnoreImplicit(const_cast<Expr *>(E));
+    if (!isExpansionOfBuiltin(E))
+      return SourceLocation();
+    const syntax::Token *Name = findToken(E->getEndLoc());
+    if (!Name || std::next(Name)->kind() != tok::l_paren)
+      return SourceLocation();
+    unsigned Depth = 0;
+    for (const syntax::Token *Cur = std::next(Name);
+         Cur != TBTM.tokenBuffer().expandedTokens().end(); ++Cur) {
+      if (Cur->kind() == tok::l_paren)
+        ++Depth;
+      else if (Cur->kind() == tok::r_paren && --Depth == 0)
+        return Cur->location();
+    }
+    return SourceLocation();
+  }
+
+  /// Whether \p L is the start of a token of the file.
+  bool isTokenStart(SourceLocation L) const {
+    return L.isValid() && LocationToToken.count(L);
+  }
+
   ArrayRef<syntax::Token> getExprRange(const Expr *E) const {
     return getRange(E->getSourceRange());
   }
@@ -557,7 +617,13 @@ public:
   /// Find the adjusted range for the statement, consuming the trailing
   /// semicolon when needed.
   ArrayRef<syntax::Token> getStmtRange(const Stmt *S) const {
-    auto Tokens = getRange(S->getSourceRange());
+    SourceRange Range = S->getSourceRange();
+    // A declaration statement of an alias-declaration ('using A = int;') has no
+    // end of its own: it ends where its declaration does.
+    if (const auto *DS = dyn_cast<DeclStmt>(S);
+        DS && Range.getEnd().isInvalid() && DS->isSingleDecl())
+      Range.setEnd(DS->getSingleDecl()->getEndLoc());
+    auto Tokens = getRange(Range);
     if (isa<CompoundStmt>(S))
       return Tokens;
 
@@ -666,6 +732,11 @@ private:
 
       auto *FirstToken = Tokens.begin();
       auto BeginChildren = Trees.lower_bound(FirstToken);
+      if (!(BeginChildren == Trees.end() || BeginChildren->first == FirstToken)) {
+        llvm::errs() << "FOLDFAIL " << Tokens.size() << " tokens at #" << (FirstToken - TB.expandedTokens().begin()) << "\n";
+        if (BeginChildren != Trees.begin()) { auto P = std::prev(BeginChildren); llvm::errs() << "  prev tree kind " << (int)P->second->getKind() << " starts #" << (P->first - TB.expandedTokens().begin()) << " role " << (int)P->second->getRole() << "\n"; }
+        llvm::errs() << "  next tree starts #" << (BeginChildren->first - TB.expandedTokens().begin()) << "\n";
+      }
 
       assert((BeginChildren == Trees.end() ||
               BeginChildren->first == FirstToken) &&
@@ -772,6 +843,29 @@ public:
         Builder.getTemplateRange(C),
         Builder.findToken(C->getExternKeywordLoc()),
         Builder.findToken(C->getTemplateKeywordLoc()), Declaration, C);
+    return true;
+  }
+
+  bool TraverseParmVarDecl(ParmVarDecl *D) {
+    // The default argument of a parameter of a redeclaration is the one of the
+    // first declaration: it is not written here.
+    if (D->hasInheritedDefaultArg()) {
+      if (TypeSourceInfo *TSI = D->getTypeSourceInfo())
+        if (!TraverseTypeLoc(TSI->getTypeLoc()))
+          return false;
+      return WalkUpFromParmVarDecl(D);
+    }
+    return RecursiveASTVisitor::TraverseParmVarDecl(D);
+  }
+
+  bool WalkUpFromAttributedStmt(AttributedStmt *S) {
+    // '#pragma clang loop ...' before a statement is not a token of the
+    // file: the statement is the one it applies to.
+    ArrayRef<syntax::Token> Tokens =
+        Builder.isTokenStart(S->getBeginLoc())
+            ? Builder.getStmtRange(S)
+            : Builder.getStmtRange(S->getSubStmt());
+    Builder.foldNode(Tokens, new (allocator()) syntax::UnknownStatement, S);
     return true;
   }
 
@@ -940,6 +1034,12 @@ public:
   // Some expressions are not yet handled by syntax trees.
   bool WalkUpFromExpr(Expr *E) {
     assert(!isImplicitExpr(E) && "should be handled by TraverseStmt");
+    // An expression the compiler made up has no tokens (the value-initialization
+    // of an array element, ...).
+    if (E->getSourceRange().isInvalid())
+      return true;
+    if (Builder.isExpansionOfBuiltin(E))
+      return true;
     Builder.foldNode(Builder.getExprRange(E),
                      new (allocator()) syntax::UnknownExpression, E);
     return true;
@@ -1140,9 +1240,31 @@ public:
            isImplicitAccessThroughAnonymousRecord(Base);
   }
 
+  /// The object \p S is a member of as written: `o.member` where the member
+  /// is in an anonymous union or struct is `o.(anonymous).member`, and what
+  /// is written is `o`.
+  static Expr *writtenObject(const MemberExpr *S) {
+    Expr *Object = S->getBase();
+    while (auto *Anonymous = dyn_cast<MemberExpr>(Object->IgnoreImpCasts())) {
+      const auto *Field = dyn_cast<FieldDecl>(Anonymous->getMemberDecl());
+      if (!Field || !Field->isAnonymousStructOrUnion() ||
+          Anonymous->getBeginLoc() != S->getBeginLoc() ||
+          Anonymous->isImplicitAccess())
+        break;
+      Object = Anonymous->getBase();
+    }
+    return Object;
+  }
+
   bool TraverseMemberExpr(MemberExpr *S, DataRecursionQueue *Queue = nullptr) {
     if (isImplicitAccessThroughAnonymousRecord(S))
       return WalkUpFromMemberExpr(S); // (the implicit object is not written)
+    if (writtenObject(S) != S->getBase()) {
+      // (Only the object that is written, not the anonymous member between.)
+      if (!TraverseStmt(writtenObject(S)))
+        return false;
+      return WalkUpFromMemberExpr(S);
+    }
     return RecursiveASTVisitor::TraverseMemberExpr(S, /*Queue=*/nullptr);
   }
 
@@ -1162,7 +1284,7 @@ public:
 
     Builder.markChild(TheIdExpression, syntax::NodeRole::Member);
 
-    Builder.markExprChild(S->getBase(), syntax::NodeRole::Object);
+    Builder.markExprChild(writtenObject(S), syntax::NodeRole::Object);
     Builder.markChildToken(S->getOperatorLoc(), syntax::NodeRole::AccessToken);
 
     Builder.foldNode(Builder.getExprRange(S),
@@ -1205,6 +1327,10 @@ public:
   }
 
   bool WalkUpFromIntegerLiteral(IntegerLiteral *S) {
+    if (const syntax::Token *Tok = Builder.findToken(S->getLocation());
+        Tok && Tok->kind() != tok::numeric_constant)
+      return true; // (nothing of it is written: the tokens belong to what it replaced)
+    { S->getBeginLoc().print(llvm::errs(), Context.getSourceManager()); llvm::errs() << " INTLIT end="; S->getEndLoc().print(llvm::errs(), Context.getSourceManager()); llvm::errs() << " kind=" << (int)Builder.findToken(S->getLocation())->kind() << "\n"; }
     Builder.markChildToken(S->getLocation(), syntax::NodeRole::LiteralToken);
     Builder.foldNode(Builder.getExprRange(S),
                      new (allocator()) syntax::IntegerLiteralExpression, S);
@@ -1247,6 +1373,8 @@ public:
   }
 
   bool WalkUpFromUnaryOperator(UnaryOperator *S) {
+    if (Builder.isExpansionOfBuiltin(S))
+      return true; // (all of it is located at the builtin's name)
     Builder.markChildToken(S->getOperatorLoc(),
                            syntax::NodeRole::OperatorToken);
     Builder.markExprChild(S->getSubExpr(), syntax::NodeRole::Operand);
@@ -1264,6 +1392,8 @@ public:
   }
 
   bool WalkUpFromBinaryOperator(BinaryOperator *S) {
+    if (Builder.isExpansionOfBuiltin(S))
+      return true; // (all of it is located at the builtin's name)
     Builder.markExprChild(S->getLHS(), syntax::NodeRole::LeftHandSide);
     Builder.markChildToken(S->getOperatorLoc(),
                            syntax::NodeRole::OperatorToken);
@@ -1666,6 +1796,13 @@ private:
         Builder.sourceManager(), D->getTypeSourceInfo()->getTypeLoc(),
         getQualifiedNameStart(D), getInitializerRange(D));
 
+    // An initializer that the compiler made of a builtin's call is located at
+    // the builtin's name: the declarator runs through the call's arguments.
+    if (const auto *V = dyn_cast<VarDecl>(D); V && V->getInit() && Range.isValid())
+      if (SourceLocation CallEnd = Builder.endOfBuiltinCall(V->getInit());
+          CallEnd.isValid())
+        Range.setEnd(CallEnd);
+
     // There doesn't have to be a declarator (e.g. `void foo(int)` only has
     // declaration, but no declarator).
     if (!Range.getBegin().isValid()) {
@@ -1815,6 +1952,10 @@ void syntax::TreeBuilder::markExprChild(Expr *Child, NodeRole Role) {
     return;
   Child = IgnoreImplicit(Child);
 
+  // (Nothing is built for what a builtin was expanded to, or for an expression
+  // the compiler made up.)
+  if (isExpansionOfBuiltin(Child) || Child->getSourceRange().isInvalid())
+    return;
   syntax::Tree *ChildNode = Mapping.find(Child);
   assert(ChildNode != nullptr);
   setRole(ChildNode, Role);

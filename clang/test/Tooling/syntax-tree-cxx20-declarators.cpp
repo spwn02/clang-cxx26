@@ -47,3 +47,34 @@ int converted(Ordering o) { return o; }
 // CHECK: 'trailing'
 // CHECK: 'trailing_member'
 // CHECK: 'converted'
+
+// A member of an anonymous union reached through an object, and a variable
+// initialized by a builtin the compiler evaluates itself.
+struct Pair {
+  union {
+    int first;
+    float first_as_float;
+  };
+};
+int through_object(Pair &p) { return p.first; }
+constexpr unsigned long folded = __builtin_strlen("abc");
+
+// Out-of-line members of a class template, a redeclaration that inherits a
+// default argument, an alias-declaration in a function body, a statement with
+// a pragma before it.
+template <class T> struct Box {
+  template <class U> void put(U);
+  void reset(bool force = false);
+};
+template <class T>
+template <class U>
+void Box<T>::put(U) {}
+template <class T> void Box<T>::reset(bool force) {}
+int with_pragma(int n) {
+  using Index = int;
+  int sum = 0;
+#pragma clang loop vectorize(enable)
+  for (Index i = 0; i < n; ++i)
+    sum += i;
+  return sum;
+}
