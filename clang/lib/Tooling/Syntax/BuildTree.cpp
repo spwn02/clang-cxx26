@@ -737,7 +737,21 @@ public:
     return true;
   }
 
+  bool TraverseConstevalBlockDecl(ConstevalBlockDecl *D) {
+    // The block's body is a lambda call the compiler synthesizes: nothing in
+    // it has syntax of its own.
+    Builder.foldNode(Builder.getDeclarationRange(D),
+                     new (allocator()) syntax::UnknownDeclaration(), D);
+    return true;
+  }
+
   bool WalkUpFromTemplateDecl(TemplateDecl *S) {
+    // A concept has no templated declaration to build a tree for.
+    if (!S->getTemplatedDecl()) {
+      Builder.foldNode(Builder.getDeclarationRange(S),
+                       new (allocator()) syntax::UnknownDeclaration(), S);
+      return true;
+    }
     foldTemplateDeclaration(
         Builder.getDeclarationRange(S),
         Builder.findToken(S->getTemplateParameters()->getTemplateLoc()),
@@ -1730,8 +1744,21 @@ const syntax::Token *syntax::TreeBuilder::findToken(SourceLocation L) const {
   if (L.isInvalid())
     return nullptr;
   auto It = LocationToToken.find(L);
-  assert(It != LocationToToken.end());
-  return It->second;
+  if (It != LocationToToken.end())
+    return It->second;
+  // The range of a function defaulted or deleted in its class ends at the last
+  // character of the 'default'/'delete' keyword, not at the start of a token:
+  // use the token that contains the location.
+  const SourceManager &SM = TBTM.sourceManager();
+  auto Tokens = TBTM.tokenBuffer().expandedTokens();
+  auto After = llvm::partition_point(Tokens, [&](const syntax::Token &T) {
+    return T.location() == L || SM.isBeforeInTranslationUnit(T.location(), L);
+  });
+  assert(After != Tokens.begin() && "location precedes every token");
+  const syntax::Token *Found = &*std::prev(After);
+  assert(SM.isBeforeInTranslationUnit(L, Found->endLocation()) &&
+         "location is not inside the token before it");
+  return Found;
 }
 
 syntax::TranslationUnit *syntax::buildSyntaxTree(Arena &A,

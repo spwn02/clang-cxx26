@@ -1160,6 +1160,8 @@ Decl *Parser::ParseConstevalBlockDeclaration(SourceLocation &DeclEnd) {
                                                            ReturnTy);
   if (Lambda.isInvalid())
     return nullptr;
+  // (The block ends where its body does; a statement made of it needs an end.)
+  DeclEnd = Lambda.get()->getEndLoc();
 
   SmallVector<Expr *, 0> EmptyArgs;
   ExprResult Invocation = Actions.ActOnCallExpr(getCurScope(), Lambda.get(),

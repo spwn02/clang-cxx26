@@ -685,6 +685,10 @@ public:
     Visit(D->getTemplatedDecl());
   }
 
+  void VisitConstevalBlockDecl(const ConstevalBlockDecl *D) {
+    Visit(D->getEvaluatingExpr());
+  }
+
   void VisitStaticAssertDecl(const StaticAssertDecl *D) {
     Visit(D->getAssertExpr());
     Visit(D->getMessage());
