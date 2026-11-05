@@ -710,8 +710,23 @@ class LiteralRangeCollector
     : public RecursiveASTVisitor<LiteralRangeCollector> {
 public:
   SmallVector<SourceRange, 8> Ranges;
+  /// The helper builtins that make tokens from strings and names: the tokens
+  /// they make are located at the call.
+  SmallVector<SourceRange, 8> CallRanges;
   bool VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
     Ranges.push_back(E->getSourceRange());
+    return true;
+  }
+  bool VisitCXXBuiltinTokenizeExpr(CXXBuiltinTokenizeExpr *E) {
+    CallRanges.push_back(E->getSourceRange());
+    return true;
+  }
+  bool VisitCXXBuiltinStrLiteralExpr(CXXBuiltinStrLiteralExpr *E) {
+    CallRanges.push_back(E->getSourceRange());
+    return true;
+  }
+  bool VisitCXXBuiltinIdExpr(CXXBuiltinIdExpr *E) {
+    CallRanges.push_back(E->getSourceRange());
     return true;
   }
 };
@@ -723,6 +738,22 @@ public:
     LiteralRangeCollector Collector;
     Collector.TraverseAST(Context);
     LiteralRanges = std::move(Collector.Ranges);
+    CallRanges = std::move(Collector.CallRanges);
+  }
+
+  /// Whether the declaration \p Begin starts at, or inside, a call of a
+  /// helper builtin that made its tokens.
+  bool isMadeByBuiltinCall(SourceLocation Begin) const {
+    if (Begin.isInvalid())
+      return false;
+    const SourceManager &SM = Context.getSourceManager();
+    if (Begin.isMacroID())
+      Begin = SM.getSpellingLoc(Begin);
+    for (SourceRange R : CallRanges)
+      if (R.isValid() && !SM.isBeforeInTranslationUnit(Begin, R.getBegin()) &&
+          !SM.isBeforeInTranslationUnit(R.getEnd(), Begin))
+        return true;
+    return false;
   }
 
   /// Whether \p Begin is a location inside a token sequence literal (after
@@ -745,7 +776,9 @@ public:
 
   bool TraverseDecl(Decl *D) {
     // Code injected from a literal has no syntax where it is used.
-    if (D && !isa<TranslationUnitDecl>(D) && isInsideLiteral(D->getBeginLoc()))
+    if (D && !isa<TranslationUnitDecl>(D) &&
+        (isInsideLiteral(D->getBeginLoc()) ||
+         isMadeByBuiltinCall(D->getBeginLoc())))
       return true;
     return RecursiveASTVisitor::TraverseDecl(D);
   }
@@ -942,6 +975,32 @@ public:
     Builder.foldNode(Builder.getRange(D->getSourceRange()),
                      new (allocator()) syntax::UnknownDeclaration(), D);
     return true;
+  }
+
+  // The helper builtins keep, next to each argument, the synthesized calls
+  // that read it (data() and size()), which share the argument's nodes:
+  // only the arguments are written in the source.
+  bool TraverseCXXBuiltinStrLiteralExpr(CXXBuiltinStrLiteralExpr *S,
+                                        DataRecursionQueue *Queue = nullptr) {
+    for (unsigned I = 0, N = S->getNumArgs(); I != N; ++I)
+      if (!TraverseStmt(S->getArg(I)))
+        return false;
+    return WalkUpFromCXXBuiltinStrLiteralExpr(S);
+  }
+
+  bool TraverseCXXBuiltinTokenizeExpr(CXXBuiltinTokenizeExpr *S,
+                                      DataRecursionQueue *Queue = nullptr) {
+    for (unsigned I = 0, N = S->getNumArgs(); I != N; ++I)
+      if (!TraverseStmt(S->getArg(I)))
+        return false;
+    return WalkUpFromCXXBuiltinTokenizeExpr(S);
+  }
+
+  bool TraverseCXXBuiltinReportTokensExpr(CXXBuiltinReportTokensExpr *S,
+                                          DataRecursionQueue *Queue = nullptr) {
+    if (!TraverseStmt(S->getMessage()) || !TraverseStmt(S->getOperand()))
+      return false;
+    return WalkUpFromCXXBuiltinReportTokensExpr(S);
   }
 
   bool TraverseCXXMacroInvocationExpr(CXXMacroInvocationExpr *S,
@@ -1775,6 +1834,7 @@ private:
   syntax::TreeBuilder &Builder;
   const ASTContext &Context;
   SmallVector<SourceRange, 8> LiteralRanges;
+  SmallVector<SourceRange, 8> CallRanges;
 };
 } // namespace
 
