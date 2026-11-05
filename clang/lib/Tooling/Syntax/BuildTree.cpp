@@ -937,7 +937,9 @@ public:
   bool TraverseConstevalBlockDecl(ConstevalBlockDecl *D) {
     // The block's body is a lambda call the compiler synthesizes (or the
     // record of a macro invocation): nothing in it has syntax of its own.
-    Builder.foldNode(Builder.getDeclarationRange(D),
+    // (Not through the trailing ';': after the record of a declaration-position
+    // invocation it is a declaration of its own.)
+    Builder.foldNode(Builder.getRange(D->getSourceRange()),
                      new (allocator()) syntax::UnknownDeclaration(), D);
     return true;
   }
