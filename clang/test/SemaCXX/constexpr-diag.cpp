@@ -49,7 +49,9 @@ static_assert(bad_tag()); // expected-error {{static assertion expression is not
 
 // Arity and argument types are checked.
 void check_args() {
-  __builtin_constexpr_diag(2, "", 0);            // expected-error {{too few arguments to function call, expected 5, have 3}}
+  __builtin_constexpr_diag(2, "");               // expected-error {{too few arguments to function call, expected 5, have 2}}
+  __builtin_constexpr_diag(2, "", "x", "y");     // expected-error {{too few arguments to function call, expected 5, have 4}}
+  __builtin_constexpr_diag(2, "", 0);            // expected-error {{argument 3 of '__builtin_constexpr_diag' must be a pointer to 'char' or 'char8_t'}}
   __builtin_constexpr_diag(2, 1, 0, "x", 1);     // expected-error {{argument 2 of '__builtin_constexpr_diag' must be a pointer to 'char'}}
   __builtin_constexpr_diag(2, "", 0, 1, 1);      // expected-error {{argument 4 of '__builtin_constexpr_diag' must be a pointer to 'char' or 'char8_t'}}
   __builtin_constexpr_diag("", "", 0, "x", 1);   // expected-error {{argument 1 of '__builtin_constexpr_diag' must be an integer}}

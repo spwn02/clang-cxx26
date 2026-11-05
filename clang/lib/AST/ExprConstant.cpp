@@ -24447,16 +24447,43 @@ static bool readConstexprDiagString(EvalInfo &Info, const Expr *PtrE,
 /// invalid expression (observable through a requires-expression during
 /// substitution).
 static bool EvaluateBuiltinConstexprDiag(EvalInfo &Info, const CallExpr *E) {
-  assert(E->getNumArgs() == 5 && "Sema checks the arity");
+  assert((E->getNumArgs() == 5 || E->getNumArgs() == 3) &&
+         "Sema checks the arity");
 
   APSInt KindVal;
   if (!EvaluateInteger(E->getArg(0), KindVal, Info))
     return false;
   SmallString<32> Tag;
   SmallString<128> Msg;
-  if (!readConstexprDiagString(Info, E->getArg(1), E->getArg(2), Tag) ||
-      !readConstexprDiagString(Info, E->getArg(3), E->getArg(4), Msg))
+  if (E->getNumArgs() == 3) {
+    // (kind, tag, message), NUL-terminated strings: the form libstdc++ uses.
+    auto ReadCString = [&](const Expr *PtrE, SmallVectorImpl<char> &Out) {
+      LValue Ptr;
+      if (!EvaluatePointer(PtrE, Ptr, Info))
+        return false;
+      QualType CharTy = PtrE->getType()->getPointeeType();
+      for (uint64_t I = 0;; ++I) {
+        if (I > (1u << 20)) {
+          Info.FFDiag(PtrE);
+          return false;
+        }
+        APValue Char;
+        if (!handleLValueToRValueConversion(Info, PtrE, CharTy, Ptr, Char))
+          return false;
+        int64_t V = Char.getInt().getExtValue();
+        if (V == 0)
+          return true;
+        Out.push_back(static_cast<char>(V));
+        if (!HandleLValueArrayAdjustment(Info, PtrE, Ptr, CharTy, 1))
+          return false;
+      }
+    };
+    if (!ReadCString(E->getArg(1), Tag) || !ReadCString(E->getArg(2), Msg))
+      return false;
+  } else if (!readConstexprDiagString(Info, E->getArg(1), E->getArg(2), Tag) ||
+             !readConstexprDiagString(Info, E->getArg(3), E->getArg(4), Msg)) {
     return false;
+  }
 
   uint64_t Kind = KindVal.getZExtValue();
   if (KindVal.isNegative() || Kind > 2) {

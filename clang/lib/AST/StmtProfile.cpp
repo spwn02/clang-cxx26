@@ -10,6 +10,7 @@
 // representation that identifies a statement/expression.
 //
 //===----------------------------------------------------------------------===//
+#include "clang/Lex/Token.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
@@ -2464,7 +2465,29 @@ void StmtProfiler::VisitCXXReflectExpr(const CXXReflectExpr *E) {
 
 void StmtProfiler::VisitCXXTokenSequenceExpr(const CXXTokenSequenceExpr *E) {
   VisitExpr(E);
-  E->getValue().Profile(ID);
+  // The tokens by what they spell. (Not APValue::Profile: it keeps the
+  // annotation values of interpolations by address, which differ from one
+  // translation unit or module to the next for the same literal. An
+  // interpolation's expression is a child, profiled with the others.)
+  TokenSequenceData TSD = E->getTokenSequence();
+  ID.AddInteger(TSD.size());
+  for (const Token &Tok : TSD) {
+    ID.AddInteger(Tok.getKind());
+    if (Tok.isAnnotation())
+      continue;
+    if (Tok.isLiteral() && Tok.getLiteralData())
+      ID.AddString(StringRef(Tok.getLiteralData(), Tok.getLength()));
+    else if (Tok.is(tok::raw_identifier))
+      ID.AddString(Tok.getRawIdentifier());
+    else if (const IdentifierInfo *II = Tok.getIdentifierInfo())
+      ID.AddString(II->getName());
+  }
+  // The tokens that name a parameter: which token, which parameter.
+  ID.AddInteger(E->getParamBindings().size());
+  for (const TokenSequenceParamBinding &B : E->getParamBindings()) {
+    ID.AddInteger(B.TokenIndex);
+    VisitDecl(B.Param);
+  }
 }
 
 void StmtProfiler::VisitCXXMetafunctionExpr(const CXXMetafunctionExpr *E) {

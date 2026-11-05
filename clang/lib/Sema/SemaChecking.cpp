@@ -220,13 +220,17 @@ static bool convertArgumentToType(Sema &S, Expr *&Value, QualType Ty) {
 /// behind std::constexpr_print_str / constexpr_warning_str /
 /// constexpr_error_str (P2758). The strings arrive flattened as pointer and
 /// length; the message may be char or char8_t.
+///
+/// libstdc++'s <meta> (GCC 16) calls the same name with three arguments
+/// (kind, tag, message), the strings NUL-terminated; that form is accepted too.
 static bool BuiltinConstexprDiag(Sema &S, CallExpr *TheCall) {
-  if (S.checkArgCount(TheCall, 5))
+  const bool ThreeArgs = TheCall->getNumArgs() == 3;
+  if (!ThreeArgs && S.checkArgCount(TheCall, 5))
     return true;
 
   // Custom type checking suppresses the default argument conversions; apply
   // them so string literals decay to pointers.
-  for (unsigned I = 0; I != 5; ++I) {
+  for (unsigned I = 0, N = TheCall->getNumArgs(); I != N; ++I) {
     ExprResult Conv =
         S.DefaultFunctionArrayLvalueConversion(TheCall->getArg(I));
     if (Conv.isInvalid())
@@ -259,9 +263,15 @@ static bool BuiltinConstexprDiag(Sema &S, CallExpr *TheCall) {
     return true;
   };
 
-  if (CheckInt(0) || CheckCharPtr(1, /*AllowChar8=*/false) || CheckInt(2) ||
-      CheckCharPtr(3, /*AllowChar8=*/true) || CheckInt(4))
+  if (ThreeArgs) {
+    if (CheckInt(0) || CheckCharPtr(1, /*AllowChar8=*/false) ||
+        CheckCharPtr(2, /*AllowChar8=*/true))
+      return true;
+  } else if (CheckInt(0) || CheckCharPtr(1, /*AllowChar8=*/false) ||
+             CheckInt(2) || CheckCharPtr(3, /*AllowChar8=*/true) ||
+             CheckInt(4)) {
     return true;
+  }
 
   TheCall->setType(S.Context.VoidTy);
   return false;
