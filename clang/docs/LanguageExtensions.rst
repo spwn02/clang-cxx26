@@ -1798,8 +1798,14 @@ invocations, and reflections (of types, declarations, namespaces, parameters and
 of reflection values are refused with an import error. clang-format keeps a literal ``^^{ ... }`` exactly as written,
 because its whitespace is part of its value.
 
-A resolved expression macro invocation stays in the AST as a ``CXXMacroInvocationExpr`` around its expansion, so tools see
-the macro that was invoked (clangd completion, hover, go-to-definition and references work on the name at the call site).
+A resolved macro invocation stays in the AST as a ``CXXMacroInvocationExpr`` around its expansion, so tools see the
+macro that was invoked (clangd completion, hover, go-to-definition, references and semantic tokens work on the name at
+the call site). This holds for ``m!(..)``, ``obj.m!(..)``, and for statement- and declaration-position invocations,
+which are kept as an invocation with an empty expansion ahead of the statements or declarations they expand to (in
+declaration position inside a consteval block that does nothing). The experimental syntax-tree library
+(``clang-check -syntax-tree-dump``) shows an invocation as one leaf, but cannot build a tree for declarations or
+statements that were injected or expanded from a token literal elsewhere in the file: their tokens are not where they
+are used. The static analyzer treats the value of a macro argument that is not a constant as unknown.
 The raw identifiers of a literal are not names until the sequence is injected; clangd shows them as unresolved (dependent)
 names, and the interpolated expressions as the expressions they are. There is no ``std::formatter`` for ``token_sequence``:
 P4380 defines none, and a token sequence exists only in constant evaluation.
