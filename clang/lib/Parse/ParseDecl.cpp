@@ -4665,7 +4665,9 @@ void Parser::ParseDeclarationSpecifiers(
       continue;
 
     case tok::annot_decltype:
-      ParseDecltypeSpecifier(DS);
+      // (The specifier ends at its closing parenthesis: a declaration whose
+      // trailing return type is a decltype ends there.)
+      DS.SetRangeEnd(ParseDecltypeSpecifier(DS));
       continue;
 
     case tok::annot_pack_indexing_type:

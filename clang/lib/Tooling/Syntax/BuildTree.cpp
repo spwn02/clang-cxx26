@@ -71,8 +71,20 @@ static Expr *IgnoreCXXFunctionalCastExprWrappingConstructor(Expr *E) {
   return E;
 }
 
+/// A call of a conversion function the compiler inserted ('weak_ordering w =
+/// strong;'): nothing of it is written, only the object converted.
+static Expr *IgnoreImplicitConversionCallSingleStep(Expr *E) {
+  if (auto *MCE = dyn_cast<CXXMemberCallExpr>(E))
+    if (isa_and_nonnull<CXXConversionDecl>(MCE->getMethodDecl()))
+      if (auto *ME = dyn_cast<MemberExpr>(MCE->getCallee()->IgnoreParens()))
+        if (ME->getMemberLoc().isInvalid())
+          return MCE->getImplicitObjectArgument();
+  return E;
+}
+
 static Expr *IgnoreImplicit(Expr *E) {
   return IgnoreExprNodes(E, IgnoreImplicitSingleStep,
+                         IgnoreImplicitConversionCallSingleStep,
                          IgnoreImplicitConstructorSingleStep,
                          IgnoreCXXFunctionalCastExprWrappingConstructor);
 }
@@ -528,6 +540,13 @@ public:
           Tokens = llvm::ArrayRef(First, Tokens.end());
       }
     }
+    // The '...' of a parameter pack ('_Args...', 'Args... args') is part of the
+    // parameter.
+    if (const auto *P = dyn_cast<ParmVarDecl>(D); P && P->isParameterPack() &&
+        Tokens.end() != TBTM.tokenBuffer().expandedTokens().end() &&
+        Tokens.end()->kind() == tok::ellipsis && !Tokens.empty() &&
+        Tokens.back().kind() != tok::ellipsis)
+      Tokens = llvm::ArrayRef(Tokens.begin(), Tokens.end() + 1);
     return maybeAppendSemicolon(Tokens, D);
   }
 
@@ -753,6 +772,13 @@ public:
         Builder.getTemplateRange(C),
         Builder.findToken(C->getExternKeywordLoc()),
         Builder.findToken(C->getTemplateKeywordLoc()), Declaration, C);
+    return true;
+  }
+
+  bool TraverseAttr(Attr *A) {
+    // Attributes are not built into the tree; what they name (a type argument,
+    // as in preferred_name(std::string)) is not written as an expression or a
+    // type of the declaration.
     return true;
   }
 
@@ -1100,11 +1126,31 @@ public:
     return TheIdExpression;
   }
 
+  /// A member of an anonymous union or struct named without an object: the
+  /// access is `this->(anonymous).member`, and what is written is the name.
+  static bool isImplicitAccessThroughAnonymousRecord(const MemberExpr *S) {
+    const auto *Base = dyn_cast<MemberExpr>(S->getBase()->IgnoreImpCasts());
+    if (!Base || !Base->getSourceRange().isValid() ||
+        Base->getBeginLoc() != S->getBeginLoc())
+      return false;
+    const auto *Field = dyn_cast<FieldDecl>(Base->getMemberDecl());
+    if (!Field || !Field->isAnonymousStructOrUnion())
+      return false;
+    return Base->isImplicitAccess() ||
+           isImplicitAccessThroughAnonymousRecord(Base);
+  }
+
+  bool TraverseMemberExpr(MemberExpr *S, DataRecursionQueue *Queue = nullptr) {
+    if (isImplicitAccessThroughAnonymousRecord(S))
+      return WalkUpFromMemberExpr(S); // (the implicit object is not written)
+    return RecursiveASTVisitor::TraverseMemberExpr(S, /*Queue=*/nullptr);
+  }
+
   bool WalkUpFromMemberExpr(MemberExpr *S) {
     // For `MemberExpr` with implicit `this->` we generate a simple
     // `id-expression` syntax node, beacuse an implicit `member-expression` is
     // syntactically undistinguishable from an `id-expression`
-    if (S->isImplicitAccess()) {
+    if (S->isImplicitAccess() || isImplicitAccessThroughAnonymousRecord(S)) {
       buildIdExpression(S->getQualifierLoc(), S->getTemplateKeywordLoc(),
                         SourceRange(S->getMemberLoc(), S->getEndLoc()), S);
       return true;
