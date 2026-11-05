@@ -36,7 +36,10 @@ static bool containsEscapes(StringRef HayStack, StringRef Escapes) {
 static bool isRawStringLiteral(StringRef Text) {
   // Already a raw string literal if R comes before ".
   const size_t QuotePos = Text.find('"');
-  assert(QuotePos != StringRef::npos);
+  // A string literal the compiler made (token injection, std::meta::str_lit)
+  // has no spelling in the source to rewrite: leave it alone.
+  if (QuotePos == StringRef::npos)
+    return true;
   return (QuotePos > 0) && (Text[QuotePos - 1] == 'R');
 }
 

@@ -224,6 +224,11 @@ def ext_c2y_case_range : Extension<
 def err_c2y_labeled_break_continue : Error<
   "named %select{'break'|'continue'}0 is only supported in C2y">;
 
+// P4380: token sequence literals.
+def err_token_sequence_requires_cxx29 : Error<
+  "token sequence literals '^^{ ... }' are only available in C++29; "
+  "use '-std=c++2d'">;
+
 // P2806 ext: do-expressions.
 def err_do_expr_requires_cxx29 : Error<
   "do-expressions are only available in C++29; "

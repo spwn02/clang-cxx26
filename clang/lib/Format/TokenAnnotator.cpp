@@ -4666,6 +4666,16 @@ bool TokenAnnotator::spaceRequiredBetween(const AnnotatedLine &Line,
                     TT_TrailingReturnArrow)) {
     return true;
   }
+  // `name!(...)`, `name!{...}`, `name![...]`: an expression macro invocation
+  // (P4380) is written as it was, with no space before the '!'.
+  if (Style.isCpp() && Right.is(tok::exclaim) && Right.Next &&
+      Right.Next->isOneOf(tok::l_paren, tok::l_square, tok::l_brace) &&
+      Left.isOneOf(tok::identifier, tok::greater) && Right.NewlinesBefore == 0 &&
+      Right.WhitespaceRange.getBegin() == Right.WhitespaceRange.getEnd() &&
+      Right.Next->WhitespaceRange.getBegin() ==
+          Right.Next->WhitespaceRange.getEnd()) {
+    return false;
+  }
   if (Left.is(tok::kw_throw) && Right.is(tok::l_paren) && Right.MatchingParen &&
       Right.MatchingParen->is(TT_CastRParen)) {
     return true;

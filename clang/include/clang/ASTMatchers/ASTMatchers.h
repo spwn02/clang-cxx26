@@ -2345,6 +2345,96 @@ extern const internal::VariadicDynCastAllOfMatcher<Stmt, CoreturnStmt>
 ///   matches 'return 1'
 extern const internal::VariadicDynCastAllOfMatcher<Stmt, ReturnStmt> returnStmt;
 
+/// Matches a token sequence literal (P4380), a C++29 feature.
+///
+/// Given
+/// \code
+///   auto t = ^^{ a + b };
+/// \endcode
+/// tokenSequenceExpr()
+///   matches '^^{ a + b }'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, CXXTokenSequenceExpr> tokenSequenceExpr;
+
+/// Matches an expression macro invocation (P4380), a C++29 feature.
+///
+/// Given
+/// \code
+///   int x = add!(1, 2);
+/// \endcode
+/// macroInvocationExpr()
+///   matches 'add!(1, 2)'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, CXXMacroInvocationExpr> macroInvocationExpr;
+
+/// Matches std::meta::queue_injection (P4380), a C++29 feature.
+///
+/// Given
+/// \code
+///   std::meta::queue_injection(ts);
+/// \endcode
+/// queueInjectionExpr()
+///   matches 'std::meta::queue_injection(ts)'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, CXXBuiltinInjectExpr> queueInjectionExpr;
+
+/// Matches std::meta::report_tokens (P4380), a C++29 feature.
+///
+/// Given
+/// \code
+///   std::meta::report_tokens("m", ts);
+/// \endcode
+/// reportTokensExpr()
+///   matches 'std::meta::report_tokens("m", ts)'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, CXXBuiltinReportTokensExpr> reportTokensExpr;
+
+/// Matches a token interpolation list (P4380), a C++29 feature.
+///
+/// Given
+/// \code
+///   ^^{ \(a, b) }
+/// \endcode
+/// tokenInterpolationListExpr()
+///   matches '\(a, b)'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, CXXTokenInterpolationListExpr> tokenInterpolationListExpr;
+
+/// Matches std::meta::id (P4380), a C++29 feature.
+///
+/// Given
+/// \code
+///   auto i = std::meta::id("x");
+/// \endcode
+/// builtinIdExpr()
+///   matches 'std::meta::id("x")'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, CXXBuiltinIdExpr> builtinIdExpr;
+
+/// Matches std::meta::str_lit (P4380), a C++29 feature.
+///
+/// Given
+/// \code
+///   auto i = std::meta::str_lit("x");
+/// \endcode
+/// builtinStrLiteralExpr()
+///   matches 'std::meta::str_lit("x")'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, CXXBuiltinStrLiteralExpr> builtinStrLiteralExpr;
+
+/// Matches std::meta::tokenize (P4380), a C++29 feature.
+///
+/// Given
+/// \code
+///   auto i = std::meta::tokenize("x");
+/// \endcode
+/// builtinTokenizeExpr()
+///   matches 'std::meta::tokenize("x")'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, CXXBuiltinTokenizeExpr> builtinTokenizeExpr;
+
+/// Matches std::meta::stringize (P4380), a C++29 feature.
+///
+/// Given
+/// \code
+///   auto i = std::meta::stringize(ts);
+/// \endcode
+/// builtinStringizeExpr()
+///   matches 'std::meta::stringize(ts)'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, CXXBuiltinStringizeExpr> builtinStringizeExpr;
+
 /// Matches do expressions (P2806), a C++29 feature.
 ///
 /// Given

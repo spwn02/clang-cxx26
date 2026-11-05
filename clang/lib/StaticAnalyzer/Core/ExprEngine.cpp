@@ -1734,6 +1734,9 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::CXXBuiltinIdExprClass:
     case Stmt::CXXBuiltinStrLiteralExprClass:
     case Stmt::CXXBuiltinTokenizeExprClass:
+    case Stmt::CXXBuiltinStringizeExprClass:
+    case Stmt::CXXTokenSequenceExprClass:
+    case Stmt::CXXMacroInvocationExprClass:
     case Stmt::CXXSpliceExprClass:
     case Stmt::CXXDependentMemberSpliceExprClass:
     case Stmt::StackLocationExprClass:

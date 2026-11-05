@@ -1434,6 +1434,21 @@ bool CursorVisitor::VisitNestedNameSpecifierLoc(
   }
   case NestedNameSpecifier::Kind::Type:
     return Visit(Qualifier.castAsTypeLoc());
+  case NestedNameSpecifier::Kind::Splice:
+  case NestedNameSpecifier::Kind::SpliceWithTemplate: {
+    // '[:expr:]::' : the splice operand is an expression like any other.
+    const SpliceSpecifier *Splice = NNS.getAsSplice();
+    if (Splice->getOperand() &&
+        Visit(MakeCXCursor(Splice->getOperand(), StmtParent, TU,
+                           RegionOfInterest)))
+      return true;
+    if (Splice->isSpecialization())
+      for (const TemplateArgumentLoc &Arg :
+           Splice->getTemplateArgs()->arguments())
+        if (VisitTemplateArgumentLoc(Arg))
+          return true;
+    return false;
+  }
   case NestedNameSpecifier::Kind::Null:
   case NestedNameSpecifier::Kind::Global:
   case NestedNameSpecifier::Kind::MicrosoftSuper:
@@ -6075,6 +6090,12 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("PackIndexingExpr");
   case CXCursor_DoExpr:
     return cxstring::createRef("DoExpr");
+  case CXCursor_TokenSequenceExpr:
+    return cxstring::createRef("TokenSequenceExpr");
+  case CXCursor_MacroInvocationExpr:
+    return cxstring::createRef("MacroInvocationExpr");
+  case CXCursor_TokenInjectionExpr:
+    return cxstring::createRef("TokenInjectionExpr");
   case CXCursor_DoReturnStmt:
     return cxstring::createRef("DoReturnStmt");
   case CXCursor_LambdaExpr:

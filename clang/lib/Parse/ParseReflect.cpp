@@ -42,6 +42,13 @@ ExprResult Parser::ParseCXXReflectExpression(SourceLocation OpLoc) {
   }
 
   // Handle token sequence: ^^{ balanced tokens }
+  if (Tok.is(tok::l_brace) && !getLangOpts().CPlusPlus29) {
+    // Token sequence injection (P4380) is C++29 only: skip the literal.
+    Diag(Tok, diag::err_token_sequence_requires_cxx29);
+    ConsumeBrace();
+    SkipUntil(tok::r_brace);
+    return ExprError();
+  }
   if (Tok.is(tok::l_brace)) {
     SourceLocation LBraceLoc = ConsumeBrace();
 

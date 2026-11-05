@@ -307,6 +307,10 @@ struct ParsedBinaryOperator {
                 N.ASTNode.get<Expr>())) {
       if (!Op->isInfixBinaryOp())
         return false;
+      // A postfix '++' / '--' has two arguments (the second is the dummy
+      // int) but is no binary operator.
+      if (Op->getOperator() == OO_PlusPlus || Op->getOperator() == OO_MinusMinus)
+        return false;
 
       Kind = BinaryOperator::getOverloadedOpcode(Op->getOperator());
       ExprLoc = Op->getExprLoc();

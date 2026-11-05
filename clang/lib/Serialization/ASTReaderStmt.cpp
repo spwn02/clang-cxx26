@@ -531,6 +531,12 @@ void ASTStmtReader::VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
   E->setOperatorLoc(Record.readSourceLocation());
   APValue V = Record.readAPValue();
   E->setTokenSequence(V.getTokenSequence());
+  SmallVector<TokenSequenceParamBinding, 4> Bindings;
+  for (unsigned I = 0, N = Record.readUInt32(); I != N; ++I) {
+    unsigned Index = Record.readUInt32();
+    Bindings.push_back({Index, Record.readDeclAs<NamedDecl>()});
+  }
+  E->setParamBindings(Record.getContext(), Bindings);
   for (unsigned I = 0; I != NumInterpolationExprs; ++I)
     E->setInterpolationExpr(I, Record.readSubExpr());
   E->setOperandRange(Record.readSourceRange());
@@ -582,6 +588,7 @@ void ASTStmtReader::VisitCXXBuiltinReportTokensExpr(
 
 void ASTStmtReader::VisitCXXBuiltinIdExpr(CXXBuiltinIdExpr *E) {
   VisitExpr(E);
+  Record.skipInts(1); // the number of arguments (see CreateEmpty)
   E->setKwLoc(Record.readSourceLocation());
   E->setLParenLoc(Record.readSourceLocation());
   E->setRParenLoc(Record.readSourceLocation());
@@ -594,6 +601,7 @@ void ASTStmtReader::VisitCXXBuiltinIdExpr(CXXBuiltinIdExpr *E) {
 
 void ASTStmtReader::VisitCXXBuiltinStrLiteralExpr(CXXBuiltinStrLiteralExpr *E) {
   VisitExpr(E);
+  Record.skipInts(1); // the number of arguments (see CreateEmpty)
   E->setKwLoc(Record.readSourceLocation());
   E->setLParenLoc(Record.readSourceLocation());
   E->setRParenLoc(Record.readSourceLocation());
@@ -606,6 +614,7 @@ void ASTStmtReader::VisitCXXBuiltinStrLiteralExpr(CXXBuiltinStrLiteralExpr *E) {
 
 void ASTStmtReader::VisitCXXBuiltinTokenizeExpr(CXXBuiltinTokenizeExpr *E) {
   VisitExpr(E);
+  Record.skipInts(1); // the number of arguments (see CreateEmpty)
   E->setKwLoc(Record.readSourceLocation());
   E->setLParenLoc(Record.readSourceLocation());
   E->setRParenLoc(Record.readSourceLocation());

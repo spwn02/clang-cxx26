@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/Reflection.h"
+#include "clang/Lex/Token.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
@@ -1484,6 +1486,12 @@ static bool printExprAsWritten(raw_ostream &OS, Expr *E,
 void StmtPrinter::VisitIntegerLiteral(IntegerLiteral *Node) {
   if (Policy.ConstantsAsWritten && printExprAsWritten(OS, Node, Context))
     return;
+  // A bool-typed constant made by the compiler (a macro's or metafunction's
+  // result).
+  if (Node->getType()->isBooleanType()) {
+    OS << (Node->getValue() == 0 ? "false" : "true");
+    return;
+  }
   bool isSigned = Node->getType()->isSignedIntegerType();
   OS << toString(Node->getValue(), 10, isSigned);
 
@@ -2876,8 +2884,29 @@ void StmtPrinter::VisitCXXReflectExpr(CXXReflectExpr *S) {
 }
 
 void StmtPrinter::VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *S) {
-  // FIXME: Make this better — print the actual tokens.
-  OS << "^^{...}";
+  // The tokens as lexed; an interpolation as '\\(e)' (a list prints itself).
+  OS << "^^{";
+  if (S->getValue().isTokenSequence())
+    for (const Token &T : S->getValue().getTokenSequence()) {
+      OS << ' ';
+      if (T.isAnnotation()) {
+        if (T.is(tok::annot_token_seq_expr)) {
+          auto *E = static_cast<Expr *>(T.getAnnotationValue());
+          if (isa<CXXTokenInterpolationListExpr>(E)) {
+            PrintExpr(E);
+          } else {
+            OS << "\\(";
+            PrintExpr(E);
+            OS << ")";
+          }
+        } else {
+          OS << "\\(...)";
+        }
+      } else {
+        OS << getTokenSpellingForPrinting(T);
+      }
+    }
+  OS << " }";
 }
 
 void StmtPrinter::VisitCXXMetafunctionExpr(CXXMetafunctionExpr *S) {

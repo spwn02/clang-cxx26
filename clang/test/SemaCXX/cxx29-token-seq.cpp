@@ -990,9 +990,22 @@ namespace N35 {
     static_assert(is_wide<other<char>>::value);
     static_assert(is_wide<other<char>>::elems == 1);
 
-    // FIXME(P4380): an interpolated template as the operand of an explicit
-    // splice in a partial specialization (typename [:\(tmpl):]<Ts...>) needs the
-    // prototype's splice refactoring (brevzin 7f54ad45e7a6); tracked in #386.
+    // An interpolated template or type may also be the operand of an
+    // explicit splice.
+    template <class T> struct is_other { static constexpr bool value = false; };
+    consteval auto derive2(info tmpl, info ty) -> void {
+        queue_injection(^^N35, ^^{
+            template <class... Ts>
+            struct is_other<typename [:\(tmpl):]<Ts...>> {
+                static constexpr bool value = true;
+                static constexpr int n = template [:\(tmpl):]<Ts...>::elems + [:\(ty):]::elems;
+            };
+        });
+    }
+    consteval { derive2(^^other, ^^wide_result<int>); }
+    static_assert(is_other<other<int>>::value);
+    static_assert(is_other<other<int>>::n == 3);
+    static_assert(!is_other<wide_result<int>>::value);
 }
 
 // An interpolated template name behaves like the spelled name in every

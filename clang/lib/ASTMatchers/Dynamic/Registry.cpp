@@ -234,6 +234,15 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(designatedInitExpr);
   REGISTER_MATCHER(designatorCountIs);
   REGISTER_MATCHER(doExpr);
+  REGISTER_MATCHER(tokenSequenceExpr);
+  REGISTER_MATCHER(macroInvocationExpr);
+  REGISTER_MATCHER(queueInjectionExpr);
+  REGISTER_MATCHER(reportTokensExpr);
+  REGISTER_MATCHER(tokenInterpolationListExpr);
+  REGISTER_MATCHER(builtinIdExpr);
+  REGISTER_MATCHER(builtinStrLiteralExpr);
+  REGISTER_MATCHER(builtinTokenizeExpr);
+  REGISTER_MATCHER(builtinStringizeExpr);
   REGISTER_MATCHER(doReturnStmt);
   REGISTER_MATCHER(doStmt);
   REGISTER_MATCHER(eachOf);

@@ -1,0 +1,1 @@
+-std=c++2d -Wno-undefined-inline

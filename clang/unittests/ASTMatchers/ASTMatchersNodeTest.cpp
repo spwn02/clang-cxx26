@@ -455,6 +455,48 @@ TEST_P(ASTMatchersTest, FlowControl) {
   EXPECT_TRUE(matches("void f() { return; }", returnStmt()));
 }
 
+TEST(ASTMatchersTestTokenSequence, NodeMatchers) {
+  const std::vector<std::string> Args = {"-std=c++2d", "-Wno-undefined-inline"};
+  // A minimal std::meta::token_sequence: the compiler gives the class its
+  // storage and does these operations itself.
+  const std::string Prelude = R"cpp(
+    namespace std::meta {
+    template <class... Ts> consteval auto id(Ts const &...) -> int;
+    using token = decltype(id("x"));
+    class token_sequence {
+    public:
+      constexpr token_sequence() noexcept = default;
+      friend consteval token_sequence operator+(token_sequence,
+                                                const token_sequence &);
+    };
+    consteval auto stringize(token_sequence) -> const char *;
+    consteval auto queue_injection(decltype(^^::), token_sequence) -> void;
+    }
+  )cpp";
+  EXPECT_TRUE(matchesConditionally(
+      Prelude + "constexpr std::meta::token_sequence g = ^^{ a + b };",
+      tokenSequenceExpr(), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Prelude + "constexpr std::meta::token_sequence g = ^^{ a + \\(1) };",
+      varDecl(hasInitializer(hasDescendant(tokenSequenceExpr()))), true,
+      Args));
+  EXPECT_TRUE(matchesConditionally(
+      Prelude + "consteval auto s() { return std::meta::id(\"x\"); }",
+      builtinIdExpr(), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Prelude + "consteval auto s() { return std::meta::stringize(^^{ a }); }",
+      builtinStringizeExpr(), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Prelude + "consteval void s() { std::meta::queue_injection(^^::, ^^{}); }",
+      queueInjectionExpr(), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      // (A non-dependent invocation is replaced by its expansion; the node
+      // remains in a template.)
+      Prelude + "__macro one(int x) { return ^^{ \\(x) }; }\n"
+                "template <class T> int f(T t) { return one!(t); }",
+      macroInvocationExpr(), true, Args));
+}
+
 TEST(ASTMatchersTestDoExpr, DoExprAndDoReturn) {
   const std::vector<std::string> Args = {"-std=c++29", "-fdo-expressions"};
   const char *Code = "int f(int a, int b) { return do { do_return a + b; }; }";

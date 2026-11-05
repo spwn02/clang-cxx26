@@ -79,6 +79,24 @@ class TestCursorKind(unittest.TestCase):
         self.assertTrue(CursorKind.DO_EXPR.is_expression())
         self.assertTrue(CursorKind.DO_RETURN_STMT.is_statement())
 
+    def test_token_sequence_injection(self):
+        """Token sequence literals, expression macro invocations and the token
+        injection builtins (C++29, P4380) are exposed."""
+        tu = get_tu(
+            "namespace std::meta { class token_sequence { public: constexpr token_sequence() = default;\n"
+            "  friend consteval bool operator==(const token_sequence&, const token_sequence&); };\n"
+            "  template <class... T> consteval auto id(T const&...) -> int; }\n"
+            "constexpr std::meta::token_sequence g = ^^{ a + b };\n",
+            # (get_tu appends -std=c++11 for lang="cpp": select the language
+            # with -x instead.)
+            flags=["-x", "c++", "-std=c++2d"],
+        )
+        kinds = [c.kind for c in tu.cursor.walk_preorder()]
+        self.assertIn(CursorKind.TOKEN_SEQUENCE_EXPR, kinds)
+        self.assertTrue(CursorKind.TOKEN_SEQUENCE_EXPR.is_expression())
+        self.assertTrue(CursorKind.MACRO_INVOCATION_EXPR.is_expression())
+        self.assertTrue(CursorKind.TOKEN_INJECTION_EXPR.is_expression())
+
     def test_do_expression_references(self):
         """do_return is a plain statement like return/break: it has no
         referenced or definition cursor, and an init-capture is an ordinary

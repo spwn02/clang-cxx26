@@ -131,6 +131,8 @@ ArrayRef<FormatToken *> FormatTokenLexer::lex() {
       tryParsePythonComment();
     }
     tryMergePreviousTokens();
+    if (Style.isCpp())
+      handleTokenSequenceLiteral();
     if (Style.isCSharp()) {
       // This needs to come after tokens have been merged so that C#
       // string literals are correctly identified.
@@ -1572,6 +1574,88 @@ void FormatTokenLexer::readRawToken(FormatToken &Tok) {
 
   if (Tok.is(tok::comment) && isClangFormatOff(Tok.TokenText))
     FormattingDisabled = true;
+}
+
+void FormatTokenLexer::handleTokenSequenceLiteral() {
+  if (Tokens.size() < 2)
+    return;
+  FormatToken *Second = Tokens.back();
+  FormatToken *First = Tokens[Tokens.size() - 2];
+  if (First->isNot(tok::caret) || Second->isNot(tok::caret) ||
+      Second->NewlinesBefore != 0 ||
+      Second->WhitespaceRange.getBegin() != Second->WhitespaceRange.getEnd()) {
+    return;
+  }
+
+  const char *const End = Lex->getBuffer().end();
+  const char *Offset = Lex->getBufferLocation();
+  while (Offset != End && isWhitespace(*Offset))
+    ++Offset;
+  if (Offset == End || *Offset != '{')
+    return;
+
+  // Scan to the matching '}', over strings, characters and comments.
+  unsigned Depth = 0;
+  for (; Offset != End; ++Offset) {
+    const char C = *Offset;
+    if (C == '"' || C == '\'') {
+      // (A ' after a digit or letter is a digit separator, not a character.)
+      if (C == '\'' && Offset[-1] != '\0' && isAlphanumeric(Offset[-1]))
+        continue;
+      const char Quote = C;
+      for (++Offset; Offset != End && *Offset != Quote; ++Offset)
+        if (*Offset == '\\' && Offset + 1 != End)
+          ++Offset;
+      if (Offset == End)
+        return;
+    } else if (C == '/' && Offset + 1 != End && Offset[1] == '/') {
+      while (Offset != End && *Offset != '\n')
+        ++Offset;
+      if (Offset == End)
+        return;
+    } else if (C == '/' && Offset + 1 != End && Offset[1] == '*') {
+      Offset += 2;
+      while (Offset + 1 < End && !(Offset[0] == '*' && Offset[1] == '/'))
+        ++Offset;
+      if (Offset + 1 >= End)
+        return;
+      ++Offset;
+    } else if (C == '{') {
+      ++Depth;
+    } else if (C == '}') {
+      if (--Depth == 0) {
+        ++Offset;
+        break;
+      }
+    }
+  }
+  if (Depth != 0)
+    return;
+
+  const char *Begin = First->TokenText.data();
+  StringRef LiteralText(Begin, Offset - Begin);
+  Tokens.pop_back(); // The second '^'.
+  First->Tok.setKind(tok::string_literal);
+  First->setType(TT_TemplateString);
+  First->TokenText = LiteralText;
+
+  // Adjust width for potentially multiline literals.
+  size_t FirstBreak = LiteralText.find('\n');
+  StringRef FirstLineText = FirstBreak == StringRef::npos
+                                ? LiteralText
+                                : LiteralText.substr(0, FirstBreak);
+  First->ColumnWidth = encoding::columnWidthWithTabs(
+      FirstLineText, First->OriginalColumn, Style.TabWidth, Encoding);
+  size_t LastBreak = LiteralText.rfind('\n');
+  if (LastBreak != StringRef::npos) {
+    First->IsMultiline = true;
+    unsigned StartColumn = 0;
+    First->LastLineColumnWidth = encoding::columnWidthWithTabs(
+        LiteralText.substr(LastBreak + 1), StartColumn, Style.TabWidth,
+        Encoding);
+  }
+
+  resetLexer(SourceMgr.getFileOffset(Lex->getSourceLocation(Offset)));
 }
 
 void FormatTokenLexer::resetLexer(unsigned Offset) {

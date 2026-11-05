@@ -436,10 +436,128 @@ let Class = PropertyTypeCase<APValue, "AddrLabelDiff"> in {
   }]>;
 }
 let Class = PropertyTypeCase<APValue, "TokenSequence"> in {
-  // FIXME: Token sequences currently don't round-trip through PCH/modules.
-  // Implement proper Token array serialization when this becomes load-bearing.
+  // A token array is written as parallel arrays, one entry per token. A token
+  // that points into a source buffer (literals) has its spelling copied;
+  // identifiers and keywords are written by reference; the annotation tokens
+  // that carry a type, a template name, or an expression are written with that
+  // value. Any other annotation token cannot be written and becomes
+  // tok::unknown (ASTStmtWriter warns about it).
+  def : ReadHelper<[{
+    SmallVector<uint32_t, 16> bufKinds, bufFlags, bufLens;
+    SmallVector<SourceLocation, 16> bufLocs, bufEndLocs;
+    SmallVector<const IdentifierInfo *, 16> bufIdents;
+    SmallVector<char, 64> bufSpelling;
+    SmallVector<QualType, 4> bufTypes;
+    SmallVector<TemplateName, 4> bufTemplates;
+    SmallVector<const Stmt *, 4> bufExprs;
+    SmallVector<SpliceSpecifier *, 2> bufSplices;
+    for (const Token &T : node.getTokenSequence()) {
+      tok::TokenKind K = T.getKind();
+      unsigned Flags = T.getFlags();
+      SourceLocation EndLoc;
+      unsigned Len = 0;
+      const IdentifierInfo *II = nullptr;
+      if (T.isAnnotation()) {
+        EndLoc = T.getAnnotationEndLoc();
+        switch (K) {
+        case tok::annot_typename:
+          bufTypes.push_back(QualType::getFromOpaquePtr(T.getAnnotationValue()));
+          break;
+        case tok::annot_template_name:
+          bufTemplates.push_back(TemplateName::getFromVoidPointer(
+              T.getAnnotationValue()));
+          break;
+        case tok::annot_splice:
+          bufSplices.push_back(
+              static_cast<SpliceSpecifier *>(T.getAnnotationValue()));
+          break;
+        case tok::annot_primary_expr:
+        case tok::annot_token_seq_expr:
+          bufExprs.push_back(static_cast<const Stmt *>(T.getAnnotationValue()));
+          break;
+        default:
+          K = tok::unknown;
+          Flags = 0;
+          break;
+        }
+      } else if (T.isLiteral() || K == tok::raw_identifier) {
+        Len = T.getLength();
+        const char *P = T.isLiteral() ? T.getLiteralData() : T.getRawIdentifier().data();
+        bufSpelling.append(P, P + Len);
+      } else {
+        II = T.getIdentifierInfo();
+      }
+      bufKinds.push_back(static_cast<uint32_t>(K));
+      bufFlags.push_back(Flags);
+      bufLens.push_back(Len);
+      bufLocs.push_back(T.getLocation());
+      bufEndLocs.push_back(EndLoc);
+      bufIdents.push_back(II);
+    }
+  }]>;
+  def : Property<"tokKinds", Array<UInt32>> { let Read = [{ bufKinds }]; }
+  def : Property<"tokFlags", Array<UInt32>> { let Read = [{ bufFlags }]; }
+  def : Property<"tokLens", Array<UInt32>> { let Read = [{ bufLens }]; }
+  def : Property<"tokLocs", Array<SourceLocation>> { let Read = [{ bufLocs }]; }
+  def : Property<"tokEndLocs", Array<SourceLocation>> {
+    let Read = [{ bufEndLocs }];
+  }
+  def : Property<"tokIdents", Array<Identifier>> { let Read = [{ bufIdents }]; }
+  def : Property<"tokSpelling", Array<Char>> { let Read = [{ bufSpelling }]; }
+  def : Property<"tokTypes", Array<QualType>> { let Read = [{ bufTypes }]; }
+  def : Property<"tokTemplates", Array<TemplateName>> {
+    let Read = [{ bufTemplates }];
+  }
+  def : Property<"tokExprs", Array<StmtRef>> { let Read = [{ bufExprs }]; }
+  def : Property<"tokSplices", Array<SpliceSpecifierRef>> {
+    let Read = [{ bufSplices }];
+  }
   def : Creator<[{
-    return APValue(CreateEmptyTokenSequenceData(ctx));
+    SmallVector<Token, 16> toks;
+    const char *spell = nullptr;
+    if (!tokSpelling.empty()) {
+      char *Buf = new (ctx) char[tokSpelling.size()];
+      std::copy(tokSpelling.begin(), tokSpelling.end(), Buf);
+      spell = Buf;
+    }
+    size_t nSpell = 0, nType = 0, nTemplate = 0, nExpr = 0, nSplice = 0;
+    for (size_t i = 0; i != tokKinds.size(); ++i) {
+      Token T;
+      T.startToken();
+      T.setKind(static_cast<tok::TokenKind>(tokKinds[i]));
+      T.setLocation(tokLocs[i]);
+      if (T.isAnnotation()) {
+        T.setAnnotationEndLoc(tokEndLocs[i]);
+        switch (T.getKind()) {
+        case tok::annot_typename:
+          T.setAnnotationValue(tokTypes[nType++].getAsOpaquePtr());
+          break;
+        case tok::annot_template_name:
+          T.setAnnotationValue(tokTemplates[nTemplate++].getAsVoidPointer());
+          break;
+        case tok::annot_splice:
+          T.setAnnotationValue(static_cast<void *>(tokSplices[nSplice++]));
+          break;
+        default:
+          T.setAnnotationValue(static_cast<void *>(tokExprs[nExpr++]));
+          break;
+        }
+      } else if (T.isLiteral() || T.is(tok::raw_identifier)) {
+        T.setLength(tokLens[i]);
+        if (T.is(tok::raw_identifier))
+          T.setRawIdentifierData(spell + nSpell);
+        else
+          T.setLiteralData(spell + nSpell);
+        nSpell += tokLens[i];
+      } else if (tokIdents[i]) {
+        T.setIdentifierInfo(const_cast<IdentifierInfo *>(tokIdents[i]));
+      }
+      for (unsigned bit = 0; bit != 16; ++bit)
+        if (tokFlags[i] & (1u << bit))
+          T.setFlag(static_cast<Token::TokenFlags>(1u << bit));
+      toks.push_back(T);
+    }
+    return APValue(CreateTokenSequenceData(ctx, toks));
   }]>;
 }
 let Class = PropertyTypeCase<APValue, "Reflection"> in {

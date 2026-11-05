@@ -510,14 +510,26 @@ void ASTStmtWriter::VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
   VisitExpr(E);
   Record.writeUInt32(E->getNumInterpolationExprs());
   Record.AddSourceLocation(E->getOperatorLoc());
-  // FIXME: Token sequences currently round-trip through PCH/modules as an
-  // empty token sequence (see PropertiesBase.td). Implement proper Token array
-  // serialization when this becomes load-bearing (#387).
-  if (E->getValue().isTokenSequence() &&
-      !E->getValue().getTokenSequence().empty())
-    Record.getASTContext().getDiagnostics().Report(E->getBeginLoc(),
-                                   diag::warn_token_sequence_not_serialized);
+  // The token array is written by the TokenSequence case of PropertiesBase.td.
+  // An annotation token that carries anything other than a type, a template
+  // name or an expression cannot be written: it is read back as tok::unknown.
+  if (E->getValue().isTokenSequence())
+    for (const Token &T : E->getValue().getTokenSequence())
+      if (T.isAnnotation() &&
+          !T.isOneOf(tok::annot_typename, tok::annot_template_name,
+                     tok::annot_primary_expr, tok::annot_token_seq_expr,
+                     tok::annot_splice)) {
+        Record.getASTContext().getDiagnostics().Report(
+            E->getBeginLoc(), diag::warn_token_sequence_not_serialized);
+        break;
+      }
   Record.AddAPValue(E->getValue());
+  // The tokens that name a template or macro parameter, by index.
+  Record.writeUInt32(E->getParamBindings().size());
+  for (const TokenSequenceParamBinding &B : E->getParamBindings()) {
+    Record.writeUInt32(B.TokenIndex);
+    Record.AddDeclRef(B.Param);
+  }
   for (Stmt *S : E->children())
     Record.AddStmt(S);
   Record.AddSourceRange(E->getOperandRange());

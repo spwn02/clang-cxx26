@@ -120,6 +120,11 @@ TEST(StdlibTest, Cxx26Facilities) {
       {"std::simd::", "bit_reverse", "<simd>"},
       {"std::", "pointer_tag_pair", "<memory>"},
       {"std::", "pointer_bits_available", "<memory>"},
+      {"std::meta::", "token_sequence", "<meta>"},
+      {"std::meta::", "token", "<meta>"},
+      {"std::meta::", "queue_injection", "<meta>"},
+      {"std::meta::", "list_builder", "<meta>"},
+      {"std::", "constexpr_print_str", "<debugging>"},
   };
   for (const auto &C : Cases) {
     auto Symbol = stdlib::Symbol::named(C.Scope, C.Name);
