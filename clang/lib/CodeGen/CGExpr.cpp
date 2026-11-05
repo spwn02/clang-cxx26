@@ -1771,6 +1771,9 @@ LValue CodeGenFunction::EmitLValueHelper(const Expr *E,
   }
   case Expr::ParenExprClass:
     return EmitLValue(cast<ParenExpr>(E)->getSubExpr(), IsKnownNonNull);
+  case Expr::CXXMacroInvocationExprClass:
+    return EmitLValue(cast<CXXMacroInvocationExpr>(E)->getExpansion(),
+                      IsKnownNonNull);
   case Expr::GenericSelectionExprClass:
     return EmitLValue(cast<GenericSelectionExpr>(E)->getResultExpr(),
                       IsKnownNonNull);

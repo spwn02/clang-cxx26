@@ -8182,8 +8182,15 @@ ASTNodeImporter::VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
     auto ToCallee = import(E->getCallee());
     if (!ToCallee)
       return ToCallee.takeError();
-    return CXXMacroInvocationExpr::Create(Ctx, *ToCallee, ToArgs, ToExclaimLoc,
-                                          ToLParenLoc, ToRParenLoc);
+    auto *ToE = CXXMacroInvocationExpr::Create(
+        Ctx, *ToCallee, ToArgs, ToExclaimLoc, ToLParenLoc, ToRParenLoc);
+    if (E->isResolved()) {
+      auto ToExpansion = import(E->getExpansion());
+      if (!ToExpansion)
+        return ToExpansion.takeError();
+      ToE->setExpansion(*ToExpansion);
+    }
+    return ToE;
   }
 
   auto ToBase = import(E->getBase());

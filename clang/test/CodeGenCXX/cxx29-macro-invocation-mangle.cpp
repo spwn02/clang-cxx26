@@ -8,7 +8,7 @@ __macro inc(int x) { return ^^{ (\(x) + 1) }; }
 template <class T> auto f(T t) -> decltype(inc!(t)) { return inc!(t); }
 int use() { return f(1); }
 
-// ITANIUM: @_Z1fIiEDTu15__macro_invokeX3incEXfp_EEET_
+// ITANIUM: @_Z1fIiEDTu14__macro_invokeX3incEXfp_EEET_
 // MSVC: @"??$f@H@@YAHH@Z"
 
 // The expression macro must not alias the call of a function of the same name:

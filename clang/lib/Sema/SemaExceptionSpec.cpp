@@ -1117,6 +1117,13 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Expr::ConstantExprClass:
     return canThrow(cast<ConstantExpr>(S)->getSubExpr());
 
+  case Expr::CXXMacroInvocationExprClass: {
+    // A resolved invocation can throw as its expansion does; a deferred one
+    // is dependent.
+    const auto *MI = cast<CXXMacroInvocationExpr>(S);
+    return MI->isResolved() ? canThrow(MI->getExpansion()) : CT_Dependent;
+  }
+
   case Expr::CXXThrowExprClass:
     //   - a potentially evaluated throw-expression
     return CT_Can;
@@ -1388,7 +1395,6 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Expr::CXXPseudoDestructorExprClass:
   case Expr::CXXReflectExprClass:
   case Expr::CXXTokenSequenceExprClass:
-  case Expr::CXXMacroInvocationExprClass:
   case Expr::CXXMetafunctionExprClass:
   case Expr::CXXBuiltinInjectExprClass:
   case Expr::CXXBuiltinReportTokensExprClass:

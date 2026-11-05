@@ -252,8 +252,13 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
   case Expr::CXXBuiltinStrLiteralExprClass:
   case Expr::CXXBuiltinTokenizeExprClass:
   case Expr::CXXBuiltinStringizeExprClass:
-  case Expr::CXXMacroInvocationExprClass:
     return Cl::CL_PRValue;
+
+  case Expr::CXXMacroInvocationExprClass: {
+    const auto *MI = cast<CXXMacroInvocationExpr>(E);
+    return MI->isResolved() ? ClassifyInternal(Ctx, MI->getExpansion())
+                            : Cl::CL_PRValue;
+  }
 
   case Expr::EmbedExprClass:
     // Nominally, this just goes through as a PRValue until we actually expand

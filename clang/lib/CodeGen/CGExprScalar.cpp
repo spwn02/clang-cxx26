@@ -488,6 +488,9 @@ public:
   Value *VisitSubstNonTypeTemplateParmExpr(SubstNonTypeTemplateParmExpr *E) {
     return Visit(E->getReplacement());
   }
+  Value *VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
+    return Visit(E->getExpansion());
+  }
   Value *VisitGenericSelectionExpr(GenericSelectionExpr *GE) {
     return Visit(GE->getResultExpr());
   }

@@ -6311,7 +6311,12 @@ class CXXMacroInvocationExpr : public Expr {
   /// The callee (an UnresolvedLookupExpr naming the macros found by ordinary
   /// lookup; null for a member invocation, whose lookup awaits the object
   /// type), the object expression of a member invocation (null otherwise),
-  /// then the arguments.
+  /// the expansion (null while the invocation is dependent), then the
+  /// arguments. Once resolved, the invocation stands for its expansion: it has
+  /// the expansion's type, value kind and dependence, and its only children
+  /// are the callee and the expansion (the arguments are inside the expansion
+  /// as the values the macro was given), so traversals see each expression
+  /// once and tools see the macro that was invoked.
   Stmt **SubExprs;
   unsigned NumArgs;
   bool IsArrow = false;
@@ -6365,6 +6370,14 @@ public:
                const TemplateArgumentListInfo *TemplateArgs = nullptr);
   static CXXMacroInvocationExpr *CreateEmpty(ASTContext &C, unsigned NumArgs);
 
+  /// Resolve the invocation to \p Expansion: the invocation takes its type,
+  /// value kind, object kind and dependence.
+  void setExpansion(Expr *Expansion);
+  bool isResolved() const { return SubExprs[2] != nullptr; }
+  /// The expression the macro expanded to; null while the invocation is
+  /// dependent.
+  Expr *getExpansion() const { return cast_or_null<Expr>(SubExprs[2]); }
+
   UnresolvedLookupExpr *getCallee() const {
     return cast_or_null<UnresolvedLookupExpr>(SubExprs[0]);
   }
@@ -6399,10 +6412,10 @@ public:
   }
 
   unsigned getNumArgs() const { return NumArgs; }
-  Expr *getArg(unsigned I) const { return cast<Expr>(SubExprs[I + 2]); }
-  void setArg(unsigned I, Expr *E) { SubExprs[I + 2] = E; }
+  Expr *getArg(unsigned I) const { return cast<Expr>(SubExprs[I + 3]); }
+  void setArg(unsigned I, Expr *E) { SubExprs[I + 3] = E; }
   ArrayRef<Expr *> getArgs() const {
-    return ArrayRef(reinterpret_cast<Expr *const *>(SubExprs + 2), NumArgs);
+    return ArrayRef(reinterpret_cast<Expr *const *>(SubExprs + 3), NumArgs);
   }
 
   SourceLocation getOperatorLoc() const { return OperatorLoc; }
@@ -6421,10 +6434,11 @@ public:
   SourceLocation getEndLoc() const LLVM_READONLY { return RParenLoc; }
 
   child_range children() {
-    return child_range(SubExprs, SubExprs + 2 + NumArgs);
+    return child_range(SubExprs, SubExprs + (isResolved() ? 3 : 3 + NumArgs));
   }
   const_child_range children() const {
-    return const_child_range(SubExprs, SubExprs + 2 + NumArgs);
+    return const_child_range(SubExprs,
+                             SubExprs + (isResolved() ? 3 : 3 + NumArgs));
   }
 
   static bool classof(const Stmt *T) {

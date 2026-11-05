@@ -33,3 +33,6 @@ consteval std::meta::token_sequence g(int count) {
     int b = a + 1;
   };
 }
+
+__macro inc(int x) { return ^^{ (\(x) + 1) }; }
+int use_inc() { return inc!(1); }

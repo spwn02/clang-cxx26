@@ -1758,7 +1758,10 @@ const syntax::Token *syntax::TreeBuilder::findToken(SourceLocation L) const {
     return T.location() == L || SM.isBeforeInTranslationUnit(T.location(), L);
   });
   assert(After != Tokens.begin() && "location precedes every token");
-  return &*std::prev(After);
+  const syntax::Token *Found = &*std::prev(After);
+  assert(SM.isBeforeInTranslationUnit(L, Found->endLocation()) &&
+         "location is not inside the token before it");
+  return Found;
 }
 
 syntax::TranslationUnit *syntax::buildSyntaxTree(Arena &A,

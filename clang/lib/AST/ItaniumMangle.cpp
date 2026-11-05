@@ -5415,7 +5415,11 @@ recurse:
     // for expression macros. A vendor extended expression (u <source-name>
     // <template-arg>* E) keeps it from aliasing the call m(t) of a function.
     const auto *MI = cast<CXXMacroInvocationExpr>(E);
-    Out << "u15__macro_invoke";
+    if (MI->isResolved()) {
+      mangleExpression(MI->getExpansion(), Arity);
+      break;
+    }
+    Out << "u14__macro_invoke";
     Out << 'X';
     mangleExpression(MI->getCallee());
     Out << 'E';

@@ -637,6 +637,7 @@ void ASTStmtWriter::VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
   Record.AddSourceLocation(E->getRParenLoc());
   Record.AddStmt(E->getCallee());
   Record.AddStmt(E->getBase());
+  Record.AddStmt(E->getExpansion());
   for (Expr *Arg : E->getArgs())
     Record.AddStmt(Arg);
   Code = serialization::EXPR_MACRO_INVOCATION;

@@ -9458,6 +9458,11 @@ void TreeTransform<Derived>::TransformUnparsedMacroEnvironment(
 template <typename Derived>
 ExprResult TreeTransform<Derived>::TransformCXXMacroInvocationExpr(
     CXXMacroInvocationExpr *E) {
+  // A resolved invocation was expanded when it was written: only its
+  // expansion is transformed.
+  if (E->isResolved())
+    return getDerived().TransformExpr(E->getExpansion());
+
   // The explicit template arguments of 'name!<Args>(...)', if any: the
   // callee's, or the member invocation's own.
   TemplateArgumentListInfo TemplateArgsBuffer;

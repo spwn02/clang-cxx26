@@ -2466,7 +2466,7 @@ CXXMacroInvocationExpr::CXXMacroInvocationExpr(
     SourceLocation RParenLoc)
     : Expr(CXXMacroInvocationExprClass, C.DependentTy, VK_PRValue,
            OK_Ordinary),
-      SubExprs(new (C) Stmt *[Args.size() + 2]), NumArgs(Args.size()),
+      SubExprs(new (C) Stmt *[Args.size() + 3]), NumArgs(Args.size()),
       IsArrow(IsArrow), MemberNameInfo(MemberNameInfo),
       OperatorLoc(OperatorLoc), ExclaimLoc(ExclaimLoc), LParenLoc(LParenLoc),
       RParenLoc(RParenLoc) {
@@ -2474,16 +2474,27 @@ CXXMacroInvocationExpr::CXXMacroInvocationExpr(
          "either a looked-up callee or an object expression");
   SubExprs[0] = Callee;
   SubExprs[1] = Base;
+  SubExprs[2] = nullptr;
   for (unsigned I = 0; I != NumArgs; ++I)
-    SubExprs[I + 2] = Args[I];
+    SubExprs[I + 3] = Args[I];
   setDependence(computeDependence(this));
 }
 
 CXXMacroInvocationExpr::CXXMacroInvocationExpr(ASTContext &C, EmptyShell Empty,
                                                unsigned NumArgs)
     : Expr(CXXMacroInvocationExprClass, Empty),
-      SubExprs(new (C) Stmt *[NumArgs + 2]), NumArgs(NumArgs) {
-  SubExprs[0] = SubExprs[1] = nullptr;
+      SubExprs(new (C) Stmt *[NumArgs + 3]), NumArgs(NumArgs) {
+  SubExprs[0] = SubExprs[1] = SubExprs[2] = nullptr;
+}
+
+void CXXMacroInvocationExpr::setExpansion(Expr *Expansion) {
+  SubExprs[2] = Expansion;
+  if (!Expansion)
+    return;
+  setType(Expansion->getType());
+  setValueKind(Expansion->getValueKind());
+  setObjectKind(Expansion->getObjectKind());
+  setDependence(Expansion->getDependence());
 }
 
 CXXMacroInvocationExpr *CXXMacroInvocationExpr::Create(

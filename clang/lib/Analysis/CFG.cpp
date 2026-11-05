@@ -2462,6 +2462,10 @@ CFGBlock *CFGBuilder::Visit(Stmt * S, AddStmtChoice asc,
     case Stmt::ConstantExprClass:
       return VisitConstantExpr(cast<ConstantExpr>(S), asc);
 
+    case Stmt::CXXMacroInvocationExprClass:
+      // A resolved invocation stands for its expansion.
+      return Visit(cast<CXXMacroInvocationExpr>(S)->getExpansion(), asc);
+
     case Stmt::IndirectGotoStmtClass:
       return VisitIndirectGotoStmt(cast<IndirectGotoStmt>(S));
 

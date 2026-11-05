@@ -65,5 +65,45 @@
   "label": "fold",
   "pre": 300,
   "wait": 500
+ },
+ {
+  "line": 37,
+  "col": 9,
+  "request": "textDocument/semanticTokens/full",
+  "label": "sem2",
+  "pre": 300,
+  "wait": 500
+ },
+ {
+  "line": 37,
+  "col": 9,
+  "request": "textDocument/hover",
+  "label": "hover-macro-decl",
+  "pre": 300,
+  "wait": 500
+ },
+ {
+  "line": 38,
+  "col": 24,
+  "request": "textDocument/hover",
+  "label": "hover-macro-use",
+  "pre": 300,
+  "wait": 500
+ },
+ {
+  "line": 38,
+  "col": 24,
+  "request": "textDocument/definition",
+  "label": "def-macro-use",
+  "pre": 300,
+  "wait": 500
+ },
+ {
+  "line": 38,
+  "col": 24,
+  "request": "textDocument/references",
+  "label": "refs-macro-use",
+  "pre": 300,
+  "wait": 500
  }
 ]

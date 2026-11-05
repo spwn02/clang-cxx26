@@ -7550,12 +7550,22 @@ ExprResult Sema::BuildMacroInvocation(Scope *S, UnresolvedLookupExpr *Callee,
 
   // std::meta::expand_at_instantiation() in the body defers the invocation
   // as dependent arguments would have.
-  return BuildExpressionMacroExpansion(Fn.get(), Macro, LParenLoc, Args,
-                                       RParenLoc, UsesADL, [&]() -> ExprResult {
-                                         return CXXMacroInvocationExpr::Create(
-                                             Context, Callee, Args, ExclaimLoc,
-                                             LParenLoc, RParenLoc);
-                                       });
+  bool Deferred = false;
+  ExprResult Expansion = BuildExpressionMacroExpansion(
+      Fn.get(), Macro, LParenLoc, Args, RParenLoc, UsesADL,
+      [&]() -> ExprResult {
+        Deferred = true;
+        return CXXMacroInvocationExpr::Create(Context, Callee, Args,
+                                              ExclaimLoc, LParenLoc, RParenLoc);
+      });
+  if (Deferred || Expansion.isInvalid())
+    return Expansion;
+  // Keep the invocation around its expansion: the macro that was invoked and
+  // the written arguments are what tools show at the call site.
+  auto *Invocation = CXXMacroInvocationExpr::Create(
+      Context, Callee, Args, ExclaimLoc, LParenLoc, RParenLoc);
+  Invocation->setExpansion(Expansion.get());
+  return Invocation;
 }
 
 /// Overload resolution for a macro invocation: as for a call, but the result

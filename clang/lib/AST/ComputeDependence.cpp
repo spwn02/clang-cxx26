@@ -1102,8 +1102,11 @@ ExprDependence clang::computeDependence(CXXBuiltinStringizeExpr *E) {
 }
 
 ExprDependence clang::computeDependence(CXXMacroInvocationExpr *E) {
-  // The node only exists while the expansion is deferred, so it is always
-  // dependent; the operands contribute unexpanded packs and the like.
+  // A resolved invocation is as dependent as its expansion.
+  if (Expr *Expansion = E->getExpansion())
+    return Expansion->getDependence();
+  // Until then the expansion is deferred, so it is always dependent; the
+  // operands contribute unexpanded packs and the like.
   auto D = ExprDependence::TypeValueInstantiation;
   if (Expr *Callee = E->getCallee())
     D |= Callee->getDependence();

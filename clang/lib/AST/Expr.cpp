@@ -3423,6 +3423,11 @@ bool Expr::isConstantInitializer(ASTContext &Ctx, bool IsForRef,
 
     break;
   }
+  case CXXMacroInvocationExprClass: {
+    const auto *MI = cast<CXXMacroInvocationExpr>(this);
+    return MI->isResolved() &&
+           MI->getExpansion()->isConstantInitializer(Ctx, false, Culprit);
+  }
   case ConstantExprClass: {
     // FIXME: We should be able to return "true" here, but it can lead to extra
     // error messages. E.g. in Sema/array-init.c.
@@ -3785,6 +3790,12 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
   case OpenACCAsteriskSizeExprClass:
     // These never have a side-effect.
     return false;
+
+  case CXXMacroInvocationExprClass: {
+    const auto *MI = cast<CXXMacroInvocationExpr>(this);
+    return !MI->isResolved() ||
+           MI->getExpansion()->HasSideEffects(Ctx, IncludePossibleEffects);
+  }
 
   case ConstantExprClass: {
     // FIXME: Move this into the "return false;" block above.

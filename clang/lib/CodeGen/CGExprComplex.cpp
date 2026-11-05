@@ -121,6 +121,9 @@ public:
   VisitSubstNonTypeTemplateParmExpr(SubstNonTypeTemplateParmExpr *PE) {
     return Visit(PE->getReplacement());
   }
+  ComplexPairTy VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
+    return Visit(E->getExpansion());
+  }
   ComplexPairTy VisitCoawaitExpr(CoawaitExpr *S) {
     return CGF.EmitCoawaitExpr(*S).getComplexVal();
   }

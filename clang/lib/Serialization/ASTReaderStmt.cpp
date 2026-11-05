@@ -639,6 +639,8 @@ void ASTStmtReader::VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
   E->setRParenLoc(Record.readSourceLocation());
   E->setCallee(cast_or_null<UnresolvedLookupExpr>(Record.readSubExpr()));
   E->setBase(Record.readSubExpr());
+  if (Expr *Expansion = Record.readSubExpr())
+    E->setExpansion(Expansion);
   for (unsigned I = 0, N = E->getNumArgs(); I != N; ++I)
     E->setArg(I, Record.readSubExpr());
 }

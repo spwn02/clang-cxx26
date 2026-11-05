@@ -132,6 +132,9 @@ public:
   void VisitSubstNonTypeTemplateParmExpr(SubstNonTypeTemplateParmExpr *E) {
     return Visit(E->getReplacement());
   }
+  void VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
+    Visit(E->getExpansion());
+  }
 
   void VisitConstantExpr(ConstantExpr *E) {
     EnsureDest(E->getType());

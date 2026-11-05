@@ -12,3 +12,10 @@ sem          must-contain 26:22:5
 sem          must-contain 26:33:5
 fold         must-contain 23-27
 fold         must-contain 31-33
+sem2         must-contain 38:24:3
+sem2         must-contain 25:16:1
+sem2         must-contain 26:16:1
+hover-macro-use must-contain Parameters: - `int x` Value = `2` --- ```cpp consteval std::meta::token_sequence inc(int x) ```
+def-macro-use must-contain 37:9
+refs-macro-use must-contain 37:9
+refs-macro-use must-contain 38:24

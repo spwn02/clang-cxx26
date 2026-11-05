@@ -44,6 +44,11 @@ inline Expr *IgnoreImplicitCastsSingleStep(Expr *E) {
   if (auto *FE = dyn_cast<FullExpr>(E))
     return FE->getSubExpr();
 
+  // A resolved macro invocation is only a record of the call site.
+  if (auto *MI = dyn_cast<CXXMacroInvocationExpr>(E))
+    if (Expr *Expansion = MI->getExpansion())
+      return Expansion;
+
   return E;
 }
 
@@ -76,6 +81,10 @@ inline Expr *IgnoreCastsSingleStep(Expr *E) {
 
   if (auto *NTTP = dyn_cast<SubstNonTypeTemplateParmExpr>(E))
     return NTTP->getReplacement();
+
+  if (auto *MI = dyn_cast<CXXMacroInvocationExpr>(E))
+    if (Expr *Expansion = MI->getExpansion())
+      return Expansion;
 
   return E;
 }
@@ -175,6 +184,11 @@ inline Expr *IgnoreParensSingleStep(Expr *E) {
   else if (auto *PE = dyn_cast<PredefinedExpr>(E)) {
     if (PE->isTransparent() && PE->getFunctionName())
       return PE->getFunctionName();
+  }
+
+  else if (auto *MI = dyn_cast<CXXMacroInvocationExpr>(E)) {
+    if (Expr *Expansion = MI->getExpansion())
+      return Expansion;
   }
 
   return E;

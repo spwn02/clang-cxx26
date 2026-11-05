@@ -10116,6 +10116,10 @@ public:
     { return StmtVisitorTy::Visit(E->getResultExpr()); }
   bool VisitSubstNonTypeTemplateParmExpr(const SubstNonTypeTemplateParmExpr *E)
     { return StmtVisitorTy::Visit(E->getReplacement()); }
+  bool VisitCXXMacroInvocationExpr(const CXXMacroInvocationExpr *E) {
+    // (An unresolved invocation is dependent and never evaluated.)
+    return E->isResolved() && StmtVisitorTy::Visit(E->getExpansion());
+  }
   bool VisitCXXDefaultArgExpr(const CXXDefaultArgExpr *E) {
     TempVersionRAII RAII(*Info.CurrentCall);
     SourceLocExprScopeGuard Guard(E, Info.CurrentCall->CurSourceLocExprScope);
@@ -26570,6 +26574,13 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
     return ICEDiag(IK_NotICE, E->getBeginLoc());
   }
 
+  case Expr::CXXMacroInvocationExprClass: {
+    const auto *MI = cast<CXXMacroInvocationExpr>(E);
+    if (MI->isResolved())
+      return CheckICE(MI->getExpansion(), Ctx);
+    return ICEDiag(IK_NotICE, E->getBeginLoc());
+  }
+
   case Expr::SizeOfPackExprClass:
   case Expr::GNUNullExprClass:
   case Expr::SourceLocExprClass:
@@ -26612,7 +26623,6 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
   case Expr::CXXBuiltinIdExprClass:
   case Expr::CXXBuiltinStrLiteralExprClass:
   case Expr::CXXBuiltinTokenizeExprClass:
-  case Expr::CXXMacroInvocationExprClass:
   case Expr::CXXSpliceExprClass:
   case Expr::StackLocationExprClass:
   case Expr::ExtractLValueExprClass:
