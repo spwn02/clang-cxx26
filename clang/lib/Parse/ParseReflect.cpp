@@ -393,7 +393,7 @@ ExprResult Parser::ParseCXXReflectExpression(SourceLocation OpLoc) {
 
     Decl *TUDecl = Actions.getASTContext().getTranslationUnitDecl();
     return RecordConstevalOnly.RecordAndReturn(
-            Actions.ActOnCXXReflectExpr(OpLoc, SourceLocation(), TUDecl));
+            Actions.ActOnCXXReflectExpr(OpLoc, SS.getBeginLoc(), TUDecl));
   }
   TentativeAction.Revert();
 

@@ -863,6 +863,14 @@ public:
     return RecursiveASTVisitor::TraverseStmt(S);
   }
 
+  bool TraverseConstevalBlockDecl(ConstevalBlockDecl *D) {
+    // The block's body is a lambda call the compiler synthesizes (or the
+    // record of a macro invocation): nothing in it has syntax of its own.
+    Builder.foldNode(Builder.getDeclarationRange(D),
+                     new (allocator()) syntax::UnknownDeclaration(), D);
+    return true;
+  }
+
   bool TraverseCXXMacroInvocationExpr(CXXMacroInvocationExpr *S,
                                       DataRecursionQueue *Queue = nullptr) {
     // Its tokens are the call site; the nodes of its expansion do not
