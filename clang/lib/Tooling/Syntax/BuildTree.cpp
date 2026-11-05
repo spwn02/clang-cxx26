@@ -514,6 +514,25 @@ public:
       Tokens = getRange(S->TypeDecl::getBeginLoc(), S->getEndLoc());
     else
       Tokens = getRange(D->getSourceRange());
+    // The attributes written before a parameter ('[[maybe_unused]] int x') are
+    // part of it; the declaration's range starts at its type.
+    if (isa<ParmVarDecl>(D) && D->hasAttrs()) {
+      for (const Attr *A : D->attrs()) {
+        if (A->isImplicit() || A->getLocation().isInvalid() ||
+            !A->isStandardAttributeSyntax())
+          continue;
+        const syntax::Token *First = findToken(A->getLocation());
+        // (Back to the '[[' that opens the attribute-specifier.)
+        while (First != Tokens.begin() &&
+               std::prev(First)->kind() == tok::l_square)
+          First = std::prev(First);
+        // (After a ',': an attribute on the first parameter is not part of
+        // its range.)
+        if (First < Tokens.begin() && First != Tokens.begin() &&
+            std::prev(First)->kind() == tok::comma)
+          Tokens = llvm::ArrayRef(First, Tokens.end());
+      }
+    }
     return maybeAppendSemicolon(Tokens, D);
   }
 
@@ -833,6 +852,13 @@ public:
                        new (allocator()) syntax::UnknownDeclaration(), S);
       return true;
     }
+    // The template of an abbreviated function template ('void f(auto)') or of
+    // an explicit object parameter ('this auto') is invented: there is no
+    // 'template' to build a declaration around, only the function.
+    SourceLocation TemplateLoc = S->getTemplateParameters()->getTemplateLoc();
+    if (TemplateLoc.isInvalid() ||
+        Builder.findToken(TemplateLoc)->kind() != tok::kw_template)
+      return true;
     foldTemplateDeclaration(
         Builder.getDeclarationRange(S),
         Builder.findToken(S->getTemplateParameters()->getTemplateLoc()),
@@ -965,6 +991,14 @@ public:
       return RecursiveASTVisitor::TraverseStmt(IgnoreImplicit(E));
     }
     return RecursiveASTVisitor::TraverseStmt(S);
+  }
+
+  bool TraverseRequiresExpr(RequiresExpr *S,
+                            DataRecursionQueue *Queue = nullptr) {
+    // Its parameters and requirements are not built into a tree.
+    Builder.foldNode(Builder.getExprRange(S),
+                     new (allocator()) syntax::UnknownExpression, S);
+    return true;
   }
 
   bool TraverseConstevalBlockDecl(ConstevalBlockDecl *D) {
