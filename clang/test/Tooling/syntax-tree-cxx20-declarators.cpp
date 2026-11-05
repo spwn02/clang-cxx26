@@ -47,3 +47,14 @@ int converted(Ordering o) { return o; }
 // CHECK: 'trailing'
 // CHECK: 'trailing_member'
 // CHECK: 'converted'
+
+// A member of an anonymous union reached through an object, and a variable
+// initialized by a builtin the compiler evaluates itself.
+struct Pair {
+  union {
+    int first;
+    float first_as_float;
+  };
+};
+int through_object(Pair &p) { return p.first; }
+constexpr unsigned long folded = __builtin_strlen("abc");
