@@ -15,3 +15,13 @@
 // DUMP: field: TokenSequence 3 'x = \(...)'
 // DUMP: CXXMacroInvocationExpr
 // PRINT: with_refl = ^^{ x = \(^^int) + \(^^Rs) + \(^^Rs::m) };
+// A resolved invocation (non-member, member, statement position) is imported
+// with its expansion.
+// PRINT: int resolved_expr(int k) {
+// PRINT-NEXT: return inc!(k);
+// PRINT: int resolved_member(HolderM h) {
+// PRINT-NEXT: return h.bump!(1);
+// PRINT: void resolved_stmt(int k) {
+// PRINT-NEXT: /* inc!(k) */;
+// PRINT-NEXT: (k + 1);
+// DUMP: CXXMacroInvocationExpr {{.*}} 'int'

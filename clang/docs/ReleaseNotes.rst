@@ -274,7 +274,9 @@ C++2d (C++29) Feature Support
   paper is not adopted. See :ref:`do expressions <do_expressions>`.
 - Added token sequence injection (P4380R1, exploratory) under ``-std=c++29``: ``^^{ ... }`` token sequence literals,
   ``\\(e)`` interpolation, ``std::meta::queue_injection``, annotation injection hooks and ``__macro`` expression macros
-  invoked as ``name!(...)``. See :ref:`token sequence injection <token_sequence_injection>`.
+  invoked as ``name!(...)``. See :ref:`token sequence injection <token_sequence_injection>`. A resolved macro
+  invocation stays in the AST around its expansion, so clangd, libclang and clang-tidy see the macro's name at the call
+  site (hover, go-to-definition, references and semantic tokens).
 
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^

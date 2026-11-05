@@ -1803,11 +1803,9 @@ macro that was invoked (clangd completion, hover, go-to-definition, references a
 the call site). This holds for ``m!(..)``, ``obj.m!(..)``, and for statement- and declaration-position invocations,
 which are kept as an invocation with an empty expansion ahead of the statements or declarations they expand to (in
 declaration position inside a consteval block that does nothing). The static analyzer evaluates the arguments of an
-invocation once, ahead of the expansion. The experimental syntax-tree library (``clang-check -syntax-tree-dump``) shows a
-literal and an invocation as one leaf and leaves out the declarations and statements expanded from a literal; it still
-asserts on a few kinds of code that is injected or expanded from a literal (injected statements, member-initializer
-macros, declaration macros that produce templates), and, with assertions enabled, on any C++20 concept (a limit of the
-library itself).
+invocation once, ahead of the expansion. In the experimental syntax-tree library (``clang-check -syntax-tree-dump``) a
+literal and an invocation are one leaf; what was injected or expanded from a literal, or made by ``tokenize``,
+``str_lit`` or ``id``, is left out, because its tokens are not where it is used.
 The raw identifiers of a literal are not names until the sequence is injected; clangd shows them as unresolved (dependent)
 names, and the interpolated expressions as the expressions they are. There is no ``std::formatter`` for ``token_sequence``:
 P4380 defines none, and a token sequence exists only in constant evaluation.
