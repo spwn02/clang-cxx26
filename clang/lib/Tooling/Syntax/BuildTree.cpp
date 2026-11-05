@@ -794,6 +794,12 @@ public:
   }
 
   bool WalkUpFromTemplateDecl(TemplateDecl *S) {
+    // A concept has no templated declaration to build a tree for.
+    if (!S->getTemplatedDecl()) {
+      Builder.foldNode(Builder.getDeclarationRange(S),
+                       new (allocator()) syntax::UnknownDeclaration(), S);
+      return true;
+    }
     foldTemplateDeclaration(
         Builder.getDeclarationRange(S),
         Builder.findToken(S->getTemplateParameters()->getTemplateLoc()),
