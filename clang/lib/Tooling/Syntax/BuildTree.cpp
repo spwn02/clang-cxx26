@@ -793,6 +793,14 @@ public:
     return true;
   }
 
+  bool TraverseConstevalBlockDecl(ConstevalBlockDecl *D) {
+    // The block's body is a lambda call the compiler synthesizes: nothing in
+    // it has syntax of its own.
+    Builder.foldNode(Builder.getDeclarationRange(D),
+                     new (allocator()) syntax::UnknownDeclaration(), D);
+    return true;
+  }
+
   bool WalkUpFromTemplateDecl(TemplateDecl *S) {
     // A concept has no templated declaration to build a tree for.
     if (!S->getTemplatedDecl()) {
