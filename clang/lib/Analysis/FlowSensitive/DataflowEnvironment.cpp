@@ -419,6 +419,17 @@ public:
     // The following AST node kinds are "original initializers": They are the
     // lowest-level AST node that initializes a given object, and nothing
     // below them can initialize the same object (or part of it).
+    // A resolved macro invocation is the record prvalue its expansion is.
+    if (auto *MI = dyn_cast<CXXMacroInvocationExpr>(E);
+        MI && MI->isResolved()) {
+      PropagateResultObject(MI->getExpansion(), Loc);
+      return;
+    }
+    // A token sequence literal holds its tokens; the expressions interpolated
+    // into it are values, not parts of the object.
+    if (isa<CXXTokenSequenceExpr>(E))
+      return;
+
     if (isa<CXXConstructExpr>(E) || isa<CallExpr>(E) || isa<LambdaExpr>(E) ||
         isa<CXXDefaultArgExpr>(E) || isa<CXXStdInitializerListExpr>(E) ||
         isa<AtomicExpr>(E) || isa<CXXInheritedCtorInitExpr>(E) ||
