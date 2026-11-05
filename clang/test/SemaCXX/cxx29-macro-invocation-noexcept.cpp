@@ -25,8 +25,8 @@ void use() {
   // The expansion has an effect (a call), so a discarded invocation is not
   // an unused value.
   quiet!(1);
-  // A pure expansion is not diagnosed either: an invocation is conservatively
-  // treated as having side effects.
+  // A pure expansion is not diagnosed: the invocation is as pure as its
+  // expansion is.
   safe!(1);
 }
 

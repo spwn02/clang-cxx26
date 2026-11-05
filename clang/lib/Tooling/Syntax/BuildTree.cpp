@@ -731,6 +731,10 @@ public:
     if (Begin.isInvalid())
       return false;
     const SourceManager &SM = Context.getSourceManager();
+    // (The tokens of an expansion are located as expanded at the invocation,
+    // spelled where the literal is.)
+    if (Begin.isMacroID())
+      Begin = SM.getSpellingLoc(Begin);
     for (SourceRange R : LiteralRanges)
       if (R.isValid() && Begin != R.getBegin() &&
           !SM.isBeforeInTranslationUnit(Begin, R.getBegin()) &&

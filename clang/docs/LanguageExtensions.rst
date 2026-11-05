@@ -1805,8 +1805,9 @@ which are kept as an invocation with an empty expansion ahead of the statements 
 declaration position inside a consteval block that does nothing). The static analyzer evaluates the arguments of an
 invocation once, ahead of the expansion. The experimental syntax-tree library (``clang-check -syntax-tree-dump``) shows a
 literal and an invocation as one leaf and leaves out the declarations and statements expanded from a literal; it still
-asserts on statement-position invocations and on a few constructs that exercise other parts of the library (for example
-member-initializer macros).
+asserts on a few kinds of code that is injected or expanded from a literal (injected statements, member-initializer
+macros, declaration macros that produce templates), and, with assertions enabled, on any C++20 concept (a limit of the
+library itself).
 The raw identifiers of a literal are not names until the sequence is injected; clangd shows them as unresolved (dependent)
 names, and the interpolated expressions as the expressions they are. There is no ``std::formatter`` for ``token_sequence``:
 P4380 defines none, and a token sequence exists only in constant evaluation.

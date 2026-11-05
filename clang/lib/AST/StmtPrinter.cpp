@@ -2981,6 +2981,31 @@ void StmtPrinter::VisitCXXBuiltinTokenizeExpr(CXXBuiltinTokenizeExpr *S) {
 }
 
 void StmtPrinter::VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *S) {
+  // The record of a statement- or declaration-position invocation (an empty
+  // expansion ahead of the statements or declarations it expanded to, which
+  // are printed on their own): a comment, so that what is printed does not
+  // expand the macro a second time when it is read again.
+  if (S->isResolved() && S->getExpansion()->getType()->isVoidType())
+    if (auto *Cast = dyn_cast<ImplicitCastExpr>(S->getExpansion()))
+      if (Cast->getCastKind() == CK_ToVoid &&
+          isa<IntegerLiteral>(Cast->getSubExpr())) {
+        OS << "/* ";
+        if (S->isMemberInvocation()) {
+          PrintExpr(S->getBase());
+          OS << (S->isArrow() ? "->" : ".");
+          S->getMemberNameInfo().printName(OS, Policy);
+        } else {
+          PrintExpr(S->getCallee());
+        }
+        OS << "!(";
+        for (unsigned I = 0, N = S->getNumArgs(); I != N; ++I) {
+          if (I)
+            OS << ", ";
+          PrintExpr(S->getArg(I));
+        }
+        OS << ") */";
+        return;
+      }
   if (S->isMemberInvocation()) {
     PrintExpr(S->getBase());
     OS << (S->isArrow() ? "->" : ".");

@@ -22,3 +22,11 @@ __macro twice(int x) { return ^^{ (\(x) * 2) }; }
 static_assert(twice!(21) == 42);
 constexpr int cv = twice!(4);
 static_assert(cv == 8);
+
+// A template's own variables are instantiated inside an expansion.
+__macro plus_one(int x) { return ^^{ (\(x) + 1) }; }
+template <class T> constexpr int inst(int k) {
+  int l = k;
+  return plus_one!(k) + plus_one!(l);
+}
+static_assert(inst<int>(3) == 8);

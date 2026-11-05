@@ -2480,6 +2480,13 @@ CFGBlock *CFGBuilder::Visit(Stmt * S, AddStmtChoice asc,
         if (!C || isa<BinaryConditionalOperator, PseudoObjectExpr,
                       ArrayInitLoopExpr>(C))
           return;
+        if (auto *Nested = dyn_cast<CXXMacroInvocationExpr>(C)) {
+          // The values it is given are ours if they come from our arguments;
+          // its own arguments are evaluated when it is visited.
+          for (Expr *NestedArg : Nested->getArgs())
+            Collect(NestedArg);
+          return;
+        }
         if (auto *OVE = dyn_cast<OpaqueValueExpr>(C)) {
           if (Expr *Src = OVE->getSourceExpr())
             if (!llvm::is_contained(ArgValues, Src))

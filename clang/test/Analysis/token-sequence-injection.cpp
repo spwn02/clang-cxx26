@@ -34,3 +34,12 @@ int through_macro(int k) {
   clang_analyzer_eval(q == 42); // expected-warning {{TRUE}}
   return q;
 }
+
+// Macros that invoke macros: each argument is evaluated once, ahead of the
+// expansion that uses it.
+__macro twice_plus_one(int x) { return ^^{ plus_one!(plus_one!(\(x))) }; }
+int nested_macro(int k) {
+  int r = twice_plus_one!(k);
+  clang_analyzer_eval(r == k + 2); // expected-warning {{TRUE}}
+  return r;
+}

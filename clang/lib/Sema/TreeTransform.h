@@ -9463,13 +9463,15 @@ ExprResult TreeTransform<Derived>::TransformCXXMacroInvocationExpr(
   // invocation (so that, for one that expanded to nothing, an empty
   // expression is not left in the statements).
   if (E->isResolved()) {
-    // (An expansion that does not depend on the template, such as the empty
-    // one of a statement-position invocation, is shared as it is.)
-    if (!E->getExpansion()->isInstantiationDependent())
-      return E;
     ExprResult Expansion = getDerived().TransformExpr(E->getExpansion());
     if (Expansion.isInvalid())
       return ExprError();
+    // (The empty expansion of a statement-position invocation is a cast to
+    // void, which a transform drops.)
+    if (E->getExpansion()->getType()->isVoidType() &&
+        !Expansion.get()->getType()->isVoidType())
+      Expansion = SemaRef.ImpCastExprToType(Expansion.get(),
+                                            SemaRef.Context.VoidTy, CK_ToVoid);
     if (!getDerived().AlwaysRebuild() && Expansion.get() == E->getExpansion())
       return E;
     ASTContext &Ctx = SemaRef.Context;
