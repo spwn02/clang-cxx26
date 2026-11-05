@@ -286,7 +286,10 @@ static SourceLocation getQualifiedNameStart(NamedDecl *D) {
 static SourceRange getInitializerRange(Decl *D) {
   if (auto *V = dyn_cast<VarDecl>(D)) {
     auto *I = V->getInit();
-    // Initializers in range-based-for are not part of the declarator
+    // Initializers in range-based-for are not part of the declarator; nor is
+    // the default argument a redeclaration inherits.
+    if (const auto *P = dyn_cast<ParmVarDecl>(V); P && P->hasInheritedDefaultArg())
+      return SourceRange();
     if (I && !V->isCXXForRangeDecl())
       return I->getSourceRange();
   }
@@ -524,6 +527,12 @@ public:
     // We want to drop the template parameters for specializations.
     if (const auto *S = dyn_cast<TagDecl>(D))
       Tokens = getRange(S->TypeDecl::getBeginLoc(), S->getEndLoc());
+    else if (const auto *DD = dyn_cast<DeclaratorDecl>(D);
+             DD && DD->getNumTemplateParameterLists() > 0 &&
+             DD->getInnerLocStart().isValid())
+      // A declaration made outside its class template begins with the class
+      // template's parameter lists; its own tokens begin at its specifiers.
+      Tokens = getRange(DD->getInnerLocStart(), D->getEndLoc());
     else
       Tokens = getRange(D->getSourceRange());
     // The attributes written before a parameter ('[[maybe_unused]] int x') are
@@ -601,6 +610,11 @@ public:
     return SourceLocation();
   }
 
+  /// Whether \p L is the start of a token of the file.
+  bool isTokenStart(SourceLocation L) const {
+    return L.isValid() && LocationToToken.count(L);
+  }
+
   ArrayRef<syntax::Token> getExprRange(const Expr *E) const {
     return getRange(E->getSourceRange());
   }
@@ -608,7 +622,13 @@ public:
   /// Find the adjusted range for the statement, consuming the trailing
   /// semicolon when needed.
   ArrayRef<syntax::Token> getStmtRange(const Stmt *S) const {
-    auto Tokens = getRange(S->getSourceRange());
+    SourceRange Range = S->getSourceRange();
+    // A declaration statement of an alias-declaration ('using A = int;') has no
+    // end of its own: it ends where its declaration does.
+    if (const auto *DS = dyn_cast<DeclStmt>(S);
+        DS && Range.getEnd().isInvalid() && DS->isSingleDecl())
+      Range.setEnd(DS->getSingleDecl()->getEndLoc());
+    auto Tokens = getRange(Range);
     if (isa<CompoundStmt>(S))
       return Tokens;
 
@@ -1066,6 +1086,29 @@ public:
     return RecursiveASTVisitor::TraverseStmt(S);
   }
 
+  bool TraverseParmVarDecl(ParmVarDecl *D) {
+    // The default argument of a parameter of a redeclaration is the one of the
+    // first declaration: it is not written here.
+    if (D->hasInheritedDefaultArg()) {
+      if (TypeSourceInfo *TSI = D->getTypeSourceInfo())
+        if (!TraverseTypeLoc(TSI->getTypeLoc()))
+          return false;
+      return WalkUpFromParmVarDecl(D);
+    }
+    return RecursiveASTVisitor::TraverseParmVarDecl(D);
+  }
+
+  bool WalkUpFromAttributedStmt(AttributedStmt *S) {
+    // '#pragma clang loop ...' before a statement is not a token of the
+    // file: the statement is the one it applies to.
+    ArrayRef<syntax::Token> Tokens =
+        Builder.isTokenStart(S->getBeginLoc())
+            ? Builder.getStmtRange(S)
+            : Builder.getStmtRange(S->getSubStmt());
+    Builder.foldNode(Tokens, new (allocator()) syntax::UnknownStatement, S);
+    return true;
+  }
+
   bool TraverseAttr(Attr *A) {
     // Attributes are not built into the tree; what they name (a type argument,
     // as in preferred_name(std::string)) is not written as an expression or a
@@ -1134,6 +1177,10 @@ public:
   // Some expressions are not yet handled by syntax trees.
   bool WalkUpFromExpr(Expr *E) {
     assert(!isImplicitExpr(E) && "should be handled by TraverseStmt");
+    // An expression the compiler made up has no tokens (the value-initialization
+    // of an array element, ...).
+    if (E->getSourceRange().isInvalid())
+      return true;
     if (Builder.isExpansionOfBuiltin(E))
       return true;
     Builder.foldNode(Builder.getExprRange(E),
@@ -2067,8 +2114,9 @@ void syntax::TreeBuilder::markExprChild(Expr *Child, NodeRole Role) {
     return;
   Child = IgnoreImplicit(Child);
 
-  // (Nothing is built for what a builtin was expanded to.)
-  if (isExpansionOfBuiltin(Child))
+  // (Nothing is built for what a builtin was expanded to, or for an expression
+  // the compiler made up.)
+  if (isExpansionOfBuiltin(Child) || Child->getSourceRange().isInvalid())
     return;
   syntax::Tree *ChildNode = Mapping.find(Child);
   assert(ChildNode != nullptr);
