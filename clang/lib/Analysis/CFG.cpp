@@ -2309,8 +2309,13 @@ CFGBlock *CFGBuilder::Visit(Stmt * S, AddStmtChoice asc,
     return nullptr;
   }
 
-  if (Expr *E = dyn_cast<Expr>(S))
-    S = E->IgnoreParens();
+  if (Expr *E = dyn_cast<Expr>(S)) {
+    // A resolved macro invocation is not looked through here (see below).
+    Expr *Inner = E;
+    while (auto *PE = dyn_cast<ParenExpr>(Inner))
+      Inner = PE->getSubExpr();
+    S = isa<CXXMacroInvocationExpr>(Inner) ? Inner : E->IgnoreParens();
+  }
 
   if (Context->getLangOpts().OpenMP)
     if (auto *D = dyn_cast<OMPExecutableDirective>(S))
@@ -2462,9 +2467,33 @@ CFGBlock *CFGBuilder::Visit(Stmt * S, AddStmtChoice asc,
     case Stmt::ConstantExprClass:
       return VisitConstantExpr(cast<ConstantExpr>(S), asc);
 
-    case Stmt::CXXMacroInvocationExprClass:
-      // A resolved invocation stands for its expansion.
-      return Visit(cast<CXXMacroInvocationExpr>(S)->getExpansion(), asc);
+    case Stmt::CXXMacroInvocationExprClass: {
+      // A resolved invocation stands for its expansion, which holds the
+      // values of the arguments as opaque values: the arguments are evaluated
+      // first, once.
+      auto *MI = cast<CXXMacroInvocationExpr>(S);
+      CFGBlock *Result = Visit(MI->getExpansion(), asc);
+      // (The opaque values of constructs that bind their own, such as a
+      // conditional with an omitted middle operand, are theirs.)
+      SmallVector<Expr *, 4> ArgValues;
+      std::function<void(Stmt *)> Collect = [&](Stmt *C) {
+        if (!C || isa<BinaryConditionalOperator, PseudoObjectExpr,
+                      ArrayInitLoopExpr>(C))
+          return;
+        if (auto *OVE = dyn_cast<OpaqueValueExpr>(C)) {
+          if (Expr *Src = OVE->getSourceExpr())
+            if (!llvm::is_contained(ArgValues, Src))
+              ArgValues.push_back(Src);
+          return;
+        }
+        for (Stmt *Child : C->children())
+          Collect(Child);
+      };
+      Collect(MI->getExpansion());
+      for (Expr *Arg : llvm::reverse(ArgValues))
+        Result = Visit(Arg);
+      return Result;
+    }
 
     case Stmt::IndirectGotoStmtClass:
       return VisitIndirectGotoStmt(cast<IndirectGotoStmt>(S));

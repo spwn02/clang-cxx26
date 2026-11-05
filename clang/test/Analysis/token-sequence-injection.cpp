@@ -24,13 +24,12 @@ template <class T> consteval std::meta::token_sequence dependent(T t) {
   return ^^{ \(t) + 1 };
 }
 
-// A resolved macro invocation is its expansion for the analyzer. (The value
-// of an argument that is not a constant is not tracked through the opaque
-// value the expansion holds: it is unknown, not wrong.)
+// A resolved macro invocation is its expansion for the analyzer, and the values
+// of its arguments are the values of the opaque values in the expansion.
 __macro plus_one(int x) { return ^^{ (\(x) + 1) }; }
 int through_macro(int k) {
   int r = plus_one!(k);
-  (void)r;
+  clang_analyzer_eval(r == k + 1); // expected-warning {{TRUE}}
   int q = plus_one!(41);
   clang_analyzer_eval(q == 42); // expected-warning {{TRUE}}
   return q;

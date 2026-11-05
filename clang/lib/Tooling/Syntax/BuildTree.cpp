@@ -702,10 +702,57 @@ private:
 };
 
 namespace {
+/// The ranges of the token sequence literals ^^{ ... } written in the
+/// translation unit. Declarations and statements that were injected or
+/// expanded from a literal carry the locations of its tokens: they are not
+/// written where they are used.
+class LiteralRangeCollector
+    : public RecursiveASTVisitor<LiteralRangeCollector> {
+public:
+  SmallVector<SourceRange, 8> Ranges;
+  bool VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
+    Ranges.push_back(E->getSourceRange());
+    return true;
+  }
+};
+
 class BuildTreeVisitor : public RecursiveASTVisitor<BuildTreeVisitor> {
 public:
   explicit BuildTreeVisitor(ASTContext &Context, syntax::TreeBuilder &Builder)
-      : Builder(Builder), Context(Context) {}
+      : Builder(Builder), Context(Context) {
+    LiteralRangeCollector Collector;
+    Collector.TraverseAST(Context);
+    LiteralRanges = std::move(Collector.Ranges);
+  }
+
+  /// Whether \p Begin is a location inside a token sequence literal (after
+  /// its first token, where the nodes that wrap the literal itself begin).
+  bool isInsideLiteral(SourceLocation Begin) const {
+    if (Begin.isInvalid())
+      return false;
+    const SourceManager &SM = Context.getSourceManager();
+    for (SourceRange R : LiteralRanges)
+      if (R.isValid() && Begin != R.getBegin() &&
+          !SM.isBeforeInTranslationUnit(Begin, R.getBegin()) &&
+          !SM.isBeforeInTranslationUnit(R.getEnd(), Begin))
+        return true;
+    return false;
+  }
+
+  bool TraverseDecl(Decl *D) {
+    // Code injected from a literal has no syntax where it is used.
+    if (D && !isa<TranslationUnitDecl>(D) && isInsideLiteral(D->getBeginLoc()))
+      return true;
+    return RecursiveASTVisitor::TraverseDecl(D);
+  }
+
+  bool TraverseCXXTokenSequenceExpr(CXXTokenSequenceExpr *S,
+                                    DataRecursionQueue *Queue = nullptr) {
+    // A literal is a leaf: the tokens it holds are its value.
+    Builder.foldNode(Builder.getExprRange(S),
+                     new (allocator()) syntax::UnknownExpression, S);
+    return true;
+  }
 
   bool shouldTraversePostOrder() const { return true; }
 
@@ -788,12 +835,23 @@ public:
     return true;
   }
 
+  bool TraverseCompoundStmt(CompoundStmt *S,
+                            DataRecursionQueue *Queue = nullptr) {
+    // (Through TraverseStmt, which leaves out the statements expanded from a
+    // literal.)
+    for (Stmt *Child : S->body())
+      if (!TraverseStmt(Child))
+        return false;
+    return WalkUpFromCompoundStmt(S);
+  }
+
   bool WalkUpFromCompoundStmt(CompoundStmt *S) {
     using NodeRole = syntax::NodeRole;
 
     Builder.markChildToken(S->getLBracLoc(), NodeRole::OpenParen);
     for (auto *Child : S->body())
-      Builder.markStmtChild(Child, NodeRole::Statement);
+      if (!isInsideLiteral(Child->getBeginLoc()))
+        Builder.markStmtChild(Child, NodeRole::Statement);
     Builder.markChildToken(S->getRBracLoc(), NodeRole::CloseParen);
 
     Builder.foldNode(Builder.getStmtRange(S),
@@ -853,6 +911,9 @@ public:
   }
 
   bool TraverseStmt(Stmt *S) {
+    // Statements expanded from a literal have no syntax where they are used.
+    if (S && isInsideLiteral(S->getBeginLoc()))
+      return true;
     if (auto *DS = dyn_cast_or_null<DeclStmt>(S)) {
       // We want to consume the semicolon, make sure SimpleDeclaration does not.
       for (auto *D : DS->decls())
@@ -1701,6 +1762,7 @@ private:
 
   syntax::TreeBuilder &Builder;
   const ASTContext &Context;
+  SmallVector<SourceRange, 8> LiteralRanges;
 };
 } // namespace
 
