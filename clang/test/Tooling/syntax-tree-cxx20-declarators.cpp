@@ -17,3 +17,20 @@ template <class T> concept Has = requires(T t) { t.x; };
 // CHECK: 'get'
 // CHECK: 'attribute'
 // CHECK: UnknownExpression
+
+// More of what libc++ headers contain: an attribute naming a qualified type,
+// a member of an anonymous union named without an object, an unnamed
+// parameter pack.
+namespace pmr {
+struct string {};
+} // namespace pmr
+struct [[clang::preferred_name(pmr::string)]] Named {
+  union {
+    int integer;
+    float real;
+  };
+  int read() { return integer; }
+};
+template <class... Ts> void unnamed_pack(Ts...);
+// CHECK: 'Named'
+// CHECK: 'unnamed_pack'

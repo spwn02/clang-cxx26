@@ -533,6 +533,13 @@ public:
           Tokens = llvm::ArrayRef(First, Tokens.end());
       }
     }
+    // The '...' of a parameter pack ('_Args...', 'Args... args') is part of the
+    // parameter.
+    if (const auto *P = dyn_cast<ParmVarDecl>(D); P && P->isParameterPack() &&
+        Tokens.end() != TBTM.tokenBuffer().expandedTokens().end() &&
+        Tokens.end()->kind() == tok::ellipsis && !Tokens.empty() &&
+        Tokens.back().kind() != tok::ellipsis)
+      Tokens = llvm::ArrayRef(Tokens.begin(), Tokens.end() + 1);
     return maybeAppendSemicolon(Tokens, D);
   }
 
@@ -993,6 +1000,13 @@ public:
     return RecursiveASTVisitor::TraverseStmt(S);
   }
 
+  bool TraverseAttr(Attr *A) {
+    // Attributes are not built into the tree; what they name (a type argument,
+    // as in preferred_name(std::string)) is not written as an expression or a
+    // type of the declaration.
+    return true;
+  }
+
   bool TraverseRequiresExpr(RequiresExpr *S,
                             DataRecursionQueue *Queue = nullptr) {
     // Its parameters and requirements are not built into a tree.
@@ -1240,11 +1254,31 @@ public:
     return TheIdExpression;
   }
 
+  /// A member of an anonymous union or struct named without an object: the
+  /// access is `this->(anonymous).member`, and what is written is the name.
+  static bool isImplicitAccessThroughAnonymousRecord(const MemberExpr *S) {
+    const auto *Base = dyn_cast<MemberExpr>(S->getBase()->IgnoreImpCasts());
+    if (!Base || !Base->getSourceRange().isValid() ||
+        Base->getBeginLoc() != S->getBeginLoc())
+      return false;
+    const auto *Field = dyn_cast<FieldDecl>(Base->getMemberDecl());
+    if (!Field || !Field->isAnonymousStructOrUnion())
+      return false;
+    return Base->isImplicitAccess() ||
+           isImplicitAccessThroughAnonymousRecord(Base);
+  }
+
+  bool TraverseMemberExpr(MemberExpr *S, DataRecursionQueue *Queue = nullptr) {
+    if (isImplicitAccessThroughAnonymousRecord(S))
+      return WalkUpFromMemberExpr(S); // (the implicit object is not written)
+    return RecursiveASTVisitor::TraverseMemberExpr(S, /*Queue=*/nullptr);
+  }
+
   bool WalkUpFromMemberExpr(MemberExpr *S) {
     // For `MemberExpr` with implicit `this->` we generate a simple
     // `id-expression` syntax node, beacuse an implicit `member-expression` is
     // syntactically undistinguishable from an `id-expression`
-    if (S->isImplicitAccess()) {
+    if (S->isImplicitAccess() || isImplicitAccessThroughAnonymousRecord(S)) {
       buildIdExpression(S->getQualifierLoc(), S->getTemplateKeywordLoc(),
                         SourceRange(S->getMemberLoc(), S->getEndLoc()), S);
       return true;
