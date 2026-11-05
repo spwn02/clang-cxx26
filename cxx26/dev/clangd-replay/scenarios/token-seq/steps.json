@@ -1,7 +1,69 @@
 [
- {"line":25,"col":23,"request":"textDocument/completion","match":"count","label":"interp","pre":8000,"wait":300},
- {"line":25,"col":31,"request":"textDocument/completion","match":"local","label":"interp2","pre":100,"wait":300},
- {"line":26,"col":23,"request":"textDocument/hover","label":"hover-interp","pre":300,"wait":300},
- {"line":26,"col":23,"request":"textDocument/definition","label":"def-interp","pre":300,"wait":300},
- {"line":26,"col":23,"request":"textDocument/references","label":"refs-interp","pre":300,"wait":300}
+ {
+  "line": 25,
+  "col": 23,
+  "request": "textDocument/completion",
+  "match": "count",
+  "label": "interp",
+  "pre": 8000,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 31,
+  "request": "textDocument/completion",
+  "match": "local",
+  "label": "interp2",
+  "pre": 100,
+  "wait": 300
+ },
+ {
+  "line": 26,
+  "col": 23,
+  "request": "textDocument/hover",
+  "label": "hover-interp",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 26,
+  "col": 23,
+  "request": "textDocument/definition",
+  "label": "def-interp",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 26,
+  "col": 23,
+  "request": "textDocument/references",
+  "label": "refs-interp",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 26,
+  "col": 23,
+  "request": "textDocument/rename",
+  "newName": "cnt",
+  "label": "rename-interp",
+  "pre": 300,
+  "wait": 500
+ },
+ {
+  "line": 1,
+  "col": 0,
+  "request": "textDocument/semanticTokens/full",
+  "label": "sem",
+  "pre": 300,
+  "wait": 500
+ },
+ {
+  "line": 1,
+  "col": 0,
+  "request": "textDocument/foldingRange",
+  "label": "fold",
+  "pre": 300,
+  "wait": 500
+ }
 ]

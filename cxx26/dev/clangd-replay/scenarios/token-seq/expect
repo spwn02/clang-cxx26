@@ -5,3 +5,9 @@ hover-interp must-contain   Type: `int`
 def-interp   must-contain   23:43
 refs-interp  must-contain   23:43
 refs-interp  must-contain   26:22
+rename-interp must-contain 2 edits
+rename-interp must-contain 23:43
+rename-interp must-contain 26:22
+sem          must-contain 26:22:5
+sem          must-contain 26:33:5
+fold         must-contain 23-27

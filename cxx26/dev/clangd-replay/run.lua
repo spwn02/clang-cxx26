@@ -24,6 +24,7 @@ local function run_step(i)
         -- {"request": "textDocument/hover|references|documentHighlight", "report": label}: the answer of the server
         local pos = vim.lsp.util.make_position_params(0, "utf-16")
         local params = { textDocument = pos.textDocument, position = pos.position, context = { includeDeclaration = true, triggerKind = 1 } }
+        if s.request == "textDocument/rename" then params.newName = s.newName or "renamed" end
         local res = vim.lsp.buf_request_sync(0, s.request, params, 5000) or {}
         if s.request == "textDocument/completion" then
           -- {"match": "<label>"}: print the item with that label and the text its additionalTextEdits insert
@@ -46,7 +47,26 @@ local function run_step(i)
         local parts = {}
         for _, r in pairs(res) do
           local v = r.result
-          if type(v) == "table" and v.contents then
+          if s.request == "textDocument/rename" and type(v) == "table" then
+            -- the edits as line:col of each replaced range
+            local chg = v.changes or {}
+            for _, dc in ipairs(v.documentChanges or {}) do chg[dc.textDocument.uri] = dc.edits end
+            for _, edits in pairs(chg) do
+              table.insert(parts, #edits .. " edits")
+              for _, e in ipairs(edits) do table.insert(parts, e.range.start.line + 1 .. ":" .. e.range.start.character + 1) end
+            end
+          elseif s.request == "textDocument/semanticTokens/full" then
+            -- the tokens as line:col:len (delta encoding decoded)
+            local d, line, col = (v and v.data) or {}, 0, 0
+            table.insert(parts, #d / 5 .. " tokens")
+            for k = 1, #d, 5 do
+              if d[k] > 0 then line = line + d[k]; col = d[k + 1] else col = col + d[k + 1] end
+              table.insert(parts, line + 1 .. ":" .. col + 1 .. ":" .. d[k + 2])
+            end
+          elseif s.request == "textDocument/foldingRange" and type(v) == "table" then
+            table.insert(parts, #v .. " ranges")
+            for _, x in ipairs(v) do table.insert(parts, x.startLine + 1 .. "-" .. x.endLine + 1) end
+          elseif type(v) == "table" and v.contents then
             local c = v.contents
             local txt = (type(c) == "table" and (c.value or vim.inspect(c)) or tostring(c)):gsub("%s+", " ")
             table.insert(parts, txt)
