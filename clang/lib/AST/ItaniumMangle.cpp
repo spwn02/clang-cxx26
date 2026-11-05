@@ -5405,7 +5405,22 @@ recurse:
   case Expr::CXXBuiltinReportTokensExprClass:
   case Expr::CXXTokenInterpolationListExprClass:
   case Expr::CXXBuiltinIdExprClass:
+  case Expr::CXXBuiltinStrLiteralExprClass:
+  case Expr::CXXBuiltinTokenizeExprClass:
+  case Expr::CXXBuiltinStringizeExprClass:
     llvm_unreachable("unexpected statement kind");
+
+  case Expr::CXXMacroInvocationExprClass: {
+    // A dependent invocation in a signature (decltype(m!(t))): there is no ABI
+    // for expression macros, so it is mangled as the call it looks like.
+    const auto *MI = cast<CXXMacroInvocationExpr>(E);
+    Out << "cl";
+    mangleExpression(MI->getCallee());
+    for (const Expr *Arg : MI->getArgs())
+      mangleExpression(Arg);
+    Out << 'E';
+    break;
+  }
 
   case Expr::ExplDependentCallExprClass:
     mangleExpression(cast<ExplDependentCallExpr>(E)->getSubExpr());

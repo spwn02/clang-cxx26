@@ -3766,6 +3766,10 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
   case CXXBuiltinReportTokensExprClass:
   case CXXTokenInterpolationListExprClass:
   case CXXBuiltinIdExprClass:
+  case CXXBuiltinStrLiteralExprClass:
+  case CXXBuiltinTokenizeExprClass:
+  case CXXBuiltinStringizeExprClass:
+  case CXXTokenSequenceExprClass:
   case CXXSpliceExprClass:
   case CXXDependentMemberSpliceExprClass:
   case StackLocationExprClass:

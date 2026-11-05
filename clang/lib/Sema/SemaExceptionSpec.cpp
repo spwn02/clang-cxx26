@@ -1394,6 +1394,9 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Expr::CXXBuiltinReportTokensExprClass:
   case Expr::CXXTokenInterpolationListExprClass:
   case Expr::CXXBuiltinIdExprClass:
+  case Expr::CXXBuiltinStrLiteralExprClass:
+  case Expr::CXXBuiltinTokenizeExprClass:
+  case Expr::CXXBuiltinStringizeExprClass:
   case Expr::CXXSpliceExprClass:
   case Expr::StackLocationExprClass:
   case Expr::ExtractLValueExprClass:
