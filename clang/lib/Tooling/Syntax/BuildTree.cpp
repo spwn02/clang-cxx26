@@ -1747,8 +1747,18 @@ const syntax::Token *syntax::TreeBuilder::findToken(SourceLocation L) const {
   if (L.isInvalid())
     return nullptr;
   auto It = LocationToToken.find(L);
-  assert(It != LocationToToken.end());
-  return It->second;
+  if (It != LocationToToken.end())
+    return It->second;
+  // The range of a function defaulted or deleted in its class ends at the last
+  // character of the 'default'/'delete' keyword, not at the start of a token:
+  // use the token that contains the location.
+  const SourceManager &SM = TBTM.sourceManager();
+  auto Tokens = TBTM.tokenBuffer().expandedTokens();
+  auto After = llvm::partition_point(Tokens, [&](const syntax::Token &T) {
+    return T.location() == L || SM.isBeforeInTranslationUnit(T.location(), L);
+  });
+  assert(After != Tokens.begin() && "location precedes every token");
+  return &*std::prev(After);
 }
 
 syntax::TranslationUnit *syntax::buildSyntaxTree(Arena &A,

@@ -656,6 +656,8 @@ namespace clang {
     ExpectedStmt VisitStmtExpr(StmtExpr *E);
     ExpectedStmt VisitDoExpr(DoExpr *E);
     ExpectedStmt VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E);
+    ExpectedStmt VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E);
+    ExpectedStmt VisitCXXReflectExpr(CXXReflectExpr *E);
     ExpectedStmt VisitCXXBuiltinInjectExpr(CXXBuiltinInjectExpr *E);
     ExpectedStmt VisitCXXBuiltinReportTokensExpr(CXXBuiltinReportTokensExpr *E);
     ExpectedStmt
@@ -8136,6 +8138,80 @@ ASTNodeImporter::VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
   return ToE;
 }
 
+ExpectedStmt ASTNodeImporter::VisitCXXReflectExpr(CXXReflectExpr *E) {
+  Error Err = Error::success();
+  auto ToOperatorLoc = importChecked(Err, E->getOperatorLoc());
+  if (E->hasDependentSubExpr()) {
+    auto ToSub = importChecked(Err, E->getDependentSubExpr());
+    if (Err)
+      return std::move(Err);
+    return CXXReflectExpr::Create(Importer.getToContext(), ToOperatorLoc,
+                                  ToSub);
+  }
+  auto ToRange = importChecked(Err, E->getOperandRange());
+  auto ToType = importChecked(Err, E->getType());
+  APValue FromValue = E->getReflection();
+  auto ToValue = importChecked(Err, FromValue);
+  if (Err)
+    return std::move(Err);
+  return CXXReflectExpr::Create(Importer.getToContext(), ToOperatorLoc,
+                                ToRange, ToValue, ToType);
+}
+
+ExpectedStmt
+ASTNodeImporter::VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
+  // Unparsed arguments are parsed at instantiation in the context the
+  // invocation was written in, which has no counterpart in another AST.
+  if (E->areArgsUnparsed())
+    return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+
+  Error Err = Error::success();
+  auto ToExclaimLoc = importChecked(Err, E->getExclaimLoc());
+  auto ToLParenLoc = importChecked(Err, E->getLParenLoc());
+  auto ToRParenLoc = importChecked(Err, E->getRParenLoc());
+  auto ToOperatorLoc = importChecked(Err, E->getOperatorLoc());
+  if (Err)
+    return std::move(Err);
+
+  SmallVector<Expr *, 4> ToArgs(E->getNumArgs());
+  if (Error Err2 = ImportContainerChecked(E->getArgs(), ToArgs))
+    return std::move(Err2);
+
+  ASTContext &Ctx = Importer.getToContext();
+  if (!E->isMemberInvocation()) {
+    auto ToCallee = import(E->getCallee());
+    if (!ToCallee)
+      return ToCallee.takeError();
+    return CXXMacroInvocationExpr::Create(Ctx, *ToCallee, ToArgs, ToExclaimLoc,
+                                          ToLParenLoc, ToRParenLoc);
+  }
+
+  auto ToBase = import(E->getBase());
+  if (!ToBase)
+    return ToBase.takeError();
+  DeclarationNameInfo FromNI = E->getMemberNameInfo();
+  auto ToName = import(FromNI.getName());
+  if (!ToName)
+    return ToName.takeError();
+  auto ToNameLoc = import(FromNI.getLoc());
+  if (!ToNameLoc)
+    return ToNameLoc.takeError();
+  DeclarationNameInfo ToNI(*ToName, *ToNameLoc);
+  if (Error Err3 = ImportDeclarationNameLoc(FromNI, ToNI))
+    return std::move(Err3);
+
+  TemplateArgumentListInfo ToTAInfo;
+  const TemplateArgumentListInfo *ToTA = nullptr;
+  if (const auto *FromTA = E->getMemberTemplateArgs()) {
+    if (Error Err4 = ImportTemplateArgumentListInfo(*FromTA, ToTAInfo))
+      return std::move(Err4);
+    ToTA = &ToTAInfo;
+  }
+  return CXXMacroInvocationExpr::CreateMember(
+      Ctx, *ToBase, E->isArrow(), ToOperatorLoc, ToNI, ToArgs, ToExclaimLoc,
+      ToLParenLoc, ToRParenLoc, ToTA);
+}
+
 ExpectedStmt
 ASTNodeImporter::VisitCXXBuiltinInjectExpr(CXXBuiltinInjectExpr *E) {
   Error Err = Error::success();
@@ -10993,9 +11069,59 @@ ASTNodeImporter::ImportAPValue(const APValue &FromValue) {
   case APValue::FixedPoint:
   case APValue::ComplexInt:
   case APValue::ComplexFloat:
-  case APValue::Reflection:
     Result = FromValue;
     break;
+  case APValue::Reflection: {
+    // A reflection points into the context it was made in: import what it
+    // names. The kinds that carry other state (objects, values, base and
+    // member specifiers, annotations, expressions) and lifted reflections
+    // are not importable yet.
+    if (FromValue.getReflectionDepth() != 0)
+      return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+    switch (FromValue.getReflectionKind()) {
+    case ReflectionKind::Null:
+      Result = FromValue;
+      break;
+    case ReflectionKind::Type: {
+      auto ToTy = Importer.Import(FromValue.getReflectedType());
+      if (!ToTy)
+        return ToTy.takeError();
+      Result = APValue(ReflectionKind::Type, ToTy->getAsOpaquePtr());
+      break;
+    }
+    case ReflectionKind::Declaration: {
+      auto ToD = Importer.Import(FromValue.getReflectedDecl());
+      if (!ToD)
+        return ToD.takeError();
+      Result = APValue(ReflectionKind::Declaration, *ToD);
+      break;
+    }
+    case ReflectionKind::Namespace: {
+      auto ToD = Importer.Import(FromValue.getReflectedNamespace());
+      if (!ToD)
+        return ToD.takeError();
+      Result = APValue(ReflectionKind::Namespace, *ToD);
+      break;
+    }
+    case ReflectionKind::Parameter: {
+      auto ToD = Importer.Import(FromValue.getReflectedParameter());
+      if (!ToD)
+        return ToD.takeError();
+      Result = APValue(ReflectionKind::Parameter, *ToD);
+      break;
+    }
+    case ReflectionKind::Template: {
+      auto ToT = Importer.Import(FromValue.getReflectedTemplate());
+      if (!ToT)
+        return ToT.takeError();
+      Result = APValue(ReflectionKind::Template, ToT->getAsVoidPointer());
+      break;
+    }
+    default:
+      return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+    }
+    break;
+  }
   case APValue::TokenSequence: {
     if (Err)
       return std::move(Err);

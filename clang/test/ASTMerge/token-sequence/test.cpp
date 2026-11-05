@@ -9,5 +9,9 @@
 // PRINT: constexpr std::meta::token_sequence with_value = ^^{ x = \(42) };
 // PRINT: return ^^{ int x = 1 ; return x ; } + ^^{ ; };
 
+// PRINT: return inc!(t);
+
 // DUMP: CXXTokenSequenceExpr {{.*}} tokens:8 'a + b * 3 "str" 'c' 2.5'
 // DUMP: field: TokenSequence 3 'x = \(...)'
+// DUMP: CXXMacroInvocationExpr
+// PRINT: with_refl = ^^{ x = \(^^int) + \(^^Rs) + \(^^Rs::m) };
