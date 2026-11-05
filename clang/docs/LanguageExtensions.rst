@@ -1793,13 +1793,16 @@ interpolated types, template names, expressions and namespace splices; only a de
 (``declaration_of``) inside a sequence is lost (``-Wtoken-sequence-serialization``). The class
 ``std::meta::token_sequence`` must be visible where a literal is written (``import std;`` or ``#include <meta>``).
 Outside ``-std=c++29`` ``__macro`` is an ordinary identifier, and a ``^^{ ... }`` literal is diagnosed; the ``cxx26``
-release line has none of this code. The ASTImporter imports literals, values and the helper builtins, but not
-expression macro invocations or interpolated reflections (the latter is a gap of P2996 reflection in the importer
-generally). clang-format keeps a literal ``^^{ ... }`` exactly as written, because its whitespace is part of its value.
+release line has none of this code. The ASTImporter imports literals, values, the helper builtins and expression macro
+invocations, and reflections (of types, declarations, namespaces, parameters and templates) inside literals; other kinds
+of reflection values are refused with an import error. clang-format keeps a literal ``^^{ ... }`` exactly as written,
+because its whitespace is part of its value.
 
-Not yet ported: a ``std::formatter`` for ``token_sequence`` (the prototype has none either), and syntax-highlighting of the
-tokens inside a literal (they are not part of the AST; interpolated expressions are, with completion, hover,
-go-to-definition and references).
+A resolved expression macro invocation stays in the AST as a ``CXXMacroInvocationExpr`` around its expansion, so tools see
+the macro that was invoked (clangd completion, hover, go-to-definition and references work on the name at the call site).
+The raw identifiers of a literal are not names until the sequence is injected; clangd shows them as unresolved (dependent)
+names, and the interpolated expressions as the expressions they are. There is no ``std::formatter`` for ``token_sequence``:
+P4380 defines none, and a token sequence exists only in constant evaluation.
 
 .. _do_expressions:
 
