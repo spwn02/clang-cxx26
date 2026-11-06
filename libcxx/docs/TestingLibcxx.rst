@@ -72,6 +72,14 @@ that. However, you can manually specify the option like so if you want:
 
   $ libcxx/utils/libcxx-lit <build> -sv libcxx/test/std/containers # Run the tests with the newest -std
   $ libcxx/utils/libcxx-lit <build> -sv libcxx/test/std/containers --param std=c++03 # Run the tests in C++03
+  $ libcxx/utils/libcxx-lit <build> -sv libcxx/test/std/containers --param std=c++29 # Run the tests in C++29 (work in progress)
+
+``std=c++29`` is accepted but is never the default: the default is the newest
+completed standard (C++26). With ``std=c++29`` the ``c++29`` and
+``std-at-least-c++N`` features are defined and ``TEST_STD_VER`` is ``99``. A test
+that does not apply to C++29 (a header removed in C++29, a C++26-only overload)
+lists ``c++29`` next to ``c++26`` in its ``UNSUPPORTED``/``REQUIRES`` line. C++29
+features exist only in this mode; no flag enables them in an earlier one.
 
 Other parameters are supported by the test suite. Those are defined in ``libcxx/utils/libcxx/test/params.py``.
 If you want to customize how to run the libc++ test suite beyond what is available
