@@ -1792,6 +1792,12 @@ Known limitations of this port: a token sequence keeps its tokens through a PCH 
 interpolated types, template names, expressions and namespace splices; only a declaration description
 (``declaration_of``) inside a sequence is lost (``-Wtoken-sequence-serialization``). The class
 ``std::meta::token_sequence`` must be visible where a literal is written (``import std;`` or ``#include <meta>``).
+``macro`` is a provisional alias of ``__macro`` in ``-std=c++29`` (the draft's spelling is a placeholder): it is a keyword only
+where an expression-macro declaration starts, that is ``macro name (`` or ``macro operator <op> (``, and an ordinary identifier
+everywhere else (``int macro = 1;``). A type named ``macro`` used as the return type of a function declared ``macro f(int);`` is
+read as the keyword in that mode; write ``::macro`` for the type. Both spellings declare the same macro and print as the
+function they are.
+
 Outside ``-std=c++29`` ``__macro`` is an ordinary identifier, and a ``^^{ ... }`` literal is diagnosed; the ``cxx26``
 release line has none of this code. The ASTImporter imports literals, values, the helper builtins and expression macro
 invocations, and reflections (of types, declarations, namespaces, parameters and templates) inside literals; other kinds

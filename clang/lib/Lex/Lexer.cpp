@@ -1955,6 +1955,36 @@ fastParseASCIIIdentifier(const char *CurPtr,
   return CurPtr;
 }
 
+/// Whether the text after the identifier `macro` is `name (` or
+/// `operator <punctuation> (`: the start of an expression-macro declaration.
+static bool isExpressionMacroDeclarationStart(const char *P, const char *End) {
+  auto SkipSpace = [&] {
+    while (P < End && (*P == ' ' || *P == '\t' || *P == '\n' || *P == '\r' ||
+                       *P == '\f' || *P == '\v'))
+      ++P;
+  };
+  const char *Before = P;
+  SkipSpace();
+  if (P == Before || P >= End || !(isAsciiIdentifierStart(*P)))
+    return false;
+  const char *NameStart = P;
+  while (P < End && isAsciiIdentifierContinue(*P))
+    ++P;
+  bool IsOperator = StringRef(NameStart, P - NameStart) == "operator";
+  SkipSpace();
+  if (IsOperator) {
+    // `operator+`, `operator()`, `operator ""`: up to the parameter list.
+    for (int N = 0; P < End && N < 12; ++P, ++N) {
+      if (*P == ';' || *P == '{' || *P == '=' || *P == '}')
+        return false;
+      if (*P == '(' && (P + 1 < End))
+        return true;
+    }
+    return false;
+  }
+  return P < End && *P == '(';
+}
+
 bool Lexer::LexIdentifierContinue(Token &Result, const char *CurPtr) {
   // Match [_A-Za-z0-9]*, we have already matched an identifier start.
 
@@ -2025,6 +2055,15 @@ bool Lexer::LexIdentifierContinue(Token &Result, const char *CurPtr) {
     BufferPtr = CurPtr;
     return true;
   }
+
+  // `macro` is a provisional spelling of `__macro` (P4380, C++29): a keyword
+  // only where an expression-macro declaration starts, `macro name (`; it is an
+  // ordinary identifier everywhere else.
+  if (LangOpts.CPlusPlus29 && LangOpts.Reflection &&
+      !ParsingPreprocessorDirective && II->getName() == "macro" &&
+      !II->hasMacroDefinition() && isExpressionMacroDeclarationStart(CurPtr,
+                                                                     BufferEnd))
+    Result.setKind(tok::kw___macro);
 
   // Finally, now that we know we have an identifier, pass this off to the
   // preprocessor, which may macro expand it or something.
