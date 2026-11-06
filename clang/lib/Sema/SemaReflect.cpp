@@ -947,6 +947,13 @@ ExprResult Sema::ConstevalOnlyRecorder::RecordAndReturn(ExprResult Res) {
     return Res;
 
   Expr *E = Res.get();
+  // A class read from a PCH or a module (the preamble of an editor session)
+  // loads its fields lazily, and is not known to be consteval-only before
+  // they are loaded (RecordDecl::isConstevalOnly does not force it): load them
+  // here, where it is safe, so that std::meta::token_sequence, whose hidden
+  // member is the consteval-only one, is recognized.
+  if (const RecordDecl *RD = E->getType()->getAsRecordDecl())
+    (void)RD->field_begin();
   assert(E->getType()->isConstevalOnly() &&
          "expected an expression of consteval-only type");
   TheExpr = E;
