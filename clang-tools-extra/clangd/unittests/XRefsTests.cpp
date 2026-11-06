@@ -2190,6 +2190,46 @@ TEST(DoExpressionNavigation, FindTypeDefinitionAndReferences) {
                                    rangeIs(Code.range("ref"))));
 }
 
+// P4380 token sequences: an interpolation and the name of a macro at its call
+// site navigate like the code around them (#392).
+TEST(TokenSequenceNavigation, InterpolationAndMacroName) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+    consteval token_sequence f(int $count[[count]]) {
+      return @@{ x = \($ref[[co$interp^unt]]) };
+    }
+    __macro $macro[[inc]](int x) { return @@{ (\(x) + 1) }; }
+    int use() { return $use[[i$call^nc]]!(1); }
+  )cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++2d");
+  auto AST = TU.build();
+  EXPECT_THAT(
+      locateSymbolAt(AST, Code.point("interp"), TU.index().get()),
+      ElementsAre(sym("count", Code.range("count"), Code.range("count"))));
+  EXPECT_THAT(findReferences(AST, Code.point("interp"), 0, nullptr).References,
+              UnorderedElementsAre(rangeIs(Code.range("count")),
+                                   rangeIs(Code.range("ref"))));
+  EXPECT_THAT(
+      locateSymbolAt(AST, Code.point("call"), TU.index().get()),
+      ElementsAre(sym("inc", Code.range("macro"), Code.range("macro"))));
+  EXPECT_THAT(findReferences(AST, Code.point("call"), 0, nullptr).References,
+              UnorderedElementsAre(rangeIs(Code.range("macro")),
+                                   rangeIs(Code.range("use"))));
+}
+
 TEST(DoExpressionNavigation, GoToTypeOfDoReturn) {
   Annotations HeaderA(R"cpp(
     struct $Target[[Target]] {};

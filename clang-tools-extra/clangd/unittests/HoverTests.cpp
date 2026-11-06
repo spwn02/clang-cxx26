@@ -1569,6 +1569,45 @@ class Foo final {})cpp";
   }
 }
 
+// P4380 token sequences: hover on an interpolation and on a macro name at its
+// call site (#392).
+TEST(Hover, TokenSequences) {
+  const char *Pre = R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+)cpp";
+  struct {
+    const char *const Code;
+    const char *Name;
+  } Cases[] = {
+      {R"cpp(consteval token_sequence f(int count) { return @@{ x = \(co$p^unt) }; })cpp",
+       "count"},
+      {R"cpp(__macro inc(int x) { return @@{ (\(x) + 1) }; }
+             int use() { return i$p^nc!(1); })cpp",
+       "inc"},
+  };
+  for (const auto &C : Cases) {
+    Annotations T(std::string(Pre) + C.Code);
+    TestTU TU = TestTU::withCode(withReflectionOperator(T.code()));
+    TU.ExtraArgs.push_back("-std=c++2d");
+    auto AST = TU.build();
+    auto H = getHover(AST, T.point("p"), format::getLLVMStyle(), nullptr);
+    ASSERT_TRUE(H) << C.Code;
+    EXPECT_EQ(H->Name, C.Name) << C.Code;
+  }
+}
+
 TEST(Hover, DoExpressions) {
   struct {
     const char *const Code;

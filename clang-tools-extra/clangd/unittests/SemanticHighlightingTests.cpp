@@ -104,6 +104,46 @@ constexpr static uint32_t ScopeModifierMask =
     1 << unsigned(HighlightingModifier::FileScope) |
     1 << unsigned(HighlightingModifier::GlobalScope);
 
+// P4380 token sequences: the identifiers written in a literal are not
+// resolved (they are raw tokens of code that does not exist yet), the
+// interpolated expressions are ordinary code (#392).
+TEST(SemanticHighlighting, TokenSequences) {
+  Annotations Test(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+consteval token_sequence f(int $param[[count]]) {
+  return @@{ $raw[[foo]] = \($use[[count]]) };
+}
+  )cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Test.code()));
+  TU.ExtraArgs.push_back("-std=c++2d");
+  auto AST = TU.build();
+  auto Tokens =
+      getSemanticHighlightings(AST, /*IncludeInactiveRegionTokens=*/true);
+  auto KindAt = [&](llvm::StringRef Name) {
+    for (const auto &T : Tokens)
+      if (T.R == Test.range(Name))
+        return T.Kind;
+    ADD_FAILURE() << "no highlighting for " << Name;
+    return HighlightingKind::Unknown;
+  };
+  EXPECT_EQ(KindAt("param"), HighlightingKind::Parameter);
+  EXPECT_EQ(KindAt("use"), HighlightingKind::Parameter);
+  // (Raw identifiers are tagged as an unresolved dependent name, not as a
+  // variable or a function.)
+  EXPECT_NE(KindAt("raw"), HighlightingKind::Variable);
+  EXPECT_NE(KindAt("raw"), HighlightingKind::Function);
+}
+
 TEST(SemanticHighlighting, DoExpressions) {
   checkHighlightings(R"cpp(
     int $Function_def[[f]](bool $Parameter_def[[b]]) {

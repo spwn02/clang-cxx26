@@ -170,6 +170,54 @@ TEST(CompletionTest, ReflectionOperatorOperand) {
                     Contains(named("evaluation_ns"))));
 }
 
+// P4380 token sequences: what is in scope is offered inside \( ) of a token
+// sequence literal (#391).
+TEST(CompletionTest, TokenSequenceInterpolation) {
+  Annotations Test(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+    consteval token_sequence f(int count) {
+      int local = 1;
+      return @@{ x = \(co$p^) };
+    }
+  )cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Test.code()));
+  TU.ExtraArgs = {"-std=c++2d"};
+  clangd::CodeCompleteOptions Opts;
+  EXPECT_THAT(completions(TU, Test.point("p"), /*IndexSymbols=*/{}, Opts).Completions,
+              Contains(named("count")));
+  Annotations Local(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+    consteval token_sequence f(int count) {
+      int local = 1;
+      return @@{ x = \(lo$p^) };
+    }
+  )cpp");
+  TU = TestTU::withCode(withReflectionOperator(Local.code()));
+  TU.ExtraArgs = {"-std=c++2d"};
+  EXPECT_THAT(completions(TU, Local.point("p"), /*IndexSymbols=*/{}, Opts).Completions,
+              Contains(named("local")));
+}
+
 TEST(CompletionTest, DoExpressions) {
   // P2806 do expressions (#366): the keyword in an expression, what may follow
   // it, and `do_return` only where it is legal.

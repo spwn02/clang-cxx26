@@ -32,6 +32,16 @@
 namespace clang {
 namespace clangd {
 
+// Annotations reads `^` as a point, so test sources spell the token sequence
+// opener `^^{` as `@@{`.
+inline std::string withReflectionOperator(llvm::StringRef Code) {
+  std::string Out = Code.str();
+  for (size_t Pos = Out.find("@@"); Pos != std::string::npos;
+       Pos = Out.find("@@", Pos + 2))
+    Out.replace(Pos, 2, "^^");
+  return Out;
+}
+
 struct TestTU {
   static TestTU withCode(llvm::StringRef Code) {
     TestTU TU;
