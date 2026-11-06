@@ -85,3 +85,46 @@ template <class... T> void usePack(T... a) { Last<T...> x = a...[0]; }
 template <class T, T... I> struct IntSeq {};
 template <class T, T N> using MakeSeq = __make_integer_seq<IntSeq, T, N>;
 // CHECK: TypeAliasDeclaration
+
+// A statement that ends with a compound statement does not own the ';' after it.
+int sw(int x) {
+  switch (x) {
+  case 1: return 1;
+  default: return 2;
+  };
+}
+// CHECK:      SwitchStatement Statement
+// CHECK:      EmptyStatement Statement
+
+// The declarators of a for-init share the qualifier of the type.
+template <class V> void forInit(V &v) {
+  for (typename V::iterator i = v.begin(), e = v.end(); i != e; ++i) {}
+}
+
+// The instantiation of a static data member is not written where it is
+// instantiated.
+template <class C> struct Str2 { static const unsigned npos; };
+template <class C> const unsigned Str2<C>::npos = 0;
+extern template struct Str2<char>;
+unsigned useNpos = Str2<char>::npos;
+
+// co_yield in a template: only its operand is written.
+namespace std {
+template <class R, class... A> struct coroutine_traits { using promise_type = typename R::promise_type; };
+template <class P = void> struct coroutine_handle { static coroutine_handle from_promise(P &); };
+struct suspend_always { bool await_ready() const noexcept; void await_suspend(coroutine_handle<>) const noexcept; void await_resume() const noexcept; };
+}
+template <class T> struct Gen {
+  struct promise_type {
+    Gen get_return_object();
+    std::suspend_always initial_suspend() noexcept;
+    std::suspend_always final_suspend() noexcept;
+    template <class U> std::suspend_always yield_value(U &&);
+    void return_void();
+    void unhandled_exception();
+  };
+};
+template <class T> Gen<T> gen(T *b, T *e) {
+  for (; b != e; ++b)
+    co_yield static_cast<T>(*b);
+}
