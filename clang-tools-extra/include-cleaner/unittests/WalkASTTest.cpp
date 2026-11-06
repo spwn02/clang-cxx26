@@ -42,15 +42,21 @@ using testing::ElementsAre;
 // There must be exactly one referencing location marked.
 // Returns target decls.
 std::vector<Decl::Kind> testWalk(llvm::StringRef TargetCode,
-                                 llvm::StringRef ReferencingCode) {
+                                 llvm::StringRef ReferencingCode,
+                                 llvm::StringRef Std = "-std=c++20") {
   llvm::Annotations Target(TargetCode);
   llvm::Annotations Referencing(ReferencingCode);
 
-  TestInputs Inputs(Referencing.code());
+  // (`^` marks a point: the token sequence opener `^^{` is written `@@{`.)
+  std::string Code = Referencing.code().str();
+  for (size_t Pos = Code.find("@@"); Pos != std::string::npos;
+       Pos = Code.find("@@", Pos + 2))
+    Code.replace(Pos, 2, "^^");
+  TestInputs Inputs(Code);
   Inputs.ExtraFiles["target.h"] = Target.code().str();
   Inputs.ExtraArgs.push_back("-include");
   Inputs.ExtraArgs.push_back("target.h");
-  Inputs.ExtraArgs.push_back("-std=c++20");
+  Inputs.ExtraArgs.push_back(Std.str());
   TestAST AST(Inputs);
   const auto &SM = AST.sourceManager();
 
@@ -119,6 +125,26 @@ TEST(WalkAST, DeclRef) {
   testWalk("extern int $explicit^x; int x;", "int y = ^x;");
   // Return type of `foo` isn't used.
   testWalk("struct S{}; S $explicit^foo();", "auto bar() { return ^foo(); }");
+}
+
+// Token sequence injection (P4380): queue_injection is evaluated by the
+// compiler, nothing refers to <meta> but the class of the token sequence.
+TEST(WalkAST, TokenSequences) {
+  llvm::StringRef Library = R"cpp(
+    namespace std::meta {
+    class $implicit^token_sequence {
+    public:
+      constexpr token_sequence() noexcept = default;
+    };
+    consteval auto queue_injection(token_sequence) -> void;
+    })cpp";
+  // The literal.
+  testWalk(Library, "consteval void f() { auto t = ^@@{ int g; }; }",
+           "-std=c++2d");
+  // The call, which the compiler evaluates itself.
+  testWalk(Library,
+           "consteval void f() { std::meta::queue_injection(^@@{ int g; }); }",
+           "-std=c++2d");
 }
 
 TEST(WalkAST, TagType) {

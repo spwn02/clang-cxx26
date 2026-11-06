@@ -194,6 +194,24 @@ public:
     return true;
   }
 
+  // Token sequence injection (P4380): `^^{ ... }` is a std::meta::token_sequence
+  // (a class of <meta> that has to be visible where a literal is written), and
+  // queue_injection, id, str_lit, tokenize and the like are evaluated by the
+  // compiler: nothing in the AST refers to the functions of <meta>, only the
+  // class of the token sequence they work on does.
+  bool VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
+    report(E->getBeginLoc(), getMemberProvider(E->getType()),
+           RefType::Implicit);
+    return true;
+  }
+
+  bool VisitCXXBuiltinInjectExpr(CXXBuiltinInjectExpr *E) {
+    report(E->getKwLoc(),
+           getMemberProvider(E->getOperand()->IgnoreImplicit()->getType()),
+           RefType::Implicit);
+    return true;
+  }
+
   bool VisitCXXConstructExpr(CXXConstructExpr *E) {
     // Always treat consturctor calls as implicit. We'll have an explicit
     // reference for the constructor calls that mention the type-name (through
