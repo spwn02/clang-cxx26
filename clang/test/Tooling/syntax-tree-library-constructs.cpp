@@ -1,4 +1,4 @@
-// RUN: clang-check -syntax-tree-dump %s -- -std=c++2d | FileCheck %s
+// RUN: clang-check -syntax-tree-dump %s -- -std=c++26 | FileCheck %s
 //
 // Constructs of the standard library headers that syntax trees must build.
 
