@@ -2031,6 +2031,12 @@ private:
         continue;
       if (!includeSymbolFromIndex(CCContextKind, IndexResult))
         continue;
+      // The enumerators of a scoped enum of the standard library
+      // (std::meta::operators::op_equals, a few dozen of them) can only be
+      // named qualified: do not offer them for a bare prefix.
+      if (AllScopes && (IndexResult.Flags & Symbol::ScopedEnumConstant) &&
+          llvm::StringRef(IndexResult.Scope).starts_with("std::"))
+        continue;
       AddToBundles(/*SemaResult=*/nullptr, &IndexResult, nullptr);
     }
     // Emit identifier results.

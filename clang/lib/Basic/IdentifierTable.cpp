@@ -172,8 +172,9 @@ static KeywordStatus getKeywordStatusHelper(const LangOptions &LangOpts,
   case KEYREFLECT:
     return LangOpts.Reflection ? KS_Extension : KS_Unknown;
   case KEYTOKENINJ:
-    // Token sequence injection (P4380) is C++29 only.
-    return LangOpts.CPlusPlus29 && LangOpts.Reflection ? KS_Extension
+    // Token sequence injection (P4380) is C++29 only: a keyword of the
+    // language there, not an extension (no -Wlanguage-extension-token).
+    return LangOpts.CPlusPlus29 && LangOpts.Reflection ? KS_Enabled
                                                        : KS_Unknown;
   case KEYDOEXPR:
     if (LangOpts.DoExpressions)

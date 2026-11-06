@@ -146,7 +146,11 @@ struct Symbol {
     /// Symbol is visible to other files (not e.g. a static helper function).
     VisibleOutsideFile = 1 << 3,
     /// Symbol has an attached documentation comment.
-    HasDocComment = 1 << 4
+    HasDocComment = 1 << 4,
+    /// Symbol is an enumerator of a scoped enumeration: it can only be named
+    /// qualified by the enumeration, so unqualified completion across all
+    /// scopes does not offer it.
+    ScopedEnumConstant = 1 << 5
   };
   SymbolFlag Flags = SymbolFlag::None;
 

@@ -1097,6 +1097,10 @@ const Symbol *SymbolCollector::addDeclaration(const NamedDecl &ND, SymbolID ID,
     S.Flags |= Symbol::IndexedForCodeCompletion;
   if (isImplementationDetail(&ND))
     S.Flags |= Symbol::ImplementationDetail;
+  if (const auto *EC = llvm::dyn_cast<EnumConstantDecl>(&ND))
+    if (const auto *ED = llvm::dyn_cast<EnumDecl>(EC->getDeclContext());
+        ED && ED->isScoped())
+      S.Flags |= Symbol::ScopedEnumConstant;
   if (!IsMainFileOnly)
     S.Flags |= Symbol::VisibleOutsideFile;
   S.SymInfo = index::getSymbolInfo(&ND);

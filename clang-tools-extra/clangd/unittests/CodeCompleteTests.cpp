@@ -218,6 +218,25 @@ using std::meta::token_sequence;
               Contains(named("local")));
 }
 
+// The enumerators of a scoped enum of the standard library are not offered for
+// a bare prefix (they can only be named qualified), but are after the enum;
+// those of other scoped enums still are.
+TEST(CompletionTest, StdScopedEnumConstantsNeedQualification) {
+  clangd::CodeCompleteOptions Opts;
+  Opts.AllScopes = true;
+  auto Std = enmConstant("std::meta::operators::op_equals");
+  Std.Flags |= Symbol::ScopedEnumConstant;
+  auto Other = enmConstant("ns::Color::op_red");
+  Other.Flags |= Symbol::ScopedEnumConstant;
+  EXPECT_THAT(completions("int x = op_^", {Std, Other}, Opts).Completions,
+              AllOf(Not(Contains(named("op_equals"))),
+                    Contains(named("op_red"))));
+  EXPECT_THAT(completions("int x = std::meta::operators::op_^", {Std, Other},
+                          Opts)
+                  .Completions,
+              Contains(named("op_equals")));
+}
+
 TEST(CompletionTest, DoExpressions) {
   // P2806 do expressions (#366): the keyword in an expression, what may follow
   // it, and `do_return` only where it is legal.
