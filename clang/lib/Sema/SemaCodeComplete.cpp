@@ -1977,8 +1977,10 @@ AddFunctionSpecifiers(SemaCodeCompletion::ParserCompletionContext CCC,
     if (LangOpts.CPlusPlus20)
       Results.AddResult(Result("consteval"));
     // P4380 expression macros: `__macro name(params) { ... }`.
-    if (LangOpts.CPlusPlus29 && LangOpts.Reflection)
+    if (LangOpts.CPlusPlus29 && LangOpts.Reflection) {
       Results.AddResult(Result("__macro"));
+      Results.AddResult(Result("macro")); // (the provisional alias)
+    }
     break;
 
   case SemaCodeCompletion::PCC_ObjCInstanceVariableList:

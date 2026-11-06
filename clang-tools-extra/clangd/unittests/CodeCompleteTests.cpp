@@ -260,6 +260,7 @@ __macro plus_one(int x) { return @@{ (\(x) + 1) }; }
     return completions(TU, Test.point(), /*IndexSymbols=*/{}, Opts).Completions;
   };
   EXPECT_THAT(Complete("__ma^"), Contains(named("__macro")));
+  EXPECT_THAT(Complete("mac^"), Contains(named("macro")));
   EXPECT_THAT(Complete("int use() { return plus_^; }"),
               Contains(AllOf(named("plus_one"), snippetSuffix("!(${1:int x})"))));
 }
