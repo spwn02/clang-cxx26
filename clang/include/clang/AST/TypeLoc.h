@@ -2624,14 +2624,37 @@ public:
   }
 };
 
-struct ReflectionSpliceTypeLocInfo { };
+/// The locations are those of this occurrence: the type of a dependent splice
+/// is uniqued, so the locations stored in the type are the first one's.
+struct ReflectionSpliceTypeLocInfo {
+  SourceLocation TypenameKWLoc;
+  SourceLocation SpliceBeginLoc;
+  SourceLocation SpliceEndLoc;
+};
 
 class ReflectionSpliceTypeLoc
   : public ConcreteTypeLoc<UnqualTypeLoc, ReflectionSpliceTypeLoc,
                            ReflectionSpliceType, ReflectionSpliceTypeLocInfo> {
 public:
   SourceLocation getTypenameKWLoc() const {
-    return getTypePtr()->getTypenameKWLoc();
+    return getLocalData()->TypenameKWLoc;
+  }
+  void setTypenameKWLoc(SourceLocation Loc) {
+    getLocalData()->TypenameKWLoc = Loc;
+  }
+
+  SourceLocation getSpliceBeginLoc() const {
+    return getLocalData()->SpliceBeginLoc;
+  }
+  void setSpliceBeginLoc(SourceLocation Loc) {
+    getLocalData()->SpliceBeginLoc = Loc;
+  }
+
+  SourceLocation getSpliceEndLoc() const {
+    return getLocalData()->SpliceEndLoc;
+  }
+  void setSpliceEndLoc(SourceLocation Loc) {
+    getLocalData()->SpliceEndLoc = Loc;
   }
 
   SpliceSpecifier *getSplice() const {
@@ -2639,20 +2662,18 @@ public:
   }
 
   void initializeLocal(ASTContext &Context, SourceLocation Loc) {
-    // nothing to do
+    SpliceSpecifier *Splice = getTypePtr()->getSplice();
+    setTypenameKWLoc(getTypePtr()->getTypenameKWLoc());
+    setSpliceBeginLoc(Splice->getBeginLoc());
+    setSpliceEndLoc(Splice->getEndLoc());
   }
 
   SourceRange getLocalSourceRange() const {
-    SpliceSpecifier *Splice = getTypePtr()->getSplice();
-
-    SourceLocation Begin = getTypePtr()->getTypenameKWLoc();
+    SourceLocation Begin = getTypenameKWLoc();
     if (Begin.isInvalid())
-      Begin = Splice->getBeginLoc();
-    return SourceRange(Begin, Splice->getEndLoc());
+      Begin = getSpliceBeginLoc();
+    return SourceRange(Begin, getSpliceEndLoc());
   }
-
-  // LocalData is empty and TypeLocBuilder doesn't handle DataSize 1.
-  unsigned getLocalDataSize() const { return 0; }
 };
 
 struct AtomicTypeLocInfo {

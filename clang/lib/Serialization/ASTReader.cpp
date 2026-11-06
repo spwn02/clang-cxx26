@@ -7465,7 +7465,9 @@ void TypeLocReader::VisitDecltypeTypeLoc(DecltypeTypeLoc TL) {
 }
 
 void TypeLocReader::VisitReflectionSpliceTypeLoc(ReflectionSpliceTypeLoc TL) {
-  // nothing to do
+  TL.setTypenameKWLoc(readSourceLocation());
+  TL.setSpliceBeginLoc(readSourceLocation());
+  TL.setSpliceEndLoc(readSourceLocation());
 }
 
 void TypeLocReader::VisitPackIndexingTypeLoc(PackIndexingTypeLoc TL) {

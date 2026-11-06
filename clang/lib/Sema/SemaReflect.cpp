@@ -2947,10 +2947,11 @@ QualType Sema::BuildReflectionSpliceTypeLoc(TypeLocBuilder &TLB,
                                                 Complain);
   if (SpliceTy.isNull())
     return QualType();
-  SourceLocation Loc =
-      cast<ReflectionSpliceType>(SpliceTy)->getSplice()->getBeginLoc();
 
-  TLB.pushTrivial(Context, SpliceTy, Loc);
+  ReflectionSpliceTypeLoc NewTL = TLB.push<ReflectionSpliceTypeLoc>(SpliceTy);
+  NewTL.setTypenameKWLoc(TypenameKWLoc);
+  NewTL.setSpliceBeginLoc(Splice->getBeginLoc());
+  NewTL.setSpliceEndLoc(Splice->getEndLoc());
 
   return SpliceTy;
 }

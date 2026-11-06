@@ -7316,9 +7316,19 @@ QualType TreeTransform<Derived>::TransformReflectionSpliceType(
     NewSplice = SR.get();
   }
 
-  return getDerived().RebuildReflectionSpliceTypeLoc(TLB,
-                                                     TL.getTypenameKWLoc(),
-                                                     NewSplice);
+  QualType Result = getDerived().RebuildReflectionSpliceTypeLoc(
+      TLB, TL.getTypenameKWLoc(), NewSplice);
+  if (!Result.isNull() && isa<ReflectionSpliceType>(Result)) {
+    // The splice of the type is the first occurrence's (the type is uniqued):
+    // the locations of this occurrence are those of the TypeLoc.
+    if (auto NewTL = TLB.getTypeLocInContext(SemaRef.Context, Result)
+                         .template getAs<ReflectionSpliceTypeLoc>()) {
+      NewTL.setTypenameKWLoc(TL.getTypenameKWLoc());
+      NewTL.setSpliceBeginLoc(TL.getSpliceBeginLoc());
+      NewTL.setSpliceEndLoc(TL.getSpliceEndLoc());
+    }
+  }
+  return Result;
 }
 
 template<typename Derived>
