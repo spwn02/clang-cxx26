@@ -1976,6 +1976,9 @@ AddFunctionSpecifiers(SemaCodeCompletion::ParserCompletionContext CCC,
 
     if (LangOpts.CPlusPlus20)
       Results.AddResult(Result("consteval"));
+    // P4380 expression macros: `__macro name(params) { ... }`.
+    if (LangOpts.CPlusPlus29 && LangOpts.Reflection)
+      Results.AddResult(Result("__macro"));
     break;
 
   case SemaCodeCompletion::PCC_ObjCInstanceVariableList:
@@ -3897,6 +3900,10 @@ CodeCompletionString *CodeCompletionResult::createCodeCompletionStringForDecl(
     AddQualifierToCompletionString(Result, Qualifier, QualifierIsInformative,
                                    Ctx, Policy);
     AddTypedNameChunk(Ctx, Policy, ND, Result);
+    // An expression macro is invoked as `name!(args)`: without the `!` the
+    // call is an ordinary function call and is not expanded (P4380).
+    if (Function->isExpressionMacro())
+      Result.AddTextChunk("!");
     Result.AddChunk(CodeCompletionString::CK_LeftParen);
     AddFunctionParameterChunks(PP, Policy, Function, Result);
     Result.AddChunk(CodeCompletionString::CK_RightParen);
@@ -3922,6 +3929,8 @@ CodeCompletionString *CodeCompletionResult::createCodeCompletionStringForDecl(
                                    Ctx, Policy);
     FunctionDecl *Function = FunTmpl->getTemplatedDecl();
     AddTypedNameChunk(Ctx, Policy, Function, Result);
+    if (Function->isExpressionMacro())
+      Result.AddTextChunk("!");
 
     // Figure out which template parameters are deduced (or have default
     // arguments).

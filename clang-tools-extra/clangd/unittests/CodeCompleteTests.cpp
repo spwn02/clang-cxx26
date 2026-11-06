@@ -237,6 +237,33 @@ TEST(CompletionTest, StdScopedEnumConstantsNeedQualification) {
               Contains(named("op_equals")));
 }
 
+// P4380 expression macros: the keyword is offered for a declaration, and a
+// macro is completed with its `!` (an ordinary call is not expanded).
+TEST(CompletionTest, ExpressionMacros) {
+  clangd::CodeCompleteOptions Opts;
+  Opts.EnableSnippets = true;
+  const char *Pre = R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+};
+} // namespace std::meta
+__macro plus_one(int x) { return @@{ (\(x) + 1) }; }
+)cpp";
+  auto Complete = [&](llvm::StringRef Tail) {
+    Annotations Test((Pre + Tail).str());
+    TestTU TU = TestTU::withCode(withReflectionOperator(Test.code()));
+    TU.ExtraArgs = {"-std=c++2d"};
+    return completions(TU, Test.point(), /*IndexSymbols=*/{}, Opts).Completions;
+  };
+  EXPECT_THAT(Complete("__ma^"), Contains(named("__macro")));
+  EXPECT_THAT(Complete("int use() { return plus_^; }"),
+              Contains(AllOf(named("plus_one"), snippetSuffix("!(${1:int x})"))));
+}
+
 TEST(CompletionTest, DoExpressions) {
   // P2806 do expressions (#366): the keyword in an expression, what may follow
   // it, and `do_return` only where it is legal.
