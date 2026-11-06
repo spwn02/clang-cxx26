@@ -10920,8 +10920,7 @@ INSTANTIATE_TEST_SUITE_P(ParameterizedTests, ImportFixedPointExpr,
 INSTANTIATE_TEST_SUITE_P(ParameterizedTests, ImportDoExpr,
                          ExtendWithOptions(DefaultTestArrayForRunOptions,
                                            std::vector<std::string>{
-                                               "-std=c++29",
-                                               "-fdo-expressions"}));
+                                               "-std=c++29"}));
 
 INSTANTIATE_TEST_SUITE_P(ParameterizedTests, ImportBlock,
                          ExtendWithOptions(DefaultTestArrayForRunOptions,

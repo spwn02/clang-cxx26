@@ -232,7 +232,7 @@ def err_token_sequence_requires_cxx29 : Error<
 // P2806 ext: do-expressions.
 def err_do_expr_requires_cxx29 : Error<
   "do-expressions are only available in C++29; "
-  "use '-std=c++2d', or '-fdo-expressions' to enable them as an extension">;
+  "use '-std=c++2d'">;
 def note_do_expr_init_hoist_not_a_capture : Note<
   "'do [' introduces an init-hoist, not a lambda capture: it declares a new "
   "variable and always requires an initializer">;

@@ -1842,11 +1842,11 @@ A do expression runs a block of statements and yields a value:
 * In statement position ``do`` is still a do-while statement; a do expression
   is a ``do`` where an operand is expected.
 
-Enable it with ``-std=c++29`` (``-std=c++2d``) or, in any other mode,
-``-fdo-expressions``. Without either, a ``do`` expression is an error that names
-these options.
+Enable it with ``-std=c++29`` (``-std=c++2d``); there is no flag that enables it
+in an earlier mode. In any other mode a ``do`` expression is an error that names
+the option.
 ``__cpp_do_expressions`` is defined as ``1`` and ``__has_feature(do_expressions)``
-/ ``__has_extension(do_expressions)`` report it.
+reports it.
 
 The rest of the toolchain understands do expressions: code completion
 (``do``, ``[``/``->``/``{`` after it, ``do_return`` only inside the body), the

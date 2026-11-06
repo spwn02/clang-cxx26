@@ -1,4 +1,4 @@
-// RUN: %check_clang_tidy -std=c++29 %s bugprone-exception-escape %t -- -- -fdo-expressions -fexceptions
+// RUN: %check_clang_tidy -std=c++29 %s bugprone-exception-escape %t -- -- -fexceptions
 
 int throws_in_do_body() noexcept {
   // CHECK-MESSAGES: :[[@LINE-1]]:5: warning: an exception may be thrown in function 'throws_in_do_body' which should not throw exceptions

@@ -129,6 +129,9 @@ void LangOptions::setLangDefaults(LangOptions &Opts, Language Lang,
   Opts.Reflection = Opts.ParameterReflection = Opts.AnnotationAttributes =
       Opts.ExpansionStatements = Opts.Contracts = Std.isCPlusPlus26();
   Opts.CPlusPlus29 = Std.isCPlusPlus29();
+  // C++29 features are part of the C++29 mode only: no flag enables them in an
+  // earlier mode, not even as an extension.
+  Opts.DoExpressions = Std.isCPlusPlus29();
   Opts.GNUMode = Std.isGNUMode();
   Opts.GNUCVersion = 0;
   Opts.HexFloats = Std.hasHexFloats();

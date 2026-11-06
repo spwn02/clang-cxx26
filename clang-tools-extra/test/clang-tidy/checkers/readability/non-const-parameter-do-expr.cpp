@@ -1,4 +1,4 @@
-// RUN: %check_clang_tidy -std=c++29 %s readability-non-const-parameter %t -- -- -fdo-expressions
+// RUN: %check_clang_tidy -std=c++29 %s readability-non-const-parameter %t -- --
 
 // A pointer that leaves a do expression through do_return escapes just like a
 // returned one, so it must not become a pointer to const.

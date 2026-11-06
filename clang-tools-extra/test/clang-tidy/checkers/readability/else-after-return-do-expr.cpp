@@ -1,4 +1,4 @@
-// RUN: %check_clang_tidy -std=c++29 %s readability-else-after-return %t -- -- -fdo-expressions
+// RUN: %check_clang_tidy -std=c++29 %s readability-else-after-return %t -- --
 
 int f(bool b, int n) {
   return do {

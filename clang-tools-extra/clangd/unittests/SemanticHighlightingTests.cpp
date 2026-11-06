@@ -154,7 +154,7 @@ TEST(SemanticHighlighting, DoExpressions) {
       };
     }
   )cpp",
-                     {}, ~ScopeModifierMask, {"-std=c++29", "-fdo-expressions"});
+                     {}, ~ScopeModifierMask, {"-std=c++29"});
 }
 
 TEST(SemanticHighlighting, GetsCorrectTokens) {

@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -ast-dump=json -ast-dump-filter=f %s | FileCheck %s --check-prefix=JSON
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -ast-dump -ast-dump-filter=f %s | FileCheck %s --check-prefix=TEXT
+// RUN: %clang_cc1 -std=c++29 -ast-dump=json -ast-dump-filter=f %s | FileCheck %s --check-prefix=JSON
+// RUN: %clang_cc1 -std=c++29 -ast-dump -ast-dump-filter=f %s | FileCheck %s --check-prefix=TEXT
 
 int f(bool b) {
   return do [k = 1] -> int {

@@ -2,10 +2,10 @@
 // translation units that define the same entities, and as a dependent
 // (template) expression.
 
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -emit-pch -o %t.1.ast %S/Inputs/do1.cpp
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -emit-pch -o %t.2.ast %S/Inputs/do2.cpp
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -ast-merge %t.1.ast -ast-merge %t.2.ast -fsyntax-only -verify %s
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -ast-merge %t.1.ast -ast-merge %t.2.ast -ast-dump -ast-dump-filter=other %s | FileCheck %s
+// RUN: %clang_cc1 -std=c++29 -emit-pch -o %t.1.ast %S/Inputs/do1.cpp
+// RUN: %clang_cc1 -std=c++29 -emit-pch -o %t.2.ast %S/Inputs/do2.cpp
+// RUN: %clang_cc1 -std=c++29 -ast-merge %t.1.ast -ast-merge %t.2.ast -fsyntax-only -verify %s
+// RUN: %clang_cc1 -std=c++29 -ast-merge %t.1.ast -ast-merge %t.2.ast -ast-dump -ast-dump-filter=other %s | FileCheck %s
 
 // CHECK: DoExpr
 // CHECK: DoReturnStmt

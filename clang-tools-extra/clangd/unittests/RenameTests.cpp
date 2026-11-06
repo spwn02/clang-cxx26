@@ -957,7 +957,6 @@ TEST(RenameTest, DoExpressions) {
     Annotations Code(T);
     auto TU = TestTU::withCode(Code.code());
     TU.ExtraArgs.push_back("-std=c++29");
-    TU.ExtraArgs.push_back("-fdo-expressions");
     auto AST = TU.build();
     auto Index = TU.index();
     for (const auto &RenamePos : Code.points()) {

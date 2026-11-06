@@ -1631,7 +1631,6 @@ TEST(Hover, DoExpressions) {
     Annotations T(C.Code);
     TestTU TU = TestTU::withCode(T.code());
     TU.ExtraArgs.push_back("-std=c++29");
-    TU.ExtraArgs.push_back("-fdo-expressions");
     auto AST = TU.build();
     auto H = getHover(AST, T.point(), format::getLLVMStyle(), nullptr);
     ASSERT_TRUE(H) << C.Code;

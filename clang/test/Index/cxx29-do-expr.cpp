@@ -1,4 +1,4 @@
-// RUN: c-index-test -test-load-source all -std=c++29 -fdo-expressions %s | FileCheck %s
+// RUN: c-index-test -test-load-source all -std=c++29 %s | FileCheck %s
 
 int f(bool b) {
   return do [k = 1] -> int {

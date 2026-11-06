@@ -71,7 +71,7 @@ class TestCursorKind(unittest.TestCase):
         tu = get_tu(
             "int f(bool b) { return do { if (b) do_return 1; do_return 2; }; }",
             lang="cpp",
-            flags=["-std=c++29", "-fdo-expressions"],
+            flags=["-std=c++29"],
         )
         kinds = [c.kind for c in tu.cursor.walk_preorder()]
         self.assertIn(CursorKind.DO_EXPR, kinds)
@@ -104,7 +104,7 @@ class TestCursorKind(unittest.TestCase):
         tu = get_tu(
             "int f() { return do [k = 1] { do_return k; }; }",
             lang="cpp",
-            flags=["-std=c++29", "-fdo-expressions"],
+            flags=["-std=c++29"],
         )
         cursors = list(tu.cursor.walk_preorder())
         do_ret = [c for c in cursors if c.kind == CursorKind.DO_RETURN_STMT][0]

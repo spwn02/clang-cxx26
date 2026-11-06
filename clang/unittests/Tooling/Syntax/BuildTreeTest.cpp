@@ -99,7 +99,7 @@ INSTANTIATE_TEST_SUITE_P(
 class BuildSyntaxTreeDoExprTest : public BuildSyntaxTreeTest {
 public:
   BuildSyntaxTreeDoExprTest() {
-    ExtraArgs = {"-std=c++29", "-fdo-expressions"};
+    ExtraArgs = {"-std=c++29"};
   }
 };
 

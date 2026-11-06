@@ -498,7 +498,7 @@ TEST(ASTMatchersTestTokenSequence, NodeMatchers) {
 }
 
 TEST(ASTMatchersTestDoExpr, DoExprAndDoReturn) {
-  const std::vector<std::string> Args = {"-std=c++29", "-fdo-expressions"};
+  const std::vector<std::string> Args = {"-std=c++29"};
   const char *Code = "int f(int a, int b) { return do { do_return a + b; }; }";
   EXPECT_TRUE(matchesConditionally(Code, doExpr(), true, Args));
   EXPECT_TRUE(matchesConditionally(Code, doReturnStmt(), true, Args));

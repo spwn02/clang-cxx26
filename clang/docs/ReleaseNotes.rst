@@ -269,8 +269,8 @@ C++2d (C++29) Feature Support
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Added ``-std=c++29`` (alias ``-std=c++2d``). It enables do expressions
-  (P2806) by default; ``-fdo-expressions`` enables them in any other language
-  mode as an extension. ``__cpp_do_expressions`` is defined as ``1`` while the
+  (P2806); C++29 features are not available in earlier modes, not even as
+  extensions. ``__cpp_do_expressions`` is defined as ``1`` while the
   paper is not adopted. See :ref:`do expressions <do_expressions>`.
 - Added token sequence injection (P4380R1, exploratory) under ``-std=c++29``: ``^^{ ... }`` token sequence literals,
   ``\\(e)`` interpolation, ``std::meta::queue_injection``, annotation injection hooks and ``__macro`` expression macros

@@ -341,7 +341,6 @@ TEST(HighlightsTest, DoExpressions) {
     Annotations T(Test);
     auto TU = TestTU::withCode(T.code());
     TU.ExtraArgs.push_back("-std=c++29");
-    TU.ExtraArgs.push_back("-fdo-expressions");
     auto AST = TU.build();
     EXPECT_THAT(findDocumentHighlights(AST, T.point()), highlightsFrom(T))
         << Test;
@@ -2179,7 +2178,6 @@ TEST(DoExpressionNavigation, FindTypeDefinitionAndReferences) {
   )cpp");
   TestTU TU = TestTU::withCode(Code.code());
   TU.ExtraArgs.push_back("-std=c++29");
-  TU.ExtraArgs.push_back("-fdo-expressions");
   auto AST = TU.build();
   // Go to definition of a body local used in do_return.
   EXPECT_THAT(locateSymbolAt(AST, Code.point(), TU.index().get()),
@@ -2237,7 +2235,6 @@ TEST(DoExpressionNavigation, GoToTypeOfDoReturn) {
   )cpp");
   auto TU = TestTU::withHeaderCode(HeaderA.code());
   TU.ExtraArgs.push_back("-std=c++29");
-  TU.ExtraArgs.push_back("-fdo-expressions");
   for (const llvm::StringRef Case : {
            "Target f() { return do { ^do_return t; }; }",
            "auto x = ^do { do_return t; };",

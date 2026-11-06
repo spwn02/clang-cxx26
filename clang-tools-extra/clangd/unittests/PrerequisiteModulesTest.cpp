@@ -560,7 +560,6 @@ TEST_F(PrerequisiteModulesTests, BuildSystemModulesOlderThanTheirSourcesAreNotUs
 TEST_F(PrerequisiteModulesTests, ModuleWithADoExpression) {
   MockDirectoryCompilationDatabase CDB(TestDir, FS);
   CDB.ExtraClangFlags.push_back("-std=c++29");
-  CDB.ExtraClangFlags.push_back("-fdo-expressions");
   CDB.addFile("M.cppm", R"cpp(export module M;
 export inline int twice(int x) {
   return do [t = x] -> int {

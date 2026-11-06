@@ -1,4 +1,4 @@
-// RUN: %clang_analyze_cc1 -std=c++29 -fdo-expressions -analyzer-checker=core,unix.Malloc,debug.ExprInspection -verify %s
+// RUN: %clang_analyze_cc1 -std=c++29 -analyzer-checker=core,unix.Malloc,debug.ExprInspection -verify %s
 
 typedef __SIZE_TYPE__ size_t;
 void *malloc(size_t);

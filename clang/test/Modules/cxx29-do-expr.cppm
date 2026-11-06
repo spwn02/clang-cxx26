@@ -2,11 +2,11 @@
 // init-captures (see PCH/cxx29-do-expr.cpp for the serialization trap).
 
 // RUN: rm -rf %t && mkdir %t && split-file %s %t
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -emit-module-interface %t/m.cppm -o %t/M.pcm
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -fmodule-file=M=%t/M.pcm -fsyntax-only -verify %t/u.cpp
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -fmodule-file=M=%t/M.pcm -emit-llvm -o - %t/u.cpp | FileCheck %s
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -emit-reduced-module-interface %t/m.cppm -o %t/R.pcm
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -fmodule-file=M=%t/R.pcm -fsyntax-only -verify %t/u.cpp
+// RUN: %clang_cc1 -std=c++29 -emit-module-interface %t/m.cppm -o %t/M.pcm
+// RUN: %clang_cc1 -std=c++29 -fmodule-file=M=%t/M.pcm -fsyntax-only -verify %t/u.cpp
+// RUN: %clang_cc1 -std=c++29 -fmodule-file=M=%t/M.pcm -emit-llvm -o - %t/u.cpp | FileCheck %s
+// RUN: %clang_cc1 -std=c++29 -emit-reduced-module-interface %t/m.cppm -o %t/R.pcm
+// RUN: %clang_cc1 -std=c++29 -fmodule-file=M=%t/R.pcm -fsyntax-only -verify %t/u.cpp
 
 // CHECK: define {{.*}} @_Z3usev
 

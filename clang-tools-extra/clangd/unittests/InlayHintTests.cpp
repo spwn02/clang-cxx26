@@ -1313,7 +1313,6 @@ TEST(TypeHints, DoExpression) {
     Annotations Source(Code);
     TestTU TU = TestTU::withCode(Source.code());
     TU.ExtraArgs.push_back("-std=c++29");
-    TU.ExtraArgs.push_back("-fdo-expressions");
     auto AST = TU.build();
     EXPECT_THAT(hintsOfKind(AST, InlayHintKind::Type, DefaultOptsForTests),
                 ElementsAre(HintMatcher(Expected, Source)...));

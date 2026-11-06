@@ -3,12 +3,12 @@
 // record (the writer used to assert "High bits set!").
 
 // RUN: rm -rf %t && mkdir %t && split-file %s %t
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -x c++-header -emit-pch -o %t/h.pch %t/h.h
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -include-pch %t/h.pch -fsyntax-only -verify %t/u.cpp
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -include-pch %t/h.pch -ast-dump-all -ast-dump-filter=pick %t/u.cpp | FileCheck %s
+// RUN: %clang_cc1 -std=c++29 -x c++-header -emit-pch -o %t/h.pch %t/h.h
+// RUN: %clang_cc1 -std=c++29 -include-pch %t/h.pch -fsyntax-only -verify %t/u.cpp
+// RUN: %clang_cc1 -std=c++29 -include-pch %t/h.pch -ast-dump-all -ast-dump-filter=pick %t/u.cpp | FileCheck %s
 // Also with templates instantiated while building the PCH.
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -fpch-instantiate-templates -x c++-header -emit-pch -o %t/h2.pch %t/h.h
-// RUN: %clang_cc1 -std=c++29 -fdo-expressions -include-pch %t/h2.pch -fsyntax-only -verify %t/u.cpp
+// RUN: %clang_cc1 -std=c++29 -fpch-instantiate-templates -x c++-header -emit-pch -o %t/h2.pch %t/h.h
+// RUN: %clang_cc1 -std=c++29 -include-pch %t/h2.pch -fsyntax-only -verify %t/u.cpp
 
 // CHECK: DoExpr
 // CHECK: VarDecl {{.*}} q

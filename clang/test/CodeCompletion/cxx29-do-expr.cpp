@@ -76,10 +76,9 @@ void operand() {
 // CHECK-PREF-NONE: VarDecl:{ResultType int}{TypedText iv} ([[P:[0-9]+]])
 // CHECK-PREF-NONE: VarDecl:{ResultType long}{TypedText lv} ([[P]])
 
-// Where the feature is off there is no do-expression snippet; the flag brings it back.
+// Where the feature is off (before C++29) there is no do-expression snippet.
 // RUN: %clang_cc1 -std=c++26 -fsyntax-only -code-completion-at=%s:6:11 %s | FileCheck -check-prefix=CHECK-OFF %s
 // CHECK-OFF-NOT: COMPLETION: Pattern : do {
-// RUN: %clang_cc1 -std=c++26 -fdo-expressions -fsyntax-only -code-completion-at=%s:6:11 %s | FileCheck -check-prefix=CHECK-EXPR %s
 
 void resulttype() {
   int t = do -> int  { do_return 0; };
@@ -87,11 +86,11 @@ void resulttype() {
 
 // After the result type the body `{` is offered along with the declarator
 // continuations.
-// RUN: %clang_cc1 -std=c++2d -fsyntax-only -code-completion-at=%s:85:21 %s | FileCheck -check-prefix=CHECK-AFTER-TYPE %s
+// RUN: %clang_cc1 -std=c++2d -fsyntax-only -code-completion-at=%s:84:21 %s | FileCheck -check-prefix=CHECK-AFTER-TYPE %s
 // CHECK-AFTER-TYPE: COMPLETION: Pattern : {
 // CHECK-AFTER-TYPE-NEXT: <#statements#>
 // No function declarator follows the result type of a do expression.
-// RUN: %clang_cc1 -std=c++2d -fsyntax-only -code-completion-at=%s:85:21 %s | FileCheck -check-prefix=CHECK-NO-DECLARATOR %s
+// RUN: %clang_cc1 -std=c++2d -fsyntax-only -code-completion-at=%s:84:21 %s | FileCheck -check-prefix=CHECK-NO-DECLARATOR %s
 // CHECK-NO-DECLARATOR-NOT: noexcept
 // CHECK-NO-DECLARATOR-NOT: requires
 // CHECK-NO-DECLARATOR-NOT: operator
