@@ -465,6 +465,11 @@ public:
   /// Finds a token starting at \p L. The token must exist if \p L is valid.
   const syntax::Token *findToken(SourceLocation L) const;
 
+  /// Whether the token at \p L is not yet part of a node that was built.
+  bool isPending(SourceLocation L) const {
+    return Pending.startsNode(findToken(L));
+  }
+
   /// Finds the syntax tokens corresponding to the \p SourceRange.
   ArrayRef<syntax::Token> getRange(SourceRange Range) const {
     assert(Range.isValid());
@@ -682,6 +687,10 @@ private:
       }
     }
 
+    /// Whether a node of the forest starts at \p T, as opposed to \p T being
+    /// inside a node that was already built.
+    bool startsNode(const syntax::Token *T) const { return Trees.count(T); }
+
     void assignRole(ArrayRef<syntax::Token> Range, syntax::NodeRole Role) {
       assert(!Range.empty());
       auto It = Trees.lower_bound(Range.begin());
@@ -732,12 +741,6 @@ private:
 
       auto *FirstToken = Tokens.begin();
       auto BeginChildren = Trees.lower_bound(FirstToken);
-      if (!(BeginChildren == Trees.end() || BeginChildren->first == FirstToken)) {
-        llvm::errs() << "FOLDFAIL " << Tokens.size() << " tokens at #" << (FirstToken - TB.expandedTokens().begin()) << "\n";
-        if (BeginChildren != Trees.begin()) { auto P = std::prev(BeginChildren); llvm::errs() << "  prev tree kind " << (int)P->second->getKind() << " starts #" << (P->first - TB.expandedTokens().begin()) << " role " << (int)P->second->getRole() << "\n"; }
-        llvm::errs() << "  next tree starts #" << (BeginChildren->first - TB.expandedTokens().begin()) << "\n";
-      }
-
       assert((BeginChildren == Trees.end() ||
               BeginChildren->first == FirstToken) &&
              "fold crosses boundaries of existing subtrees");
@@ -810,6 +813,15 @@ class BuildTreeVisitor : public RecursiveASTVisitor<BuildTreeVisitor> {
 public:
   explicit BuildTreeVisitor(ASTContext &Context, syntax::TreeBuilder &Builder)
       : Builder(Builder), Context(Context) {}
+
+  // The type of a dependent splice is uniqued: a second `[: x :]` of the same
+  // meaning has the first one's operand, which is written somewhere else.
+  bool TraverseSpliceSpecifier(SpliceSpecifier *SS) {
+    if (SS && SS->getBeginLoc().isValid() &&
+        !Builder.isPending(SS->getBeginLoc()))
+      return true;
+    return RecursiveASTVisitor::TraverseSpliceSpecifier(SS);
+  }
 
   bool shouldTraversePostOrder() const { return true; }
 
@@ -906,10 +918,24 @@ public:
     if (TemplateLoc.isInvalid() ||
         Builder.findToken(TemplateLoc)->kind() != tok::kw_template)
       return true;
-    foldTemplateDeclaration(
+    auto *Inner = foldTemplateDeclaration(
         Builder.getDeclarationRange(S),
         Builder.findToken(S->getTemplateParameters()->getTemplateLoc()),
         Builder.getDeclarationRange(S->getTemplatedDecl()), S);
+    // The template parameter lists of the classes this one is a member of
+    // (`template <class T> template <class U> struct A<T>::B {};`) come first
+    // and wrap the declaration of the template itself.
+    if (const auto *Tag = dyn_cast<TagDecl>(S->getTemplatedDecl())) {
+      ArrayRef<syntax::Token> Done = Builder.getDeclarationRange(S);
+      (void)Inner;
+      for (unsigned I = Tag->getNumTemplateParameterLists(); 0 < I; --I) {
+        const auto *TemplateKW = Builder.findToken(
+            Tag->getTemplateParameterList(I - 1)->getTemplateLoc());
+        auto R = llvm::ArrayRef(TemplateKW, Done.end());
+        foldTemplateDeclaration(R, TemplateKW, Done, nullptr);
+        Done = R;
+      }
+    }
     return true;
   }
 
@@ -940,8 +966,12 @@ public:
     };
     if (auto *S = dyn_cast<ClassTemplatePartialSpecializationDecl>(C))
       ConsumeTemplateParameters(*S->getTemplateParameters());
-    for (unsigned I = C->getNumTemplateParameterLists(); 0 < I; --I)
-      ConsumeTemplateParameters(*C->getTemplateParameterList(I - 1));
+    // (Those of a class template are wrapped around the template, see
+    // WalkUpFromTemplateDecl.)
+    const auto *CXXRD = dyn_cast<CXXRecordDecl>(C);
+    if (!CXXRD || !CXXRD->getDescribedClassTemplate())
+      for (unsigned I = C->getNumTemplateParameterLists(); 0 < I; --I)
+        ConsumeTemplateParameters(*C->getTemplateParameterList(I - 1));
     return Result;
   }
 
@@ -992,6 +1022,53 @@ public:
       return true;
     }();
     WalkUpFromIfStmt(S);
+    return Result;
+  }
+
+  // A condition declaration (`while (T x = e)`) is represented by its
+  // declaration; the implicit condition expression naming it is not written.
+  bool TraverseWhileStmt(WhileStmt *S) {
+    bool Result = [&, this]() {
+      if (DeclStmt *Var = S->getConditionVariableDeclStmt()) {
+        if (!TraverseStmt(Var))
+          return false;
+      } else if (S->getCond() && !TraverseStmt(S->getCond()))
+        return false;
+      return !S->getBody() || TraverseStmt(S->getBody());
+    }();
+    WalkUpFromWhileStmt(S);
+    return Result;
+  }
+
+  bool TraverseSwitchStmt(SwitchStmt *S) {
+    bool Result = [&, this]() {
+      if (S->getInit() && !TraverseStmt(S->getInit()))
+        return false;
+      if (DeclStmt *Var = S->getConditionVariableDeclStmt()) {
+        if (!TraverseStmt(Var))
+          return false;
+      } else if (S->getCond() && !TraverseStmt(S->getCond()))
+        return false;
+      return !S->getBody() || TraverseStmt(S->getBody());
+    }();
+    WalkUpFromSwitchStmt(S);
+    return Result;
+  }
+
+  bool TraverseForStmt(ForStmt *S) {
+    bool Result = [&, this]() {
+      if (S->getInit() && !TraverseStmt(S->getInit()))
+        return false;
+      if (DeclStmt *Var = S->getConditionVariableDeclStmt()) {
+        if (!TraverseStmt(Var))
+          return false;
+      } else if (S->getCond() && !TraverseStmt(S->getCond()))
+        return false;
+      if (S->getInc() && !TraverseStmt(S->getInc()))
+        return false;
+      return !S->getBody() || TraverseStmt(S->getBody());
+    }();
+    WalkUpFromForStmt(S);
     return Result;
   }
 
@@ -1253,6 +1330,13 @@ public:
         break;
       Object = Anonymous->getBase();
     }
+    // `o->m` with an overloaded `operator->` is `(o.operator->()).m`: only `o`
+    // is written, the call to the operator is implicit.
+    if (S->isArrow())
+      if (auto *Call =
+              dyn_cast<CXXOperatorCallExpr>(Object->IgnoreImpCasts());
+          Call && Call->getOperator() == OO_Arrow && Call->getNumArgs() == 1)
+        Object = Call->getArg(0);
     return Object;
   }
 
@@ -1330,7 +1414,6 @@ public:
     if (const syntax::Token *Tok = Builder.findToken(S->getLocation());
         Tok && Tok->kind() != tok::numeric_constant)
       return true; // (nothing of it is written: the tokens belong to what it replaced)
-    { S->getBeginLoc().print(llvm::errs(), Context.getSourceManager()); llvm::errs() << " INTLIT end="; S->getEndLoc().print(llvm::errs(), Context.getSourceManager()); llvm::errs() << " kind=" << (int)Builder.findToken(S->getLocation())->kind() << "\n"; }
     Builder.markChildToken(S->getLocation(), syntax::NodeRole::LiteralToken);
     Builder.foldNode(Builder.getExprRange(S),
                      new (allocator()) syntax::IntegerLiteralExpression, S);
@@ -1466,8 +1549,10 @@ public:
       // operand because it does not correspond to anything written in source
       // code.
       if (child->getSourceRange().isInvalid()) {
-        assert(getOperatorNodeKind(*S) ==
-               syntax::NodeKind::PostfixUnaryOperatorExpression);
+        // (Or an argument that is the call's default argument.)
+        assert(isa<CXXDefaultArgExpr>(child) ||
+               getOperatorNodeKind(*S) ==
+                   syntax::NodeKind::PostfixUnaryOperatorExpression);
         continue;
       }
       if (!TraverseStmt(child))
@@ -1764,6 +1849,21 @@ public:
     return true;
   }
 
+  // The name of an inheriting-constructor using-declaration
+  // (`using B<T<N>>::B;`) has a type that repeats the arguments of the
+  // qualifier, whose tokens are the qualifier's.
+  bool TraverseUsingDecl(UsingDecl *D) {
+    if (!TraverseNestedNameSpecifierLoc(D->getQualifierLoc()))
+      return false;
+    return WalkUpFromUsingDecl(D);
+  }
+
+  bool TraverseUnresolvedUsingValueDecl(UnresolvedUsingValueDecl *D) {
+    if (!TraverseNestedNameSpecifierLoc(D->getQualifierLoc()))
+      return false;
+    return WalkUpFromUnresolvedUsingValueDecl(D);
+  }
+
   bool WalkUpFromUsingDecl(UsingDecl *S) {
     Builder.foldNode(Builder.getDeclarationRange(S),
                      new (allocator()) syntax::UsingDeclaration, S);
@@ -1795,6 +1895,15 @@ private:
     auto Range = getDeclaratorRange(
         Builder.sourceManager(), D->getTypeSourceInfo()->getTypeLoc(),
         getQualifiedNameStart(D), getInitializerRange(D));
+
+    // A qualified name ends at the declared name, not at its qualifier: with a
+    // dependent declared type nothing else extends the range past `S<T>::`.
+    if (const auto *DD = dyn_cast<DeclaratorDecl>(D);
+        DD && Range.isValid() && DD->getQualifierLoc() &&
+        D->getLocation().isValid() &&
+        Builder.sourceManager().isBeforeInTranslationUnit(Range.getEnd(),
+                                                           D->getLocation()))
+      Range.setEnd(D->getLocation());
 
     // An initializer that the compiler made of a builtin's call is located at
     // the builtin's name: the declarator runs through the call's arguments.
@@ -1852,7 +1961,13 @@ private:
 
     // Build node for trailing return type.
     auto Return = Builder.getRange(ReturnedType.getSourceRange());
+    // The range of a qualified type does not include its qualifiers when they
+    // are written before the rest (`-> const std::vector<T> *`): the arrow is
+    // before them.
     const auto *Arrow = Return.begin() - 1;
+    while (Arrow->kind() == tok::kw_const || Arrow->kind() == tok::kw_volatile ||
+           Arrow->kind() == tok::kw_restrict || Arrow->kind() == tok::kw__Atomic)
+      --Arrow;
     assert(Arrow->kind() == tok::arrow);
     auto Tokens = llvm::ArrayRef(Arrow, Return.end());
     Builder.markChildToken(Arrow, syntax::NodeRole::ArrowToken);

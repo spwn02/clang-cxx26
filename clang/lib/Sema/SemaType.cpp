@@ -6117,6 +6117,29 @@ namespace {
       TL.setDecltypeLoc(DS.getTypeSpecTypeLoc());
       TL.setRParenLoc(DS.getTypeofParensRange().getEnd());
     }
+    void VisitReflectionSpliceTypeLoc(ReflectionSpliceTypeLoc TL) {
+      // The type is uniqued: take the locations of this occurrence.
+      if (DS.getTypeSpecType() == DeclSpec::TST_type_splice)
+        if (SpliceSpecifier *Splice = DS.getRepAsSpliceSpecifier()) {
+          TL.setTypenameKWLoc(SourceLocation());
+          TL.setSpliceBeginLoc(Splice->getBeginLoc());
+          TL.setSpliceEndLoc(Splice->getEndLoc());
+          return;
+        }
+      if (DS.getTypeSpecType() == DeclSpec::TST_typename) {
+        // `typename [: x :]`: the parsed type carries the locations.
+        TypeSourceInfo *TInfo = nullptr;
+        Sema::GetTypeFromParser(DS.getRepAsType(), &TInfo);
+        if (TInfo)
+          if (auto Parsed = TInfo->getTypeLoc().getAs<ReflectionSpliceTypeLoc>()) {
+            TL.setTypenameKWLoc(Parsed.getTypenameKWLoc());
+            TL.setSpliceBeginLoc(Parsed.getSpliceBeginLoc());
+            TL.setSpliceEndLoc(Parsed.getSpliceEndLoc());
+            return;
+          }
+      }
+      TL.initializeLocal(Context, DS.getTypeSpecTypeLoc());
+    }
     void VisitPackIndexingTypeLoc(PackIndexingTypeLoc TL) {
       assert(DS.getTypeSpecType() == DeclSpec::TST_typename_pack_indexing);
       TL.setEllipsisLoc(DS.getEllipsisLoc());

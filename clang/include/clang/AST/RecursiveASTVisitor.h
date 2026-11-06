@@ -3197,30 +3197,17 @@ DEF_TRAVERSE_STMT(CXXMetafunctionExpr, {})
 DEF_TRAVERSE_STMT(CXXSpliceExpr, {
   TRY_TO(TraverseSpliceSpecifier(S->getSplice()));
 })
-DEF_TRAVERSE_STMT(CXXDependentMemberSpliceExpr, {
-  TRY_TO(TraverseStmt(S->getBase()));
-  TRY_TO(TraverseStmt(S->getRHS()));
-})
-DEF_TRAVERSE_STMT(CXXExpansionInitListExpr, {
-  for (Expr *SubExpr : S->getSubExprs())
-    TRY_TO(TraverseStmt(SubExpr));
-})
-DEF_TRAVERSE_STMT(CXXIndeterminateExpansionSelectExpr, {
-  TRY_TO(TraverseStmt(S->getRangeExpr()));
-  TRY_TO(TraverseStmt(S->getIdxExpr()));
-})
+// (The sub-expressions are children: they are visited once, as such.)
+DEF_TRAVERSE_STMT(CXXDependentMemberSpliceExpr, {})
+DEF_TRAVERSE_STMT(CXXExpansionInitListExpr, {})
+DEF_TRAVERSE_STMT(CXXIndeterminateExpansionSelectExpr, {})
 DEF_TRAVERSE_STMT(CXXIterableExpansionSelectExpr, {
   TRY_TO(TraverseDecl(S->getRangeVar()));
-  TRY_TO(TraverseStmt(S->getImplExpr()));
 })
 DEF_TRAVERSE_STMT(CXXDestructurableExpansionSelectExpr, {
   TRY_TO(TraverseDecl(S->getDecompositionDecl()));
-  TRY_TO(TraverseStmt(S->getIdxExpr()));
 })
-DEF_TRAVERSE_STMT(CXXExpansionInitListSelectExpr, {
-  TRY_TO(TraverseStmt(S->getRangeExpr()));
-  TRY_TO(TraverseStmt(S->getIdxExpr()));
-})
+DEF_TRAVERSE_STMT(CXXExpansionInitListSelectExpr, {})
 DEF_TRAVERSE_STMT(StackLocationExpr, {})
 DEF_TRAVERSE_STMT(ExtractLValueExpr, {
   TRY_TO(TraverseDecl(S->getValueDecl()));

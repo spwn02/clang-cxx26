@@ -5242,7 +5242,11 @@ namespace {
       QualType Result = SemaRef.Context.getReflectionSpliceType(
           TL.getTypePtr()->getTypenameKWLoc(), TL.getTypePtr()->getSplice(),
           Replacement);
-      TLB.push<ReflectionSpliceTypeLoc>(Result);
+      ReflectionSpliceTypeLoc NewTL =
+          TLB.push<ReflectionSpliceTypeLoc>(Result);
+      NewTL.setTypenameKWLoc(TL.getTypenameKWLoc());
+      NewTL.setSpliceBeginLoc(TL.getSpliceBeginLoc());
+      NewTL.setSpliceEndLoc(TL.getSpliceEndLoc());
       return Result;
     }
 

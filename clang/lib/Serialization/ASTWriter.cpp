@@ -536,7 +536,9 @@ void TypeLocWriter::VisitDecltypeTypeLoc(DecltypeTypeLoc TL) {
 }
 
 void TypeLocWriter::VisitReflectionSpliceTypeLoc(ReflectionSpliceTypeLoc TL) {
-  // nothing to do
+  addSourceLocation(TL.getTypenameKWLoc());
+  addSourceLocation(TL.getSpliceBeginLoc());
+  addSourceLocation(TL.getSpliceEndLoc());
 }
 
 void TypeLocWriter::VisitUnaryTransformTypeLoc(UnaryTransformTypeLoc TL) {
