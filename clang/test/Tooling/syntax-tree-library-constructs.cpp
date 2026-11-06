@@ -65,3 +65,23 @@ int callDefault(Fn f) { return f(1); }
 template <info R> int splice1() { return 1 + (typename [:R:]{}); }
 template <info R> int splice2() { return 2 + (typename [:R:]{}); }
 template <info R, info M> int memberSplice(S s) { return s.[:M:]; }
+
+// An explicit instantiation of a specialization that was instantiated
+// implicitly before.
+template <class C> class Basic { int x; };
+using BasicChar = Basic<char>;
+extern template class Basic<char>;
+template class Basic<int>;
+// CHECK: ExplicitTemplateInstantiation
+// CHECK: ExplicitTemplateInstantiation
+
+// The declarators of one declaration share the arguments of the type.
+template <int N> struct Big { void z(); };
+template <int Cap> bool shared() { Big<Cap> a, b; a.z(); b.z(); return true; }
+
+// An alias of a pack-indexed type, and the builtin templates.
+template <class... T> using Last = T...[sizeof...(T) - 1];
+template <class... T> void usePack(T... a) { Last<T...> x = a...[0]; }
+template <class T, T... I> struct IntSeq {};
+template <class T, T N> using MakeSeq = __make_integer_seq<IntSeq, T, N>;
+// CHECK: TypeAliasDeclaration
