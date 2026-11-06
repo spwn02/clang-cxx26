@@ -400,8 +400,9 @@ public:
   void foldNode(ArrayRef<syntax::Token> Range, syntax::Tree *New, ASTPtr From) {
     assert(New);
     Pending.foldChildren(TBTM.tokenBuffer(), Range, New);
-    if (From)
+    if (From) {
       Mapping.add(From, New);
+    }
   }
 
   void foldNode(ArrayRef<syntax::Token> Range, syntax::Tree *New, TypeLoc L) {
@@ -470,6 +471,11 @@ public:
   /// Finds a token starting at \p L. The token must exist if \p L is valid.
   const syntax::Token *findToken(SourceLocation L) const;
 
+  /// Whether a node was built for \p S.
+  bool isMapped(const Stmt *S) const {
+    return Mapping.find(const_cast<Stmt *>(S)) != nullptr;
+  }
+
   /// Whether the token at \p L is not yet part of a node that was built.
   bool isPending(SourceLocation L) const {
     return Pending.startsNode(findToken(L));
@@ -527,17 +533,57 @@ public:
     return false;
   }
 
+  /// The tokens from \p Begin up to the next ';' that is not nested.
+  ArrayRef<syntax::Token> getRangeToSemicolon(SourceLocation Begin) const {
+    const syntax::Token *First = findToken(Begin);
+    const syntax::Token *Last = First;
+    int Depth = 0;
+    for (; Last->kind() != tok::eof; ++Last) {
+      if (Last->kind() == tok::l_paren || Last->kind() == tok::l_square ||
+          Last->kind() == tok::l_brace)
+        ++Depth;
+      else if (Last->kind() == tok::r_paren || Last->kind() == tok::r_square ||
+               Last->kind() == tok::r_brace)
+        --Depth;
+      else if (Last->kind() == tok::semi && Depth == 0)
+        break;
+    }
+    return llvm::ArrayRef(First, Last); // (the ';' is added by the caller)
+  }
+
   ArrayRef<syntax::Token> getDeclarationRange(Decl *D) {
     ArrayRef<syntax::Token> Tokens;
     // We want to drop the template parameters for specializations.
-    if (const auto *S = dyn_cast<TagDecl>(D))
+    if (const auto *S = dyn_cast<TagDecl>(D)) {
       Tokens = getRange(S->TypeDecl::getBeginLoc(), S->getEndLoc());
+      // An explicit instantiation of a specialization that was implicitly
+      // instantiated before keeps the location of the class template where
+      // that happened: what is written begins after 'template'.
+      if (const auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(S);
+          CTSD && CTSD->getTemplateKeywordLoc().isValid() &&
+          CTSD->getSpecializationKind() >= TSK_ExplicitInstantiationDeclaration) {
+        const syntax::Token *Written = std::next(findToken(CTSD->getTemplateKeywordLoc()));
+        if (Written >= Tokens.begin() && Written < Tokens.end())
+          Tokens = llvm::ArrayRef(Written, Tokens.end());
+      }
+    }
     else if (const auto *DD = dyn_cast<DeclaratorDecl>(D);
              DD && DD->getNumTemplateParameterLists() > 0 &&
              DD->getInnerLocStart().isValid())
       // A declaration made outside its class template begins with the class
       // template's parameter lists; its own tokens begin at its specifiers.
       Tokens = getRange(DD->getInnerLocStart(), D->getEndLoc());
+    else if (const auto *Alias = dyn_cast<TypeAliasDecl>(D);
+             Alias && Alias->getBeginLoc().isValid() &&
+             Alias->getEndLoc().isInvalid())
+      // The type of an alias (`using A = T...[N];`) that does not know where
+      // it ends: it ends where the declaration does.
+      Tokens = getRangeToSemicolon(Alias->getBeginLoc());
+    else if (const auto *ATD = dyn_cast<TypeAliasTemplateDecl>(D);
+             ATD && ATD->getTemplatedDecl() &&
+             ATD->getTemplatedDecl()->getEndLoc().isInvalid() &&
+             ATD->getTemplateParameters()->getTemplateLoc().isValid())
+      Tokens = getRangeToSemicolon(ATD->getTemplateParameters()->getTemplateLoc());
     else
       Tokens = getRange(D->getSourceRange());
     // The attributes written before a parameter ('[[maybe_unused]] int x') are
@@ -895,6 +941,11 @@ public:
   }
 
   bool TraverseDecl(Decl *D) {
+    // The builtin templates (`__make_integer_seq`, ...) are declared by the
+    // compiler: nothing of them is written.
+    if (D && !isa<TranslationUnitDecl>(D) && D->getBeginLoc().isInvalid() &&
+        isa<TypeAliasTemplateDecl, TypeAliasDecl>(D))
+      return true;
     // Code injected from a literal has no syntax where it is used.
     if (D && !isa<TranslationUnitDecl>(D) &&
         (isInsideLiteral(D->getBeginLoc()) ||
@@ -1147,6 +1198,10 @@ public:
   }
 
   bool TraverseStmt(Stmt *S) {
+    // The declarators of `T<N> a, b;` share the type: its arguments were
+    // already built by the first one.
+    if (S && Builder.isMapped(S))
+      return true;
     // Statements expanded from a literal have no syntax where they are used.
     if (S && isInsideLiteral(S->getBeginLoc()))
       return true;
