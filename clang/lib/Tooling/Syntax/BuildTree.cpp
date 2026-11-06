@@ -471,6 +471,10 @@ public:
   /// Finds a token starting at \p L. The token must exist if \p L is valid.
   const syntax::Token *findToken(SourceLocation L) const;
 
+  bool isMapped(NestedNameSpecifierLoc Q) const {
+    return Mapping.find(Q) != nullptr;
+  }
+
   /// Whether a node was built for \p S.
   bool isMapped(const Stmt *S) const {
     return Mapping.find(const_cast<Stmt *>(S)) != nullptr;
@@ -680,14 +684,38 @@ public:
         DS && Range.getEnd().isInvalid() && DS->isSingleDecl())
       Range.setEnd(DS->getSingleDecl()->getEndLoc());
     auto Tokens = getRange(Range);
-    if (isa<CompoundStmt>(S))
+    // (The body of a coroutine is its compound statement, as written.)
+    if (isa<CompoundStmt, CoroutineBodyStmt>(S))
       return Tokens;
 
     // Some statements miss a trailing semicolon, e.g. 'return', 'continue' and
     // all statements that end with those. Consume this semicolon here.
     if (Tokens.back().kind() == tok::semi)
       return Tokens;
+    // A statement that ends with a compound statement does not own the ';'
+    // that follows (`switch (x) { ... };` is a statement and an empty one).
+    if (endsWithCompoundStatement(S))
+      return Tokens;
     return withTrailingSemicolon(Tokens);
+  }
+
+  static bool endsWithCompoundStatement(const Stmt *S) {
+    const Stmt *Last = nullptr;
+    if (const auto *If = dyn_cast<IfStmt>(S))
+      Last = If->getElse() ? If->getElse() : If->getThen();
+    else if (const auto *W = dyn_cast<WhileStmt>(S))
+      Last = W->getBody();
+    else if (const auto *F = dyn_cast<ForStmt>(S))
+      Last = F->getBody();
+    else if (const auto *R = dyn_cast<CXXForRangeStmt>(S))
+      Last = R->getBody();
+    else if (const auto *Sw = dyn_cast<SwitchStmt>(S))
+      Last = Sw->getBody();
+    else if (const auto *L = dyn_cast<LabelStmt>(S))
+      Last = L->getSubStmt();
+    if (!Last)
+      return false;
+    return isa<CompoundStmt>(Last) || endsWithCompoundStatement(Last);
   }
 
 private:
@@ -941,6 +969,14 @@ public:
   }
 
   bool TraverseDecl(Decl *D) {
+    // The instantiation of a static data member of a class template is in the
+    // lexical context of its definition (outside the class), where nothing is
+    // written for it.
+    if (const auto *V = dyn_cast_or_null<VarDecl>(D);
+        V && V->isStaticDataMember() &&
+        V->getTemplateSpecializationKind() != TSK_Undeclared &&
+        V->getTemplateSpecializationKind() != TSK_ExplicitSpecialization)
+      return true;
     // The builtin templates (`__make_integer_seq`, ...) are declared by the
     // compiler: nothing of them is written.
     if (D && !isa<TranslationUnitDecl>(D) && D->getBeginLoc().isInvalid() &&
@@ -1457,6 +1493,9 @@ public:
   bool TraverseNestedNameSpecifierLoc(NestedNameSpecifierLoc QualifierLoc) {
     if (!QualifierLoc)
       return true;
+    // (The declarators of one declaration share the qualifier of the type.)
+    if (Builder.isMapped(QualifierLoc))
+      return true;
     for (auto It = QualifierLoc; It; /**/) {
       auto *NS = buildNameSpecifier(It);
       if (!NS)
@@ -1732,6 +1771,20 @@ public:
         S->getParenOrBraceRange().isInvalid())
       return true;
     return RecursiveASTVisitor::WalkUpFromCXXConstructExpr(S);
+  }
+
+  // In a template, the operand of `co_yield x` is `co_await
+  // __promise.yield_value(x)`: only `x` is written.
+  bool TraverseCoyieldExpr(CoyieldExpr *S, DataRecursionQueue *Queue = nullptr) {
+    Expr *Written = S->getOperand();
+    if (auto *Await = dyn_cast_or_null<UnaryOperator>(Written);
+        Await && Await->getOpcode() == UO_Coawait)
+      if (auto *Call = dyn_cast<CallExpr>(Await->getSubExpr());
+          Call && Call->getNumArgs() == 1)
+        Written = Call->getArg(0);
+    if (Written && !TraverseStmt(Written))
+      return false;
+    return WalkUpFromCoyieldExpr(S);
   }
 
   bool TraverseCXXOperatorCallExpr(CXXOperatorCallExpr *S) {
