@@ -18,7 +18,9 @@ def get_tu(source, lang="c", all_warnings=False, flags=[]):
     name = "t.c"
     if lang == "cpp":
         name = "t.cpp"
-        args.append("-std=c++11")
+        # A test that asks for a standard (for example -std=c++29) keeps it.
+        if not any(a.startswith("-std=") for a in args):
+            args.append("-std=c++11")
     elif lang == "objc":
         name = "t.m"
     elif lang != "c":
