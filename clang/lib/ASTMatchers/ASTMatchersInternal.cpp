@@ -948,6 +948,11 @@ const internal::VariadicDynCastAllOfMatcher<Stmt, ContinueStmt> continueStmt;
 const internal::VariadicDynCastAllOfMatcher<Stmt, CoreturnStmt> coreturnStmt;
 const internal::VariadicDynCastAllOfMatcher<Stmt, ReturnStmt> returnStmt;
 const internal::VariadicDynCastAllOfMatcher<Stmt, DoExpr> doExpr;
+const internal::VariadicDynCastAllOfMatcher<Stmt, MatchSelectExpr>
+    matchSelectExpr;
+const internal::VariadicDynCastAllOfMatcher<Stmt, MatchTestExpr> matchTestExpr;
+const internal::VariadicDynCastAllOfMatcher<Stmt, CaseConditionExpr>
+    caseConditionExpr;
 const internal::VariadicDynCastAllOfMatcher<Stmt, CXXTokenSequenceExpr> tokenSequenceExpr;
 const internal::VariadicDynCastAllOfMatcher<Stmt, CXXMacroInvocationExpr> macroInvocationExpr;
 const internal::VariadicDynCastAllOfMatcher<Stmt, CXXBuiltinInjectExpr> queueInjectionExpr;

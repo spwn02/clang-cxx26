@@ -234,6 +234,9 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(designatedInitExpr);
   REGISTER_MATCHER(designatorCountIs);
   REGISTER_MATCHER(doExpr);
+  REGISTER_MATCHER(matchSelectExpr);
+  REGISTER_MATCHER(matchTestExpr);
+  REGISTER_MATCHER(caseConditionExpr);
   REGISTER_MATCHER(tokenSequenceExpr);
   REGISTER_MATCHER(macroInvocationExpr);
   REGISTER_MATCHER(queueInjectionExpr);
@@ -333,6 +336,9 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(hasElse);
   REGISTER_MATCHER(hasDoReturnValue);
   REGISTER_MATCHER(hasExplicitResultType);
+  REGISTER_MATCHER(hasMatchSubject);
+  REGISTER_MATCHER(hasCaseHandler);
+  REGISTER_MATCHER(isPatternVariable);
   REGISTER_MATCHER(hasExplicitSpecifier);
   REGISTER_MATCHER(hasExternalFormalLinkage);
   REGISTER_MATCHER(hasFalseExpression);

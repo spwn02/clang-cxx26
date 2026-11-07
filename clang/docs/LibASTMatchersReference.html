@@ -1448,6 +1448,46 @@ breakStmt()
 </pre></td></tr>
 
 
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('builtinIdExpr0')"><a name="builtinIdExpr0Anchor">builtinIdExpr</a></td><td>Matcher&lt;CXXBuiltinIdExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="builtinIdExpr0"><pre>Matches std::meta::id (P4380), a C++29 feature.
+
+Given
+  auto i = std::meta::id("x");
+builtinIdExpr()
+  matches 'std::meta::id("x")'
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('builtinStrLiteralExpr0')"><a name="builtinStrLiteralExpr0Anchor">builtinStrLiteralExpr</a></td><td>Matcher&lt;CXXBuiltinStrLiteralExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="builtinStrLiteralExpr0"><pre>Matches std::meta::str_lit (P4380), a C++29 feature.
+
+Given
+  auto i = std::meta::str_lit("x");
+builtinStrLiteralExpr()
+  matches 'std::meta::str_lit("x")'
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('builtinStringizeExpr0')"><a name="builtinStringizeExpr0Anchor">builtinStringizeExpr</a></td><td>Matcher&lt;CXXBuiltinStringizeExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="builtinStringizeExpr0"><pre>Matches std::meta::stringize (P4380), a C++29 feature.
+
+Given
+  auto i = std::meta::stringize(ts);
+builtinStringizeExpr()
+  matches 'std::meta::stringize(ts)'
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('builtinTokenizeExpr0')"><a name="builtinTokenizeExpr0Anchor">builtinTokenizeExpr</a></td><td>Matcher&lt;CXXBuiltinTokenizeExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="builtinTokenizeExpr0"><pre>Matches std::meta::tokenize (P4380), a C++29 feature.
+
+Given
+  auto i = std::meta::tokenize("x");
+builtinTokenizeExpr()
+  matches 'std::meta::tokenize("x")'
+</pre></td></tr>
+
+
 <tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('cStyleCastExpr0')"><a name="cStyleCastExpr0Anchor">cStyleCastExpr</a></td><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1CStyleCastExpr.html">CStyleCastExpr</a>&gt;...</td></tr>
 <tr><td colspan="4" class="doc" id="cStyleCastExpr0"><pre>Matches a C-style cast expression.
 
@@ -1463,6 +1503,17 @@ Example matches x.y() and y()
   X x;
   x.y();
   y();
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('caseConditionExpr0')"><a name="caseConditionExpr0Anchor">caseConditionExpr</a></td><td>Matcher&lt;CaseConditionExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="caseConditionExpr0"><pre>Matches pattern conditions (P2688), a C++29 feature.
+
+Given
+  bool f(int x) { return match(x, case 1); }
+  int g(int x) { if (case auto y = x) return y; return 0; }
+caseConditionExpr()
+  matches 'case auto y = x'
 </pre></td></tr>
 
 
@@ -2165,6 +2216,37 @@ Example matches [&amp;](){return 5;}
 </pre></td></tr>
 
 
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('macroInvocationExpr0')"><a name="macroInvocationExpr0Anchor">macroInvocationExpr</a></td><td>Matcher&lt;CXXMacroInvocationExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="macroInvocationExpr0"><pre>Matches an expression macro invocation (P4380), a C++29 feature.
+
+Given
+  int x = add!(1, 2);
+macroInvocationExpr()
+  matches 'add!(1, 2)'
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('matchSelectExpr0')"><a name="matchSelectExpr0Anchor">matchSelectExpr</a></td><td>Matcher&lt;MatchSelectExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="matchSelectExpr0"><pre>Matches match selections (P2688), a C++29 feature.
+
+Given
+  int f(int x) { return match (x) { case 0 =&gt; 1; case _ =&gt; 2; }; }
+matchSelectExpr()
+  matches 'match (x) { case 0 =&gt; 1; case _ =&gt; 2; }'
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('matchTestExpr0')"><a name="matchTestExpr0Anchor">matchTestExpr</a></td><td>Matcher&lt;MatchTestExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="matchTestExpr0"><pre>Matches match tests (P2688) and pattern conditions, a C++29 feature.
+
+Given
+  bool f(int x) { return match(x, case 1 || 2); }
+  int g(int x) { if (case auto y = x) return y; return 0; }
+matchTestExpr()
+  matches 'match(x, case 1 || 2)' and 'case auto y = x'
+</pre></td></tr>
+
+
 <tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('materializeTemporaryExpr0')"><a name="materializeTemporaryExpr0Anchor">materializeTemporaryExpr</a></td><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1MaterializeTemporaryExpr.html">MaterializeTemporaryExpr</a>&gt;...</td></tr>
 <tr><td colspan="4" class="doc" id="materializeTemporaryExpr0"><pre>Matches nodes where temporaries are materialized.
 
@@ -2327,6 +2409,26 @@ Example: Matches __func__
 </pre></td></tr>
 
 
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('queueInjectionExpr0')"><a name="queueInjectionExpr0Anchor">queueInjectionExpr</a></td><td>Matcher&lt;CXXBuiltinInjectExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="queueInjectionExpr0"><pre>Matches std::meta::queue_injection (P4380), a C++29 feature.
+
+Given
+  std::meta::queue_injection(ts);
+queueInjectionExpr()
+  matches 'std::meta::queue_injection(ts)'
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('reportTokensExpr0')"><a name="reportTokensExpr0Anchor">reportTokensExpr</a></td><td>Matcher&lt;CXXBuiltinReportTokensExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="reportTokensExpr0"><pre>Matches std::meta::report_tokens (P4380), a C++29 feature.
+
+Given
+  std::meta::report_tokens("m", ts);
+reportTokensExpr()
+  matches 'std::meta::report_tokens("m", ts)'
+</pre></td></tr>
+
+
 <tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('returnStmt0')"><a name="returnStmt0Anchor">returnStmt</a></td><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1ReturnStmt.html">ReturnStmt</a>&gt;...</td></tr>
 <tr><td colspan="4" class="doc" id="returnStmt0"><pre>Matches return statements.
 
@@ -2393,6 +2495,26 @@ Given
   switch(a) { case 42: break; default: break; }
 switchStmt()
   matches 'switch(a)'.
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('tokenInterpolationListExpr0')"><a name="tokenInterpolationListExpr0Anchor">tokenInterpolationListExpr</a></td><td>Matcher&lt;CXXTokenInterpolationListExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="tokenInterpolationListExpr0"><pre>Matches a token interpolation list (P4380), a C++29 feature.
+
+Given
+  ^^{ b) }
+tokenInterpolationListExpr()
+  matches 'b)'
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt;</td><td class="name" onclick="toggle('tokenSequenceExpr0')"><a name="tokenSequenceExpr0Anchor">tokenSequenceExpr</a></td><td>Matcher&lt;CXXTokenSequenceExpr&gt;...</td></tr>
+<tr><td colspan="4" class="doc" id="tokenSequenceExpr0"><pre>Matches a token sequence literal (P4380), a C++29 feature.
+
+Given
+  auto t = ^^{ a + b };
+tokenSequenceExpr()
+  matches '^^{ a + b }'
 </pre></td></tr>
 
 
@@ -5123,6 +5245,23 @@ implicit default/copy constructors).
 </pre></td></tr>
 
 
+<tr><td>Matcher&lt;MatchSelectExpr&gt;</td><td class="name" onclick="toggle('isConstexpr3')"><a name="isConstexpr3Anchor">isConstexpr</a></td><td></td></tr>
+<tr><td colspan="4" class="doc" id="isConstexpr3"><pre>Matches constexpr variable and function declarations,
+       and if constexpr.
+
+Given:
+  constexpr int foo = 42;
+  constexpr int bar();
+  void baz() { if constexpr(1 &gt; 0) {} }
+varDecl(isConstexpr())
+  matches the declaration of foo.
+functionDecl(isConstexpr())
+  matches the declaration of bar.
+ifStmt(isConstexpr())
+  matches the if statement in baz.
+</pre></td></tr>
+
+
 <tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1MemberExpr.html">MemberExpr</a>&gt;</td><td class="name" onclick="toggle('isArrow0')"><a name="isArrow0Anchor">isArrow</a></td><td></td></tr>
 <tr><td colspan="4" class="doc" id="isArrow0"><pre>Matches member expressions that are called with '-&gt;' as opposed
 to '.'.
@@ -6319,6 +6458,16 @@ Given
 functionDecl(isInline()) will match ::f().
 namespaceDecl(isInline()) will match n::m.
 varDecl(isInline()) will match Foo;
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1VarDecl.html">VarDecl</a>&gt;</td><td class="name" onclick="toggle('isPatternVariable0')"><a name="isPatternVariable0Anchor">isPatternVariable</a></td><td></td></tr>
+<tr><td colspan="4" class="doc" id="isPatternVariable0"><pre>Matches variables declared by a pattern (P2688), a C++29 feature.
+
+Given
+  int f(int x) { return match (x) { case auto y =&gt; y; }; }
+varDecl(isPatternVariable())
+  matches 'auto y' in the pattern.
 </pre></td></tr>
 
 
@@ -9426,6 +9575,39 @@ Given
 lambdaExpr(hasAnyCapture(lambdaCapture())) and
 lambdaExpr(hasAnyCapture(lambdaCapture(refersToVarDecl(hasName("t")))))
   both match `[=](){ return t; }`.
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;MatchSelectExpr&gt;</td><td class="name" onclick="toggle('hasCaseHandler0')"><a name="hasCaseHandler0Anchor">hasCaseHandler</a></td><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Stmt.html">Stmt</a>&gt; InnerMatcher</td></tr>
+<tr><td colspan="4" class="doc" id="hasCaseHandler0"><pre>Matches a match selection with a case whose handler matches
+InnerMatcher.
+
+Given
+  int f(int x) { return match (x) { case 0 =&gt; 1; case _ =&gt; x + 2; }; }
+matchSelectExpr(hasCaseHandler(binaryOperator()))
+  matches the match selection.
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;MatchSelectExpr&gt;</td><td class="name" onclick="toggle('hasMatchSubject0')"><a name="hasMatchSubject0Anchor">hasMatchSubject</a></td><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Expr.html">Expr</a>&gt; InnerMatcher</td></tr>
+<tr><td colspan="4" class="doc" id="hasMatchSubject0"><pre>Matches a match selection or a match test whose subject (as written)
+matches InnerMatcher.
+
+Given
+  int f(int a) { return match (a + 1) { case _ =&gt; 0; }; }
+matchSelectExpr(hasMatchSubject(binaryOperator()))
+  matches the match selection.
+</pre></td></tr>
+
+
+<tr><td>Matcher&lt;MatchTestExpr&gt;</td><td class="name" onclick="toggle('hasMatchSubject1')"><a name="hasMatchSubject1Anchor">hasMatchSubject</a></td><td>Matcher&lt;<a href="https://clang.llvm.org/doxygen/classclang_1_1Expr.html">Expr</a>&gt; InnerMatcher</td></tr>
+<tr><td colspan="4" class="doc" id="hasMatchSubject1"><pre>Matches a match selection or a match test whose subject (as written)
+matches InnerMatcher.
+
+Given
+  int f(int a) { return match (a + 1) { case _ =&gt; 0; }; }
+matchSelectExpr(hasMatchSubject(binaryOperator()))
+  matches the match selection.
 </pre></td></tr>
 
 

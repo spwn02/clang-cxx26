@@ -2445,6 +2445,41 @@ extern const internal::VariadicDynCastAllOfMatcher<Stmt, CXXBuiltinStringizeExpr
 ///   matches 'do { do_return 1; }'
 extern const internal::VariadicDynCastAllOfMatcher<Stmt, DoExpr> doExpr;
 
+/// Matches match selections (P2688), a C++29 feature.
+///
+/// Given
+/// \code
+///   int f(int x) { return match (x) { case 0 => 1; case _ => 2; }; }
+/// \endcode
+/// matchSelectExpr()
+///   matches 'match (x) { case 0 => 1; case _ => 2; }'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, MatchSelectExpr>
+    matchSelectExpr;
+
+/// Matches match tests (P2688) and pattern conditions, a C++29 feature.
+///
+/// Given
+/// \code
+///   bool f(int x) { return match(x, case 1 || 2); }
+///   int g(int x) { if (case auto y = x) return y; return 0; }
+/// \endcode
+/// matchTestExpr()
+///   matches 'match(x, case 1 || 2)' and 'case auto y = x'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, MatchTestExpr>
+    matchTestExpr;
+
+/// Matches pattern conditions (P2688), a C++29 feature.
+///
+/// Given
+/// \code
+///   bool f(int x) { return match(x, case 1); }
+///   int g(int x) { if (case auto y = x) return y; return 0; }
+/// \endcode
+/// caseConditionExpr()
+///   matches 'case auto y = x'
+extern const internal::VariadicDynCastAllOfMatcher<Stmt, CaseConditionExpr>
+    caseConditionExpr;
+
 /// Matches do_return statements (P2806), a C++29 feature.
 ///
 /// Given
@@ -5898,7 +5933,8 @@ AST_POLYMORPHIC_MATCHER(isConsteval,
 AST_POLYMORPHIC_MATCHER(isConstexpr,
                         AST_POLYMORPHIC_SUPPORTED_TYPES(VarDecl,
                                                         FunctionDecl,
-                                                        IfStmt)) {
+                                                        IfStmt,
+                                                        MatchSelectExpr)) {
   return Node.isConstexpr();
 }
 
@@ -8539,6 +8575,53 @@ AST_MATCHER_P(DoReturnStmt, hasDoReturnValue, internal::Matcher<Expr>,
     return InnerMatcher.matches(*Operand, Finder, Builder);
   return false;
 }
+
+/// Matches a match selection or a match test whose subject (as written)
+/// matches \c InnerMatcher.
+///
+/// Given
+/// \code
+///   int f(int a) { return match (a + 1) { case _ => 0; }; }
+/// \endcode
+/// matchSelectExpr(hasMatchSubject(binaryOperator()))
+///   matches the match selection.
+AST_POLYMORPHIC_MATCHER_P(hasMatchSubject,
+                          AST_POLYMORPHIC_SUPPORTED_TYPES(MatchSelectExpr,
+                                                          MatchTestExpr),
+                          internal::Matcher<Expr>, InnerMatcher) {
+  const Expr *Subject = Node.getSubject();
+  if (const VarDecl *Holding = Node.getHoldingVar())
+    if (const Expr *Init = Holding->getInit())
+      Subject = Init;
+  return Subject &&
+         InnerMatcher.matches(*Subject->IgnoreImplicit(), Finder, Builder);
+}
+
+/// Matches a match selection with a case whose handler matches
+/// \c InnerMatcher.
+///
+/// Given
+/// \code
+///   int f(int x) { return match (x) { case 0 => 1; case _ => x + 2; }; }
+/// \endcode
+/// matchSelectExpr(hasCaseHandler(binaryOperator()))
+///   matches the match selection.
+AST_MATCHER_P(MatchSelectExpr, hasCaseHandler, internal::Matcher<Stmt>,
+              InnerMatcher) {
+  return llvm::any_of(Node.getCases(), [&](const MatchCase &Case) {
+    return Case.Handler && InnerMatcher.matches(*Case.Handler, Finder, Builder);
+  });
+}
+
+/// Matches variables declared by a pattern (P2688), a C++29 feature.
+///
+/// Given
+/// \code
+///   int f(int x) { return match (x) { case auto y => y; }; }
+/// \endcode
+/// varDecl(isPatternVariable())
+///   matches 'auto y' in the pattern.
+AST_MATCHER(VarDecl, isPatternVariable) { return Node.isPatternVariable(); }
 
 /// Matches a do expression that spells its result type.
 ///

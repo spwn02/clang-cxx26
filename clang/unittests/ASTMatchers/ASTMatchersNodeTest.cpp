@@ -521,6 +521,40 @@ TEST(ASTMatchersTestDoExpr, DoExprAndDoReturn) {
                                    doExpr(), false, Args));
 }
 
+TEST(ASTMatchersTestPatternMatching, MatchNodes) {
+  const std::vector<std::string> Args = {"-std=c++2d"};
+  const char *Code = "int f(int a) { return match (a + 1) { case auto y if (y > "
+                     "2) => y * 2; case _ => 0; }; }\n"
+                     "bool g(int a) { return match(a, case 1 || 2); }\n"
+                     "int h(int a) { if (case auto z = a) return z; return 0; }";
+  EXPECT_TRUE(matchesConditionally(Code, matchSelectExpr(), true, Args));
+  EXPECT_TRUE(matchesConditionally(Code, matchTestExpr(), true, Args));
+  EXPECT_TRUE(matchesConditionally(Code, caseConditionExpr(), true, Args));
+  // A pattern condition is a match test; a match test is not a condition.
+  EXPECT_TRUE(matchesConditionally(
+      Code, matchTestExpr(unless(caseConditionExpr())), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Code, matchSelectExpr(hasMatchSubject(binaryOperator())), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Code, matchSelectExpr(hasMatchSubject(integerLiteral())), false, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Code, matchSelectExpr(hasCaseHandler(binaryOperator())), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Code, matchSelectExpr(hasCaseHandler(callExpr())), false, Args));
+  EXPECT_TRUE(
+      matchesConditionally(Code, matchSelectExpr(isConstexpr()), false, Args));
+  EXPECT_TRUE(matchesConditionally(
+      "int f(int a) { return match constexpr (1) { case _ => 0; }; }",
+      matchSelectExpr(isConstexpr()), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Code, varDecl(hasName("y"), isPatternVariable()), true, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Code, varDecl(hasName("a"), isPatternVariable()), false, Args));
+  EXPECT_TRUE(matchesConditionally(
+      Code, declRefExpr(to(varDecl(hasName("y"), isPatternVariable()))), true,
+      Args));
+}
+
 TEST_P(ASTMatchersTest, CXXOperatorCallExpr) {
   if (!GetParam().isCXX()) {
     return;
