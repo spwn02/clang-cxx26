@@ -304,6 +304,13 @@ Improvements to clang-tidy
 New checks
 ^^^^^^^^^^
 
+- New :doc:`modernize-use-do-expr
+  <clang-tidy/checks/modernize/use-do-expr>` check.
+
+  Finds immediately-invoked lambda expressions and classifies each one by
+  whether, and why, it could be spelled as a ``do`` expression instead, and
+  rewrites the ones that can be.
+
 - New :doc:`abseil-unchecked-statusor-access
   <clang-tidy/checks/abseil/unchecked-statusor-access>` check.
 
