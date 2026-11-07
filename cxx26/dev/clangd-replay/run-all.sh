@@ -13,8 +13,10 @@ for dir in "$here"/scenarios/*/; do
   out="$(env "${extra_env[@]}" "$here/replay.sh" "$clangd" "$dir/t.cpp" "$(cat "$dir/steps.json")" $(cat "$dir/flags"))"
   while read -r label verb text; do
     [[ -z "${label:-}" || "$label" == \#* ]] && continue
-    line="$(grep -F "$label [" <<<"$out" | head -1 | sed 's/^[^:]*: //')"
-    if [[ -z "$line" ]]; then echo "FAIL $name: no step reported '$label'"; status=1; continue; fi
+    raw="$(grep -F "$label [" <<<"$out" | head -1)"
+    # (A step that completed with no items is reported, with an empty list.)
+    if [[ -z "$raw" ]]; then echo "FAIL $name: no step reported '$label'"; status=1; continue; fi
+    line="$(sed 's/^[^:]*: //' <<<"$raw")"
     norm="|$(sed -E 's/ *\| */|/g; s/^ +//; s/ +$//' <<<"$line")|"
     found=no; [[ "$norm" == *"|$text|"* ]] && found=yes
     if [[ $verb == must-contain || $verb == never-contain ]]; then
