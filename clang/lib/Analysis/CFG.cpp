@@ -567,9 +567,11 @@ class CFGBuilder {
   CFG::BuildOptions::ForcedBlkExprs::value_type *cachedEntry = nullptr;
   const Stmt *lastLookup = nullptr;
 
-  /// The opaque values that stand for the arguments of the expression macro
-  /// invocations being built, each visited as its source expression.
-  llvm::SmallPtrSet<const OpaqueValueExpr *, 8> MacroArgumentValues;
+  /// The opaque values that the construct being built binds itself (the
+  /// common expression of a conditional with an omitted middle operand, the
+  /// values of a pseudo-object expression, the common expression of an array
+  /// initialization loop): their source expressions are visited by the owner.
+  llvm::SmallPtrSet<const OpaqueValueExpr *, 8> OwnerBoundValues;
 
   // Caches boolean evaluations of expressions to avoid multiple re-evaluations
   // during construction of branches for chained logical operators.
@@ -2471,41 +2473,11 @@ CFGBlock *CFGBuilder::Visit(Stmt * S, AddStmtChoice asc,
     case Stmt::ConstantExprClass:
       return VisitConstantExpr(cast<ConstantExpr>(S), asc);
 
-    case Stmt::CXXMacroInvocationExprClass: {
-      // A resolved invocation stands for its expansion, which holds the
-      // arguments of the macro as opaque values. An argument is evaluated
-      // where the expansion uses it, and not at all if the expansion does not
-      // get there: that is what the program does (the right operand of an
-      // operator macro `or` is not evaluated when the left one decides, and
-      // the same expansion in the code generator branches the same way), so
-      // the opaque value is visited as the argument it stands for (see
-      // OpaqueValueExprClass). A macro uses each argument once: using one
-      // twice is an error.
-      auto *MI = cast<CXXMacroInvocationExpr>(S);
-      std::function<void(Stmt *)> Collect = [&](Stmt *C) {
-        if (!C || isa<BinaryConditionalOperator, PseudoObjectExpr,
-                      ArrayInitLoopExpr>(C))
-          return;
-        // (The opaque values of constructs that bind their own, such as a
-        // conditional with an omitted middle operand, are theirs.) A nested
-        // invocation collects its own when it is visited; the opaque values in
-        // its arguments are ours.
-        if (auto *Nested = dyn_cast<CXXMacroInvocationExpr>(C)) {
-          for (Expr *NestedArg : Nested->getArgs())
-            Collect(NestedArg);
-          return;
-        }
-        if (auto *OVE = dyn_cast<OpaqueValueExpr>(C)) {
-          if (OVE->getSourceExpr())
-            MacroArgumentValues.insert(OVE);
-          return;
-        }
-        for (Stmt *Child : C->children())
-          Collect(Child);
-      };
-      Collect(MI->getExpansion());
-      return Visit(MI->getExpansion(), asc);
-    }
+    case Stmt::CXXMacroInvocationExprClass:
+      // A resolved invocation stands for its expansion, in which the
+      // arguments of the macro are unique opaque values (see
+      // OpaqueValueExprClass).
+      return Visit(cast<CXXMacroInvocationExpr>(S)->getExpansion(), asc);
 
     case Stmt::IndirectGotoStmtClass:
       return VisitIndirectGotoStmt(cast<IndirectGotoStmt>(S));
@@ -2548,10 +2520,17 @@ CFGBlock *CFGBuilder::Visit(Stmt * S, AddStmtChoice asc,
       return VisitObjCMessageExpr(cast<ObjCMessageExpr>(S), asc);
 
     case Stmt::OpaqueValueExprClass: {
-      // The argument of an expression macro: evaluated here, where the
-      // expansion uses it (the other opaque values are bound by their owners).
+      // The argument of an expression macro is a unique opaque value that
+      // stands for its source expression, which is evaluated where the
+      // expansion uses it, and not at all if the expansion does not get there:
+      // that is what the program does (the right operand of an operator macro
+      // `or` is not evaluated when the left one decides, and the code
+      // generator branches the same way). A macro uses each argument once: using
+      // one twice is an error. The other opaque values are bound by their
+      // owners, which evaluate their source expressions themselves.
       auto *OVE = cast<OpaqueValueExpr>(S);
-      if (MacroArgumentValues.contains(OVE))
+      if (OVE->isUnique() && OVE->getSourceExpr() &&
+          !OwnerBoundValues.contains(OVE))
         return Visit(OVE->getSourceExpr(), asc);
       return Block;
     }
@@ -3052,6 +3031,8 @@ CFGBlock *CFGBuilder::VisitConditionalOperator(AbstractConditionalOperator *C,
                                                AddStmtChoice asc) {
   const BinaryConditionalOperator *BCO = dyn_cast<BinaryConditionalOperator>(C);
   const OpaqueValueExpr *opaqueValue = (BCO ? BCO->getOpaqueValue() : nullptr);
+  if (opaqueValue)
+    OwnerBoundValues.insert(opaqueValue);
 
   // Create the confluence block that will "merge" the results of the ternary
   // expression.
@@ -4072,6 +4053,13 @@ CFGBlock *CFGBuilder::VisitPseudoObjectExpr(PseudoObjectExpr *E) {
 
   CFGBlock *lastBlock = Block;
 
+  // The opaque values of the semantics are bound here, and all of them before
+  // any is visited (the semantics are visited in reverse order, and a later
+  // one uses the value an earlier one binds).
+  for (unsigned i = 0, n = E->getNumSemanticExprs(); i != n; ++i)
+    if (auto *OVE = dyn_cast<OpaqueValueExpr>(E->getSemanticExpr(i)))
+      OwnerBoundValues.insert(OVE);
+
   // Before that, evaluate all of the semantics in order.  In
   // CFG-land, that means appending them in reverse order.
   for (unsigned i = E->getNumSemanticExprs(); i != 0; ) {
@@ -4233,12 +4221,14 @@ CFGBlock *CFGBuilder::VisitArrayInitLoopExpr(ArrayInitLoopExpr *A,
 
   CFGBlock *B = Block;
 
-  if (CFGBlock *R = Visit(A->getSubExpr()))
-    B = R;
-
   auto *OVE = dyn_cast<OpaqueValueExpr>(A->getCommonExpr());
   assert(OVE && "ArrayInitLoopExpr->getCommonExpr() should be wrapped in an "
                 "OpaqueValueExpr!");
+  OwnerBoundValues.insert(OVE);
+
+  if (CFGBlock *R = Visit(A->getSubExpr()))
+    B = R;
+
   if (CFGBlock *R = Visit(OVE->getSourceExpr()))
     B = R;
 

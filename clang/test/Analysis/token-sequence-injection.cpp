@@ -71,3 +71,19 @@ void right_operand_skipped() {
 
 // A nested invocation inside the right operand is evaluated only when it is reached.
 bool nested_in_operand(bool x) { return lor!(x, lor!(unknown(), unknown())); }
+
+// An operator macro has no invocation node: its expansion replaces the
+// operator expression, and the arguments are opaque values in it all the same.
+struct Flag {
+  bool b;
+  __macro operator or(this Flag self, bool rhs) { return ^^{ \(self).b or \(rhs) }; }
+};
+bool operator_macro(bool x) { return Flag{x} or unknown(); }
+void operator_macro_skips_right_operand() {
+  calls = 0;
+  bool r = Flag{true} or counting();
+  clang_analyzer_eval(r); // expected-warning {{TRUE}}
+  clang_analyzer_eval(calls == 0); // expected-warning {{TRUE}}
+  r = Flag{false} or counting();
+  clang_analyzer_eval(calls == 1); // expected-warning {{TRUE}}
+}
