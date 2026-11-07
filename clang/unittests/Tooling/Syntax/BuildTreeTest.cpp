@@ -95,6 +95,60 @@ INSTANTIATE_TEST_SUITE_P(
       return Info.param.toShortString();
     });
 
+// C++29 pattern matching (P2688).
+class BuildSyntaxTreeMatchTest : public BuildSyntaxTreeTest {
+public:
+  BuildSyntaxTreeMatchTest() { ExtraArgs = {"-std=c++2d"}; }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    SyntaxTreeTests, BuildSyntaxTreeMatchTest,
+    testing::Values([] {
+      TestClangConfig Config;
+      Config.Language = Lang_CXX26;
+      Config.Target = "x86_64-pc-linux-gnu";
+      return Config;
+    }()),
+    [](const testing::TestParamInfo<TestClangConfig> &Info) {
+      return Info.param.toShortString();
+    });
+
+// A match selection has no node kind of its own yet: it is an UnknownExpression
+// that keeps every token and the expressions in it (a pattern is not an
+// expression, its tokens are leaves).
+TEST_P(BuildSyntaxTreeMatchTest, MatchSelection) {
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
+      R"cpp(
+int test(int a) {
+  return [[match (a) { case 0 => 1; case _ => 2; }]];
+}
+)cpp",
+      {R"txt(
+UnknownExpression ReturnValue
+|-'match'
+|-'('
+|-IdExpression
+| `-UnqualifiedId UnqualifiedId
+|   `-'a'
+|-')'
+|-'{'
+|-'case'
+|-IntegerLiteralExpression
+| `-'0' LiteralToken
+|-'=>'
+|-IntegerLiteralExpression
+| `-'1' LiteralToken
+|-';'
+|-'case'
+|-'_'
+|-'=>'
+|-IntegerLiteralExpression
+| `-'2' LiteralToken
+|-';'
+`-'}'
+)txt"}));
+}
+
 // C++29 do expressions (P2806): DoExpression and DoReturnStatement nodes.
 class BuildSyntaxTreeDoExprTest : public BuildSyntaxTreeTest {
 public:
