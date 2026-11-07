@@ -1857,6 +1857,64 @@ clang-tidy (including ``modernize-use-do-expr``), clang-format and clangd
 (highlights, hover, references, semantic tokens, folding). The syntax-tree
 library keeps them as unknown expressions and statements.
 
+
+.. _pattern_matching:
+
+Pattern Matching (P2688)
+========================
+
+.. code-block:: c++
+
+  int classify(int x, std::optional<int> o) {
+    if (case {auto n} = o)               // a pattern condition
+      return n;
+    return match (x) {                   // a match selection
+      case 0 => 10;
+      case 1 || 2 => 20;                 // an or-pattern
+      case auto y if (y > 5) => y;       // a declaration pattern and a guard
+      case _ => -1;                      // the wildcard
+    };
+  }
+
+  bool two(int x) { return match(x, case 1 || 2); }   // a match test
+
+The patterns are the wildcard ``_``, value patterns (an expression), declaration
+patterns (``auto y``, ``const T &r``, ``T``), type patterns, ``||`` and ``&&``
+combinations, parenthesized patterns, decomposition patterns ``[p, q, ...]``
+(also nested; empty and unnamed-pack bindings are part of the feature) and
+alternative patterns ``{p}``, ``{T: p}``, ``{.name: p}``, ``{.index<I>: p}``.
+A selection is checked for exhaustiveness and for redundant cases; ``match
+constexpr`` selects at compile time. ``std::alternative_traits`` describes the
+alternatives of a library type (``optional``, ``expected``, ``variant``, ``any``,
+``exception_ptr``, the smart pointers, ``chrono::month`` and ``weekday``, the
+comparison categories). ``match`` is an ordinary identifier except where a
+selection begins, and ``=>`` is a token in this mode only.
+
+Enable it with ``-std=c++29`` (``-std=c++2d``); there is no flag that enables it
+in an earlier mode, and the nested, empty and unnamed-pack forms of structured
+bindings are not recognized before C++29 either. ``__has_feature(pattern_matching)``
+reports it. The paper defines no feature-test macro.
+
+For a type pattern over a polymorphic class the compiler tries the casts of a
+selection in one call to ``__dynamic_cast_first`` when the driver says the C++
+runtime provides it (libc++ on ELF targets, ``-fdynamic-cast-first``, a cc1
+option); every other runtime gets the sequential ``__dynamic_cast`` calls, with
+the same result. Code compiled with ``-stdlib=libc++`` on Linux therefore needs
+this toolchain's libc++abi or later.
+
+The rest of the toolchain understands pattern matching: ``-ast-print``,
+``-ast-dump`` and JSON dumps, PCH and modules, the CFG and the static analyzer
+(every case may be taken), ``ASTImporter``, AST matchers (``matchSelectExpr``,
+``matchTestExpr``, ``caseConditionExpr``, ``hasMatchSubject``,
+``hasCaseHandler``, ``isPatternVariable``), libclang
+(``CXCursor_MatchSelectExpr``, ``CXCursor_MatchTestExpr``,
+``CXCursor_CaseConditionExpr``) and its Python bindings, clangd (references,
+go-to-definition and semantic tokens for the variables a pattern declares, the
+``match`` code completion pattern), clang-format, clang-tidy
+(``readability-function-size`` and ``readability-function-cognitive-complexity``
+count a selection like a ``switch``). The syntax-tree library keeps a selection
+as an unknown expression.
+
 Language Extensions Back-ported to Previous Standards
 =====================================================
 

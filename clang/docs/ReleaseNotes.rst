@@ -279,6 +279,12 @@ C++2d (C++29) Feature Support
   invocation stays in the AST around its expansion, so clangd, libclang and clang-tidy see the macro's name at the call
   site (hover, go-to-definition, references and semantic tokens).
 
+- Added pattern matching (P2688R6) under ``-std=c++29``: ``match`` selections, match tests,
+  pattern conditions (``if (case P = e)``), nested/empty/unnamed-pack structured bindings,
+  exhaustiveness and redundancy checking, ``std::alternative_traits`` and the library
+  specializations, and ``__dynamic_cast_first`` in libc++abi for batched type patterns. See
+  :ref:`pattern matching <pattern_matching>`.
+
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -1105,6 +1111,10 @@ libclang
 --------
 - Added ``CXCursor_TokenSequenceExpr`` (158), ``CXCursor_MacroInvocationExpr`` (159) and
   ``CXCursor_TokenInjectionExpr`` (160) for C++29 token sequence injection (P4380).
+- Added ``CXCursor_MatchSelectExpr`` (161), ``CXCursor_MatchTestExpr`` (162) and
+  ``CXCursor_CaseConditionExpr`` (163) for C++29 pattern matching (P2688), and
+  ``CursorKind.MATCH_SELECT_EXPR`` / ``MATCH_TEST_EXPR`` / ``CASE_CONDITION_EXPR``
+  in the Python bindings.
 - Added ``CXCursor_DoExpr`` (157) and ``CXCursor_DoReturnStmt`` (334) for C++29 do
   expressions (P2806), and ``CursorKind.DO_EXPR`` / ``CursorKind.DO_RETURN_STMT``
   in the Python bindings. The numbers are fork-local; a future upstream kind may
