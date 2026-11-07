@@ -6500,6 +6500,17 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       getToolChain().GetCXXStdlibType(Args) == ToolChain::CST_Libcxx)
     CmdArgs.push_back("-fstdcpp-float-macros");
 
+  // libc++abi of this toolchain provides __dynamic_cast_first, which a
+  // pattern matching selection uses to try its type patterns in one call. The
+  // result is the same as the sequential __dynamic_cast calls emitted
+  // otherwise (libstdc++, libcxxrt, Darwin's system libc++abi, the Microsoft
+  // ABI have no such entry point). libc++ on an ELF target is assumed to be
+  // this libc++abi.
+  if (types::isCXX(Input.getType()) &&
+      getToolChain().GetCXXStdlibType(Args) == ToolChain::CST_Libcxx &&
+      getToolChain().getTriple().isOSBinFormatELF())
+    CmdArgs.push_back("-fdynamic-cast-first");
+
   if (Args.hasArg(options::OPT_fexperimental_new_constant_interpreter))
     CmdArgs.push_back("-fexperimental-new-constant-interpreter");
 

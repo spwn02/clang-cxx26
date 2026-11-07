@@ -3842,7 +3842,7 @@ RValue CodeGenFunction::EmitMatchSelectExpr(const MatchSelectExpr &S,
       break;
     }
 
-    if (CGM.getCodeGenOpts().ExperimentalBatchedDynamicCast &&
+    if (CGM.getCodeGenOpts().DynamicCastFirstAvailable &&
         CGM.getCXXABI().supportsDynamicCastFirst()) {
       if (const CXXDynamicCastExpr *First = getBatchableMatchCast(Node)) {
         const MatchProjection *FirstProjection = Node.MatchTest.Projection;

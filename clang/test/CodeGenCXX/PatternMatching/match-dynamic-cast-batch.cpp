@@ -1,24 +1,24 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++2d \
-// RUN:   -fexperimental-batched-dynamic-cast -emit-llvm \
+// RUN:   -fdynamic-cast-first -emit-llvm \
 // RUN:   -O0 -o - %s | FileCheck %s --check-prefix=BATCH \
 // RUN:   --implicit-check-not='call ptr @__dynamic_cast_first('
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++2d \
 // RUN:   -emit-llvm -O0 -o - %s \
 // RUN:   | FileCheck %s --check-prefix=LINEAR
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++2d \
-// RUN:   -fexperimental-batched-dynamic-cast -emit-llvm \
+// RUN:   -fdynamic-cast-first -emit-llvm \
 // RUN:   -O2 -o - %s | FileCheck %s --check-prefix=OPT
 // RUN: %clang_cc1 -triple x86_64-pc-windows-msvc -std=c++2d \
-// RUN:   -fexperimental-batched-dynamic-cast -emit-llvm \
+// RUN:   -fdynamic-cast-first -emit-llvm \
 // RUN:   -O0 -o - %s | FileCheck %s --check-prefix=MS
 // RUN: %clang_cc1 -triple i386-unknown-linux-gnu -std=c++2d \
-// RUN:   -fexperimental-batched-dynamic-cast -emit-llvm \
+// RUN:   -fdynamic-cast-first -emit-llvm \
 // RUN:   -O0 -o - %s | FileCheck %s --check-prefix=I386
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++2d \
-// RUN:   -fexperimental-batched-dynamic-cast -emit-llvm \
+// RUN:   -fdynamic-cast-first -emit-llvm \
 // RUN:   -fsanitize=null -O0 -o - %s | FileCheck %s --check-prefix=SAN
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -std=c++2d \
-// RUN:   -fexperimental-batched-dynamic-cast -emit-llvm \
+// RUN:   -fdynamic-cast-first -emit-llvm \
 // RUN:   -debug-info-kind=standalone -O0 -o /dev/null %s
 
 struct Shape {

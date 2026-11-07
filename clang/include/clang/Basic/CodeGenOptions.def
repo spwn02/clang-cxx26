@@ -34,7 +34,7 @@ CODEGENOPT(AsmVerbose        , 1, 0, Benign) ///< -dA, -fverbose-asm.
 CODEGENOPT(PreserveAsmComments, 1, 1, Benign) ///< -dA, -fno-preserve-as-comments.
 CODEGENOPT(AssumeSaneOperatorNew , 1, 1, Benign) ///< implicit __attribute__((malloc)) operator new
 CODEGENOPT(AssumeUniqueVTables , 1, 1, Benign) ///< Assume a class has only one vtable.
-CODEGENOPT(ExperimentalBatchedDynamicCast, 1, 0, Benign) ///< Batch dynamic casts in pattern matches.
+CODEGENOPT(DynamicCastFirstAvailable, 1, 0, Benign) ///< The C++ runtime has __dynamic_cast_first (batched casts of a match).
 CODEGENOPT(Autolink          , 1, 1, Benign) ///< -fno-autolink
 CODEGENOPT(AutoImport        , 1, 1, Benign) ///< -fno-auto-import
 CODEGENOPT(ObjCAutoRefCountExceptions , 1, 0, Benign) ///< Whether ARC should be EH-safe.

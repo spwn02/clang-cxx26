@@ -1714,6 +1714,10 @@ defm coro_aligned_allocation : BoolFOption<"coro-aligned-allocation",
           "Prefer aligned allocation for C++ Coroutines">,
   NegFlag<SetFalse>>;
 
+def fdynamic_cast_first : Flag<["-"], "fdynamic-cast-first">,
+  Visibility<[CC1Option]>,
+  HelpText<"The C++ runtime provides __dynamic_cast_first, which performs the casts of a pattern matching selection in one call; the driver passes it for libc++ on ELF targets">,
+  MarshallingInfoFlag<CodeGenOpts<"DynamicCastFirstAvailable">>;
 def fstdcpp_float_macros : Flag<["-"], "fstdcpp-float-macros">,
   Visibility<[CC1Option]>,
   HelpText<"Predefine __STDCPP_FLOAT<N>_T__ and __STDCPP_BFLOAT16_T__ ([cpp.predefined]); the driver passes it for libc++">,
