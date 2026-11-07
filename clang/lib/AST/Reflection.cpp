@@ -10,6 +10,7 @@
 
 #include "clang/AST/APValue.h"
 #include "clang/AST/Reflection.h"
+#include <cstring>
 #include "llvm/ADT/FoldingSet.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Lex/Token.h"
@@ -118,6 +119,23 @@ TokenSequenceData CreateTokenSequenceData(ASTContext &Ctx,
   if (!Tokens.empty()) {
     StoredTokens = new (Ctx) Token[Tokens.size()];
     std::copy(Tokens.begin(), Tokens.end(), StoredTokens);
+    // The invariant of a token sequence: the spelling of every literal token
+    // is owned by the ASTContext and NUL-terminated. NumericLiteralParser and
+    // friends read one byte past the end of the token, and the callers of this
+    // function hand us views into a lexer buffer, a deserialized blob of
+    // concatenated spellings or another context's storage, none of which has
+    // a terminator after each literal. Guaranteeing it here, where every token
+    // from outside a sequence enters one, keeps the callers free of it.
+    for (size_t I = 0; I != Tokens.size(); ++I) {
+      Token &T = StoredTokens[I];
+      if (!T.isLiteral() || !T.getLiteralData())
+        continue;
+      unsigned Len = T.getLength();
+      char *Owned = new (Ctx) char[Len + 1];
+      std::memcpy(Owned, T.getLiteralData(), Len);
+      Owned[Len] = '\0';
+      T.setLiteralData(Owned);
+    }
   }
 
   return TokenSequenceData(StoredTokens, Tokens.size());

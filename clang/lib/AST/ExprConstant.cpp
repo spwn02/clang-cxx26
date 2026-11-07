@@ -25588,16 +25588,14 @@ bool ReflectionEvaluator::VisitCXXBuiltinStrLiteralExpr(
   LiteralData.append(Content);
   LiteralData.push_back('"');
 
-  // Allocate the literal data in ASTContext.
-  char *StoredData = new (Info.Ctx) char[LiteralData.size()];
-  std::copy(LiteralData.begin(), LiteralData.end(), StoredData);
-
   // Create the string literal token.
   Token Tok;
   Tok.startToken();
   Tok.setKind(tok::string_literal);
   Tok.setLocation(E->getBeginLoc());
-  Tok.setLiteralData(StoredData);
+  // CreateTokenSequenceData below gives the literal its own NUL-terminated
+  // storage in the ASTContext.
+  Tok.setLiteralData(LiteralData.data());
   Tok.setLength(LiteralData.size());
 
   // Create a token sequence containing just this token.
@@ -25644,13 +25642,8 @@ bool ReflectionEvaluator::VisitCXXBuiltinTokenizeExpr(
       Tok.setIdentifierInfo(&II);
     }
 
-    // For literals, we need to store the literal data in ASTContext.
-    if (Tok.isLiteral() && Tok.getLiteralData()) {
-      unsigned Len = Tok.getLength();
-      char *StoredData = new (Info.Ctx) char[Len];
-      std::memcpy(StoredData, Tok.getLiteralData(), Len);
-      Tok.setLiteralData(StoredData);
-    }
+    // The literal data points into Content, which outlives the call of
+    // CreateTokenSequenceData below; that gives it storage of its own.
 
     // Set location to the expression location for all tokens.
     Tok.setLocation(E->getBeginLoc());

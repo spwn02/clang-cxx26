@@ -11201,14 +11201,16 @@ ASTNodeImporter::ImportAPValue(const APValue &FromValue) {
         }
       } else if (T.isLiteral() || T.is(tok::raw_identifier)) {
         unsigned Len = T.getLength();
-        char *Buf = new (ToCtx) char[Len];
-        const char *From = T.isLiteral() ? T.getLiteralData()
-                                         : T.getRawIdentifier().data();
-        std::copy(From, From + Len, Buf);
-        if (T.isLiteral())
-          N.setLiteralData(Buf);
-        else
+        if (T.isLiteral()) {
+          // CreateTokenSequenceData below gives the literal storage of its
+          // own in ToCtx.
+          N.setLiteralData(T.getLiteralData());
+        } else {
+          char *Buf = new (ToCtx) char[Len];
+          const char *From = T.getRawIdentifier().data();
+          std::copy(From, From + Len, Buf);
           N.setRawIdentifierData(Buf);
+        }
       } else if (const IdentifierInfo *II = T.getIdentifierInfo()) {
         N.setIdentifierInfo(Importer.Import(II));
       }

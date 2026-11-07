@@ -4074,14 +4074,6 @@ static void appendLexedTokens(ASTContext &C, StringRef Text,
       Tok.setIdentifierInfo(&II);
     }
 
-    if (Tok.isLiteral() && Tok.getLiteralData()) {
-      unsigned Len = Tok.getLength();
-      char *StoredData = new (C) char[Len + 1];
-      std::memcpy(StoredData, Tok.getLiteralData(), Len);
-      StoredData[Len] = '\0';
-      Tok.setLiteralData(StoredData);
-    }
-
     SourceLocation SpellingLoc = Tok.getLocation();
     SourceLocation TokExpLoc = SM.createExpansionLoc(
         SpellingLoc, ExpansionLoc, ExpansionLoc, Tok.getLength());
