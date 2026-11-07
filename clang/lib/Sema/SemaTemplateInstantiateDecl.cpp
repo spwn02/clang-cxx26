@@ -6867,6 +6867,7 @@ void Sema::BuildVariableInstantiation(
   NewVar->setConstexpr(OldVar->isConstexpr());
   NewVar->setInitCapture(OldVar->isInitCapture());
   NewVar->setDoExprInitCapture(OldVar->isDoExprInitCapture());
+  NewVar->setPatternVariable(OldVar->isPatternVariable());
   NewVar->setPreviousDeclInSameBlockScope(
       OldVar->isPreviousDeclInSameBlockScope());
   NewVar->setAccess(OldVar->getAccess());

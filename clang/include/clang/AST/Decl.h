@@ -1153,6 +1153,12 @@ protected:
     /// an entity that outlives it.
     LLVM_PREFERRED_TYPE(bool)
     unsigned IsDoExprInitCapture : 1;
+
+    /// Whether this variable is declared by a pattern (P2688), as `auto y` in
+    /// `case auto y`: it is declared by the pattern, its initializer is made
+    /// up from the subject it is matched against and has no source of its own.
+    LLVM_PREFERRED_TYPE(bool)
+    unsigned IsPatternVar : 1;
   };
 
   union {
@@ -1621,6 +1627,16 @@ public:
   void setDoExprInitCapture(bool IC) {
     assert(!isa<ParmVarDecl>(this));
     NonParmVarDeclBits.IsDoExprInitCapture = IC;
+  }
+
+  /// Whether this variable is declared by a pattern (C++29); its initializer
+  /// is implicit, so it takes no part in the source range of the declaration.
+  bool isPatternVariable() const {
+    return isa<ParmVarDecl>(this) ? false : NonParmVarDeclBits.IsPatternVar;
+  }
+  void setPatternVariable(bool PV = true) {
+    assert(!isa<ParmVarDecl>(this));
+    NonParmVarDeclBits.IsPatternVar = PV;
   }
 
   /// Whether this variable is the implicit variable for a lambda init-capture.

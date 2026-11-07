@@ -2202,6 +2202,10 @@ VarDecl::TLSKind VarDecl::getTLSKind() const {
 }
 
 SourceRange VarDecl::getSourceRange() const {
+  // The initializer of a variable declared by a pattern is implicit; it spans
+  // the subject, which is not part of the declaration.
+  if (isPatternVariable())
+    return DeclaratorDecl::getSourceRange();
   if (const Expr *Init = getInit()) {
     SourceLocation InitEnd = Init->getEndLoc();
     // If Init is implicit, ignore its source range and fallback on

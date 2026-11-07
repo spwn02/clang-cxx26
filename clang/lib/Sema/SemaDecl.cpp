@@ -6407,6 +6407,9 @@ Decl *Sema::ActOnDeclarator(Scope *S, Declarator &D, bool IsPatternDecl) {
           S, D, MultiTemplateParamsArg(), Bases);
 
   Decl *Dcl = HandleDeclarator(S, D, MultiTemplateParamsArg(), IsPatternDecl);
+  if (IsPatternDecl)
+    if (auto *VD = dyn_cast_or_null<VarDecl>(Dcl); VD && !isa<ParmVarDecl>(VD))
+      VD->setPatternVariable();
 
   if (OriginalLexicalContext && OriginalLexicalContext->isObjCContainer() &&
       Dcl && Dcl->getDeclContext()->isFileContext())

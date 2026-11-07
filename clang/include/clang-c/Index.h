@@ -1713,7 +1713,26 @@ enum CXCursorKind {
    */
   CXCursor_TokenInjectionExpr = 160,
 
-  CXCursor_LastExpr = CXCursor_TokenInjectionExpr,
+  /**
+   * A C++29 match selection (P2688), `match (subject) { case pattern => ...; }`,
+   * as an expression or as a statement. The cursor's children are the
+   * subject(s), then for each case its pattern (the expressions, types and
+   * declarations written in it), guard and handler.
+   */
+  CXCursor_MatchSelectExpr = 161,
+
+  /**
+   * A C++29 match test (P2688), `match (subject, case pattern)`.
+   */
+  CXCursor_MatchTestExpr = 162,
+
+  /**
+   * A C++29 pattern condition (P2688), `case pattern = subject`, as the
+   * condition of `if`, `while` or `for`.
+   */
+  CXCursor_CaseConditionExpr = 163,
+
+  CXCursor_LastExpr = CXCursor_CaseConditionExpr,
 
   /* Statements */
   CXCursor_FirstStmt = 200,

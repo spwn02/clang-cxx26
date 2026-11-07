@@ -31,7 +31,7 @@ using namespace serialization;
 // fits (see fitsFixedAbbrevOperand), so adding a flag to a BitsPacker can never
 // again overflow the abbreviation: it just falls back to the unabbreviated
 // record. (Fixed(4) and then Fixed(22) both overflowed silently before.)
-static constexpr unsigned DeclVarAbbrevPackedBits = 22;
+static constexpr unsigned DeclVarAbbrevPackedBits = 23;
 static constexpr unsigned DeclParmVarAbbrevPackedBits = 19;
 
 static bool fitsFixedAbbrevOperand(uint32_t Value, unsigned Width) {
@@ -1368,6 +1368,7 @@ void ASTDeclWriter::VisitVarDecl(VarDecl *D) {
     VarDeclBits.addBit(D->isObjCForDecl());
     VarDeclBits.addBit(D->isCXXForRangeImplicitVar());
     VarDeclBits.addBit(D->isDoExprInitCapture());
+    VarDeclBits.addBit(D->isPatternVariable());
   }
 
   Record.push_back(VarDeclBits);
@@ -2825,7 +2826,7 @@ void ASTWriter::WriteDeclAbbrevs() {
             // isInline, isInlineSpecified, isConstexpr,
             // isInitCapture, isPrevDeclInSameScope, hasInitWithSideEffects,
             // EscapingByref, HasDeducedType, ImplicitParamKind, isObjCForDecl
-            // IsCXXForRangeImplicitVar
+            // IsCXXForRangeImplicitVar, isDoExprInitCapture, isPatternVariable
   Abv->Add(BitCodeAbbrevOp(0));                         // VarKind (local enum)
   // Type Source Info
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));

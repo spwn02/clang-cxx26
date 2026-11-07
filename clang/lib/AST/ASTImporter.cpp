@@ -4945,6 +4945,8 @@ ExpectedDecl ASTNodeImporter::VisitVarDecl(VarDecl *D) {
 
   if (D->isConstexpr())
     ToVar->setConstexpr(true);
+  if (D->isPatternVariable())
+    ToVar->setPatternVariable();
 
   addDeclToContexts(D, ToVar);
 

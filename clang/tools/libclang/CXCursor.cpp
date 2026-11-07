@@ -610,6 +610,18 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     K = CXCursor_TokenInjectionExpr;
     break;
 
+  case Stmt::MatchSelectExprClass:
+    K = CXCursor_MatchSelectExpr;
+    break;
+
+  case Stmt::MatchTestExprClass:
+    K = CXCursor_MatchTestExpr;
+    break;
+
+  case Stmt::CaseConditionExprClass:
+    K = CXCursor_CaseConditionExpr;
+    break;
+
   case Stmt::DoReturnStmtClass:
     K = CXCursor_DoReturnStmt;
     break;
