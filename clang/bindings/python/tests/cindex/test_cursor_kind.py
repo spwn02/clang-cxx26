@@ -79,6 +79,36 @@ class TestCursorKind(unittest.TestCase):
         self.assertTrue(CursorKind.DO_EXPR.is_expression())
         self.assertTrue(CursorKind.DO_RETURN_STMT.is_statement())
 
+    def test_pattern_matching(self):
+        """Match selections, match tests and pattern conditions (C++29, P2688)
+        are exposed, with the variable a pattern declares as a VAR_DECL below
+        them."""
+        tu = get_tu(
+            "struct P { int a, b; };\n"
+            "int f(P p, int x) {\n"
+            "  if (case [0, auto b] = p) return b;\n"
+            "  return match (x) { case auto y if (y > 5) => y; case _ => match(x, case 1) ? 1 : 0; };\n"
+            "}\n",
+            flags=["-x", "c++", "-std=c++2d"],
+        )
+        cursors = list(tu.cursor.walk_preorder())
+        kinds = [c.kind for c in cursors]
+        self.assertEqual(kinds.count(CursorKind.CASE_CONDITION_EXPR), 1)
+        self.assertEqual(kinds.count(CursorKind.MATCH_SELECT_EXPR), 1)
+        self.assertEqual(kinds.count(CursorKind.MATCH_TEST_EXPR), 1)
+        for kind in (
+            CursorKind.MATCH_SELECT_EXPR,
+            CursorKind.MATCH_TEST_EXPR,
+            CursorKind.CASE_CONDITION_EXPR,
+        ):
+            self.assertTrue(kind.is_expression())
+        names = sorted(
+            c.spelling
+            for c in cursors
+            if c.kind == CursorKind.VAR_DECL and c.is_definition()
+        )
+        self.assertEqual(names, ["b", "y"])
+
     def test_token_sequence_injection(self):
         """Token sequence literals, expression macro invocations and the token
         injection builtins (C++29, P4380) are exposed."""

@@ -1122,6 +1122,15 @@ class CursorKind(BaseEnumeration):
     # report_tokens, id, str_lit, tokenize, stringize or an interpolation list.
     TOKEN_INJECTION_EXPR = 160
 
+    # Represents a C++29 match selection (P2688), match (subject) { case ... }.
+    MATCH_SELECT_EXPR = 161
+
+    # Represents a C++29 match test (P2688), match (subject, case pattern).
+    MATCH_TEST_EXPR = 162
+
+    # Represents a C++29 pattern condition (P2688), case pattern = subject.
+    CASE_CONDITION_EXPR = 163
+
     # A statement whose specific kind is not exposed via this interface.
     #
     # Unexposed statements have the same operations as any other kind of
