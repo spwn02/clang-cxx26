@@ -8235,7 +8235,9 @@ ASTNodeImporter::VisitCXXBuiltinInjectExpr(CXXBuiltinInjectExpr *E) {
   Error Err = Error::success();
   auto ToType = importChecked(Err, E->getType());
   auto ToOperand = importChecked(Err, E->getOperand());
-  auto ToTarget = importChecked(Err, E->getTargetNS());
+  // The target namespace is optional: queue_injection(tokens) has none.
+  Expr *ToTarget =
+      E->hasTargetNS() ? importChecked(Err, E->getTargetNS()) : nullptr;
   auto ToKw = importChecked(Err, E->getKwLoc());
   auto ToLParen = importChecked(Err, E->getLParenLoc());
   auto ToRParen = importChecked(Err, E->getRParenLoc());

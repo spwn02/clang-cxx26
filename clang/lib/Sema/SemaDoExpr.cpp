@@ -457,9 +457,16 @@ ExprResult Sema::BuildDoExpr(SourceLocation DoLoc, SourceLocation LBraceLoc,
   }
 
   // The result is an object the do-expression creates, like the return value
-  // of a function: its type must be complete and not abstract. (A reference
+  // of a function: its type must be complete and not abstract, and not an
+  // array or a function type (neither can be returned). (A reference
   // or void creates no object.) The check also keeps MaybeBindToTemporary
   // below from looking up the destructor of an incomplete class.
+  if (!ResultType->isDependentType() &&
+      (ResultType->isArrayType() || ResultType->isFunctionType())) {
+    Diag(DoLoc, diag::err_do_expr_array_or_function_result_type)
+        << ResultType->isFunctionType() << ResultType;
+    return ExprError();
+  }
   if (!ResultType->isVoidType() && !ResultType->isDependentType() &&
       !ResultType->isReferenceType() &&
       (RequireCompleteType(DoLoc, ResultType,

@@ -6,8 +6,8 @@
 // included the result type was incomplete and the compiler asserted in
 // LookupSpecialMember while binding the temporary (#495).
 
-struct Incomplete;       // expected-note 6{{forward declaration of 'Incomplete'}}
-Incomplete make();       // expected-note 2{{'make' declared here}}
+struct Incomplete;       // expected-note 8{{forward declaration of 'Incomplete'}}
+Incomplete make();       // expected-note 4{{'make' declared here}}
 int use(int);
 struct Abstract { virtual void f() = 0; }; // expected-note {{unimplemented pure virtual method 'f' in 'Abstract'}}
 template <class T> struct Undefined;       // expected-note {{template is declared here}}
@@ -33,6 +33,30 @@ int explicit_incomplete_template_id() {
 void explicit_abstract() {
   (void)(do -> Abstract { throw 1; }); // expected-error {{return type 'Abstract' is an abstract class}}
 }
+
+// The deduced type is checked where the do_return operand is initialized: an
+// incomplete class prvalue cannot be the operand, so there is no result type
+// left to check.
+void deduced_incomplete() {
+  (void)(do { do_return make(); });          // expected-error {{calling 'make' with incomplete return type 'Incomplete'}}
+  (void)(do -> auto { do_return make(); });  // expected-error {{calling 'make' with incomplete return type 'Incomplete'}}
+}
+
+// Neither an array nor a function type can be returned, so neither can be the
+// result type of a do-expression (a function type asserted in CodeGen).
+using Array = int[3];
+using Fn = void();
+void array_and_function() {
+  (void)(do -> Array { throw 1; });  // expected-error {{do-expression cannot have array result type 'Array' (aka 'int[3]')}}
+  (void)(do -> int[3] { throw 1; }); // expected-error {{do-expression cannot have array result type 'int[3]'}}
+  (void)(do -> Fn { throw 1; });     // expected-error {{do-expression cannot have function result type 'Fn' (aka 'void ()')}}
+  (void)(do -> void() { throw 1; }); // expected-error {{do-expression cannot have function result type 'void ()'}}
+}
+template <class T> void tmpl_array_and_function() {
+  (void)(do -> T { throw 1; }); // expected-error {{do-expression cannot have array result type 'int[3]'}} expected-error {{do-expression cannot have function result type 'void ()'}}
+}
+template void tmpl_array_and_function<int[3]>();  // expected-note {{in instantiation of function template specialization 'tmpl_array_and_function<int[3]>' requested here}}
+template void tmpl_array_and_function<void()>();  // expected-note {{in instantiation of function template specialization 'tmpl_array_and_function<void ()>' requested here}}
 
 // References and void are fine: no object is created.
 Incomplete &ref();
