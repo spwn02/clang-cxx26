@@ -157,6 +157,23 @@ TEST(SemanticHighlighting, DoExpressions) {
                      {}, ~ScopeModifierMask, {"-std=c++29"});
 }
 
+TEST(SemanticHighlighting, PatternMatching) {
+  // The variables a pattern declares are local variable definitions, and
+  // their uses are local variables.
+  checkHighlightings(R"cpp(
+      struct $Class_def[[P]] { int $Field_decl[[a]], $Field_decl[[b]]; };
+      int $Function_def[[f]](int $Parameter_def[[x]], $Class[[P]] $Parameter_def[[p]]) {
+        if (case [0, $Primitive_deduced_defaultLibrary[[auto]] $LocalVariable_def[[b]]] = $Parameter[[p]])
+          return $LocalVariable[[b]];
+        return match ($Parameter[[x]]) {
+          case $Primitive_deduced_defaultLibrary[[auto]] $LocalVariable_def[[y]] if ($LocalVariable[[y]] $Operator[[>]] 5) => $LocalVariable[[y]];
+          case _ => 0;
+        };
+      }
+    )cpp",
+                     {}, ~ScopeModifierMask, {"-std=c++2d"});
+}
+
 TEST(SemanticHighlighting, GetsCorrectTokens) {
   const char *TestCases[] = {
       R"cpp(

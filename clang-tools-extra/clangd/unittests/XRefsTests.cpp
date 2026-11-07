@@ -2500,6 +2500,86 @@ TEST(FindReferences, WithinAST) {
     checkFindRefs(Test);
 }
 
+TEST(FindReferences, PatternMatching) {
+  // The variables a pattern declares (P2688): a use finds the declaration in
+  // the pattern and the other uses, from every pattern kind.
+  const char *Tests[] = {
+      R"cpp(// declaration pattern with a guard
+        int f(int x) {
+          return match (x) {
+            case 0 => 1;
+            case auto $def(f)[[y]] if ($(f)[[y]] > 5) => $(f)[[^y]];
+            case _ => 2;
+          };
+        }
+      )cpp",
+      R"cpp(// decomposition pattern in a pattern condition
+        struct P { int a, b; };
+        int f(P p) {
+          if (case [0, auto $def(f)[[b]]] = p)
+            return $(f)[[^b]];
+          return 0;
+        }
+      )cpp",
+      R"cpp(// the subject is referenced from the match
+        int f(int $def(f)[[sub]]) {
+          return match ($(f)[[^sub]]) { case 0 => 1; case _ => $(f)[[sub]]; };
+        }
+      )cpp",
+  };
+  for (const char *Test : Tests) {
+    Annotations T(Test);
+    auto TU = TestTU::withCode(T.code());
+    TU.ExtraArgs.push_back("-std=c++2d");
+    auto AST = TU.build();
+    ASSERT_TRUE(AST.getDiagnostics().empty()) << Test;
+    std::vector<Matcher<ReferencesResult::Reference>> Expected;
+    for (const auto &[R, Context] : T.rangesWithPayload())
+      Expected.push_back(AllOf(rangeIs(R), containerIs(Context), attrsAre(0u)));
+    for (const auto &[R, Context] : T.rangesWithPayload("def"))
+      Expected.push_back(AllOf(rangeIs(R), containerIs(Context),
+                               attrsAre(ReferencesResult::Definition |
+                                        ReferencesResult::Declaration)));
+    for (const auto &P : T.points())
+      EXPECT_THAT(findReferences(AST, P, 0, nullptr, /*AddContext*/ true)
+                      .References,
+                  UnorderedElementsAreArray(Expected))
+          << Test;
+  }
+}
+
+TEST(LocateSymbol, PatternMatching) {
+  struct {
+    const char *Code;
+    const char *Name;
+  } Tests[] = {
+      {R"cpp(
+        int f(int x) {
+          return match (x) { case auto [[y]] if (y > 5) => ^y; case _ => 0; };
+        }
+      )cpp",
+       "y"},
+      {R"cpp(
+        struct P { int a, b; };
+        int f(P p) {
+          if (case [auto [[a]], 1] = p) return ^a;
+          return 0;
+        }
+      )cpp",
+       "a"},
+  };
+  for (const auto &Test : Tests) {
+    Annotations T(Test.Code);
+    auto TU = TestTU::withCode(T.code());
+    TU.ExtraArgs.push_back("-std=c++2d");
+    auto AST = TU.build();
+    ASSERT_TRUE(AST.getDiagnostics().empty()) << Test.Code;
+    EXPECT_THAT(locateSymbolAt(AST, T.point()),
+                ElementsAre(sym(Test.Name, T.range(), T.range())))
+        << Test.Code;
+  }
+}
+
 TEST(FindReferences, ConceptsWithinAST) {
   constexpr llvm::StringLiteral Code = R"cpp(
     template <class T>

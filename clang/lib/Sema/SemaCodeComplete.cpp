@@ -2545,6 +2545,29 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
       Results.AddResult(Result(Builder.TakeString()));
     }
 
+    if (SemaRef.getLangOpts().PatternMatching && Results.includeCodePatterns()) {
+      // match (subject) { case pattern => handler; }
+      Builder.AddTypedTextChunk("match");
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_LeftParen);
+      Builder.AddPlaceholderChunk("subject");
+      Builder.AddChunk(CodeCompletionString::CK_RightParen);
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
+      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+      Builder.AddTextChunk("case");
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddPlaceholderChunk("pattern");
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddTextChunk("=>");
+      Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+      Builder.AddPlaceholderChunk("handler");
+      Builder.AddChunk(CodeCompletionString::CK_SemiColon);
+      Builder.AddChunk(CodeCompletionString::CK_VerticalSpace);
+      Builder.AddChunk(CodeCompletionString::CK_RightBrace);
+      Results.AddResult(Result(Builder.TakeString()));
+    }
+
     // Switch-specific statements.
     if (SemaRef.getCurFunction() &&
         !SemaRef.getCurFunction()->SwitchStack.empty()) {

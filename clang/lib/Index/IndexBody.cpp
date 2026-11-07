@@ -480,6 +480,21 @@ public:
     return true;
   }
 
+  // The variables a pattern declares (C++29, P2688) are not in a DeclStmt;
+  // they are declared where the pattern is written.
+  bool VisitVarDecl(VarDecl *D) {
+    if (!D->isPatternVariable() || D->isImplicit())
+      return true;
+    DeclGroupRef DG(D);
+    if (IndexCtx.shouldIndexFunctionLocalSymbols()) {
+      IndexCtx.indexDeclGroupRef(DG);
+      return true;
+    }
+    if (!isFunctionLocalSymbol(D))
+      IndexCtx.indexTopLevelDecl(D);
+    return true;
+  }
+
   bool VisitParmVarDecl(ParmVarDecl* D) {
     // Index the parameters of lambda expression and requires expression.
     if (IndexCtx.shouldIndexFunctionLocalSymbols()) {
