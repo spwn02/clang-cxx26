@@ -13,13 +13,16 @@
 #include "CGCUDARuntime.h"
 #include "CGCXXABI.h"
 #include "CGDebugInfo.h"
+#include "CGMatch.h"
 #include "CGObjCRuntime.h"
 #include "CodeGenFunction.h"
 #include "ConstantEmitter.h"
 #include "TargetInfo.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/Support/SaveAndRestore.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -2523,4 +2526,1496 @@ llvm::Value *CodeGenFunction::EmitDynamicCast(Address ThisAddr,
   }
 
   return Value;
+}
+
+void CodeGenFunction::EmitMatchDiscriminator(
+    const MatchProjection &Projection) {
+  assert(Projection.getHoldingVar() && "expected alternative projection");
+  if (!LocalDeclMap.count(Projection.getHoldingVar()))
+    EmitVarDecl(*Projection.getHoldingVar());
+  if (const VarDecl *Intermediate = Projection.getIntermediateVar();
+      Intermediate && !LocalDeclMap.count(Intermediate))
+    EmitVarDecl(*Intermediate);
+}
+
+void CodeGenFunction::EmitMatchProjectionValue(
+    const MatchProjection &Projection) {
+  if (const VarDecl *Projected = Projection.getProjectedVar();
+      Projected && !LocalDeclMap.count(Projected))
+    EmitVarDecl(*Projected);
+  else if (!Projected && Projection.getProjectedExpr() &&
+           Projection.getProjectedExpr()->getType()->isVoidType())
+    EmitIgnoredExpr(Projection.getProjectedExpr());
+}
+
+void CodeGenFunction::StagedPatternDeclarations::begin(CodeGenFunction &CGF) {
+  Scopes.push_back(std::make_unique<RunCleanupsScope>(CGF));
+  RawAddress Active = CGF.CreateTempAlloca(
+      CGF.Builder.getInt1Ty(), CharUnits::One(), "match.decl.active");
+  CGF.setBeforeOutermostConditional(CGF.Builder.getFalse(), Active, CGF);
+  ActiveFlags.push_back(Active);
+}
+
+void CodeGenFunction::StagedPatternDeclarations::markInitialized(
+    CodeGenFunction &CGF) {
+  assert(!ActiveFlags.empty());
+  CGF.Builder.CreateStore(CGF.Builder.getTrue(), ActiveFlags.back());
+}
+
+void CodeGenFunction::StagedPatternDeclarations::emitCleanups(
+    CodeGenFunction &CGF) {
+  assert(Scopes.size() == ActiveFlags.size());
+  for (auto [Scope, Active] :
+       llvm::reverse(llvm::zip_equal(Scopes, ActiveFlags))) {
+    llvm::BasicBlock *CleanupBB = CGF.createBasicBlock("match.decl.cleanup");
+    llvm::BasicBlock *DoneBB = CGF.createBasicBlock("match.decl.cleanup.done");
+    CGF.Builder.CreateCondBr(CGF.Builder.CreateLoad(Active), CleanupBB, DoneBB);
+    CGF.EmitBlock(CleanupBB);
+    Scope->ForceCleanup();
+    CGF.EmitBranch(DoneBB);
+    CGF.EmitBlock(DoneBB);
+  }
+}
+
+void CodeGenFunction::EmitMatchPatternBranch(
+    const MatchPattern *Pattern, const MatchPatternInstantiation *Instantiation,
+    const Expr *Subject, llvm::BasicBlock *Success, llvm::BasicBlock *Failure,
+    StagedPatternDeclarations *StagedDeclarations,
+    ArrayRef<const MatchPattern *> KnownTestPatterns,
+    ArrayRef<const MatchPattern *> CompletedPatterns) {
+  if (llvm::is_contained(CompletedPatterns, Pattern)) {
+    EmitBranch(Success);
+    return;
+  }
+
+  if (llvm::is_contained(KnownTestPatterns, Pattern) &&
+      isa<ExpressionPattern, TypePattern, DeclarationPattern>(Pattern)) {
+    EmitBranch(Success);
+    return;
+  }
+
+  switch (Pattern->getMatchPatternClass()) {
+  case MatchPattern::MatchPatternClass::ParenPatternClass:
+    return EmitMatchPatternBranch(
+        static_cast<const ParenPattern *>(Pattern)->getSubPattern(),
+        Instantiation, Subject, Success, Failure, StagedDeclarations,
+        KnownTestPatterns, CompletedPatterns);
+  case MatchPattern::MatchPatternClass::AndPatternClass: {
+    const auto *And = static_cast<const AndPattern *>(Pattern);
+    assert(!And->conjuncts().empty() && "and-pattern has no conjuncts");
+    for (auto [I, Conjunct] : llvm::enumerate(And->conjuncts())) {
+      llvm::BasicBlock *NextBB = I + 1 == And->conjuncts().size()
+                                     ? Success
+                                     : createBasicBlock("match.and.next");
+      EmitMatchPatternBranch(Conjunct, Instantiation, Subject, NextBB, Failure,
+                             StagedDeclarations, KnownTestPatterns,
+                             CompletedPatterns);
+      if (I + 1 == And->conjuncts().size())
+        break;
+
+      EmitBlock(NextBB);
+      EmitSharedDeclarationProjections(Conjunct, Instantiation);
+      bool HasDeclarations =
+          hasMatchPatternDeclarations(Conjunct, Instantiation);
+      if (StagedDeclarations && HasDeclarations)
+        StagedDeclarations->begin(*this);
+      EmitMatchPatternDeclarations(Conjunct, Instantiation);
+      if (StagedDeclarations && HasDeclarations)
+        StagedDeclarations->markInitialized(*this);
+    }
+    return;
+  }
+  case MatchPattern::MatchPatternClass::OrPatternClass: {
+    const auto *Or = static_cast<const OrPattern *>(Pattern);
+    SmallVector<const MatchPattern *, 4> Viable;
+    for (auto [I, Alternative] : llvm::enumerate(Or->alternatives()))
+      if (Instantiation->isViableOrAlternative(Or, I))
+        Viable.push_back(Alternative);
+    assert(!Viable.empty() && "or-pattern has no viable alternatives");
+    for (auto [I, Alternative] : llvm::enumerate(Viable)) {
+      llvm::BasicBlock *NextBB =
+          I + 1 == Viable.size() ? Failure : createBasicBlock("match.or.next");
+      EmitMatchPatternBranch(Alternative, Instantiation, Subject, Success,
+                             NextBB, StagedDeclarations, KnownTestPatterns,
+                             CompletedPatterns);
+      if (I + 1 == Viable.size())
+        break;
+      EmitBlock(NextBB);
+    }
+    return;
+  }
+  case MatchPattern::MatchPatternClass::AlternativePatternClass: {
+    const auto *Alternative = static_cast<const AlternativePattern *>(Pattern);
+    const MatchPatternInfo *Info = Instantiation->find(Alternative);
+    const MatchProjection *Projection = Info ? Info->Projection : nullptr;
+    assert(Projection && "expected alternative projection");
+
+    if (!llvm::is_contained(KnownTestPatterns, Alternative)) {
+      EmitMatchDiscriminator(*Projection);
+      if (const VarDecl *Condition = Projection->getConditionVar();
+          Condition && !LocalDeclMap.count(Condition))
+        EmitVarDecl(*Condition);
+      llvm::BasicBlock *TypeCheckPassed =
+          createBasicBlock("match.alt.type_check_passed");
+      const Expr *Condition = Projection->getConditionExpr();
+      assert(Condition && "expected alternative condition");
+      EmitBranchOnBoolExpr(Condition, TypeCheckPassed, Failure,
+                           getProfileCount(Condition));
+      EmitBlock(TypeCheckPassed);
+    }
+    EmitMatchProjectionValue(*Projection);
+
+    if (const TypePattern *Selector = Alternative->getTypeSelector()) {
+      const MatchPatternInfo *SelectorInfo = Instantiation->find(Selector);
+      const MatchProjection *SelectorProjection =
+          SelectorInfo ? SelectorInfo->Projection : nullptr;
+      if (SelectorProjection &&
+          SelectorProjection->getKind() == MatchProjection::CastProjection) {
+        llvm::BasicBlock *SelectorPassed =
+            createBasicBlock("match.alt.selector_passed");
+        EmitMatchPatternBranch(Selector, Instantiation, nullptr, SelectorPassed,
+                               Failure, StagedDeclarations, KnownTestPatterns,
+                               CompletedPatterns);
+        EmitBlock(SelectorPassed);
+        EmitSelectedMatchPatternProjections(Selector, Instantiation);
+      }
+    }
+
+    if (const MatchPattern *SubPattern = Alternative->getSubPattern())
+      EmitMatchPatternBranch(SubPattern, Instantiation, nullptr, Success,
+                             Failure, StagedDeclarations, KnownTestPatterns,
+                             CompletedPatterns);
+    else
+      EmitBranch(Success);
+    return;
+  }
+  case MatchPattern::MatchPatternClass::DecompositionPatternClass: {
+    const auto *Decomposition =
+        static_cast<const DecompositionPattern *>(Pattern);
+    const MatchPatternInfo *Info = Instantiation->find(Decomposition);
+    const auto *D = Info && Info->Projection
+                        ? Info->Projection->getDecomposedDecl()
+                        : nullptr;
+    assert(D && "expected decomposition projection");
+    if (!LocalDeclMap.count(D))
+      EmitDecl(*D, /*EvaluateConditionDecl=*/true);
+
+    ArrayRef<MatchPattern *> Patterns =
+        Instantiation->getDecompositionPatterns(Decomposition);
+    for (const MatchPattern *SubPattern : Patterns) {
+      SubPattern = SubPattern->IgnoreParens();
+      if (isa<AlternativePattern>(SubPattern)) {
+        const MatchPatternInfo *SubInfo = Instantiation->find(SubPattern);
+        assert(SubInfo && SubInfo->Projection &&
+               "expected alternative projection");
+        EmitMatchDiscriminator(*SubInfo->Projection);
+      }
+    }
+
+    if (Patterns.empty()) {
+      EmitBranch(Success);
+      return;
+    }
+    for (auto [I, SubPattern] : llvm::enumerate(Patterns)) {
+      llvm::BasicBlock *NextBB =
+          I + 1 == Patterns.size()
+              ? Success
+              : createBasicBlock("match.decomp.next_pattern");
+      EmitMatchPatternBranch(SubPattern, Instantiation, nullptr, NextBB,
+                             Failure, StagedDeclarations, KnownTestPatterns,
+                             CompletedPatterns);
+      if (I + 1 == Patterns.size())
+        break;
+      EmitBlock(NextBB);
+    }
+    return;
+  }
+  case MatchPattern::MatchPatternClass::DeclarationPatternClass:
+  case MatchPattern::MatchPatternClass::TypePatternClass:
+  case MatchPattern::MatchPatternClass::ExpressionPatternClass:
+  case MatchPattern::MatchPatternClass::WildcardPatternClass:
+    break;
+  }
+
+  llvm::Value *Result =
+      EmitMatchPattern(Pattern, Instantiation, Subject, StagedDeclarations)
+          .getScalarVal();
+  if (const auto *Constant = dyn_cast<llvm::ConstantInt>(Result)) {
+    EmitBranch(Constant->isOne() ? Success : Failure);
+    return;
+  }
+  Builder.CreateCondBr(Result, Success, Failure);
+}
+
+RValue CodeGenFunction::EmitMatchPattern(
+    const MatchPattern *Pattern, const MatchPatternInstantiation *Instantiation,
+    const Expr *Subject, StagedPatternDeclarations *StagedDeclarations) {
+  switch (Pattern->getMatchPatternClass()) {
+  case MatchPattern::MatchPatternClass::ParenPatternClass:
+  case MatchPattern::MatchPatternClass::AndPatternClass:
+  case MatchPattern::MatchPatternClass::OrPatternClass:
+  case MatchPattern::MatchPatternClass::AlternativePatternClass:
+  case MatchPattern::MatchPatternClass::DecompositionPatternClass: {
+    llvm::BasicBlock *Success = createBasicBlock("match.pattern.success");
+    llvm::BasicBlock *Failure = createBasicBlock("match.pattern.failure");
+    llvm::BasicBlock *End = createBasicBlock("match.pattern.end");
+    EmitMatchPatternBranch(Pattern, Instantiation, Subject, Success, Failure,
+                           StagedDeclarations);
+
+    EmitBlock(Success);
+    llvm::BasicBlock *SuccessEnd = Builder.GetInsertBlock();
+    EmitBranch(End);
+    EmitBlock(Failure);
+    llvm::BasicBlock *FailureEnd = Builder.GetInsertBlock();
+    EmitBranch(End);
+    EmitBlock(End);
+    llvm::PHINode *Result =
+        Builder.CreatePHI(Builder.getInt1Ty(), 2, "match.pattern.result");
+    Result->addIncoming(Builder.getTrue(), SuccessEnd);
+    Result->addIncoming(Builder.getFalse(), FailureEnd);
+    return RValue::get(Result);
+  }
+  case MatchPattern::MatchPatternClass::DeclarationPatternClass: {
+    const auto *Declaration = static_cast<const DeclarationPattern *>(Pattern);
+    const MatchPatternInfo *Info = Instantiation->find(Declaration);
+    const MatchProjection *Projection = Info ? Info->Projection : nullptr;
+    if (!Projection || Projection->getKind() != MatchProjection::CastProjection)
+      return RValue::get(Builder.getTrue());
+
+    if (!LocalDeclMap.count(Projection->getHoldingVar()))
+      EmitVarDecl(*Projection->getHoldingVar());
+    if (!LocalDeclMap.count(Projection->getIntermediateVar()))
+      EmitVarDecl(*Projection->getIntermediateVar());
+    if (!LocalDeclMap.count(Projection->getConditionVar()))
+      EmitVarDecl(*Projection->getConditionVar());
+    return RValue::get(EmitScalarExpr(Projection->getConditionExpr()));
+  }
+  case MatchPattern::MatchPatternClass::TypePatternClass: {
+    const auto *Type = static_cast<const TypePattern *>(Pattern);
+    const MatchPatternInfo *Info = Instantiation->find(Type);
+    assert(Info && "expected type pattern state");
+    const MatchProjection *Projection = Info->Projection;
+    if (Projection &&
+        Projection->getKind() == MatchProjection::CastProjection) {
+      if (!LocalDeclMap.count(Projection->getHoldingVar()))
+        EmitVarDecl(*Projection->getHoldingVar());
+      if (!LocalDeclMap.count(Projection->getIntermediateVar()))
+        EmitVarDecl(*Projection->getIntermediateVar());
+      if (!LocalDeclMap.count(Projection->getConditionVar()))
+        EmitVarDecl(*Projection->getConditionVar());
+      return RValue::get(EmitScalarExpr(Projection->getConditionExpr()));
+    }
+    return RValue::get(Builder.getInt1(Info->TypePatternMatches));
+  }
+  case MatchPattern::MatchPatternClass::ExpressionPatternClass: {
+    auto *PatternExpr = static_cast<const ExpressionPattern *>(Pattern);
+    const MatchPatternInfo *Info = Instantiation->find(PatternExpr);
+    assert(Info && Info->Condition && "expected available cond-expr");
+    if (const MatchProjection *Projection = Info->Projection) {
+      assert(Projection->getKind() == MatchProjection::AlternativeProjection &&
+             "unexpected expression-pattern projection");
+      if (!LocalDeclMap.count(Projection->getHoldingVar()))
+        EmitVarDecl(*Projection->getHoldingVar());
+      if (!LocalDeclMap.count(Projection->getIntermediateVar()))
+        EmitVarDecl(*Projection->getIntermediateVar());
+      if (!LocalDeclMap.count(Projection->getConditionVar()))
+        EmitVarDecl(*Projection->getConditionVar());
+    }
+    return RValue::get(EmitScalarExpr(Info->Condition));
+  }
+  case MatchPattern::MatchPatternClass::WildcardPatternClass: {
+    // Regardless of what's in Subject, this always yields a boolean true.
+    return RValue::get(Builder.getTrue());
+  }
+  }
+
+  llvm_unreachable("Unknown match-pattern");
+}
+
+void CodeGenFunction::EmitMatchPatternDeclarations(
+    const MatchPattern *Pattern,
+    const MatchPatternInstantiation *Instantiation) {
+  if (const auto *P = dyn_cast<DeclarationPattern>(Pattern)) {
+    const MatchPatternInfo *Info = Instantiation->find(P);
+    if (Info && Info->Projection &&
+        Info->Projection->getKind() ==
+            MatchProjection::DecompositionProjection) {
+      const auto *Declaration = cast<DecompositionDecl>(P->getDeclaration());
+      if (Declaration != Info->Projection->getDecomposedDecl())
+        for (BindingDecl *Binding : Declaration->bindings())
+          if (DecompositionDecl *Nested = Binding->getNestedDecomposition())
+            MaybeEmitDeferredVarDeclInit(Nested);
+      return;
+    }
+    if (LocalDeclMap.count(P->getDeclaration()))
+      return;
+    EmitVarDecl(*P->getDeclaration());
+    MaybeEmitDeferredVarDeclInit(P->getDeclaration());
+    return;
+  }
+  if (const auto *Or = dyn_cast<OrPattern>(Pattern)) {
+    for (auto [I, Alternative] : llvm::enumerate(Or->alternatives()))
+      if (Instantiation->isViableOrAlternative(Or, I))
+        EmitMatchPatternDeclarations(Alternative, Instantiation);
+    return;
+  }
+  if (const auto *Decomposition = dyn_cast<DecompositionPattern>(Pattern)) {
+    for (const MatchPattern *Child :
+         Instantiation->getDecompositionPatterns(Decomposition))
+      EmitMatchPatternDeclarations(Child, Instantiation);
+  } else {
+    for (const MatchPattern *Child : Pattern->children())
+      EmitMatchPatternDeclarations(Child, Instantiation);
+  }
+}
+
+void CodeGenFunction::EmitSharedDeclarationProjections(
+    const MatchPattern *Pattern,
+    const MatchPatternInstantiation *Instantiation) {
+  if (const auto *P = dyn_cast<DeclarationPattern>(Pattern)) {
+    const MatchPatternInfo *Info = Instantiation->find(P);
+    if (const MatchProjection *Projection = Info ? Info->Projection : nullptr) {
+      if (Projection->getKind() == MatchProjection::DecompositionProjection) {
+        const DecompositionDecl *D = Projection->getDecomposedDecl();
+        assert(D && "expected declaration decomposition projection");
+        if (!LocalDeclMap.count(D))
+          EmitDecl(*D, /*EvaluateConditionDecl=*/true);
+      } else {
+        assert(Projection->getKind() == MatchProjection::CastProjection &&
+               "unexpected declaration projection");
+        if (!LocalDeclMap.count(Projection->getProjectedVar()))
+          EmitVarDecl(*Projection->getProjectedVar());
+      }
+    }
+    return;
+  }
+  if (isa<TypePattern>(Pattern)) {
+    return;
+  }
+  if (const auto *Or = dyn_cast<OrPattern>(Pattern)) {
+    for (auto [I, Alternative] : llvm::enumerate(Or->alternatives()))
+      if (Instantiation->isViableOrAlternative(Or, I))
+        EmitSharedDeclarationProjections(Alternative, Instantiation);
+    return;
+  }
+  if (const auto *Decomposition = dyn_cast<DecompositionPattern>(Pattern)) {
+    for (const MatchPattern *Child :
+         Instantiation->getDecompositionPatterns(Decomposition))
+      EmitSharedDeclarationProjections(Child, Instantiation);
+  } else {
+    for (const MatchPattern *Child : Pattern->children())
+      EmitSharedDeclarationProjections(Child, Instantiation);
+  }
+}
+
+static bool referencesDeclaration(const Stmt *S, const ValueDecl *D) {
+  if (!S)
+    return false;
+  if (const auto *Reference = dyn_cast<DeclRefExpr>(S);
+      Reference && Reference->getDecl() == D)
+    return true;
+  return llvm::any_of(S->children(), [&](const Stmt *Child) {
+    return referencesDeclaration(Child, D);
+  });
+}
+
+void CodeGenFunction::EmitSelectedMatchPatternProjections(
+    const MatchPattern *Pattern,
+    const MatchPatternInstantiation *Instantiation) {
+  const MatchPatternInfo *Info = Instantiation->find(Pattern);
+  const MatchProjection *Projection = Info ? Info->Projection : nullptr;
+  if (Projection) {
+    const VarDecl *Intermediate = Projection->getIntermediateVar();
+    const VarDecl *Condition = Projection->getConditionVar();
+    const VarDecl *Projected = Projection->getProjectedVar();
+    const Expr *ProjectedExpr = Projection->getProjectedExpr();
+    const DecompositionDecl *Decomposition = Projection->getDecomposedDecl();
+    auto ProjectionResultReferences = [&](const ValueDecl *D) {
+      return referencesDeclaration(Projected ? Projected->getInit() : nullptr,
+                                   D) ||
+             referencesDeclaration(ProjectedExpr, D) ||
+             referencesDeclaration(
+                 Decomposition ? Decomposition->getInit() : nullptr, D);
+    };
+    bool NeedsCondition = Condition && ProjectionResultReferences(Condition);
+    bool NeedsIntermediate =
+        Intermediate &&
+        (ProjectionResultReferences(Intermediate) ||
+         (NeedsCondition &&
+          referencesDeclaration(Condition->getInit(), Intermediate)));
+
+    if (const VarDecl *Holding = Projection->getHoldingVar();
+        Holding && !LocalDeclMap.count(Holding))
+      EmitVarDecl(*Holding);
+    if (NeedsIntermediate && !LocalDeclMap.count(Intermediate))
+      EmitVarDecl(*Intermediate);
+    if (NeedsCondition && !LocalDeclMap.count(Condition))
+      EmitVarDecl(*Condition);
+    if (Projected && !LocalDeclMap.count(Projected))
+      EmitVarDecl(*Projected);
+    else if (!Projected && Projection->getProjectedExpr() &&
+             Projection->getProjectedExpr()->getType()->isVoidType())
+      EmitIgnoredExpr(Projection->getProjectedExpr());
+    if (Decomposition && !LocalDeclMap.count(Decomposition))
+      EmitDecl(*Decomposition, /*EvaluateConditionDecl=*/true);
+  }
+
+  if (const auto *Or = dyn_cast<OrPattern>(Pattern)) {
+    for (auto [I, Alternative] : llvm::enumerate(Or->alternatives()))
+      if (Instantiation->isViableOrAlternative(Or, I))
+        EmitSelectedMatchPatternProjections(Alternative, Instantiation);
+  } else if (const auto *Decomposition =
+                 dyn_cast<DecompositionPattern>(Pattern)) {
+    for (const MatchPattern *Child :
+         Instantiation->getDecompositionPatterns(Decomposition))
+      EmitSelectedMatchPatternProjections(Child, Instantiation);
+  } else {
+    for (const MatchPattern *Child : Pattern->children())
+      EmitSelectedMatchPatternProjections(Child, Instantiation);
+  }
+}
+
+static bool anyInstantiatedPattern(
+    const MatchPattern *Pattern, const MatchPatternInstantiation *Instantiation,
+    llvm::function_ref<bool(const MatchPattern *)> Predicate) {
+  if (Predicate(Pattern))
+    return true;
+  if (const auto *Or = dyn_cast<OrPattern>(Pattern))
+    return llvm::any_of(
+        llvm::enumerate(Or->alternatives()), [&](auto IndexedAlternative) {
+          return Instantiation->isViableOrAlternative(
+                     Or, IndexedAlternative.index()) &&
+                 anyInstantiatedPattern(IndexedAlternative.value(),
+                                        Instantiation, Predicate);
+        });
+  if (const auto *Decomposition = dyn_cast<DecompositionPattern>(Pattern))
+    return llvm::any_of(Instantiation->getDecompositionPatterns(Decomposition),
+                        [&](const MatchPattern *Child) {
+                          return anyInstantiatedPattern(Child, Instantiation,
+                                                        Predicate);
+                        });
+  return llvm::any_of(Pattern->children(), [&](const MatchPattern *Child) {
+    return anyInstantiatedPattern(Child, Instantiation, Predicate);
+  });
+}
+
+static bool hasStagedAndPatternDeclarations(
+    const MatchPattern *Pattern,
+    const MatchPatternInstantiation *Instantiation) {
+  return anyInstantiatedPattern(
+      Pattern, Instantiation, [&](const MatchPattern *Pattern) {
+        const auto *And = dyn_cast<AndPattern>(Pattern);
+        return And && llvm::any_of(And->conjuncts().drop_back(),
+                                   [&](const MatchPattern *Conjunct) {
+                                     return hasMatchPatternDeclarations(
+                                         Conjunct, Instantiation);
+                                   });
+      });
+}
+
+static bool collectSharedCaseReferenceDeclarations(
+    const MatchPattern *Pattern, const MatchPatternInstantiation *Instantiation,
+    SmallVectorImpl<const VarDecl *> &Declarations) {
+  if (isa<DecompositionPattern>(Pattern))
+    return false;
+
+  if (const auto *Or = dyn_cast<OrPattern>(Pattern)) {
+    // Or-pattern names are remapped between operands. Keep their existing
+    // specialized lowering until that mapping can be represented at the join.
+    return !hasMatchPatternDeclarations(Or, Instantiation);
+  }
+
+  if (const auto *Declaration = dyn_cast<DeclarationPattern>(Pattern)) {
+    const auto *D = Declaration->getDeclaration();
+    if (isa<DecompositionDecl>(D))
+      return false;
+    if (!D->getIdentifier())
+      return true;
+    if (!D->getType()->isReferenceType() || !D->getInit())
+      return false;
+    Declarations.push_back(D);
+    return true;
+  }
+
+  return llvm::all_of(Pattern->children(), [&](const MatchPattern *Child) {
+    return collectSharedCaseReferenceDeclarations(Child, Instantiation,
+                                                  Declarations);
+  });
+}
+
+using SharedCaseDeclarations = SmallVector<SmallVector<const VarDecl *, 2>, 4>;
+
+static std::optional<SharedCaseDeclarations>
+collectSharedCaseDeclarations(ArrayRef<MatchCaseInstantiation> Cases,
+                              ASTContext &Context) {
+  if (Cases.size() < 2)
+    return std::nullopt;
+
+  SharedCaseDeclarations SharedDeclarations;
+  SharedDeclarations.reserve(Cases.size());
+  for (const MatchCaseInstantiation &Case : Cases) {
+    SmallVector<const VarDecl *, 2> Declarations;
+    if (Case.Guard.hasGuard() ||
+        hasStagedAndPatternDeclarations(Case.Pattern,
+                                        Case.PatternInstantiation) ||
+        !collectSharedCaseReferenceDeclarations(
+            Case.Pattern, Case.PatternInstantiation, Declarations))
+      return std::nullopt;
+
+    if (!SharedDeclarations.empty()) {
+      ArrayRef<const VarDecl *> Canonical = SharedDeclarations.front();
+      if (Declarations.size() != Canonical.size() ||
+          !llvm::all_of(
+              llvm::zip_equal(Declarations, Canonical), [&](auto Pair) {
+                const auto &[D, CanonicalD] = Pair;
+                return D->getLocation() == CanonicalD->getLocation() &&
+                       Context.hasSameType(D->getType(), CanonicalD->getType());
+              }))
+        return std::nullopt;
+    }
+    SharedDeclarations.push_back(std::move(Declarations));
+  }
+  return SharedDeclarations;
+}
+
+void CodeGenFunction::EmitMatchGuardBranch(const MatchGuard &MG,
+                                           llvm::BasicBlock *Success,
+                                           llvm::BasicBlock *Failure,
+                                           Stmt::Likelihood LH) {
+  const VarDecl *VD = MG.ConditionVariable;
+  const Expr *Cond = MG.Condition;
+  assert(Cond && "condition expression required");
+  if (MG.Init)
+    EmitStmt(MG.Init);
+  if (VD)
+    EmitVarDecl(*VD);
+  EmitBranchOnBoolExpr(Cond, Success, Failure, getProfileCount(Cond), LH);
+}
+
+RValue CodeGenFunction::EmitMatchGuard(const MatchGuard &MG,
+                                       llvm::Value *PatBoolRes) {
+  auto *GuardCheckBB = createBasicBlock("match.guard.check");
+  auto *GuardFailBB = createBasicBlock("match.guard.next");
+  auto *GuardPassBB = createBasicBlock("match.guard.pass");
+  auto *GuardEndBB = createBasicBlock("match.guard.end");
+
+  Builder.CreateCondBr(PatBoolRes, GuardCheckBB, GuardFailBB);
+
+  EmitBlock(GuardCheckBB);
+  EmitMatchGuardBranch(MG, GuardPassBB, GuardFailBB);
+
+  EmitBlock(GuardFailBB);
+  llvm::BasicBlock *GuardFailEndBB = Builder.GetInsertBlock();
+  EmitBranch(GuardEndBB);
+
+  EmitBlock(GuardPassBB);
+  llvm::BasicBlock *GuardPassEndBB = Builder.GetInsertBlock();
+  EmitBranch(GuardEndBB);
+
+  EmitBlock(GuardEndBB);
+  llvm::PHINode *Result =
+      Builder.CreatePHI(Builder.getInt1Ty(), 2, "match.guard.result");
+  Result->addIncoming(Builder.getFalse(), GuardFailEndBB);
+  Result->addIncoming(Builder.getTrue(), GuardPassEndBB);
+  return RValue::get(Result);
+}
+
+void CodeGenFunction::EmitSelectedMatchTestInstantiation(
+    const MatchTestExpr &S, const MatchTestInstantiation &Instantiation,
+    llvm::function_ref<void()> EmitSuccess) {
+  RunCleanupsScope MatchScope(*this);
+  EmitMatchTestSubject(S);
+
+  EmitSelectedMatchPatternProjections(Instantiation.Pattern,
+                                      Instantiation.PatternInstantiation);
+  EmitMatchPatternDeclarations(Instantiation.Pattern,
+                               Instantiation.PatternInstantiation);
+  EmitSuccess();
+}
+
+void CodeGenFunction::EmitMatchTestSubject(const MatchTestExpr &S) {
+  // Register subject destruction before any pattern binding's destruction.
+  std::optional<LifetimeExtendedCleanupScope> SubjectScope;
+  if (!isa<CaseConditionExpr>(S))
+    SubjectScope.emplace(*this);
+  if (const VarDecl *HoldingVar = S.getHoldingVar())
+    EmitVarDecl(*HoldingVar);
+  else if (S.getSubject()->getType()->isVoidType())
+    EmitIgnoredExpr(S.getSubject());
+}
+
+void CodeGenFunction::EmitMatchCandidate(
+    const MatchPattern *Pattern, const MatchPatternInstantiation *Instantiation,
+    const MatchGuard &Guard, llvm::BasicBlock *PatternFailure,
+    llvm::BasicBlock *GuardFailure, llvm::BasicBlock *Success,
+    llvm::function_ref<void(llvm::BasicBlock *, llvm::BasicBlock *,
+                            StagedPatternDeclarations *)>
+        EmitPattern,
+    llvm::function_ref<void()> EmitAction, Stmt::Likelihood GuardLikelihood,
+    MatchCandidateKind Kind) {
+  bool IsSelection = Kind == MatchCandidateKind::Selection;
+  bool IsTestExpression = Kind == MatchCandidateKind::Test;
+  StringRef BlockPrefix = IsSelection ? "match.select." : "match.test.";
+  StringRef StatePrefix = IsSelection ? "match.case." : "match.test.";
+
+  bool HasStagedDeclarations =
+      !IsTestExpression &&
+      hasStagedAndPatternDeclarations(Pattern, Instantiation);
+  StagedPatternDeclarations StagedDeclarations;
+  std::optional<RunCleanupsScope> OrdinaryCaseScope;
+  RawAddress RetryPattern = RawAddress::invalid();
+  llvm::BasicBlock *PatternFailedBB = PatternFailure;
+  llvm::BasicBlock *CaseFailedBB = GuardFailure;
+  if (HasStagedDeclarations) {
+    RetryPattern = CreateTempAlloca(Builder.getInt1Ty(), getPointerAlign(),
+                                    Twine(StatePrefix) + "retry");
+    PatternFailedBB = createBasicBlock(Twine(BlockPrefix) + "pattern_failed");
+    CaseFailedBB = createBasicBlock(Twine(BlockPrefix) +
+                                    (IsSelection ? "case_failed" : "failed"));
+  }
+
+  ConditionalEvaluation Conditional(*this);
+  if (HasStagedDeclarations || IsTestExpression)
+    Conditional.begin(*this);
+  llvm::BasicBlock *InitializePatternBB =
+      createBasicBlock(Twine(BlockPrefix) + "init");
+  llvm::BasicBlock *ExecuteActionBB =
+      createBasicBlock(Twine(BlockPrefix) + "action");
+  llvm::BasicBlock *GuardFailedBB =
+      createBasicBlock(Twine(BlockPrefix) + "guard_failed");
+  llvm::BasicBlock *CleanupBB =
+      createBasicBlock(Twine(BlockPrefix) + "cleanup");
+  RawAddress CaseSelected = RawAddress::invalid();
+  if (!IsSelection)
+    CaseSelected = CreateTempAlloca(Builder.getInt1Ty(), getPointerAlign(),
+                                    Twine(StatePrefix) + "selected");
+  EmitPattern(InitializePatternBB, PatternFailedBB,
+              HasStagedDeclarations ? &StagedDeclarations : nullptr);
+  if (IsSelection)
+    CaseSelected = CreateTempAlloca(Builder.getInt1Ty(), getPointerAlign(),
+                                    Twine(StatePrefix) + "selected");
+
+  EmitBlock(InitializePatternBB);
+  EmitSharedDeclarationProjections(Pattern, Instantiation);
+  if (HasStagedDeclarations)
+    StagedDeclarations.begin(*this);
+  else if (!IsTestExpression)
+    OrdinaryCaseScope.emplace(*this);
+  EmitMatchPatternDeclarations(Pattern, Instantiation);
+  if (HasStagedDeclarations) {
+    StagedDeclarations.markInitialized(*this);
+    Conditional.end(*this);
+  }
+
+  if (Guard.hasGuard())
+    EmitMatchGuardBranch(Guard, ExecuteActionBB, GuardFailedBB,
+                         GuardLikelihood);
+  else
+    Builder.CreateCondBr(Builder.getTrue(), ExecuteActionBB, GuardFailedBB);
+
+  EmitBlock(ExecuteActionBB);
+  EmitAction();
+  if (HaveInsertPoint()) {
+    Builder.CreateStore(Builder.getTrue(), CaseSelected);
+    if (HasStagedDeclarations)
+      Builder.CreateStore(Builder.getFalse(), RetryPattern);
+    EmitBranch(CleanupBB);
+  }
+
+  EmitBlock(GuardFailedBB);
+  Builder.CreateStore(Builder.getFalse(), CaseSelected);
+  if (HasStagedDeclarations)
+    Builder.CreateStore(Builder.getFalse(), RetryPattern);
+  EmitBranch(CleanupBB);
+
+  if (HasStagedDeclarations) {
+    EmitBlock(PatternFailedBB);
+    Builder.CreateStore(Builder.getFalse(), CaseSelected);
+    Builder.CreateStore(Builder.getTrue(), RetryPattern);
+    EmitBranch(CleanupBB);
+  }
+
+  EmitBlock(CleanupBB);
+  if (HasStagedDeclarations)
+    StagedDeclarations.emitCleanups(*this);
+  else if (OrdinaryCaseScope)
+    OrdinaryCaseScope->ForceCleanup();
+  if (IsTestExpression)
+    Conditional.end(*this);
+  Builder.CreateCondBr(Builder.CreateLoad(CaseSelected), Success,
+                       HasStagedDeclarations ? CaseFailedBB : GuardFailure);
+
+  if (HasStagedDeclarations) {
+    EmitBlock(CaseFailedBB);
+    Builder.CreateCondBr(Builder.CreateLoad(RetryPattern), PatternFailure,
+                         GuardFailure);
+  }
+}
+
+void CodeGenFunction::EmitMatchTestDispatch(
+    const MatchTestExpr &S, JumpDest SuccessDest,
+    llvm::function_ref<void(const MatchTestInstantiation &)> EmitSuccess,
+    JumpDest FailureDest, llvm::function_ref<void()> EmitFailure) {
+  bool IsCondition = isa<CaseConditionExpr>(S);
+  std::optional<RunCleanupsScope> MatchScope;
+  if (IsCondition)
+    MatchScope.emplace(*this);
+  EmitMatchTestSubject(S);
+
+  MatchTestInstantiation DirectInstantiation = S.getDirectInstantiation();
+  ArrayRef<MatchTestInstantiation> Instantiations = S.getInstantiations();
+  if (Instantiations.empty())
+    Instantiations = DirectInstantiation;
+
+  llvm::BasicBlock *NoMatchBB = createBasicBlock("match.test.no_match");
+  for (unsigned Index = 0; Index != Instantiations.size(); ++Index) {
+    const MatchTestInstantiation &Instantiation = Instantiations[Index];
+    llvm::BasicBlock *CaseSucceededBB =
+        createBasicBlock("match.test.succeeded");
+    llvm::BasicBlock *NextPatternBB =
+        Index + 1 == Instantiations.size()
+            ? NoMatchBB
+            : createBasicBlock("match.test.next_pattern");
+    auto EmitPattern = [&](llvm::BasicBlock *Success, llvm::BasicBlock *Failure,
+                           StagedPatternDeclarations *StagedDeclarations) {
+      EmitMatchPatternBranch(Instantiation.Pattern,
+                             Instantiation.PatternInstantiation, S.getSubject(),
+                             Success, Failure, StagedDeclarations);
+    };
+    EmitMatchCandidate(
+        Instantiation.Pattern, Instantiation.PatternInstantiation,
+        Instantiation.Guard, NextPatternBB, NoMatchBB, CaseSucceededBB,
+        EmitPattern, [&] { EmitSuccess(Instantiation); }, Stmt::LH_None,
+        IsCondition ? MatchCandidateKind::Condition : MatchCandidateKind::Test);
+
+    EmitBlock(CaseSucceededBB);
+    if (IsCondition)
+      EmitBranchThroughCleanup(SuccessDest);
+    else
+      EmitBranch(SuccessDest.getBlock());
+    EmitBlock(NextPatternBB);
+  }
+
+  EmitFailure();
+  if (HaveInsertPoint()) {
+    if (IsCondition)
+      EmitBranchThroughCleanup(FailureDest);
+    else
+      EmitBranch(FailureDest.getBlock());
+  }
+}
+
+RValue CodeGenFunction::EmitMatchTestExpr(const MatchTestExpr &S) {
+  assert(!S.getType()->isVoidType() && "match test must produce bool");
+  bool IsTestExpression = !isa<CaseConditionExpr>(S);
+  std::optional<LifetimeExtendedCleanupScope> TestScope;
+  if (IsTestExpression)
+    TestScope.emplace(*this);
+
+  if (S.hasSemanticInstantiations() && S.getInstantiations().empty()) {
+    std::optional<RunCleanupsScope> MatchScope;
+    if (!IsTestExpression)
+      MatchScope.emplace(*this);
+    if (S.getHoldingVar())
+      EmitMatchTestSubject(S);
+    else
+      EmitIgnoredExpr(S.getSubject());
+    return RValue::get(Builder.getFalse());
+  }
+
+  if (S.getInstantiations().empty()) {
+    std::optional<RunCleanupsScope> MatchScope;
+    if (!IsTestExpression && !S.getHoldingVar())
+      MatchScope.emplace(*this);
+    EmitMatchTestSubject(S);
+
+    bool HasStagedDeclarations =
+        !IsTestExpression && hasStagedAndPatternDeclarations(
+                                 S.getPattern(), S.getPatternInstantiation());
+    ConditionalEvaluation Conditional(*this);
+    if (IsTestExpression || HasStagedDeclarations)
+      Conditional.begin(*this);
+    llvm::scope_exit EndConditional([&] {
+      if (IsTestExpression)
+        Conditional.end(*this);
+    });
+
+    const Expr *Subject = S.getSubject();
+    if (!hasMatchPatternDeclarations(S.getPattern(),
+                                     S.getPatternInstantiation())) {
+      RValue MatchResult = EmitMatchPattern(
+          S.getPattern(), S.getPatternInstantiation(), Subject);
+      if (S.getGuard().hasGuard())
+        MatchResult = EmitMatchGuard(S.getGuard(), MatchResult.getScalarVal());
+      return MatchResult;
+    }
+
+    llvm::BasicBlock *InitBB = createBasicBlock("match.test.init");
+    llvm::BasicBlock *FailBB = createBasicBlock("match.test.fail");
+    llvm::BasicBlock *EndBB = createBasicBlock("match.test.end");
+    StagedPatternDeclarations StagedDeclarations;
+    EmitMatchPatternBranch(
+        S.getPattern(), S.getPatternInstantiation(), Subject, InitBB, FailBB,
+        HasStagedDeclarations ? &StagedDeclarations : nullptr);
+
+    EmitBlock(InitBB);
+    EmitSharedDeclarationProjections(S.getPattern(),
+                                     S.getPatternInstantiation());
+    if (HasStagedDeclarations)
+      StagedDeclarations.begin(*this);
+    EmitMatchPatternDeclarations(S.getPattern(), S.getPatternInstantiation());
+    if (HasStagedDeclarations) {
+      StagedDeclarations.markInitialized(*this);
+      Conditional.end(*this);
+    }
+    RValue MatchResult = RValue::get(Builder.getTrue());
+    if (S.getGuard().hasGuard())
+      MatchResult = EmitMatchGuard(S.getGuard(), MatchResult.getScalarVal());
+    llvm::BasicBlock *InitEndBB = Builder.GetInsertBlock();
+    EmitBranch(EndBB);
+
+    EmitBlock(FailBB);
+    llvm::BasicBlock *FailEndBB = Builder.GetInsertBlock();
+    EmitBranch(EndBB);
+
+    EmitBlock(EndBB);
+    llvm::PHINode *Result =
+        Builder.CreatePHI(Builder.getInt1Ty(), 2, "match.test.result");
+    Result->addIncoming(MatchResult.getScalarVal(), InitEndBB);
+    Result->addIncoming(Builder.getFalse(), FailEndBB);
+    if (HasStagedDeclarations)
+      StagedDeclarations.emitCleanups(*this);
+    return RValue::get(Result);
+  }
+
+  RawAddress Result = CreateTempAlloca(Builder.getInt1Ty(), getPointerAlign(),
+                                       "match.test.result");
+  JumpDest End = getJumpDestInCurrentScope("match.test.end");
+  EmitMatchTestDispatch(
+      S, End,
+      [&](const MatchTestInstantiation &) {
+        Builder.CreateStore(Builder.getTrue(), Result);
+      },
+      End, [&] { Builder.CreateStore(Builder.getFalse(), Result); });
+  EmitBlock(End.getBlock());
+  return RValue::get(Builder.CreateLoad(Result));
+}
+
+RValue CodeGenFunction::EmitMatchSelectExpr(const MatchSelectExpr &S) {
+  return EmitMatchSelectExpr(S, AggValueSlot::ignored());
+}
+
+static const CXXDynamicCastExpr *
+getBatchableMatchCast(const MatchDecisionTree::Node &Node) {
+  // A successful cast must select the case without any further matching or
+  // guard tests. Otherwise the next successful target need not be the next
+  // case.
+  if (Node.Kind != MatchDecisionTree::Node::NK_Test ||
+      Node.MatchTest.Kind != MatchDecisionTree::Test::OpenProjection ||
+      !Node.MatchTest.ProjectionPath.empty() ||
+      Node.MatchTest.Projection->getKind() != MatchProjection::CastProjection ||
+      Node.MatchTest.Case->Guard.hasGuard() ||
+      Node.Success->Kind != MatchDecisionTree::Node::NK_Candidate ||
+      Node.Success->MatchCandidate.Case != Node.MatchTest.Case)
+    return nullptr;
+
+  const MatchPattern *Pattern = Node.MatchTest.Case->Pattern->IgnoreParens();
+  QualType PatternType;
+  if (const auto *Declaration = dyn_cast<DeclarationPattern>(Pattern))
+    PatternType = Declaration->getDeclaration()->getType();
+  else if (const auto *Type = dyn_cast<TypePattern>(Pattern))
+    PatternType = Type->getType();
+  else
+    return nullptr;
+  if (!PatternType->isReferenceType())
+    return nullptr;
+
+  const auto *Cast = dyn_cast<CXXDynamicCastExpr>(
+      Node.MatchTest.Projection->getIntermediateVar()
+          ->getInit()
+          ->IgnoreParenImpCasts());
+  if (!Cast || Cast->getCastKind() != CK_Dynamic || Cast->isAlwaysNull())
+    return nullptr;
+  QualType Source = Cast->getSubExpr()->getType()->getPointeeType();
+  QualType Target = Cast->getType()->getPointeeType();
+  if (Source.isVolatileQualified() || Target.isNull() ||
+      !Target->isRecordType() || Source.getAddressSpace() != LangAS::Default ||
+      Target.getAddressSpace() != LangAS::Default ||
+      Target->getAsCXXRecordDecl()->isEffectivelyFinal())
+    return nullptr;
+  return Cast;
+}
+
+RValue CodeGenFunction::EmitMatchSelectExpr(const MatchSelectExpr &S,
+                                            AggValueSlot Dest) {
+  // FIXME: check if we can constant fold to simple integer,
+  // just like switch does. Is this already handled in Sema?
+  llvm::ArrayRef<MatchCaseInstantiation> Cases = S.getCaseInstantiations();
+
+  // The hidden subject holder belongs to the selection. This is also the
+  // condition-variable scope when a deferred match condition contains its
+  // controlled statement as a handler.
+  RunCleanupsScope MatchScope(*this);
+
+  if (const Stmt *Init = S.getInitStmt()) {
+    EmitStmt(Init);
+    EnsureInsertPoint();
+  }
+
+  if (const VarDecl *HoldingVar = S.getHoldingVar())
+    EmitVarDecl(*HoldingVar);
+  else if (S.getSubject()->getType()->isVoidType())
+    EmitIgnoredExpr(S.getSubject());
+
+  bool IgnoreResult = S.getType()->isVoidType();
+  bool IsReference = S.isGLValue();
+  Address MatchResAddr = Address::invalid();
+  AggValueSlot MatchResSlot = AggValueSlot::ignored();
+  if (IsReference) {
+    QualType PtrTy = getContext().getPointerType(S.getType());
+    MatchResAddr = CreateMemTemp(PtrTy, "match.select.refresult");
+  } else if (!IgnoreResult) {
+    if (getEvaluationKind(S.getType()) == TEK_Aggregate && !Dest.isIgnored()) {
+      MatchResAddr = Dest.getAddress();
+      MatchResSlot = Dest;
+    } else {
+      MatchResAddr = CreateMemTemp(S.getType(), "match.select.result");
+      MatchResSlot = AggValueSlot::forAddr(
+          MatchResAddr, Qualifiers(), AggValueSlot::IsDestructed,
+          AggValueSlot::DoesNotNeedGCBarriers, AggValueSlot::IsNotAliased,
+          getOverlapForReturnValue());
+    }
+  }
+
+  auto EmitHandler = [&](const Expr *E) {
+    if (E->getType()->isVoidType()) {
+      EmitAnyExpr(E);
+      return;
+    }
+
+    assert(MatchResAddr.isValid() && "expected valid address");
+    if (IsReference) {
+      assert(E->isGLValue() && "reference result requires a glvalue handler");
+      Builder.CreateStore(EmitLValue(E).getPointer(*this), MatchResAddr);
+      return;
+    }
+
+    switch (getEvaluationKind(E->getType())) {
+    case TEK_Scalar:
+      EmitStoreOfScalar(EmitScalarExpr(E),
+                        MakeAddrLValue(MatchResAddr, S.getType()),
+                        /*isInit=*/true);
+      break;
+    case TEK_Complex: {
+      LValue Result = MakeAddrLValue(MatchResAddr, S.getType());
+      EmitStoreOfComplex(EmitComplexExpr(E), Result, /*isInit=*/true);
+      break;
+    }
+    case TEK_Aggregate:
+      EmitAggExpr(E, MatchResSlot);
+      break;
+    }
+  };
+
+  auto EmitCaseHandler = [&](const MatchCaseInstantiation &Case) {
+    EmitWithStmtAttributes(Case.Handler, Case.Attributes, [&] {
+      if (Case.isNonReturning()) {
+        EmitStmt(Case.Handler);
+        if (HaveInsertPoint()) {
+          EmitUnreachable(Case.NotReturnLoc);
+          Builder.ClearInsertionPoint();
+        }
+      } else if (const Expr *E = dyn_cast<Expr>(Case.Handler);
+                 E && !S.isStatement()) {
+        EmitHandler(E);
+      } else {
+        EmitStmt(Case.Handler);
+      }
+    });
+  };
+
+  auto ApplyCaseLikelihood = [&](llvm::Value *Condition,
+                                 const MatchCaseInstantiation &Case) {
+    return emitCondLikelihoodViaExpectIntrinsic(
+        Condition, Stmt::getLikelihood(Case.Attributes));
+  };
+
+  llvm::BasicBlock *SelectEndBB = createBasicBlock("match.select.end");
+  llvm::BasicBlock *NoMatchBB =
+      IgnoreResult ? SelectEndBB : createBasicBlock("match.select.no_match");
+
+  using IncomingReference = std::pair<llvm::Value *, llvm::BasicBlock *>;
+  using SharedCaseIncomingReferences =
+      SmallVector<SmallVector<IncomingReference, 4>, 2>;
+  struct SharedCaseHandler {
+    ArrayRef<MatchCaseInstantiation> Cases;
+    SharedCaseDeclarations Declarations;
+    SharedCaseIncomingReferences IncomingReferences;
+    llvm::BasicBlock *ActionBB = nullptr;
+  };
+  struct CompletedCaseAction {
+    llvm::BasicBlock *Block = nullptr;
+    const MatchCaseInstantiation *Case = nullptr;
+  };
+
+  MatchDecisionTree Decision = MatchDecisionTree::build(Cases, getContext());
+  SmallVector<SharedCaseHandler, 4> SharedCaseHandlers;
+  SmallVector<CompletedCaseAction, 8> CompletedCaseActions(S.getNumCases());
+  SmallVector<unsigned, 8> SharedHandlerForSourceCase(S.getNumCases(),
+                                                      Cases.size());
+  for (unsigned CaseBegin = 0; CaseBegin != Cases.size();) {
+    unsigned CaseEnd = CaseBegin + 1;
+    while (CaseEnd != Cases.size() &&
+           Cases[CaseEnd].CaseIndex == Cases[CaseBegin].CaseIndex)
+      ++CaseEnd;
+
+    if (auto Declarations = collectSharedCaseDeclarations(
+            Cases.slice(CaseBegin, CaseEnd - CaseBegin), getContext())) {
+      unsigned HandlerIndex = SharedCaseHandlers.size();
+      SharedHandlerForSourceCase[Cases[CaseBegin].CaseIndex] = HandlerIndex;
+      SharedCaseHandler &Handler = SharedCaseHandlers.emplace_back();
+      Handler.Cases = Cases.slice(CaseBegin, CaseEnd - CaseBegin);
+      Handler.IncomingReferences.resize(Declarations->front().size());
+      Handler.Declarations = std::move(*Declarations);
+    }
+    CaseBegin = CaseEnd;
+  }
+
+  auto GetSharedCaseHandler =
+      [&](const MatchCaseInstantiation &Case) -> SharedCaseHandler * {
+    unsigned HandlerIndex = SharedHandlerForSourceCase[Case.CaseIndex];
+    return HandlerIndex == Cases.size() ? nullptr
+                                        : &SharedCaseHandlers[HandlerIndex];
+  };
+
+  auto EmitSharedCaseHandler = [&](SharedCaseHandler &Shared) {
+    EmitBlock(Shared.ActionBB, /*IsFinished=*/true);
+    RunCleanupsScope CaseScope(*this);
+    for (auto [D, Incoming] : llvm::zip_equal(Shared.Declarations.front(),
+                                              Shared.IncomingReferences)) {
+      llvm::PHINode *Reference =
+          Builder.CreatePHI(Incoming.front().first->getType(), Incoming.size(),
+                            D->getName() + ".match");
+      for (auto [Value, Block] : Incoming)
+        Reference->addIncoming(Value, Block);
+
+      AutoVarEmission Emission = EmitAutoVarAlloca(*D);
+      LValue Storage =
+          MakeAddrLValue(Emission.getObjectAddress(*this), D->getType());
+      Storage.setNonGC(true);
+      EmitStoreThroughLValue(RValue::get(Reference), Storage,
+                             /*isInit=*/true);
+      EmitAutoVarCleanups(Emission);
+    }
+    EmitCaseHandler(Shared.Cases.front());
+    EmitBranch(SelectEndBB);
+  };
+
+  auto EmitCandidate = [&](const MatchCaseInstantiation &Case,
+                           ArrayRef<const MatchPattern *> KnownTestPatterns,
+                           ArrayRef<const MatchPattern *> CompletedPatterns,
+                           bool ShareAction, llvm::BasicBlock *PatternFailure,
+                           llvm::BasicBlock *GuardFailure) {
+    auto EmitPatternBranch =
+        [&](llvm::BasicBlock *Success, llvm::BasicBlock *Failure,
+            StagedPatternDeclarations *StagedDeclarations = nullptr) {
+          if (!KnownTestPatterns.empty() || !CompletedPatterns.empty()) {
+            EmitMatchPatternBranch(Case.Pattern, Case.PatternInstantiation,
+                                   S.getSubject(), Success, Failure,
+                                   StagedDeclarations, KnownTestPatterns,
+                                   CompletedPatterns);
+            return;
+          }
+
+          RValue MatchResult =
+              EmitMatchPattern(Case.Pattern, Case.PatternInstantiation,
+                               S.getSubject(), StagedDeclarations);
+          llvm::Value *Condition =
+              ApplyCaseLikelihood(MatchResult.getScalarVal(), Case);
+          Builder.CreateCondBr(Condition, Success, Failure);
+        };
+
+    if (SharedCaseHandler *Shared = GetSharedCaseHandler(Case)) {
+      if (!Shared->ActionBB)
+        Shared->ActionBB = createBasicBlock("match.select.shared_action");
+      size_t InstantiationIndex = &Case - Shared->Cases.begin();
+      assert(InstantiationIndex < Shared->Declarations.size() &&
+             "case is outside its shared-handler group");
+      ArrayRef<const VarDecl *> Declarations =
+          Shared->Declarations[InstantiationIndex];
+      if (Declarations.empty()) {
+        EmitPatternBranch(Shared->ActionBB, PatternFailure);
+        return;
+      }
+
+      llvm::BasicBlock *InitializePatternBB =
+          createBasicBlock("match.select.init");
+      EmitPatternBranch(InitializePatternBB, PatternFailure);
+      EmitBlock(InitializePatternBB);
+      EmitSharedDeclarationProjections(Case.Pattern, Case.PatternInstantiation);
+      for (auto [D, Incoming] :
+           llvm::zip_equal(Declarations, Shared->IncomingReferences)) {
+        llvm::Value *Reference =
+            EmitReferenceBindingToExpr(D->getInit()).getScalarVal();
+        Incoming.push_back({Reference, Builder.GetInsertBlock()});
+      }
+      EmitBranch(Shared->ActionBB);
+      return;
+    }
+
+    if (llvm::is_contained(CompletedPatterns, Case.Pattern) &&
+        !hasMatchPatternDeclarations(Case.Pattern, Case.PatternInstantiation) &&
+        !Case.Guard.hasGuard()) {
+      if (ShareAction) {
+        CompletedCaseAction &Action = CompletedCaseActions[Case.CaseIndex];
+        if (!Action.Block) {
+          Action.Block = createBasicBlock("match.select.action");
+          Action.Case = &Case;
+        }
+        EmitBranch(Action.Block);
+      } else {
+        {
+          RunCleanupsScope CaseScope(*this);
+          EmitCaseHandler(Case);
+        }
+        EmitBranch(SelectEndBB);
+      }
+      return;
+    }
+
+    if (!hasMatchPatternDeclarations(Case.Pattern, Case.PatternInstantiation) &&
+        !Case.Guard.hasGuard()) {
+      llvm::BasicBlock *ExecuteActionBB =
+          createBasicBlock("match.select.action");
+      EmitPatternBranch(ExecuteActionBB, PatternFailure);
+
+      EmitBlock(ExecuteActionBB);
+      {
+        RunCleanupsScope CaseScope(*this);
+        EmitCaseHandler(Case);
+      }
+      EmitBranch(SelectEndBB);
+      return;
+    }
+    EmitMatchCandidate(
+        Case.Pattern, Case.PatternInstantiation, Case.Guard, PatternFailure,
+        GuardFailure, SelectEndBB, EmitPatternBranch,
+        [&] { EmitCaseHandler(Case); }, Stmt::getLikelihood(Case.Attributes),
+        MatchCandidateKind::Selection);
+  };
+
+  auto EmitProjectionPath = [&](ArrayRef<const MatchProjection *> Path) {
+    for (const MatchProjection *Projection : Path) {
+      switch (Projection->getKind()) {
+      case MatchProjection::AlternativeProjection:
+        EmitMatchDiscriminator(*Projection);
+        EmitMatchProjectionValue(*Projection);
+        break;
+      case MatchProjection::DecompositionProjection: {
+        const DecompositionDecl *D = Projection->getDecomposedDecl();
+        assert(D && "expected decomposition projection");
+        if (!LocalDeclMap.count(D))
+          EmitDecl(*D, /*EvaluateConditionDecl=*/true);
+        break;
+      }
+      case MatchProjection::CastProjection:
+        llvm_unreachable("cast projection on decision path");
+      }
+    }
+  };
+
+  auto EmitDecision = [&](auto &Self,
+                          const MatchDecisionTree::Node &Node) -> void {
+    // Bindings materialized in one subtree do not dominate its siblings.
+    llvm::SaveAndRestore SavedLocalDeclMap(LocalDeclMap);
+    auto EmitSwitchDecision =
+        [&](llvm::Value *Discriminator,
+            ArrayRef<const MatchDecisionTree::Node *> Tests,
+            ArrayRef<llvm::ConstantInt *> Values,
+            const MatchDecisionTree::Node *Default,
+            llvm::function_ref<void(const MatchDecisionTree::Node &)>
+                EmitSuccess = nullptr) {
+          llvm::BasicBlock *DefaultBlock =
+              createBasicBlock("match.decision.failure");
+          auto *Switch = Builder.CreateSwitch(Discriminator, DefaultBlock,
+                                              Tests.size());
+          for (auto [Test, Value] : llvm::zip_equal(Tests, Values)) {
+            llvm::BasicBlock *Success =
+                createBasicBlock("match.decision.success");
+            Switch->addCase(Value, Success);
+            EmitBlock(Success);
+            if (EmitSuccess) {
+              llvm::SaveAndRestore SavedLocalDeclMap(LocalDeclMap);
+              EmitSuccess(*Test);
+            } else {
+              Self(Self, *Test->Success);
+            }
+          }
+          EmitBlock(DefaultBlock);
+          Self(Self, *Default);
+        };
+
+    switch (Node.Kind) {
+    case MatchDecisionTree::Node::NK_Failure:
+      EmitBranch(NoMatchBB);
+      return;
+    case MatchDecisionTree::Node::NK_Candidate: {
+      llvm::BasicBlock *PatternFailure =
+          createBasicBlock("match.decision.next_pattern");
+      llvm::BasicBlock *GuardFailure =
+          Node.GuardFailure ? createBasicBlock("match.decision.next_case")
+                            : PatternFailure;
+      EmitCandidate(
+          *Node.MatchCandidate.Case, Node.MatchCandidate.KnownTestPatterns,
+          Node.MatchCandidate.CompletedPatterns,
+          Node.MatchCandidate.ShareAction, PatternFailure, GuardFailure);
+      EmitBlock(PatternFailure, /*IsFinished=*/true);
+      if (HaveInsertPoint())
+        Self(Self, *Node.Failure);
+      if (Node.GuardFailure) {
+        EmitBlock(GuardFailure, /*IsFinished=*/true);
+        if (HaveInsertPoint())
+          Self(Self, *Node.GuardFailure);
+      }
+      return;
+    }
+    case MatchDecisionTree::Node::NK_PatternTest: {
+      if (Node.PatternMatch.Kind ==
+          MatchDecisionTree::PatternTest::IntegralValue) {
+        const auto *First = &Node.PatternMatch;
+        SmallVector<const MatchDecisionTree::Node *, 4> Tests;
+        SmallVector<llvm::ConstantInt *, 4> Values;
+        const MatchDecisionTree::Node *Default = &Node;
+        do {
+          const auto *Test = &Default->PatternMatch;
+          if (Test->Kind != MatchDecisionTree::PatternTest::IntegralValue ||
+              Test->IntegralComparison->getLHS()->IgnoreParenImpCasts() !=
+                  First->IntegralComparison->getLHS()->IgnoreParenImpCasts() ||
+              !getContext().hasSameType(
+                  Test->IntegralComparison->getLHS()->getType(),
+                  First->IntegralComparison->getLHS()->getType()) ||
+              Default->PatternMatch.ProjectionPath !=
+                  Node.PatternMatch.ProjectionPath)
+            break;
+          auto *Value = dyn_cast<llvm::ConstantInt>(
+              EmitScalarExpr(Test->IntegralComparison->getRHS()));
+          assert(Value && "expected integral constant pattern value");
+          if (llvm::is_contained(Values, Value))
+            break;
+          Tests.push_back(Default);
+          Values.push_back(Value);
+          Default = Default->Failure.get();
+        } while (Default->Kind == MatchDecisionTree::Node::NK_PatternTest);
+
+        if (Tests.size() > 1) {
+          EmitProjectionPath(Node.PatternMatch.ProjectionPath);
+          llvm::Value *Discriminator =
+              EmitScalarExpr(First->IntegralComparison->getLHS());
+          Discriminator->setName("match.value");
+          EmitSwitchDecision(Discriminator, Tests, Values, Default);
+          return;
+        }
+      }
+
+      EmitProjectionPath(Node.PatternMatch.ProjectionPath);
+      llvm::BasicBlock *Success = createBasicBlock("match.decision.success");
+      llvm::BasicBlock *Failure = createBasicBlock("match.decision.failure");
+      llvm::Value *Condition =
+          EmitMatchPattern(Node.PatternMatch.Pattern,
+                           Node.PatternMatch.Case->PatternInstantiation,
+                           Node.PatternMatch.ProjectionPath.empty()
+                               ? S.getSubject()
+                               : nullptr)
+              .getScalarVal();
+      Condition = ApplyCaseLikelihood(Condition, *Node.PatternMatch.Case);
+      if (const auto *Constant = dyn_cast<llvm::ConstantInt>(Condition))
+        EmitBranch(Constant->isOne() ? Success : Failure);
+      else
+        Builder.CreateCondBr(Condition, Success, Failure);
+      EmitBlock(Success);
+      Self(Self, *Node.Success);
+      EmitBlock(Failure);
+      Self(Self, *Node.Failure);
+      return;
+    }
+    case MatchDecisionTree::Node::NK_Test:
+      break;
+    }
+
+    if (CGM.getCodeGenOpts().ExperimentalBatchedDynamicCast &&
+        CGM.getCXXABI().supportsDynamicCastFirst()) {
+      if (const CXXDynamicCastExpr *First = getBatchableMatchCast(Node)) {
+        const MatchProjection *FirstProjection = Node.MatchTest.Projection;
+        const Expr *Subject =
+            FirstProjection->getHoldingVar()->getInit()->IgnoreParenImpCasts();
+        SmallVector<const MatchDecisionTree::Node *, 4> Tests;
+        SmallVector<QualType, 4> TargetTypes;
+        SmallVector<llvm::ConstantInt *, 4> Values;
+        const MatchDecisionTree::Node *Default = &Node;
+        while (const CXXDynamicCastExpr *Cast =
+                   getBatchableMatchCast(*Default)) {
+          if (Default->MatchTest.Projection->getHoldingVar()
+                      ->getInit()
+                      ->IgnoreParenImpCasts() != Subject ||
+              !getContext().hasSameType(Cast->getSubExpr()->getType(),
+                                        First->getSubExpr()->getType()))
+            break;
+          QualType Target =
+              Cast->getType()->getPointeeType().getUnqualifiedType();
+          Tests.push_back(Default);
+          TargetTypes.push_back(Target);
+          Values.push_back(llvm::ConstantInt::get(SizeTy, Values.size()));
+          Default = Default->Failure.get();
+        }
+
+        if (Tests.size() > 1) {
+          if (!LocalDeclMap.count(FirstProjection->getHoldingVar()))
+            EmitVarDecl(*FirstProjection->getHoldingVar());
+          Address Source = EmitPointerWithAlignment(First->getSubExpr());
+          QualType SourceType =
+              First->getSubExpr()->getType()->getPointeeType();
+          EmitTypeCheck(TCK_DynamicOperation, First->getExprLoc(), Source,
+                        SourceType);
+          Address Selected =
+              CreateMemTemp(getContext().getSizeType(), "match.cast.index");
+          llvm::Value *Adjusted = CGM.getCXXABI().emitDynamicCastFirstCall(
+              *this, Source, SourceType, TargetTypes, Selected);
+          llvm::Value *Index =
+              Builder.CreateLoad(Selected, "match.cast.selected");
+          EmitSwitchDecision(
+              Index, Tests, Values, Default,
+              [&](const MatchDecisionTree::Node &Test) {
+                RunCleanupsScope CaseScope(*this);
+                const MatchCaseInstantiation &Case = *Test.MatchTest.Case;
+                if (const auto *Pattern = dyn_cast<DeclarationPattern>(
+                        Case.Pattern->IgnoreParens())) {
+                  const VarDecl *D = Pattern->getDeclaration();
+                  assert(D->getType()->isReferenceType());
+                  AutoVarEmission Emission = EmitAutoVarAlloca(*D);
+                  LValue Storage = MakeAddrLValue(
+                      Emission.getObjectAddress(*this), D->getType());
+                  EmitTypeCheck(TCK_ReferenceBinding,
+                                D->getInit()->getExprLoc(), Adjusted,
+                                D->getType().getNonReferenceType());
+                  EmitStoreThroughLValue(RValue::get(Adjusted), Storage,
+                                         /*isInit=*/true);
+                  EmitAutoVarCleanups(Emission);
+                }
+                EmitCaseHandler(Case);
+                CaseScope.ForceCleanup();
+                EmitBranch(SelectEndBB);
+              });
+          return;
+        }
+      }
+    }
+
+    EmitProjectionPath(Node.MatchTest.ProjectionPath);
+    EmitMatchDiscriminator(*Node.MatchTest.Projection);
+    const VarDecl *IndexVar = Node.MatchTest.Projection->getIntermediateVar();
+    if (Node.MatchTest.Kind == MatchDecisionTree::Test::ClosedAlternative &&
+        IndexVar->getType()->isIntegralOrEnumerationType()) {
+      auto *IndexType =
+          cast<llvm::IntegerType>(ConvertType(IndexVar->getType()));
+      // Coalesce a chain of distinct tests on the same discriminator into
+      // one multiway branch. The planner itself remains binary so it can
+      // choose a different column after any failed test.
+      SmallVector<const MatchDecisionTree::Node *, 4> Tests;
+      SmallVector<llvm::ConstantInt *, 4> Values;
+      const MatchDecisionTree::Node *Default = &Node;
+      do {
+        auto *Value = llvm::ConstantInt::get(
+            IndexType, Default->MatchTest.AlternativeIndex);
+        if (llvm::is_contained(Values, Value))
+          break;
+        Tests.push_back(Default);
+        Values.push_back(Value);
+        Default = Default->Failure.get();
+      } while (Default->Kind == MatchDecisionTree::Node::NK_Test &&
+               Default->MatchTest.Kind ==
+                   MatchDecisionTree::Test::ClosedAlternative &&
+               Default->MatchTest.Projection->getIntermediateVar() == IndexVar);
+
+      llvm::Value *Discriminator = EmitLoadOfScalar(
+          MakeAddrLValue(GetAddrOfLocalVar(IndexVar), IndexVar->getType()),
+          IndexVar->getLocation());
+      Discriminator->setName("match.index");
+      EmitSwitchDecision(Discriminator, Tests, Values, Default);
+      return;
+    }
+
+    const MatchProjection *Projection = Node.MatchTest.Projection;
+    RunCleanupsScope ConditionScope(*this);
+    if (const VarDecl *Condition = Projection->getConditionVar()) {
+      // The same row can occur in disjoint subtrees. Give each emitted test
+      // its own initialization instead of treating an existing address as
+      // evidence that initialization dominates this branch.
+      LocalDeclMap.erase(Condition);
+      EmitVarDecl(*Condition);
+    }
+    llvm::Value *Condition = EmitScalarExpr(Projection->getConditionExpr());
+    Condition = ApplyCaseLikelihood(Condition, *Node.MatchTest.Case);
+    ConditionScope.ForceCleanup();
+    llvm::BasicBlock *Success = createBasicBlock("match.decision.success");
+    llvm::BasicBlock *Failure = createBasicBlock("match.decision.failure");
+    Builder.CreateCondBr(Condition, Success, Failure);
+
+    EmitBlock(Success);
+    if (Node.MatchTest.MaterializeProjection)
+      EmitMatchProjectionValue(*Projection);
+    Self(Self, *Node.Success);
+    EmitBlock(Failure);
+    Self(Self, *Node.Failure);
+  };
+
+  EmitDecision(EmitDecision, Decision.getRoot());
+  for (const CompletedCaseAction &Action : CompletedCaseActions) {
+    if (!Action.Block)
+      continue;
+    llvm::SaveAndRestore SavedLocalDeclMap(LocalDeclMap);
+    EmitBlock(Action.Block, /*IsFinished=*/true);
+    {
+      RunCleanupsScope CaseScope(*this);
+      EmitCaseHandler(*Action.Case);
+    }
+    EmitBranch(SelectEndBB);
+  }
+  for (SharedCaseHandler &Shared : SharedCaseHandlers) {
+    if (!Shared.ActionBB)
+      continue;
+    llvm::SaveAndRestore SavedLocalDeclMap(LocalDeclMap);
+    EmitSharedCaseHandler(Shared);
+  }
+  EmitBlock(NoMatchBB);
+
+  assert(!Cases.empty() && "expected at least one pattern");
+
+  if (!IgnoreResult) {
+    EmitNoreturnRuntimeCallOrInvoke(CGM.getTerminateFn(), {});
+    EmitBlock(SelectEndBB);
+  }
+
+  if (IgnoreResult)
+    return RValue::getIgnored();
+
+  if (IsReference)
+    return RValue::get(Builder.CreateLoad(MatchResAddr));
+
+  switch (getEvaluationKind(S.getType())) {
+  case TEK_Scalar:
+    return RValue::get(EmitLoadOfScalar(
+        MakeAddrLValue(MatchResAddr, S.getType()), S.getExprLoc()));
+  case TEK_Complex:
+    return RValue::getComplex(EmitLoadOfComplex(
+        MakeAddrLValue(MatchResAddr, S.getType()), S.getExprLoc()));
+  case TEK_Aggregate:
+    return RValue::getAggregate(MatchResAddr);
+  }
+  llvm_unreachable("invalid match select result kind");
+}
+
+LValue CodeGenFunction::EmitMatchSelectExprLValue(const MatchSelectExpr *E) {
+  assert(E->isGLValue() && "expected a glvalue match select expression");
+  RValue Result = EmitMatchSelectExpr(*E);
+  return MakeAddrLValue(Result.getScalarVal(), E->getType(), CharUnits::One());
 }

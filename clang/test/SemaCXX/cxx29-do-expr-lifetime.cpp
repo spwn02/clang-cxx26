@@ -155,3 +155,64 @@ void aggregate_result_consumed_locally_ok() {
   Holder h = do -> Holder { do_return Holder{&local}; };
   (void)h;
 }
+
+namespace match_result_lifetime {
+
+struct Owner {
+  int value;
+};
+
+Owner make_owner();
+
+int &&project([[clang::lifetimebound]] Owner &&owner) {
+  return static_cast<int &&>(owner.value);
+}
+
+int consume(int);
+
+void reference_escaping_full_expression_warns() {
+  auto &&dangling = match (make_owner()) -> decltype(auto) { // expected-warning {{temporary bound to local reference 'dangling' will be destroyed at the end of the full-expression}}
+    case auto &&owner => do -> decltype(auto) {
+      project(static_cast<decltype(owner) &&>(owner))
+    };
+  };
+  (void)dangling;
+}
+
+int reference_consumed_in_full_expression_is_valid() {
+  return consume(match (make_owner()) -> decltype(auto) {
+    case auto &&owner => do -> decltype(auto) {
+      project(static_cast<decltype(owner) &&>(owner))
+    };
+  });
+}
+
+int &&reference_returned_from_function_is_ill_formed() {
+  return match (make_owner()) -> decltype(auto) { // expected-error {{returning reference to local temporary object}}
+    case auto &&owner => do -> decltype(auto) {
+      project(static_cast<decltype(owner) &&>(owner))
+    };
+  };
+}
+
+const Owner &by_value_pattern_variable_dangles(Owner subject) {
+  return match (subject) -> const Owner & {
+    case Owner owner => owner; // expected-warning {{reference to stack memory associated with local variable 'owner' returned}}
+  };
+}
+
+const Owner &by_value_pattern_variable_through_do_dangles(Owner subject) {
+  return match (subject) -> const Owner & {
+    case Owner owner => do -> const Owner & {
+      owner // expected-warning {{reference to stack memory associated with local variable 'owner' returned}}
+    };
+  };
+}
+
+const Owner &reference_pattern_is_an_alias(Owner &subject) {
+  return match (subject) -> const Owner & {
+    case Owner &owner => do -> const Owner & { owner };
+  };
+}
+
+} // namespace match_result_lifetime

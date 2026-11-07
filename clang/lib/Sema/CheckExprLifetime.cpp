@@ -16,6 +16,7 @@
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/Sema.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PointerIntPair.h"
 
 namespace clang::sema {
@@ -131,6 +132,12 @@ getEntityLifetime(const InitializedEntity *Entity,
     // expression?
     return {nullptr, LK_StmtExprResult};
 
+  case InitializedEntity::EK_MatchExprResult:
+    // A match arm is not a return-like lifetime boundary. References produced
+    // by an arm remain usable through the containing full-expression, and the
+    // completed MatchSelectExpr is inspected in its enclosing context.
+    return {nullptr, LK_FullExpression};
+
   case InitializedEntity::EK_New:
     //   -- A temporary bound to a reference in a new-initializer persists
     //      until the completion of the full-expression containing the
@@ -242,8 +249,28 @@ struct RevertToOldSizeRAII {
   ~RevertToOldSizeRAII() { Path.resize(OldSize); }
 };
 
-using LocalVisitor = llvm::function_ref<bool(IndirectLocalPath &Path, Local L,
-                                             ReferenceKind RK)>;
+class LocalVisitor {
+  using Callback =
+      llvm::function_ref<bool(IndirectLocalPath &, Local, ReferenceKind)>;
+
+  Callback Visit;
+  bool VisitBindingDecls = false;
+
+public:
+  LocalVisitor(const LocalVisitor &) = default;
+
+  template <class Callable,
+            std::enable_if_t<
+                !std::is_same_v<std::decay_t<Callable>, LocalVisitor>, int> = 0>
+  LocalVisitor(Callable &&Visit) : Visit(Visit) {}
+
+  bool operator()(IndirectLocalPath &Path, Local L, ReferenceKind RK) const {
+    return Visit(Path, L, RK);
+  }
+
+  bool shouldVisitBindingDecls() const { return VisitBindingDecls; }
+  void enableBindingDecls() { VisitBindingDecls = true; }
+};
 } // namespace
 
 static bool isVarOnPath(const IndirectLocalPath &Path, VarDecl *VD) {
@@ -272,6 +299,25 @@ static void forEachDoExprResult(const Stmt *S,
     return;
   for (const Stmt *Child : S->children())
     forEachDoExprResult(Child, VisitResult, /*IsRoot=*/false);
+}
+
+
+static void collectTransparentMatchDeclarations(
+    const MatchPattern *Pattern, const MatchPatternInstantiation *Instantiation,
+    llvm::SmallDenseSet<const Decl *, 8> &Declarations) {
+  if (const auto *Declaration = dyn_cast<DeclarationPattern>(Pattern)) {
+    const VarDecl *Variable = Declaration->getDeclaration();
+    if (Variable->getType()->isReferenceType())
+      Declarations.insert(Variable);
+  }
+  if (const auto *Decomposition = dyn_cast<DecompositionPattern>(Pattern)) {
+    for (const MatchPattern *Child :
+         Instantiation->getDecompositionPatterns(Decomposition))
+      collectTransparentMatchDeclarations(Child, Instantiation, Declarations);
+  } else {
+    for (const MatchPattern *Child : Pattern->children())
+      collectTransparentMatchDeclarations(Child, Instantiation, Declarations);
+  }
 }
 
 static bool pathContainsInit(const IndirectLocalPath &Path) {
@@ -641,6 +687,21 @@ static void visitLocalsRetainedByReferenceBinding(IndirectLocalPath &Path,
     // If we find the name of a local non-reference parameter, we could have a
     // lifetime problem.
     auto *DRE = cast<DeclRefExpr>(Init);
+    if (auto *BD = dyn_cast<BindingDecl>(DRE->getDecl());
+        Visit.shouldVisitBindingDecls() && BD) {
+      auto *Decomposition = dyn_cast<VarDecl>(BD->getDecomposedDecl());
+      if (!Decomposition || !Decomposition->hasLocalStorage())
+        break;
+      if (!Decomposition->getType()->isReferenceType()) {
+        Visit(Path, Local(DRE), RK);
+      } else if (Decomposition->getInit() &&
+                 !isVarOnPath(Path, Decomposition)) {
+        Path.push_back({IndirectLocalPathEntry::VarInit, DRE, Decomposition});
+        visitLocalsRetainedByReferenceBinding(Path, Decomposition->getInit(),
+                                              RK_ReferenceBinding, Visit);
+      }
+      break;
+    }
     auto *VD = dyn_cast<VarDecl>(DRE->getDecl());
     if (VD && VD->hasLocalStorage() &&
         !DRE->refersToEnclosingVariableOrCapture()) {
@@ -682,6 +743,37 @@ static void visitLocalsRetainedByReferenceBinding(IndirectLocalPath &Path,
       visitLocalsRetainedByReferenceBinding(Path, C->getTrueExpr(), RK, Visit);
     if (!C->getFalseExpr()->getType()->isVoidType())
       visitLocalsRetainedByReferenceBinding(Path, C->getFalseExpr(), RK, Visit);
+    break;
+  }
+
+  case Stmt::MatchSelectExprClass: {
+    const auto *Match = cast<MatchSelectExpr>(Init);
+    llvm::SmallDenseSet<unsigned, 4> VisitedLocations;
+    llvm::SmallDenseSet<const Decl *, 8> TransparentDeclarations;
+    if (const VarDecl *Holding = Match->getHoldingVar();
+        Holding && Holding->getType()->isReferenceType())
+      TransparentDeclarations.insert(Holding);
+    for (const MatchCaseInstantiation &Case : Match->getCaseInstantiations())
+      collectTransparentMatchDeclarations(
+          Case.Pattern, Case.PatternInstantiation, TransparentDeclarations);
+    auto VisitOnce = [&](IndirectLocalPath &Path, Local L,
+                         ReferenceKind RK) {
+      if (!VisitedLocations.insert(L->getExprLoc().getRawEncoding()).second)
+        return false;
+      llvm::SmallVector<IndirectLocalPathEntry, 8> FilteredPath;
+      for (const IndirectLocalPathEntry &Entry : Path)
+        if (Entry.Kind != IndirectLocalPathEntry::VarInit ||
+            !TransparentDeclarations.contains(Entry.D))
+          FilteredPath.push_back(Entry);
+      return Visit(FilteredPath, L, RK);
+    };
+    LocalVisitor MatchVisit(VisitOnce);
+    MatchVisit.enableBindingDecls();
+    for (const MatchCaseInstantiation &Case : Match->getCaseInstantiations())
+      if (auto *Handler = dyn_cast<Expr>(Case.Handler);
+          Handler && !Case.isNonReturning() &&
+          !Handler->getType()->isVoidType())
+        visitLocalsRetainedByReferenceBinding(Path, Handler, RK, MatchVisit);
     break;
   }
 
@@ -988,6 +1080,37 @@ static void visitLocalsRetainedByInitializer(IndirectLocalPath &Path,
     });
     break;
 
+  case Stmt::MatchSelectExprClass: {
+    const auto *Match = cast<MatchSelectExpr>(Init);
+    llvm::SmallDenseSet<unsigned, 4> VisitedLocations;
+    llvm::SmallDenseSet<const Decl *, 8> TransparentDeclarations;
+    if (const VarDecl *Holding = Match->getHoldingVar();
+        Holding && Holding->getType()->isReferenceType())
+      TransparentDeclarations.insert(Holding);
+    for (const MatchCaseInstantiation &Case : Match->getCaseInstantiations())
+      collectTransparentMatchDeclarations(
+          Case.Pattern, Case.PatternInstantiation, TransparentDeclarations);
+    auto VisitOnce = [&](IndirectLocalPath &Path, Local L,
+                         ReferenceKind RK) {
+      if (!VisitedLocations.insert(L->getExprLoc().getRawEncoding()).second)
+        return false;
+      llvm::SmallVector<IndirectLocalPathEntry, 8> FilteredPath;
+      for (const IndirectLocalPathEntry &Entry : Path)
+        if (Entry.Kind != IndirectLocalPathEntry::VarInit ||
+            !TransparentDeclarations.contains(Entry.D))
+          FilteredPath.push_back(Entry);
+      return Visit(FilteredPath, L, RK);
+    };
+    LocalVisitor MatchVisit(VisitOnce);
+    MatchVisit.enableBindingDecls();
+    for (const MatchCaseInstantiation &Case : Match->getCaseInstantiations())
+      if (auto *Handler = dyn_cast<Expr>(Case.Handler);
+          Handler && !Case.isNonReturning())
+        visitLocalsRetainedByInitializer(Path, Handler, MatchVisit,
+                                         /*RevisitSubinits=*/true);
+    break;
+  }
+
   case Stmt::OpaqueValueExprClass: {
     // As above: an interpolated macro argument produces whatever its source
     // expression produces.
@@ -1239,6 +1362,9 @@ checkExprLifetimeImpl(Sema &SemaRef, const InitializedEntity *InitEntity,
         return true;
       };
 
+      // Returning through an enclosing declaration is safe at the
+      // do-expression boundary. Its lifetime is checked when the completed
+      // do-expression is used by the enclosing context.
       if (const auto *DRE = dyn_cast<DeclRefExpr>(L);
           DRE && IsOutsideDoExpr(DRE->getDecl()))
         return false;

@@ -39,6 +39,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <memory>
+#include <new>
 #include <optional>
 
 namespace clang {
@@ -1802,15 +1804,30 @@ struct DeclaratorChunk {
   }
 };
 
-/// A parsed C++17 decomposition declarator of the form
-///   '[' identifier-list ']'
+/// A parsed decomposition declarator of the form
+///   '[' structured-binding-list ']'
 class DecompositionDeclarator {
 public:
   struct Binding {
-    IdentifierInfo *Name;
+    /// Null for an unnamed binding pack.
+    IdentifierInfo *Name = nullptr;
     SourceLocation NameLoc;
     std::optional<ParsedAttributes> Attrs;
     SourceLocation EllipsisLoc;
+    std::unique_ptr<DecompositionDeclarator> Nested;
+
+    Binding() = default;
+    Binding(IdentifierInfo *Name, SourceLocation NameLoc,
+            ParsedAttributes &&Attrs, SourceLocation EllipsisLoc,
+            std::unique_ptr<DecompositionDeclarator> Nested = nullptr);
+    Binding(Binding &&);
+    Binding &operator=(Binding &&);
+    ~Binding();
+
+    Binding(const Binding &) = delete;
+    Binding &operator=(const Binding &) = delete;
+
+    bool isNested() const { return Nested != nullptr; }
   };
 
 private:
@@ -1834,11 +1851,11 @@ public:
 
   void clear() {
     LSquareLoc = RSquareLoc = SourceLocation();
-    if (DeleteBindings)
-      delete[] Bindings;
-    else
-      for (Binding &B : llvm::MutableArrayRef(Bindings, NumBindings))
-        B.Attrs.reset();
+    if (Bindings) {
+      std::destroy_n(Bindings, NumBindings);
+      if (DeleteBindings)
+        ::operator delete[](Bindings);
+    }
     Bindings = nullptr;
     NumBindings = 0;
     DeleteBindings = false;
@@ -1847,6 +1864,9 @@ public:
   ArrayRef<Binding> bindings() const {
     return llvm::ArrayRef(Bindings, NumBindings);
   }
+
+  void setBindings(SourceLocation LSquareLoc, MutableArrayRef<Binding> Bindings,
+                   SourceLocation RSquareLoc);
 
   bool isSet() const { return LSquareLoc.isValid(); }
 
@@ -1976,6 +1996,16 @@ private:
   LLVM_PREFERRED_TYPE(bool)
   unsigned HasInitializer : 1;
 
+  /// Whether this declarator permits an otherwise-required identifier to be
+  /// omitted.
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned IdentifierMayBeOmitted : 1;
+
+  /// Whether an ellipsis may declare a pack expanded by an enclosing
+  /// decomposition pattern.
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned PatternPackAllowed : 1;
+
   /// Attributes attached to the declarator.
   ParsedAttributes Attrs;
 
@@ -2054,7 +2084,8 @@ public:
                                    FunctionDefinitionKind::Declaration)),
         Redeclaration(false), Extension(false), ObjCIvar(false),
         ObjCWeakProperty(false), InlineStorageUsed(false),
-        HasInitializer(false), Attrs(DS.getAttributePool().getFactory()),
+        HasInitializer(false), IdentifierMayBeOmitted(false),
+        PatternPackAllowed(false), Attrs(DS.getAttributePool().getFactory()),
         DeclarationAttrs(DeclarationAttrs), AsmLabel(nullptr),
         TrailingRequiresClause(nullptr),
         InventedTemplateParameterList(nullptr) {
@@ -2149,6 +2180,8 @@ public:
     AsmLabel = nullptr;
     InlineStorageUsed = false;
     HasInitializer = false;
+    IdentifierMayBeOmitted = false;
+    PatternPackAllowed = false;
     ObjCIvar = false;
     ObjCWeakProperty = false;
     CommaLoc = SourceLocation();
@@ -2163,6 +2196,8 @@ public:
   /// not allowed.  This is true for typenames, prototypes, and template
   /// parameter lists.
   bool mayOmitIdentifier() const {
+    if (IdentifierMayBeOmitted)
+      return true;
     switch (Context) {
     case DeclaratorContext::File:
     case DeclaratorContext::KNRTypeList:
@@ -2199,6 +2234,11 @@ public:
     }
     llvm_unreachable("unknown context kind!");
   }
+
+  void setIdentifierMayBeOmitted() { IdentifierMayBeOmitted = true; }
+  bool isIdentifierOmissionAllowed() const { return IdentifierMayBeOmitted; }
+  void setPatternPackAllowed() { PatternPackAllowed = true; }
+  bool isPatternPackAllowed() const { return PatternPackAllowed; }
 
   /// mayHaveIdentifier - Return true if the identifier is either optional or
   /// required.  This is true for normal declarators and prototypes, but not

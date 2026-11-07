@@ -1,0 +1,166 @@
+// RUN: %clang_cc1 -std=c++2d -fsyntax-only \
+// RUN:   -Wreturn-stack-address -Wno-unused-value -verify %s
+
+struct Object {
+  int value;
+};
+
+const Object &reference_to_copy(Object object) {
+  return match (object) -> const Object & {
+    case Object copy => copy; // expected-warning {{reference to stack memory associated with local variable 'copy' returned}}
+  };
+}
+
+const int &reference_to_member(Object object) {
+  return match (object) -> const int & {
+    case Object copy => copy.value; // expected-warning {{reference to stack memory associated with local variable 'copy' returned}}
+  };
+}
+
+const Object *pointer_to_copy(Object object) {
+  return match (object) -> const Object * {
+    case Object copy => &copy; // expected-warning {{address of stack memory associated with local variable 'copy' returned}}
+  };
+}
+
+struct Pair {
+  int first;
+  int second;
+};
+
+const int &reference_to_binding(Pair pair) {
+  return match (pair) -> const int & {
+    case auto [first, second] => first; // expected-warning {{reference to stack memory associated with local variable 'first' returned}}
+  };
+}
+
+const int *pointer_to_binding(Pair pair) {
+  return match (pair) -> const int * {
+    case auto [first, second] => &second; // expected-warning {{address of stack memory associated with local variable 'second' returned}}
+  };
+}
+
+const int &reference_binding_decomposition(Pair &pair) {
+  return match (pair) -> const int & {
+    case auto &[first, second] => first;
+  };
+}
+
+auto lambda_capture(Object object) {
+  return match (object) {
+    case Object copy => [&copy] { // expected-warning {{address of stack memory associated with local variable 'copy' returned}} expected-note {{captured by reference here}}
+      return copy.value;
+    };
+  };
+}
+
+struct ReferenceMember {
+  const Object &value;
+};
+
+ReferenceMember aggregate_reference(Object object) {
+  return match (object) {
+    case Object copy => ReferenceMember{copy}; // expected-warning {{address of stack memory associated with local variable 'copy' returned}}
+  };
+}
+
+namespace std {
+template <class T> struct alternative_traits;
+
+struct alternative_info {
+  decltype(^^int) info = {};
+  bool empty = false;
+
+  consteval alternative_info(decltype(^^int) info = {}, bool empty = false)
+      : info(info), empty(empty) {}
+};
+}
+
+struct Choice {
+  unsigned active;
+  Object alternatives[2];
+};
+
+template <> struct std::alternative_traits<Choice> {
+  static constexpr alternative_info alternatives[] = {
+    ^^Object, ^^Object
+  };
+  static constexpr bool has_residual_states = false;
+
+  static constexpr unsigned index(const Choice &choice) noexcept {
+    return choice.active;
+  }
+
+  template <unsigned I, class Self>
+  static constexpr decltype(auto) get(Self &&self) {
+    return static_cast<Self &&>(self).alternatives[I];
+  }
+};
+
+const Object &specialized_case_lifetime(Choice choice) {
+  return match (choice) -> const Object & {
+    case { Object copy } => copy; // expected-warning {{reference to stack memory associated with local variable 'copy' returned}}
+  };
+}
+
+auto ordinary_if_init_statement() {
+  if (Object object{}; true)
+    return [&object] { return object.value; }; // expected-warning {{address of stack memory associated with local variable 'object' returned}} expected-note {{captured by reference here}}
+  __builtin_unreachable();
+}
+
+auto statement_handler(Object object) {
+  match (object) {
+    case Object copy => return [&copy] { return copy.value; }; // expected-warning {{address of stack memory associated with local variable 'copy' returned}} expected-note {{captured by reference here}}
+  }
+}
+
+const Object *condition_init_lifetime(Object object) {
+  if (Object init{}; match(object, case Object copy))
+    return &init; // expected-warning {{address of stack memory associated with local variable 'init' returned}}
+  __builtin_unreachable();
+}
+
+Object &reference_binding(Object &object) {
+  return match (object) -> Object & {
+    case Object &ref => ref;
+  };
+}
+
+const Object &enclosing_local(bool condition) {
+  Object local{};
+  return match (condition) -> const Object & {
+    case true => local; // expected-warning {{reference to stack memory associated with local variable 'local' returned}}
+    case false => local; // expected-warning {{reference to stack memory associated with local variable 'local' returned}}
+  };
+}
+
+template <class T>
+const Object &dependent_reference_to_copy(T object) {
+  return match (object) -> const Object & {
+    case Object copy => copy; // expected-warning 2{{reference to stack memory associated with local variable 'copy' returned}}
+  };
+}
+
+template const Object &dependent_reference_to_copy(Object); // expected-note {{in instantiation of function template specialization 'dependent_reference_to_copy<Object>' requested here}}
+
+const int &guard_condition_declaration(Object object) {
+  return match (object) -> const int & {
+    case Object copy if (int value = copy.value) => value; // expected-warning {{reference to stack memory associated with local variable 'value' returned}}
+    case _ => object.value; // expected-warning {{reference to stack memory associated with parameter 'object' returned}}
+  };
+}
+
+const int &guard_init_statement(Object object) {
+  return match (object) -> const int & {
+    case Object copy if (int value = copy.value; value != 0) => value; // expected-warning {{reference to stack memory associated with local variable 'value' returned}}
+    case _ => object.value; // expected-warning {{reference to stack memory associated with parameter 'object' returned}}
+  };
+}
+
+const int *guard_condition_declaration_statement(Object object) {
+  match (object) {
+    case Object copy if (int value = copy.value) => return &value; // expected-warning {{address of stack memory associated with local variable 'value' returned}}
+    case _ => return &object.value; // expected-warning {{address of stack memory associated with parameter 'object' returned}}
+  }
+}

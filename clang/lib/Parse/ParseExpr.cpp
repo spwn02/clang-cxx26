@@ -47,9 +47,12 @@
 using namespace clang;
 
 ExprResult
-Parser::ParseExpression(TypoCorrectionTypeBehavior CorrectionBehavior) {
-  ExprResult LHS(ParseAssignmentExpression(CorrectionBehavior));
-  return ParseRHSOfBinaryExpression(LHS, prec::Comma);
+Parser::ParseExpression(TypoCorrectionTypeBehavior CorrectionBehavior,
+                        InjectedDeclSet *InjectedDecls,
+                        CaseConditionParseState *CaseState) {
+  ExprResult LHS(
+      ParseAssignmentExpression(CorrectionBehavior, InjectedDecls, CaseState));
+  return ParseRHSOfBinaryExpression(LHS, prec::Comma, InjectedDecls, CaseState);
 }
 
 ExprResult
@@ -58,8 +61,9 @@ Parser::ParseExpressionWithLeadingAt(SourceLocation AtLoc) {
   return ParseRHSOfBinaryExpression(LHS, prec::Comma);
 }
 
-ExprResult
-Parser::ParseExpressionWithLeadingExtension(SourceLocation ExtLoc) {
+ExprResult Parser::ParseExpressionWithLeadingExtension(
+    SourceLocation ExtLoc, InjectedDeclSet *InjectedDecls,
+    CaseConditionParseState *CaseState) {
   ExprResult LHS(true);
   {
     // Silence extension warnings in the sub-expression
@@ -72,11 +76,13 @@ Parser::ParseExpressionWithLeadingExtension(SourceLocation ExtLoc) {
     LHS = Actions.ActOnUnaryOp(getCurScope(), ExtLoc, tok::kw___extension__,
                                LHS.get());
 
-  return ParseRHSOfBinaryExpression(LHS, prec::Comma);
+  return ParseRHSOfBinaryExpression(LHS, prec::Comma, InjectedDecls, CaseState);
 }
 
-ExprResult Parser::ParseAssignmentExpression(
-    TypoCorrectionTypeBehavior CorrectionBehavior) {
+ExprResult
+Parser::ParseAssignmentExpression(TypoCorrectionTypeBehavior CorrectionBehavior,
+                                  InjectedDeclSet *Decls,
+                                  CaseConditionParseState *CaseState) {
   if (Tok.is(tok::code_completion)) {
     cutOffParsing();
     Actions.CodeCompletion().CodeCompleteExpression(
@@ -96,7 +102,7 @@ ExprResult Parser::ParseAssignmentExpression(
     LHS = ParseCastExpression(CastParseKind::AnyCastExpr,
                               /*isAddressOfOperand=*/false, CorrectionBehavior);
   });
-  return ParseRHSOfBinaryExpression(LHS, prec::Assignment);
+  return ParseRHSOfBinaryExpression(LHS, prec::Assignment, Decls, CaseState);
 }
 
 ExprResult Parser::ParseConditionalExpression() {
@@ -240,8 +246,9 @@ Parser::ParseConstraintLogicalAndExpression(bool IsTrailingRequiresClause) {
     if (NotPrimaryExpression ||
         // Check if the following tokens must be a part of a non-primary
         // expression
-        getBinOpPrecedence(Tok.getKind(), GreaterThanIsOperator,
-                           /*CPlusPlus11=*/true) > prec::LogicalAnd ||
+        getBinOpPrecedence(Tok, GreaterThanIsOperator,
+                           /*CPlusPlus11=*/true,
+                           getLangOpts().PatternMatching) > prec::LogicalAnd ||
         // Postfix operators other than '(' (which will be checked for in
         // CheckConstraintExpression).
         Tok.isOneOf(tok::period, tok::plusplus, tok::minusminus) ||
@@ -323,15 +330,19 @@ bool Parser::isFoldOperator(prec::Level Level) const {
          Level != prec::Spaceship;
 }
 
-bool Parser::isFoldOperator(tok::TokenKind Kind) const {
-  return isFoldOperator(getBinOpPrecedence(Kind, GreaterThanIsOperator, true));
+bool Parser::isFoldOperator(const Token &Tok) const {
+  return isFoldOperator(getBinOpPrecedence(Tok, GreaterThanIsOperator,
+                                           true, getLangOpts().PatternMatching));
 }
 
 ExprResult
-Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
-  prec::Level NextTokPrec = getBinOpPrecedence(Tok.getKind(),
+Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec,
+                                   InjectedDeclSet *Decls,
+                                   CaseConditionParseState *CaseState) {
+  prec::Level NextTokPrec = getBinOpPrecedence(Tok,
                                                GreaterThanIsOperator,
-                                               getLangOpts().CPlusPlus11);
+                                               getLangOpts().CPlusPlus11,
+                                               getLangOpts().PatternMatching);
   SourceLocation ColonLoc;
 
   auto SavedType = PreferredType;
@@ -342,6 +353,14 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     // because we are called recursively, or because the token is not a binop),
     // then we are done!
     if (NextTokPrec < MinPrec)
+      return LHS;
+
+    // A case condition can only be combined at the top level with lazy &&.
+    // Leave a lower-precedence token for the enclosing condition parser to
+    // diagnose rather than absorbing it into the condition.
+    if (CaseState && !LHS.isInvalid() &&
+        MatchTestExpr::containsCaseCondition(LHS.get()) &&
+        NextTokPrec != prec::LogicalAnd)
       return LHS;
 
     // Consume the operator, saving the operator token for error reporting.
@@ -360,7 +379,7 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
         }
         UnconsumeToken(OpToken);
         PP.EnterToken(T, /*IsReinject=*/true);
-        return ParseRHSOfBinaryExpression(LHS, MinPrec);
+        return ParseRHSOfBinaryExpression(LHS, MinPrec, Decls, CaseState);
       }
       Diag(OpToken, diag::err_expected_expression);
       return ExprError();
@@ -473,65 +492,15 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
 
     PreferredType.enterBinary(Actions, Tok.getLocation(), LHS.get(),
                               OpToken.getKind());
-    // Parse another leaf here for the RHS of the operator.
-    // ParseCastExpression works here because all RHS expressions in C have it
-    // as a prefix, at least. However, in C++, an assignment-expression could
-    // be a throw-expression, which is not a valid cast-expression.
-    // Therefore we need some special-casing here.
-    // Also note that the third operand of the conditional operator is
-    // an assignment-expression in C++, and in C++11, we can have a
-    // braced-init-list on the RHS of an assignment. For better diagnostics,
-    // parse as if we were allowed braced-init-lists everywhere, and check that
-    // they only appear on the RHS of assignments later.
-    ExprResult RHS;
-    bool RHSIsInitList = false;
-    if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
-      RHS = ParseBraceInitializer();
-      RHSIsInitList = true;
-    } else if (getLangOpts().CPlusPlus && NextTokPrec <= prec::Conditional)
-      RHS = ParseAssignmentExpression();
-    else
-      RHS = ParseCastExpression(CastParseKind::AnyCastExpr);
 
-    if (RHS.isInvalid()) {
-      LHS = ExprError();
-    }
-
-    // Remember the precedence of this operator and get the precedence of the
-    // operator immediately to the right of the RHS.
+    // Remember the precedence of this operator. ParseRHSExprOfBinaryExpression
+    // may update NextTokPrec to the precedence of the operator immediately to
+    // the right of the RHS.
     prec::Level ThisPrec = NextTokPrec;
-    NextTokPrec = getBinOpPrecedence(Tok.getKind(), GreaterThanIsOperator,
-                                     getLangOpts().CPlusPlus11);
-
-    // Assignment and conditional expressions are right-associative.
-    bool isRightAssoc = ThisPrec == prec::Conditional ||
-                        ThisPrec == prec::Assignment;
-
-    // Get the precedence of the operator to the right of the RHS.  If it binds
-    // more tightly with RHS than we do, evaluate it completely first.
-    if (ThisPrec < NextTokPrec ||
-        (ThisPrec == NextTokPrec && isRightAssoc)) {
-      if (!RHS.isInvalid() && RHSIsInitList) {
-        Diag(Tok, diag::err_init_list_bin_op)
-          << /*LHS*/0 << PP.getSpelling(Tok) << Actions.getExprRange(RHS.get());
-        RHS = ExprError();
-      }
-      // If this is left-associative, only parse things on the RHS that bind
-      // more tightly than the current operator.  If it is right-associative, it
-      // is okay, to bind exactly as tightly.  For example, compile A=B=C=D as
-      // A=(B=(C=D)), where each paren is a level of recursion here.
-      // The function takes ownership of the RHS.
-      RHS = ParseRHSOfBinaryExpression(RHS,
-                            static_cast<prec::Level>(ThisPrec + !isRightAssoc));
-      RHSIsInitList = false;
-
-      if (RHS.isInvalid()) {
-        LHS = ExprError();
-      }
-
-      NextTokPrec = getBinOpPrecedence(Tok.getKind(), GreaterThanIsOperator,
-                                       getLangOpts().CPlusPlus11);
-    }
+    bool RHSIsInitList = false;
+    ExprResult RHS =
+        ParseRHSExprOfBinaryExpression(LHS, &TernaryMiddle, RHSIsInitList,
+                                       ThisPrec, NextTokPrec, Decls, CaseState);
 
     if (!RHS.isInvalid() && RHSIsInitList) {
       if (ThisPrec == prec::Assignment) {
@@ -562,9 +531,15 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
                          SourceRange(Actions.getExprRange(LHS.get()).getBegin(),
                                      Actions.getExprRange(RHS.get()).getEnd()));
 
-        ExprResult BinOp =
-            Actions.ActOnBinOp(getCurScope(), OpToken.getLocation(),
-                               OpToken.getKind(), LHS.get(), RHS.get());
+        ExprResult BinOp;
+        if (OpToken.is(tok::ampamp) &&
+            (MatchTestExpr::containsCaseCondition(LHS.get()) ||
+             MatchTestExpr::containsCaseCondition(RHS.get())))
+          BinOp = Actions.BuildCaseConditionAnd(OpToken.getLocation(),
+                                                LHS.get(), RHS.get());
+        else
+          BinOp = Actions.ActOnBinOp(getCurScope(), OpToken.getLocation(),
+                                     OpToken.getKind(), LHS.get(), RHS.get());
         if (BinOp.isInvalid())
           BinOp = Actions.CreateRecoveryExpr(LHS.get()->getBeginLoc(),
                                              RHS.get()->getEndLoc(),
@@ -590,6 +565,75 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
       }
     }
   }
+}
+
+ExprResult Parser::ParseRHSExprOfBinaryExpression(
+    ExprResult &LHS, ExprResult *TernaryMiddle, bool &RHSIsInitList,
+    prec::Level ThisPrec, prec::Level &NextTokPrec, InjectedDeclSet *Decls,
+    CaseConditionParseState *CaseState) {
+  // Parse another leaf here for the RHS of the operator.
+  // ParseCastExpression works here because all RHS expressions in C have it
+  // as a prefix, at least. However, in C++, an assignment-expression could
+  // be a throw-expression, which is not a valid cast-expression.
+  // Therefore we need some special-casing here.
+  // Also note that the third operand of the conditional operator is
+  // an assignment-expression in C++, and in C++11, we can have a
+  // braced-init-list on the RHS of an assignment. For better diagnostics,
+  // parse as if we were allowed braced-init-lists everywhere, and check that
+  // they only appear on the RHS of assignments later.
+  ExprResult RHS;
+  RHSIsInitList = false;
+  if (CaseState && ThisPrec == prec::LogicalAnd && Tok.is(tok::kw_case)) {
+    RHS = ParseCaseConditionOperand(*CaseState);
+  } else if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
+    RHS = ParseBraceInitializer();
+    RHSIsInitList = true;
+  } else if (getLangOpts().CPlusPlus && ThisPrec <= prec::Conditional)
+    RHS = ParseAssignmentExpression();
+  else
+    RHS = ParseCastExpression(CastParseKind::AnyCastExpr);
+
+  if (RHS.isInvalid())
+    LHS = ExprError();
+
+  NextTokPrec = getBinOpPrecedence(Tok, GreaterThanIsOperator,
+                                   getLangOpts().CPlusPlus11,
+                                   getLangOpts().PatternMatching);
+
+  // Assignment and conditional expressions are right-associative.
+  bool IsRightAssoc =
+      ThisPrec == prec::Conditional || ThisPrec == prec::Assignment;
+
+  // Get the precedence of the operator to the right of the RHS. If it binds
+  // more tightly with RHS than we do, evaluate it completely first.
+  if (ThisPrec < NextTokPrec || (ThisPrec == NextTokPrec && IsRightAssoc)) {
+    if (!RHS.isInvalid() && RHSIsInitList) {
+      Diag(Tok, diag::err_init_list_bin_op)
+          << /*LHS*/ 0 << PP.getSpelling(Tok)
+          << Actions.getExprRange(RHS.get());
+      RHS = ExprError();
+    }
+    // If this is left-associative, only parse things on the RHS that bind
+    // more tightly than the current operator. If it is right-associative, it
+    // is okay, to bind exactly as tightly. For example, compile A=B=C=D as
+    // A=(B=(C=D)), where each paren is a level of recursion here.
+    // The function takes ownership of the RHS.
+    CaseConditionParseState *NestedCaseState =
+        ThisPrec >= prec::LogicalAnd ? CaseState : nullptr;
+    RHS = ParseRHSOfBinaryExpression(
+        RHS, static_cast<prec::Level>(ThisPrec + !IsRightAssoc), Decls,
+        NestedCaseState);
+    RHSIsInitList = false;
+
+    if (RHS.isInvalid())
+      LHS = ExprError();
+
+    NextTokPrec = getBinOpPrecedence(Tok, GreaterThanIsOperator,
+                                     getLangOpts().CPlusPlus11,
+                                     getLangOpts().PatternMatching);
+  }
+
+  return RHS;
 }
 
 ExprResult
@@ -905,6 +949,15 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
   ParseIdentifier: {    // primary-expression: identifier
                         // unqualified-id: identifier
                         // constant: enumeration-constant
+    if (isPrefixMatchTestExpression())
+      return ParseMatchTestExpression();
+
+    bool MissingSubjectParens = false;
+    if (isPrefixMatchSelection(/*StatementContext=*/false,
+                               /*MissingCasePatternLoc=*/nullptr,
+                               &MissingSubjectParens))
+      return ParseMatchSelection(/*IsStatement=*/false, MissingSubjectParens);
+
     // Turn a potentially qualified name into a annot_typename or
     // annot_cxxscope if it would be valid.  This handles things like x::y, etc.
     if (getLangOpts().CPlusPlus) {
@@ -2876,20 +2929,15 @@ bool Parser::tryParseOpenMPArrayShapingCastPart() {
   return !ErrorFound;
 }
 
-ExprResult
-Parser::ParseParenExpression(ParenParseOption &ExprType, bool StopIfCastExpr,
-                             ParenExprKind ParenBehavior,
-                             TypoCorrectionTypeBehavior CorrectionBehavior,
-                             ParsedType &CastTy, SourceLocation &RParenLoc) {
-  assert(Tok.is(tok::l_paren) && "Not a paren expr!");
+ExprResult Parser::ParseExpressionWithLeadingParen(
+    ParenParseOption &ExprType, bool StopIfCastExpr,
+    ParenExprKind ParenBehavior,
+    TypoCorrectionTypeBehavior CorrectionBehavior, ParsedType &CastTy,
+    SourceLocation &RParenLoc, BalancedDelimiterTracker &T, bool &Fallback) {
   bool AllowFunctionTypeId =
       std::exchange(AllowFunctionTypeIdInNextParens, false);
   ColonProtectionRAIIObject ColonProtection(*this, false);
-  BalancedDelimiterTracker T(*this, tok::l_paren);
-  if (T.consumeOpen())
-    return ExprError();
   SourceLocation OpenLoc = T.getOpenLocation();
-
   PreferredType.enterParenExpr(Tok.getLocation(), OpenLoc);
 
   ExprResult Result(true);
@@ -2994,6 +3042,10 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool StopIfCastExpr,
     return Actions.ObjC().ActOnObjCBridgedCast(getCurScope(), OpenLoc, Kind,
                                                BridgeKeywordLoc, Ty.get(),
                                                RParenLoc, SubExpr.get());
+  } else if (isPrefixMatchTestExpression() ||
+             isPrefixMatchSelection(/*StatementContext=*/false)) {
+    Fallback = true;
+    return ExprEmpty();
   } else if (ExprType >= ParenParseOption::CompoundLiteral &&
              isTypeIdInParens(isAmbiguousTypeId, AllowFunctionTypeId)) {
 
@@ -3137,7 +3189,7 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool StopIfCastExpr,
       return ExprError();
     }
   } else if (ExprType >= ParenParseOption::FoldExpr && Tok.is(tok::ellipsis) &&
-             isFoldOperator(NextToken().getKind())) {
+             isFoldOperator(NextToken())) {
     ExprType = ParenParseOption::FoldExpr;
     return ParseFoldExpression(ExprResult(), T);
   } else if (CorrectionBehavior == TypoCorrectionTypeBehavior::AllowTypes) {
@@ -3150,7 +3202,7 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool StopIfCastExpr,
       // FIXME: If we ever support comma expressions as operands to
       // fold-expressions, we'll need to allow multiple ArgExprs here.
       if (ExprType >= ParenParseOption::FoldExpr && ArgExprs.size() == 1 &&
-          isFoldOperator(Tok.getKind()) && NextToken().is(tok::ellipsis)) {
+          isFoldOperator(Tok) && NextToken().is(tok::ellipsis)) {
         ExprType = ParenParseOption::FoldExpr;
         return ParseFoldExpression(ArgExprs[0], T);
       }
@@ -3191,20 +3243,8 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool StopIfCastExpr,
     }
     return Result;
   } else {
-    InMessageExpressionRAIIObject InMessage(*this, false);
-
-    Result = ParseExpression(TypoCorrectionTypeBehavior::AllowBoth);
-    if (ExprType >= ParenParseOption::FoldExpr &&
-        isFoldOperator(Tok.getKind()) && NextToken().is(tok::ellipsis)) {
-      ExprType = ParenParseOption::FoldExpr;
-      return ParseFoldExpression(Result, T);
-    }
-    ExprType = ParenParseOption::SimpleExpr;
-
-    // Don't build a paren expression unless we actually match a ')'.
-    if (!Result.isInvalid() && Tok.is(tok::r_paren))
-      Result =
-          Actions.ActOnParenExpr(OpenLoc, Tok.getLocation(), Result.get());
+    Fallback = true;
+    return ExprEmpty();
   }
 
   // Match the ')'.
@@ -3218,6 +3258,87 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool StopIfCastExpr,
   return Result;
 }
 
+/// ParseParenExpression - This parses the unit that starts with a '(' token,
+/// based on what is allowed by ExprType.  The actual thing parsed is returned
+/// in ExprType. If stopIfCastExpr is true, it will only return the parsed type,
+/// not the parsed cast-expression.
+///
+/// \verbatim
+///       primary-expression: [C99 6.5.1]
+///         '(' expression ')'
+/// [GNU]   '(' compound-statement ')'      (if !ParenExprOnly)
+///       postfix-expression: [C99 6.5.2]
+///         '(' type-name ')' '{' initializer-list '}'
+///         '(' type-name ')' '{' initializer-list ',' '}'
+///       cast-expression: [C99 6.5.4]
+///         '(' type-name ')' cast-expression
+/// [ARC]   bridged-cast-expression
+/// [ARC] bridged-cast-expression:
+///         (__bridge type-name) cast-expression
+///         (__bridge_transfer type-name) cast-expression
+///         (__bridge_retained type-name) cast-expression
+///       fold-expression: [C++1z]
+///         '(' cast-expression fold-operator '...' ')'
+///         '(' '...' fold-operator cast-expression ')'
+///         '(' cast-expression fold-operator '...'
+///                 fold-operator cast-expression ')'
+/// [OPENMP] Array shaping operation
+///       '(' '[' expression ']' { '[' expression ']' } cast-expression
+/// \endverbatim
+ExprResult Parser::ParseParenExpression(ParenParseOption &ExprType,
+                                        bool StopIfCastExpr,
+                                        ParenExprKind ParenBehavior,
+                                        TypoCorrectionTypeBehavior
+                                            CorrectionBehavior,
+                                        ParsedType &CastTy,
+                                        SourceLocation &RParenLoc) {
+  assert(Tok.is(tok::l_paren) && "Not a paren expr!");
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  if (T.consumeOpen())
+    return ExprError();
+
+  bool Fallback = false;
+  ExprResult Result = ParseExpressionWithLeadingParen(
+      ExprType, StopIfCastExpr, ParenBehavior, CorrectionBehavior, CastTy,
+      RParenLoc, T, Fallback);
+  if (!Fallback) {
+    return Result;
+  }
+
+  InMessageExpressionRAIIObject InMessage(*this, false);
+  Result = ParseExpression(TypoCorrectionTypeBehavior::AllowBoth);
+
+  if (ExprType >= ParenParseOption::FoldExpr && isFoldOperator(Tok) &&
+      NextToken().is(tok::ellipsis)) {
+    ExprType = ParenParseOption::FoldExpr;
+    return ParseFoldExpression(Result, T);
+  }
+  ExprType = ParenParseOption::SimpleExpr;
+
+  // Don't build a paren expression unless we actually match a ')'.
+  if (!Result.isInvalid() && Tok.is(tok::r_paren))
+    Result = Actions.ActOnParenExpr(T.getOpenLocation(), Tok.getLocation(),
+                                    Result.get());
+
+  // Match the ')'.
+  if (Result.isInvalid()) {
+    SkipUntil(tok::r_paren, StopAtSemi);
+    return ExprError();
+  }
+
+  T.consumeClose();
+  RParenLoc = T.getCloseLocation();
+  return Result;
+}
+
+/// ParseCompoundLiteralExpression - We have parsed the parenthesized type-name
+/// and we are at the left brace.
+///
+/// \verbatim
+///       postfix-expression: [C99 6.5.2]
+///         '(' type-name ')' '{' initializer-list '}'
+///         '(' type-name ')' '{' initializer-list ',' '}'
+/// \endverbatim
 ExprResult
 Parser::ParseCompoundLiteralExpression(ParsedType Ty,
                                        SourceLocation LParenLoc,
@@ -3375,7 +3496,7 @@ ExprResult Parser::ParseFoldExpression(ExprResult LHS,
   SourceLocation FirstOpLoc;
   if (LHS.isUsable()) {
     Kind = Tok.getKind();
-    assert(isFoldOperator(Kind) && "missing fold-operator");
+    assert(isFoldOperator(Tok) && "missing fold-operator");
     FirstOpLoc = ConsumeToken();
   }
 
@@ -3384,7 +3505,7 @@ ExprResult Parser::ParseFoldExpression(ExprResult LHS,
 
   ExprResult RHS;
   if (Tok.isNot(tok::r_paren)) {
-    if (!isFoldOperator(Tok.getKind()))
+    if (!isFoldOperator(Tok))
       return Diag(Tok.getLocation(), diag::err_expected_fold_operator);
 
     if (Kind != tok::unknown && Tok.getKind() != Kind)
@@ -3437,14 +3558,21 @@ void Parser::injectEmbedTokens() {
 
 bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
                                  llvm::function_ref<void()> ExpressionStarts,
-                                 bool FailImmediatelyOnInvalidExpr) {
+                                 bool FailImmediatelyOnInvalidExpr,
+                                 bool AllowBracedInitList) {
   bool SawError = false;
   while (true) {
     if (ExpressionStarts)
       ExpressionStarts();
 
     ExprResult Expr;
-    if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
+    if (!AllowBracedInitList && Tok.is(tok::l_brace)) {
+      Diag(Tok, diag::err_expected_expression);
+      BalancedDelimiterTracker Braces(*this, tok::l_brace);
+      Braces.consumeOpen();
+      Braces.skipToEnd();
+      Expr = ExprError();
+    } else if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
       Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
       Expr = ParseBraceInitializer();
     } else

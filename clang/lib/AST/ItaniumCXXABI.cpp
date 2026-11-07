@@ -24,7 +24,9 @@
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/TargetInfo.h"
-#include "llvm/ADT/iterator.h"
+#include "llvm/ADT/SmallVector.h"
+#include <functional>
+#include <map>
 #include <optional>
 
 using namespace clang;
@@ -51,73 +53,20 @@ static const IdentifierInfo *findAnonymousUnionVarDeclName(const VarDecl& VD) {
   return nullptr;
 }
 
-/// The name of a decomposition declaration.
+/// The name of a decomposition declaration: the identifiers of its named leaf
+/// bindings, in source order (nested decompositions are flattened).
 struct DecompositionDeclName {
-  using BindingArray = ArrayRef<const BindingDecl*>;
+  SmallVector<const IdentifierInfo *, 4> Bindings;
 
-  /// Representative example of a set of bindings with these names.
-  BindingArray Bindings;
-
-  /// Iterators over the sequence of identifiers in the name.
-  struct Iterator
-      : llvm::iterator_adaptor_base<Iterator, BindingArray::const_iterator,
-                                    std::random_access_iterator_tag,
-                                    const IdentifierInfo *> {
-    Iterator(BindingArray::const_iterator It) : iterator_adaptor_base(It) {}
-    const IdentifierInfo *operator*() const {
-      return (*this->I)->getIdentifier();
-    }
-  };
-  Iterator begin() const { return Iterator(Bindings.begin()); }
-  Iterator end() const { return Iterator(Bindings.end()); }
-};
-}
-
-namespace llvm {
-template <typename T> static bool isDenseMapKeyEmpty(T V) {
-  return llvm::DenseMapInfo<T>::isEqual(
-      V, llvm::DenseMapInfo<T>::getEmptyKey());
-}
-template <typename T> static bool isDenseMapKeyTombstone(T V) {
-  return llvm::DenseMapInfo<T>::isEqual(
-      V, llvm::DenseMapInfo<T>::getTombstoneKey());
-}
-
-template <typename T>
-static std::optional<bool> areDenseMapKeysEqualSpecialValues(T LHS, T RHS) {
-  bool LHSEmpty = isDenseMapKeyEmpty(LHS);
-  bool RHSEmpty = isDenseMapKeyEmpty(RHS);
-  if (LHSEmpty || RHSEmpty)
-    return LHSEmpty && RHSEmpty;
-
-  bool LHSTombstone = isDenseMapKeyTombstone(LHS);
-  bool RHSTombstone = isDenseMapKeyTombstone(RHS);
-  if (LHSTombstone || RHSTombstone)
-    return LHSTombstone && RHSTombstone;
-
-  return std::nullopt;
-}
-
-template<>
-struct DenseMapInfo<DecompositionDeclName> {
-  using ArrayInfo = llvm::DenseMapInfo<ArrayRef<const BindingDecl*>>;
-  static DecompositionDeclName getEmptyKey() {
-    return {ArrayInfo::getEmptyKey()};
+  explicit DecompositionDeclName(const DecompositionDecl *DD) {
+    for (const BindingDecl *Binding : DD->source_leaf_bindings())
+      Bindings.push_back(Binding->getIdentifier());
   }
-  static DecompositionDeclName getTombstoneKey() {
-    return {ArrayInfo::getTombstoneKey()};
-  }
-  static unsigned getHashValue(DecompositionDeclName Key) {
-    assert(!isEqual(Key, getEmptyKey()) && !isEqual(Key, getTombstoneKey()));
-    return llvm::hash_combine_range(Key);
-  }
-  static bool isEqual(DecompositionDeclName LHS, DecompositionDeclName RHS) {
-    if (std::optional<bool> Result =
-            areDenseMapKeysEqualSpecialValues(LHS.Bindings, RHS.Bindings))
-      return *Result;
 
-    return LHS.Bindings.size() == RHS.Bindings.size() &&
-           std::equal(LHS.begin(), LHS.end(), RHS.begin());
+  bool operator<(const DecompositionDeclName &Other) const {
+    return std::lexicographical_compare(
+        Bindings.begin(), Bindings.end(), Other.Bindings.begin(),
+        Other.Bindings.end(), std::less<const IdentifierInfo *>());
   }
 };
 }
@@ -132,8 +81,7 @@ class ItaniumNumberingContext : public MangleNumberingContext {
   unsigned BlockManglingNumber = 0;
   llvm::DenseMap<const IdentifierInfo *, unsigned> VarManglingNumbers;
   llvm::DenseMap<const IdentifierInfo *, unsigned> TagManglingNumbers;
-  llvm::DenseMap<DecompositionDeclName, unsigned>
-      DecompsitionDeclManglingNumbers;
+  std::map<DecompositionDeclName, unsigned> DecompsitionDeclManglingNumbers;
 
 public:
   ItaniumNumberingContext(ItaniumMangleContext *Mangler) : Mangler(Mangler) {}
@@ -170,7 +118,7 @@ public:
   /// Variable decls are numbered by identifier.
   unsigned getManglingNumber(const VarDecl *VD, unsigned) override {
     if (auto *DD = dyn_cast<DecompositionDecl>(VD)) {
-      DecompositionDeclName Name{DD->bindings()};
+      DecompositionDeclName Name(DD);
       return ++DecompsitionDeclManglingNumbers[Name];
     }
 
@@ -185,8 +133,9 @@ public:
 
   unsigned getLastManglingNumber(const VarDecl *VD) const override {
     if (auto *DD = dyn_cast<DecompositionDecl>(VD)) {
-      DecompositionDeclName Name{DD->bindings()};
-      return DecompsitionDeclManglingNumbers.lookup(Name);
+      DecompositionDeclName Name(DD);
+      auto It = DecompsitionDeclManglingNumbers.find(Name);
+      return It == DecompsitionDeclManglingNumbers.end() ? 0 : It->second;
     }
 
     const IdentifierInfo *Identifier = VD->getIdentifier();

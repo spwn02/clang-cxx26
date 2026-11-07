@@ -795,11 +795,12 @@ namespace {
     llvm::PointerIntPair<APValue*, 2, ScopeKind> Value;
     APValue::LValueBase Base;
     QualType T;
+    uint64_t Sequence;
 
   public:
-    Cleanup(APValue *Val, APValue::LValueBase Base, QualType T,
-            ScopeKind Scope)
-        : Value(Val, Scope), Base(Base), T(T) {}
+    Cleanup(APValue *Val, APValue::LValueBase Base, QualType T, ScopeKind Scope,
+            uint64_t Sequence)
+        : Value(Val, Scope), Base(Base), T(T), Sequence(Sequence) {}
 
     /// Determine whether this cleanup should be performed at the end of the
     /// given kind of scope.
@@ -812,6 +813,7 @@ namespace {
     }
     APValue::LValueBase getBase() const { return Base; }
     const APValue *getValuePtr() const { return Value.getPointer(); }
+    uint64_t getSequence() const { return Sequence; }
     void setDestroyedAtEndOf(ScopeKind K) { Value.setInt(K); }
     bool endLifetime(EvalInfo &Info, bool RunDestructors) {
       if (RunDestructors) {
@@ -967,6 +969,7 @@ namespace {
     /// A stack of values whose lifetimes end at the end of some surrounding
     /// evaluation frame.
     llvm::SmallVector<Cleanup, 16> CleanupStack;
+    uint64_t NextCleanupSequence = 0;
 
     /// EvaluatingDecl - This is the declaration whose initializer is being
     /// evaluated, if any.
@@ -1057,14 +1060,14 @@ namespace {
     /// the statement-evaluation chain. Stored as unsigned since
     /// EvalStmtResult is declared later in this translation unit. 0
     /// (ESR_Failed) means "no pending flow".
-    unsigned PendingDoExprControlFlow = 0;
+    unsigned PendingExprControlFlow = 0;
 
     /// Value returned by an outer-scope `return` seen while evaluating a
     /// do-expression body. This is consumed when the pending control-flow is
     /// translated back to ESR_Returned. (Only used when the body evaluated
     /// without a function frame; otherwise `return` writes the function's
     /// result directly.)
-    std::optional<APValue> PendingDoExprReturnValue;
+    std::optional<APValue> PendingExprControlFlowValue;
 
     /// The do-expressions being evaluated, innermost last: where `do_return`
     /// puts its value, and the result object it constructs in place when the
@@ -1101,6 +1104,11 @@ namespace {
     /// expression evaluates to means the expansion must wait for
     /// instantiation.
     bool MacroArgsValueDependent = false;
+
+    /// Pattern matching introduces semantic declarations that are evaluated
+    /// as part of a match expression, even when constant expression checking
+    /// starts without a function call frame.
+    llvm::SmallPtrSet<const VarDecl *, 16> MatchExprLocalVarDecls;
 
     struct EvaluatingConstructorRAII {
       EvalInfo &EI;
@@ -1440,7 +1448,7 @@ namespace {
       // (otherwise constant) full-expression as having side effects, and stop
       // evaluating so the pending control flow is handled at the enclosing
       // statement boundary.
-      if (PendingDoExprControlFlow != 0)
+      if (PendingExprControlFlow != 0)
         return false;
       EvalStatus.HasSideEffects = true;
       return keepEvaluatingAfterSideEffect();
@@ -1500,10 +1508,10 @@ namespace {
     /// Foo() + 1       // use noteFailure
     [[nodiscard]] bool noteFailure() {
       // See noteSideEffect(): a subexpression abandoned because outer-scope
-      // control flow is escaping a do-expression is not a real failure with a
+      // control flow is escaping an expression is not a real failure with a
       // skipped side effect. Stop evaluating without marking side effects so
       // the pending control flow is handled at the enclosing statement.
-      if (PendingDoExprControlFlow != 0)
+      if (PendingExprControlFlow != 0)
         return false;
       // Failure when evaluating some expression often means there is some
       // subexpression whose evaluation was skipped. Therefore, (because we
@@ -1623,21 +1631,30 @@ namespace {
   template<ScopeKind Kind>
   class ScopeRAII {
     EvalInfo &Info;
-    unsigned OldStackSize;
+    uint64_t FirstCleanup;
+
   public:
     ScopeRAII(EvalInfo &Info)
-        : Info(Info), OldStackSize(Info.CleanupStack.size()) {
+        : Info(Info), FirstCleanup(Info.NextCleanupSequence) {
       // Push a new temporary version. This is needed to distinguish between
       // temporaries created in different iterations of a loop.
       Info.CurrentCall->pushTempVersion();
     }
     bool destroy(bool RunDestructors = true) {
-      bool OK = cleanup(Info, RunDestructors, OldStackSize);
-      OldStackSize = std::numeric_limits<unsigned>::max();
+      bool OK = cleanup(Info, RunDestructors, FirstCleanup);
+      FirstCleanup = std::numeric_limits<uint64_t>::max();
       return OK;
     }
+    void extendToFullExpression() {
+      static_assert(Kind == ScopeKind::Block);
+      // Transfer this scope's objects to the surrounding full-expression.
+      for (Cleanup &C : llvm::drop_begin(Info.CleanupStack,
+                                         getStartIndex(Info, FirstCleanup)))
+        C.setDestroyedAtEndOf(ScopeKind::FullExpression);
+      FirstCleanup = std::numeric_limits<uint64_t>::max();
+    }
     ~ScopeRAII() {
-      if (OldStackSize != std::numeric_limits<unsigned>::max())
+      if (FirstCleanup != std::numeric_limits<uint64_t>::max())
         // An exception unwinding through this scope (P3068R6) is a real
         // stack-unwind, unlike an ordinary hard-error abandonment of
         // evaluation, so scope destructors must still run in that case.
@@ -1647,10 +1664,21 @@ namespace {
       Info.CurrentCall->popTempVersion();
     }
   private:
+    static unsigned getStartIndex(EvalInfo &Info, uint64_t FirstCleanup) {
+      assert(FirstCleanup <= Info.NextCleanupSequence &&
+             "scope cleanup already completed");
+      // Full-expression cleanup can compact the stack while a surrounding
+      // pattern-condition scope still retains its bindings.
+      return llvm::partition_point(Info.CleanupStack,
+                                   [FirstCleanup](const Cleanup &C) {
+                                     return C.getSequence() < FirstCleanup;
+                                   }) -
+             Info.CleanupStack.begin();
+    }
+
     static bool cleanup(EvalInfo &Info, bool RunDestructors,
-                        unsigned OldStackSize) {
-      assert(OldStackSize <= Info.CleanupStack.size() &&
-             "running cleanups out of order?");
+                        uint64_t FirstCleanup) {
+      unsigned OldStackSize = getStartIndex(Info, FirstCleanup);
 
       // Run all cleanups for a block scope, and non-lifetime-extended cleanups
       // for a full-expression scope.
@@ -2205,6 +2233,28 @@ static bool EvaluateFixedPointOrInteger(const Expr *E, APFixedPoint &Result,
 static bool EvaluateFixedPoint(const Expr *E, APFixedPoint &Result,
                                EvalInfo &Info);
 
+struct MatchProjectionEvaluationCache {
+  llvm::SmallPtrSet<const MatchProjection *, 8> Conditions;
+  llvm::SmallPtrSet<const MatchProjection *, 8> Values;
+  llvm::SmallPtrSet<const VarDecl *, 16> Declarations;
+};
+
+static bool
+EvaluateMatchPattern(const MatchPattern *E,
+                     const MatchPatternInstantiation *Instantiation,
+                     bool &Result, EvalInfo &Info,
+                     MatchProjectionEvaluationCache *ProjectionCache = nullptr,
+                     std::optional<BlockScopeRAII> *DeclarationScope = nullptr);
+static bool EvaluatePatternDeclarations(
+    const MatchPattern *Pattern, const MatchPatternInstantiation *Instantiation,
+    EvalInfo &Info, MatchProjectionEvaluationCache &ProjectionCache);
+static bool EvaluateSharedDeclarationProjections(
+    const MatchPattern *Pattern, const MatchPatternInstantiation *Instantiation,
+    EvalInfo &Info, MatchProjectionEvaluationCache &ProjectionCache);
+static bool
+hasMatchPatternDeclarations(const MatchPattern *Pattern,
+                            const MatchPatternInstantiation *Instantiation);
+
 //===----------------------------------------------------------------------===//
 // Misc utilities
 //===----------------------------------------------------------------------===//
@@ -2262,7 +2312,8 @@ APValue &CallStackFrame::createLocal(APValue::LValueBase Base, const void *Key,
     if (T.isDestructedType())
       Info.noteSideEffect();
   } else {
-    Info.CleanupStack.push_back(Cleanup(&Result, Base, T, Scope));
+    Info.CleanupStack.emplace_back(&Result, Base, T, Scope,
+                                   Info.NextCleanupSequence++);
   }
   return Result;
 }
@@ -6483,8 +6534,9 @@ static bool EvaluateVarDecl(EvalInfo &Info, const VarDecl *VD) {
       (!VD->hasLocalStorage() && Info.EvaluatingSyntheticDoExprFrame &&
        Info.CurrentCall && !Info.CurrentCall->Callee &&
        isSyntheticDoExprDeclContext(VD->getDeclContext()));
+  bool TreatAsMatchExprLocal = Info.MatchExprLocalVarDecls.contains(VD);
   // We don't need to evaluate the initializer for a static local.
-  if (!VD->hasLocalStorage() && !TreatAsDoExprLocal)
+  if (!VD->hasLocalStorage() && !TreatAsDoExprLocal && !TreatAsMatchExprLocal)
     return true;
 
   LValue Result;
@@ -6551,9 +6603,12 @@ static bool EvaluateDecl(EvalInfo &Info, const Decl *D,
 static bool EvaluateDecompositionDeclInit(EvalInfo &Info,
                                           const DecompositionDecl *DD) {
   bool OK = true;
-  for (auto *BD : DD->flat_bindings())
-    if (auto *VD = BD->getHoldingVar())
+  for (auto *BD : DD->all_bindings())
+    if (auto *VD = BD->getHoldingVar()) {
+      if (Info.MatchExprLocalVarDecls.contains(DD))
+        Info.MatchExprLocalVarDecls.insert(VD);
       OK &= EvaluateDecl(Info, VD, /*EvaluateConditionDecl=*/true);
+    }
 
   return OK;
 }
@@ -6584,7 +6639,11 @@ static bool EvaluateCond(EvalInfo &Info, const VarDecl *CondDecl,
   FullExpressionRAII Scope(Info);
   if (CondDecl && !EvaluateDecl(Info, CondDecl))
     return false;
-  if (!EvaluateAsBooleanCondition(Cond, Result, Info))
+  const Expr *EvaluatedCond = Cond;
+  if (const auto *Constant = dyn_cast<ConstantExpr>(Cond->IgnoreParens());
+      Constant && MatchTestExpr::containsCaseCondition(Constant->getSubExpr()))
+    EvaluatedCond = Constant->getSubExpr();
+  if (!EvaluateAsBooleanCondition(EvaluatedCond, Result, Info))
     return false;
   if (!MaybeEvaluateDeferredVarDeclInit(Info, CondDecl))
     return false;
@@ -6619,22 +6678,23 @@ static EvalStmtResult EvaluateStmtImpl(StmtResult &Result, EvalInfo &Info,
                                        const Stmt *S,
                                        const SwitchCase *SC = nullptr);
 
-/// Evaluate a statement, then propagate any pending do-expression outer-flow
-/// (e.g. `break` inside a do-expression body) by translating the result to
-/// the stashed control-flow value. This wins over noteFailure-style recovery
-/// (which would otherwise swallow our break/continue and let execution
-/// fall through to the next statement using uninitialized state).
+/// Evaluate a statement, then propagate any pending control flow from a
+/// statement embedded in an expression by translating the result to the
+/// stashed control-flow value. This wins over noteFailure-style recovery,
+/// which would otherwise swallow break/continue and let execution fall
+/// through to the next statement using uninitialized state.
 static EvalStmtResult EvaluateStmt(StmtResult &Result, EvalInfo &Info,
                                    const Stmt *S,
                                    const SwitchCase *SC = nullptr) {
   EvalStmtResult ESR = EvaluateStmtImpl(Result, Info, S, SC);
-  if (Info.PendingDoExprControlFlow != 0) {
+  if (Info.PendingExprControlFlow != 0) {
     EvalStmtResult Pending =
-        static_cast<EvalStmtResult>(Info.PendingDoExprControlFlow);
-    Info.PendingDoExprControlFlow = 0;
-    if (Pending == ESR_Returned && Info.PendingDoExprReturnValue) {
-      Result.Value = std::move(*Info.PendingDoExprReturnValue);
-      Info.PendingDoExprReturnValue.reset();
+        static_cast<EvalStmtResult>(Info.PendingExprControlFlow);
+    Info.PendingExprControlFlow = 0;
+    if ((Pending == ESR_Returned || Pending == ESR_DoReturn) &&
+        Info.PendingExprControlFlowValue) {
+      Result.Value = std::move(*Info.PendingExprControlFlowValue);
+      Info.PendingExprControlFlowValue.reset();
     }
     return Pending;
   }
@@ -6689,6 +6749,180 @@ static EvalStmtResult EvaluateLoopBody(StmtResult &Result, EvalInfo &Info,
   if (ESR != ESR_Failed && ESR != ESR_CaseNotFound && !Scope.destroy())
     ESR = ESR_Failed;
 
+  return ESR;
+}
+
+/// Evaluate a case-condition chain and invoke \p OnSuccess while all pattern
+/// scopes selected along the chain are still active.
+static EvalStmtResult EvaluateCaseConditionChain(
+    EvalInfo &Info, const Expr *Condition,
+    llvm::function_ref<EvalStmtResult(const MatchTestInstantiation *)>
+        OnSuccess,
+    bool &Matched) {
+  Condition = MatchTestExpr::getConditionSubExpr(Condition);
+
+  if (const auto *And = dyn_cast<BinaryOperator>(Condition);
+      And && And->getOpcode() == BO_LAnd) {
+    bool LeftMatched = false;
+    EvalStmtResult ESR = EvaluateCaseConditionChain(
+        Info, And->getLHS(),
+        [&](const MatchTestInstantiation *LeftInstantiation) {
+          bool RightMatched = false;
+          EvalStmtResult RightESR = EvaluateCaseConditionChain(
+              Info, And->getRHS(),
+              [&](const MatchTestInstantiation *RightInstantiation) {
+                return OnSuccess(RightInstantiation ? RightInstantiation
+                                                    : LeftInstantiation);
+              },
+              RightMatched);
+          Matched = RightMatched;
+          return RightESR;
+        },
+        LeftMatched);
+    if (!LeftMatched)
+      Matched = false;
+    return ESR;
+  }
+
+  const auto *Match = dyn_cast<CaseConditionExpr>(Condition);
+  if (!Match) {
+    bool ConditionValue;
+    if (!EvaluateAsBooleanCondition(Condition, ConditionValue, Info))
+      return ESR_Failed;
+    Matched = ConditionValue;
+    return ConditionValue ? OnSuccess(nullptr) : ESR_Succeeded;
+  }
+
+  if (const VarDecl *HoldingVar = Match->getHoldingVar()) {
+    if (!EvaluateDecl(Info, HoldingVar))
+      return ESR_Failed;
+  } else if (Match->getSubject()->getType()->isVoidType() &&
+             !EvaluateIgnoredValue(Info, Match->getSubject())) {
+    return ESR_Failed;
+  }
+
+  MatchProjectionEvaluationCache ProjectionCache;
+  auto EvaluateCandidate =
+      [&](const MatchPattern *Pattern,
+          const MatchPatternInstantiation *PatternInstantiation,
+          const MatchGuard &Guard, const MatchTestInstantiation *Instantiation)
+      -> std::optional<EvalStmtResult> {
+    std::optional<BlockScopeRAII> CaseScope;
+    bool PatternMatched;
+    if (!EvaluateMatchPattern(Pattern, PatternInstantiation, PatternMatched,
+                              Info, &ProjectionCache, &CaseScope))
+      return ESR_Failed;
+    bool PatternSelected = PatternMatched;
+    if (PatternMatched &&
+        !EvaluateSharedDeclarationProjections(Pattern, PatternInstantiation,
+                                              Info, ProjectionCache))
+      return ESR_Failed;
+
+    if (PatternMatched && !CaseScope)
+      CaseScope.emplace(Info);
+    if (PatternMatched &&
+        !EvaluatePatternDeclarations(Pattern, PatternInstantiation, Info,
+                                     ProjectionCache))
+      return ESR_Failed;
+    if (PatternMatched && Guard.Init) {
+      APValue InitValue;
+      StmtResult InitResult = {InitValue, nullptr};
+      if (EvaluateStmt(InitResult, Info, Guard.Init) != ESR_Succeeded)
+        return ESR_Failed;
+    }
+    if (PatternMatched && Guard.Condition &&
+        !EvaluateCond(Info, Guard.ConditionVariable, Guard.Condition,
+                      PatternMatched))
+      return ESR_Failed;
+
+    EvalStmtResult ESR = ESR_Succeeded;
+    bool CandidateMatched = false;
+    if (PatternMatched && Instantiation && Instantiation->Condition) {
+      ESR = EvaluateCaseConditionChain(
+          Info, Instantiation->Condition,
+          [&](const MatchTestInstantiation *NestedInstantiation) {
+            return OnSuccess(NestedInstantiation ? NestedInstantiation
+                                                 : Instantiation);
+          },
+          CandidateMatched);
+    } else if (PatternMatched &&
+               !(Instantiation && Match->hasSemanticInstantiations() &&
+                 !Instantiation->Handler)) {
+      CandidateMatched = true;
+      ESR = OnSuccess(Instantiation);
+    }
+
+    if (ESR != ESR_Failed && CaseScope && !CaseScope->destroy())
+      ESR = ESR_Failed;
+    Matched = CandidateMatched;
+    if (ESR != ESR_Succeeded || CandidateMatched)
+      return ESR;
+    if (PatternSelected)
+      return ESR_Succeeded;
+    return std::nullopt;
+  };
+
+  if (!Match->getInstantiations().empty()) {
+    for (const MatchTestInstantiation &Instantiation :
+         Match->getInstantiations()) {
+      std::optional<EvalStmtResult> ESR = EvaluateCandidate(
+          Instantiation.Pattern, Instantiation.PatternInstantiation,
+          Instantiation.Guard, &Instantiation);
+      if (ESR)
+        return *ESR;
+    }
+  } else if (!Match->hasSemanticInstantiations()) {
+    std::optional<EvalStmtResult> ESR =
+        EvaluateCandidate(Match->getPattern(), Match->getPatternInstantiation(),
+                          Match->getGuard(), nullptr);
+    if (ESR)
+      return *ESR;
+  }
+
+  Matched = false;
+  return ESR_Succeeded;
+}
+
+/// Select and evaluate one semantic instantiation of a match-test condition.
+/// Pattern declarations remain alive through the selected controlled statement
+/// and, for a for-loop, its increment.
+static EvalStmtResult
+EvaluateMatchTestCondition(StmtResult &Result, EvalInfo &Info,
+                           const Expr *Condition, const Stmt *DefaultHandler,
+                           const Expr *DefaultIncrement, bool IsLoop,
+                           bool EvaluateIncrement, bool &Matched) {
+  FullExpressionRAII ConditionScope(Info);
+  bool ConditionScopeDestroyed = false;
+  EvalStmtResult ESR = EvaluateCaseConditionChain(
+      Info, Condition,
+      [&](const MatchTestInstantiation *Instantiation) {
+        Matched = true;
+        if (!ConditionScope.destroy())
+          return ESR_Failed;
+        ConditionScopeDestroyed = true;
+
+        const Stmt *Handler = Instantiation && Instantiation->Handler
+                                  ? Instantiation->Handler
+                                  : DefaultHandler;
+        const Expr *Increment = Instantiation && Instantiation->Increment
+                                    ? Instantiation->Increment
+                                    : DefaultIncrement;
+        assert(Handler && "matched condition requires a handler");
+        EvalStmtResult HandlerResult =
+            IsLoop ? EvaluateLoopBody(Result, Info, Handler)
+                   : EvaluateStmt(Result, Info, Handler);
+        if (EvaluateIncrement &&
+            (HandlerResult == ESR_Succeeded || HandlerResult == ESR_Continue) &&
+            Increment) {
+          FullExpressionRAII IncScope(Info);
+          if (!EvaluateIgnoredValue(Info, Increment) || !IncScope.destroy())
+            HandlerResult = ESR_Failed;
+        }
+        return HandlerResult;
+      },
+      Matched);
+  if (!ConditionScopeDestroyed && !ConditionScope.destroy())
+    return ESR_Failed;
   return ESR;
 }
 
@@ -7065,6 +7299,30 @@ static EvalStmtResult EvaluateStmtImpl(StmtResult &Result, EvalInfo &Info,
         return ESR;
       }
     }
+    if (const auto *Match = MatchTestExpr::findInCondition(IS->getCond());
+        MatchTestExpr::containsCaseCondition(IS->getCond()) ||
+        (Match && Match->hasConditionInstantiations())) {
+      bool Matched;
+      EvalStmtResult ESR = EvaluateMatchTestCondition(
+          Result, Info, IS->getCond(), IS->getThen(),
+          /*DefaultIncrement=*/nullptr, /*IsLoop=*/false,
+          /*EvaluateIncrement=*/false, Matched);
+      if (ESR != ESR_Succeeded) {
+        if (ESR != ESR_Failed && !Scope.destroy())
+          return ESR_Failed;
+        return ESR;
+      }
+      if (!Matched && IS->getElse()) {
+        ESR = EvaluateStmt(Result, Info, IS->getElse());
+        if (ESR != ESR_Succeeded) {
+          if (ESR != ESR_Failed && !Scope.destroy())
+            return ESR_Failed;
+          return ESR;
+        }
+      }
+      return Scope.destroy() ? ESR_Succeeded : ESR_Failed;
+    }
+
     bool Cond;
     if (IS->isConsteval()) {
       Cond = IS->isNonNegatedConsteval();
@@ -7099,6 +7357,31 @@ static EvalStmtResult EvaluateStmtImpl(StmtResult &Result, EvalInfo &Info,
     const WhileStmt *WS = cast<WhileStmt>(S);
     while (true) {
       BlockScopeRAII Scope(Info);
+      if (const auto *Match = MatchTestExpr::findInCondition(WS->getCond());
+          MatchTestExpr::containsCaseCondition(WS->getCond()) ||
+          (Match && Match->hasConditionInstantiations())) {
+        bool Matched;
+        EvalStmtResult ESR = EvaluateMatchTestCondition(
+            Result, Info, WS->getCond(), WS->getBody(),
+            /*DefaultIncrement=*/nullptr, /*IsLoop=*/true,
+            /*EvaluateIncrement=*/false, Matched);
+        if (!Matched) {
+          if (!Scope.destroy())
+            return ESR_Failed;
+          break;
+        }
+        if (ShouldPropagateBreakContinue(Info, WS, &Scope, ESR))
+          return ESR;
+        if (ESR != ESR_Continue) {
+          if (ESR != ESR_Failed && !Scope.destroy())
+            return ESR_Failed;
+          return ESR;
+        }
+        if (!Scope.destroy())
+          return ESR_Failed;
+        continue;
+      }
+
       bool Continue;
       if (!EvaluateCond(Info, WS->getConditionVariable(), WS->getCond(),
                         Continue))
@@ -7158,6 +7441,32 @@ static EvalStmtResult EvaluateStmtImpl(StmtResult &Result, EvalInfo &Info,
     }
     while (true) {
       BlockScopeRAII IterScope(Info);
+      if (const auto *Match = MatchTestExpr::findInCondition(FS->getCond());
+          MatchTestExpr::containsCaseCondition(FS->getCond()) ||
+          (Match && Match->hasConditionInstantiations())) {
+        bool Matched;
+        EvalStmtResult ESR = EvaluateMatchTestCondition(
+            Result, Info, FS->getCond(), FS->getBody(), FS->getInc(),
+            /*IsLoop=*/true, /*EvaluateIncrement=*/true, Matched);
+        if (!Matched) {
+          if (!IterScope.destroy())
+            return ESR_Failed;
+          break;
+        }
+        if (ShouldPropagateBreakContinue(Info, FS, {&IterScope, &ForScope},
+                                         ESR))
+          return ESR;
+        if (ESR != ESR_Continue) {
+          if (ESR != ESR_Failed &&
+              (!IterScope.destroy() || !ForScope.destroy()))
+            return ESR_Failed;
+          return ESR;
+        }
+        if (!IterScope.destroy())
+          return ESR_Failed;
+        continue;
+      }
+
       bool Continue = true;
       if (FS->getCond() && !EvaluateCond(Info, FS->getConditionVariable(),
                                          FS->getCond(), Continue))
@@ -10171,7 +10480,7 @@ public:
       // If outer-scope control flow (`break`/`continue`/`return`) escaped a
       // do-expression in the discarded left operand, abandon the comma without
       // evaluating the right operand, exactly as at runtime.
-      if (Info.PendingDoExprControlFlow != 0)
+      if (Info.PendingExprControlFlow != 0)
         return false;
       return StmtVisitorTy::Visit(E->getRHS());
 
@@ -11032,9 +11341,9 @@ public:
       // EvalStmtResult.
       if (!Scope.destroy())
         return false;
-      Info.PendingDoExprControlFlow = static_cast<unsigned>(ESR);
+      Info.PendingExprControlFlow = static_cast<unsigned>(ESR);
       if (ESR == ESR_Returned && &Body.Value == &Scratch && Scratch.hasValue())
-        Info.PendingDoExprReturnValue = std::move(Scratch);
+        Info.PendingExprControlFlowValue = std::move(Scratch);
       return false;
     }
     if (ESR == ESR_Succeeded && E->getType()->isVoidType()) {
@@ -11050,6 +11359,97 @@ public:
 
   bool VisitPackIndexingExpr(const PackIndexingExpr *E) {
     return StmtVisitorTy::Visit(E->getSelectedExpr());
+  }
+
+  bool VisitMatchSelectExpr(const MatchSelectExpr *E) {
+    BlockScopeRAII MatchScope(Info);
+    if (const Stmt *Init = E->getInitStmt()) {
+      APValue InitValue;
+      StmtResult InitResult = {InitValue, nullptr};
+      if (EvaluateStmt(InitResult, Info, Init) != ESR_Succeeded)
+        return false;
+    }
+    if (E->getHoldingVar() && !EvaluateDecl(Info, E->getHoldingVar()))
+      return false;
+    if (!E->getHoldingVar() && E->getSubject()->getType()->isVoidType() &&
+        !EvaluateIgnoredValue(Info, E->getSubject()))
+      return false;
+
+    MatchProjectionEvaluationCache ProjectionCache;
+
+    bool Result;
+    std::optional<unsigned> RejectedCase;
+    for (const MatchCaseInstantiation &Case : E->getCaseInstantiations()) {
+      if (RejectedCase && *RejectedCase == Case.CaseIndex)
+        continue;
+      std::optional<BlockScopeRAII> Scope;
+      if (!EvaluateMatchPattern(Case.Pattern, Case.PatternInstantiation, Result,
+                                Info, &ProjectionCache, &Scope))
+        return false;
+      bool PatternSelected = Result;
+      if (Result &&
+          !EvaluateSharedDeclarationProjections(
+              Case.Pattern, Case.PatternInstantiation, Info, ProjectionCache))
+        return false;
+      if (Result && !Scope)
+        Scope.emplace(Info);
+      if (Result &&
+          !EvaluatePatternDeclarations(Case.Pattern, Case.PatternInstantiation,
+                                       Info, ProjectionCache))
+        return false;
+      if (Result && Case.Guard.Init) {
+        APValue InitValue;
+        StmtResult InitResult = {InitValue, nullptr};
+        if (EvaluateStmt(InitResult, Info, Case.Guard.Init) != ESR_Succeeded)
+          return false;
+      }
+      if (Result && Case.Guard.Condition) {
+        if (!EvaluateCond(Info, Case.Guard.ConditionVariable,
+                          Case.Guard.Condition, Result))
+          return false;
+      }
+      if (Result) {
+        if (const auto *HandlerExpr = dyn_cast<Expr>(Case.Handler);
+            HandlerExpr && !E->isStatement() && !Case.isNonReturning()) {
+          if (!this->Visit(HandlerExpr))
+            return false;
+        } else {
+          APValue HandlerValue;
+          StmtResult HandlerResult = {HandlerValue, nullptr};
+          EvalStmtResult ESR = EvaluateStmt(HandlerResult, Info, Case.Handler);
+          if (ESR == ESR_Failed)
+            return false;
+          if (ESR == ESR_Succeeded && Case.isNonReturning()) {
+            Info.CCEDiag(
+                Case.NotReturnLoc,
+                diag::note_constexpr_nonreturning_match_handler_returned);
+            return false;
+          }
+          if (ESR != ESR_Succeeded) {
+            if ((Scope && !Scope->destroy()) || !MatchScope.destroy())
+              return false;
+            Info.PendingExprControlFlow = static_cast<unsigned>(ESR);
+            if ((ESR == ESR_Returned || ESR == ESR_DoReturn) &&
+                HandlerValue.hasValue())
+              Info.PendingExprControlFlowValue = std::move(HandlerValue);
+            return false;
+          }
+        }
+        if (Scope && !Scope->destroy())
+          return false;
+        MatchScope.extendToFullExpression();
+        return true;
+      }
+      if (Scope && !Scope->destroy())
+        return false;
+      if (PatternSelected)
+        RejectedCase = Case.CaseIndex;
+    }
+    if (E->getType()->isVoidType()) {
+      MatchScope.extendToFullExpression();
+      return true;
+    }
+    return Error(E);
   }
 
   /// Visit a value which is evaluated, but whose value is ignored. Returns
@@ -12009,7 +12409,8 @@ bool LValueExprEvaluator::VisitVarDecl(const Expr *E, const VarDecl *VD) {
       (VD->hasLocalStorage() && Info.EvaluatingSyntheticDoExprFrame &&
        Info.CurrentCall && !Info.CurrentCall->Callee &&
        isSyntheticDoExprDeclContext(VD->getDeclContext()));
-  if (VD->hasLocalStorage() || IsDoExprLocal) {
+  bool IsMatchExprLocal = Info.MatchExprLocalVarDecls.contains(VD);
+  if (VD->hasLocalStorage() || IsDoExprLocal || IsMatchExprLocal) {
     // Only if a local variable was declared in the function currently being
     // evaluated, do we expect to be able to find its value in the current
     // frame. (Otherwise it was likely declared in an enclosing context and
@@ -12018,7 +12419,7 @@ bool LValueExprEvaluator::VisitVarDecl(const Expr *E, const VarDecl *VD) {
     // diagnostic)).
     CallStackFrame *CurrFrame = Info.CurrentCall;
     const DeclContext *VarCtx = skipExpansionStmts(VD->getDeclContext());
-    if (IsDoExprLocal) {
+    if (IsDoExprLocal || IsMatchExprLocal) {
       // Usually the current frame, but not always: an init-hoist declaration
       // (`do [k = 5] { ... }`) outlives the body, so its storage is created in
       // the frame that encloses the body rather than in the body's own. Walk
@@ -18265,6 +18666,8 @@ public:
   bool VisitConceptSpecializationExpr(const ConceptSpecializationExpr *E);
   bool VisitRequiresExpr(const RequiresExpr *E);
   // FIXME: Missing: array subscript of vector, member of vector
+
+  bool VisitMatchTestExpr(const MatchTestExpr *E);
 };
 
 class FixedPointExprEvaluator
@@ -21521,6 +21924,16 @@ bool IntExprEvaluator::VisitBinaryOperator(const BinaryOperator *E) {
       return false;
   }
 
+  // A pattern-first condition can introduce declarations used by later
+  // operands. When a condition is checked outside an evaluated function call,
+  // keep one synthetic frame alive for the entire short-circuit chain rather
+  // than creating and destroying one for each CaseConditionExpr.
+  std::optional<CallStackFrame> CaseConditionFrame;
+  if (MatchTestExpr::containsCaseCondition(E) &&
+      Info.CurrentCall == &Info.BottomFrame)
+    CaseConditionFrame.emplace(Info, E->getSourceRange(), /*Callee=*/nullptr,
+                               /*This=*/nullptr, /*CallExpr=*/E, CallRef());
+
   if (DataRecursiveIntBinOpEvaluator::shouldEnqueue(E))
     return DataRecursiveIntBinOpEvaluator(*this, Result).Traverse(E);
 
@@ -22186,6 +22599,381 @@ bool IntExprEvaluator::VisitConceptSpecializationExpr(
 
 bool IntExprEvaluator::VisitRequiresExpr(const RequiresExpr *E) {
   return Success(E->isSatisfied(), E);
+}
+
+static bool
+EvaluateProjectionCondition(const MatchProjection *Projection, EvalInfo &Info,
+                            MatchProjectionEvaluationCache *ProjectionCache) {
+  if (!Projection)
+    return false;
+  if (ProjectionCache && !ProjectionCache->Conditions.insert(Projection).second)
+    return true;
+  auto EvaluateOnce = [&](const VarDecl *D) {
+    if (D)
+      Info.MatchExprLocalVarDecls.insert(D);
+    return !D ||
+           (ProjectionCache &&
+            !ProjectionCache->Declarations.insert(D).second) ||
+           EvaluateDecl(Info, D);
+  };
+  if (!EvaluateOnce(Projection->getHoldingVar()) ||
+      !EvaluateOnce(Projection->getIntermediateVar()) ||
+      !EvaluateOnce(Projection->getConditionVar()))
+    return false;
+  return true;
+}
+
+static bool
+EvaluateProjectionValue(const MatchProjection *Projection, EvalInfo &Info,
+                        MatchProjectionEvaluationCache *ProjectionCache) {
+  if (ProjectionCache && !ProjectionCache->Values.insert(Projection).second)
+    return true;
+  if (const VarDecl *D = Projection->getProjectedVar();
+      D &&
+      (!ProjectionCache || ProjectionCache->Declarations.insert(D).second)) {
+    Info.MatchExprLocalVarDecls.insert(D);
+    if (!EvaluateDecl(Info, D))
+      return false;
+  }
+  if (!Projection->getProjectedVar() && Projection->getProjectedExpr() &&
+      Projection->getProjectedExpr()->getType()->isVoidType() &&
+      !EvaluateIgnoredValue(Info, Projection->getProjectedExpr()))
+    return false;
+  if (const DecompositionDecl *D = Projection->getDecomposedDecl(); D) {
+    Info.MatchExprLocalVarDecls.insert(D);
+    if (!EvaluateDecl(Info, D, /*EvaluateConditionDecl=*/true))
+      return false;
+  }
+  return true;
+}
+
+static bool
+EvaluateMatchPattern(const MatchPattern *Pattern,
+                     const MatchPatternInstantiation *Instantiation,
+                     bool &Result, EvalInfo &Info,
+                     MatchProjectionEvaluationCache *ProjectionCache,
+                     std::optional<BlockScopeRAII> *DeclarationScope) {
+  switch (Pattern->getMatchPatternClass()) {
+  case MatchPattern::WildcardPatternClass:
+    return Result = true;
+  case MatchPattern::DeclarationPatternClass: {
+    const auto *P = static_cast<const DeclarationPattern *>(Pattern);
+    const MatchPatternInfo *PatternInfo = Instantiation->find(P);
+    const MatchProjection *Projection =
+        PatternInfo ? PatternInfo->Projection : nullptr;
+    if (!Projection || Projection->getKind() != MatchProjection::CastProjection)
+      return Result = true;
+    return EvaluateProjectionCondition(Projection, Info, ProjectionCache) &&
+           EvaluateAsBooleanCondition(Projection->getConditionExpr(), Result,
+                                      Info);
+  }
+  case MatchPattern::TypePatternClass: {
+    const auto *P = static_cast<const TypePattern *>(Pattern);
+    const MatchPatternInfo *PatternInfo = Instantiation->find(P);
+    assert(PatternInfo && "expected type pattern state");
+    if (const MatchProjection *Projection = PatternInfo->Projection)
+      return EvaluateProjectionCondition(Projection, Info, ProjectionCache) &&
+             EvaluateAsBooleanCondition(Projection->getConditionExpr(), Result,
+                                        Info);
+    Result = PatternInfo->TypePatternMatches;
+    return true;
+  }
+  case MatchPattern::ExpressionPatternClass: {
+    const auto *P = static_cast<const ExpressionPattern *>(Pattern);
+    const MatchPatternInfo *PatternInfo = Instantiation->find(P);
+    assert(PatternInfo && PatternInfo->Condition &&
+           "expected expression pattern state");
+    return (!PatternInfo->Projection ||
+            EvaluateProjectionCondition(PatternInfo->Projection, Info,
+                                        ProjectionCache)) &&
+           EvaluateAsBooleanCondition(PatternInfo->Condition, Result, Info);
+  }
+  case MatchPattern::ParenPatternClass: {
+    const auto *P = static_cast<const ParenPattern *>(Pattern);
+    return EvaluateMatchPattern(P->getSubPattern(), Instantiation, Result, Info,
+                                ProjectionCache, DeclarationScope);
+  }
+  case MatchPattern::AndPatternClass: {
+    const auto *P = static_cast<const AndPattern *>(Pattern);
+    assert(ProjectionCache && "and-pattern evaluation requires a cache");
+    Result = true;
+    for (auto [I, Conjunct] : llvm::enumerate(P->conjuncts())) {
+      if (!EvaluateMatchPattern(Conjunct, Instantiation, Result, Info,
+                                ProjectionCache, DeclarationScope))
+        return false;
+      if (!Result)
+        return true;
+      if (I + 1 != P->conjuncts().size()) {
+        if (DeclarationScope && !DeclarationScope->has_value() &&
+            hasMatchPatternDeclarations(Conjunct, Instantiation))
+          DeclarationScope->emplace(Info);
+        if (!EvaluateSharedDeclarationProjections(Conjunct, Instantiation, Info,
+                                                  *ProjectionCache) ||
+            !EvaluatePatternDeclarations(Conjunct, Instantiation, Info,
+                                         *ProjectionCache))
+          return false;
+      }
+    }
+    return true;
+  }
+  case MatchPattern::OrPatternClass: {
+    const auto *P = static_cast<const OrPattern *>(Pattern);
+    Result = false;
+    for (auto [I, Alternative] : llvm::enumerate(P->alternatives())) {
+      if (!Instantiation->isViableOrAlternative(P, I))
+        continue;
+      if (!EvaluateMatchPattern(Alternative, Instantiation, Result, Info,
+                                ProjectionCache, DeclarationScope))
+        return false;
+      if (Result)
+        return true;
+    }
+    return true;
+  }
+  case MatchPattern::AlternativePatternClass: {
+    const auto *P = static_cast<const AlternativePattern *>(Pattern);
+    const MatchPatternInfo *PatternInfo = Instantiation->find(P);
+    if (!PatternInfo || !PatternInfo->Projection)
+      return false;
+    return EvaluateProjectionCondition(PatternInfo->Projection, Info,
+                                       ProjectionCache) &&
+           EvaluateAsBooleanCondition(
+               PatternInfo->Projection->getConditionExpr(), Result, Info) &&
+           (!Result ||
+            (EvaluateProjectionValue(PatternInfo->Projection, Info,
+                                     ProjectionCache) &&
+             ([&] {
+               if (const TypePattern *Selector = P->getTypeSelector()) {
+                 const MatchPatternInfo *SelectorInfo =
+                     Instantiation->find(Selector);
+                 if (SelectorInfo && SelectorInfo->Projection) {
+                   if (!EvaluateMatchPattern(Selector, Instantiation, Result,
+                                             Info, ProjectionCache,
+                                             DeclarationScope))
+                     return false;
+                   if (!Result)
+                     return true;
+                   if (!EvaluateProjectionValue(SelectorInfo->Projection, Info,
+                                                ProjectionCache))
+                     return false;
+                 }
+               }
+               return !P->getSubPattern() ||
+                      EvaluateMatchPattern(P->getSubPattern(), Instantiation,
+                                           Result, Info, ProjectionCache,
+                                           DeclarationScope);
+             })()));
+  }
+  case MatchPattern::DecompositionPatternClass: {
+    const auto *P = static_cast<const DecompositionPattern *>(Pattern);
+    const MatchPatternInfo *PatternInfo = Instantiation->find(P);
+    assert(PatternInfo && PatternInfo->Projection &&
+           "expected decomposition pattern state");
+    if (!EvaluateProjectionValue(PatternInfo->Projection, Info,
+                                 ProjectionCache))
+      return false;
+    Result = true;
+    for (const MatchPattern *C : Instantiation->getDecompositionPatterns(P)) {
+      if (!EvaluateMatchPattern(C, Instantiation, Result, Info, ProjectionCache,
+                                DeclarationScope)) {
+        return false;
+      }
+      if (!Result) {
+        break;
+      }
+    }
+    return true;
+  }
+  }
+  llvm_unreachable("unknown match pattern kind");
+}
+
+static bool
+hasMatchPatternDeclarations(const MatchPattern *Pattern,
+                            const MatchPatternInstantiation *Instantiation) {
+  if (isa<DeclarationPattern>(Pattern))
+    return true;
+  if (const auto *Or = dyn_cast<OrPattern>(Pattern))
+    return llvm::any_of(llvm::enumerate(Or->alternatives()),
+                        [&](auto IndexedAlternative) {
+                          return Instantiation->isViableOrAlternative(
+                                     Or, IndexedAlternative.index()) &&
+                                 hasMatchPatternDeclarations(
+                                     IndexedAlternative.value(), Instantiation);
+                        });
+  if (const auto *Decomposition = dyn_cast<DecompositionPattern>(Pattern))
+    return llvm::any_of(Instantiation->getDecompositionPatterns(Decomposition),
+                        [&](const MatchPattern *Child) {
+                          return hasMatchPatternDeclarations(Child,
+                                                             Instantiation);
+                        });
+  return llvm::any_of(Pattern->children(), [&](const MatchPattern *Child) {
+    return hasMatchPatternDeclarations(Child, Instantiation);
+  });
+}
+
+static bool EvaluatePatternDeclarations(
+    const MatchPattern *Pattern, const MatchPatternInstantiation *Instantiation,
+    EvalInfo &Info, MatchProjectionEvaluationCache &ProjectionCache) {
+  if (const auto *P = dyn_cast<DeclarationPattern>(Pattern)) {
+    const MatchPatternInfo *PatternInfo = Instantiation->find(P);
+    if (PatternInfo && PatternInfo->Projection &&
+        PatternInfo->Projection->getKind() ==
+            MatchProjection::DecompositionProjection) {
+      const auto *Declaration = cast<DecompositionDecl>(P->getDeclaration());
+      if (Declaration != PatternInfo->Projection->getDecomposedDecl())
+        for (BindingDecl *Binding : Declaration->bindings())
+          if (DecompositionDecl *Nested = Binding->getNestedDecomposition())
+            if (!EvaluateDecompositionDeclInit(Info, Nested))
+              return false;
+      return true;
+    }
+    const VarDecl *Declaration = P->getDeclaration();
+    if (!ProjectionCache.Declarations.insert(Declaration).second)
+      return true;
+    Info.MatchExprLocalVarDecls.insert(Declaration);
+    if (!EvaluateDecl(Info, Declaration))
+      return false;
+    if (const auto *Decomposition = dyn_cast<DecompositionDecl>(Declaration))
+      for (const BindingDecl *Binding : Decomposition->all_bindings())
+        if (const VarDecl *HoldingVar = Binding->getHoldingVar())
+          if (ProjectionCache.Declarations.insert(HoldingVar).second &&
+              !EvaluateDecl(Info, HoldingVar))
+            return false;
+    return true;
+  }
+  if (const auto *Or = dyn_cast<OrPattern>(Pattern)) {
+    for (auto [I, Alternative] : llvm::enumerate(Or->alternatives()))
+      if (Instantiation->isViableOrAlternative(Or, I) &&
+          !EvaluatePatternDeclarations(Alternative, Instantiation, Info,
+                                       ProjectionCache))
+        return false;
+    return true;
+  }
+  if (const auto *Decomposition = dyn_cast<DecompositionPattern>(Pattern)) {
+    for (const MatchPattern *Child :
+         Instantiation->getDecompositionPatterns(Decomposition))
+      if (!EvaluatePatternDeclarations(Child, Instantiation, Info,
+                                       ProjectionCache))
+        return false;
+  } else {
+    for (const MatchPattern *Child : Pattern->children())
+      if (!EvaluatePatternDeclarations(Child, Instantiation, Info,
+                                       ProjectionCache))
+        return false;
+  }
+  return true;
+}
+
+static bool EvaluateSharedDeclarationProjections(
+    const MatchPattern *Pattern, const MatchPatternInstantiation *Instantiation,
+    EvalInfo &Info, MatchProjectionEvaluationCache &ProjectionCache) {
+  if (const auto *P = dyn_cast<DeclarationPattern>(Pattern)) {
+    const MatchPatternInfo *PatternInfo = Instantiation->find(P);
+    const MatchProjection *Projection =
+        PatternInfo ? PatternInfo->Projection : nullptr;
+    return !Projection ||
+           EvaluateProjectionValue(Projection, Info, &ProjectionCache);
+  }
+  if (isa<TypePattern>(Pattern))
+    return true;
+  if (const auto *Or = dyn_cast<OrPattern>(Pattern)) {
+    for (auto [I, Alternative] : llvm::enumerate(Or->alternatives()))
+      if (Instantiation->isViableOrAlternative(Or, I) &&
+          !EvaluateSharedDeclarationProjections(Alternative, Instantiation,
+                                                Info, ProjectionCache))
+        return false;
+    return true;
+  }
+  if (const auto *Decomposition = dyn_cast<DecompositionPattern>(Pattern)) {
+    for (const MatchPattern *Child :
+         Instantiation->getDecompositionPatterns(Decomposition))
+      if (!EvaluateSharedDeclarationProjections(Child, Instantiation, Info,
+                                                ProjectionCache))
+        return false;
+  } else {
+    for (const MatchPattern *Child : Pattern->children())
+      if (!EvaluateSharedDeclarationProjections(Child, Instantiation, Info,
+                                                ProjectionCache))
+        return false;
+  }
+  return true;
+}
+
+bool IntExprEvaluator::VisitMatchTestExpr(const MatchTestExpr *E) {
+  // Keep full-expression objects in the enclosing frame, even at namespace
+  // scope, rather than in a frame that ends with the test.
+  BlockScopeRAII MatchScope(Info);
+  auto Finish = [&](bool Success) {
+    if (!Success)
+      return false;
+    MatchScope.extendToFullExpression();
+    return true;
+  };
+
+  ArrayRef<MatchTestInstantiation> Instantiations = E->getInstantiations();
+  bool HasNoCandidates =
+      E->hasSemanticInstantiations() && Instantiations.empty();
+  if (const VarDecl *VD = E->getHoldingVar()) {
+    Info.MatchExprLocalVarDecls.insert(VD);
+    if (!EvaluateDecl(Info, VD))
+      return false;
+  } else if ((HasNoCandidates || E->getSubject()->getType()->isVoidType()) &&
+             !EvaluateIgnoredValue(Info, E->getSubject())) {
+    return false;
+  }
+  if (HasNoCandidates)
+    return Finish(Success(false, E));
+
+  MatchTestInstantiation DirectInstantiation = E->getDirectInstantiation();
+  if (Instantiations.empty())
+    Instantiations = DirectInstantiation;
+
+  MatchProjectionEvaluationCache ProjectionCache;
+  for (const MatchTestInstantiation &Instantiation : Instantiations) {
+    std::optional<BlockScopeRAII> Scope;
+    bool Result;
+    if (!EvaluateMatchPattern(Instantiation.Pattern,
+                              Instantiation.PatternInstantiation, Result, Info,
+                              &ProjectionCache, &Scope))
+      return false;
+    bool PatternSelected = Result;
+    if (Result && !Scope)
+      Scope.emplace(Info);
+    if (Result && !EvaluateSharedDeclarationProjections(
+                      Instantiation.Pattern, Instantiation.PatternInstantiation,
+                      Info, ProjectionCache))
+      return false;
+    if (Result && !EvaluatePatternDeclarations(
+                      Instantiation.Pattern, Instantiation.PatternInstantiation,
+                      Info, ProjectionCache))
+      return false;
+    if (Result && Instantiation.Guard.Init) {
+      APValue InitValue;
+      StmtResult InitResult = {InitValue, nullptr};
+      if (EvaluateStmt(InitResult, Info, Instantiation.Guard.Init) !=
+          ESR_Succeeded)
+        return false;
+    }
+    if (Result && Instantiation.Guard.Condition &&
+        !EvaluateCond(Info, Instantiation.Guard.ConditionVariable,
+                      Instantiation.Guard.Condition, Result))
+      return false;
+    if (Result && Instantiation.Condition) {
+      bool ContinuationMatched;
+      if (!EvaluateAsBooleanCondition(Instantiation.Condition,
+                                      ContinuationMatched, Info))
+        return false;
+      Result = ContinuationMatched;
+    }
+    if (Scope && (Result || !isa<CaseConditionExpr>(E)))
+      Scope->extendToFullExpression();
+    else if (Scope && !Scope->destroy())
+      return false;
+    if (PatternSelected)
+      return Finish(Success(Result, E));
+  }
+  return Finish(Success(false, E));
 }
 
 bool FixedPointExprEvaluator::VisitUnaryOperator(const UnaryOperator *E) {
@@ -26554,6 +27342,9 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
   case Expr::CXXParenListInitExprClass:
   case Expr::HLSLOutArgExprClass:
   case Expr::CXXDependentMemberSpliceExprClass:
+  case Expr::MatchTestExprClass:
+  case Expr::CaseConditionExprClass:
+  case Expr::MatchSelectExprClass:
     return ICEDiag(IK_NotICE, E->getBeginLoc());
 
   case Expr::InitListExprClass: {

@@ -3773,7 +3773,9 @@ VarDecl *BindingDecl::getHoldingVar() const {
   if (!DRE)
     return nullptr;
 
-  auto *VD = cast<VarDecl>(DRE->getDecl());
+  auto *VD = dyn_cast<VarDecl>(DRE->getDecl());
+  if (!VD)
+    return nullptr;
   assert(VD->isImplicit() && "holding var for binding decl not implicit");
   return VD;
 }
@@ -3785,6 +3787,60 @@ ArrayRef<BindingDecl *> BindingDecl::getBindingPackDecls() const {
   assert((!First || isa<BindingDecl>(*First)) && "expecting a BindingDecl");
   return ArrayRef<BindingDecl *>(reinterpret_cast<BindingDecl *const *>(First),
                                  FP->getNumExpansions());
+}
+
+SmallVector<BindingDecl *, 8> DecompositionDecl::all_bindings() const {
+  SmallVector<BindingDecl *, 8> Result;
+  auto Collect = [&](auto &&Self, const DecompositionDecl *DD) -> void {
+    for (BindingDecl *Binding : DD->flat_bindings()) {
+      Result.push_back(Binding);
+      if (DecompositionDecl *Nested = Binding->getNestedDecomposition())
+        Self(Self, Nested);
+    }
+  };
+  Collect(Collect, this);
+  return Result;
+}
+
+SmallVector<BindingDecl *, 8> DecompositionDecl::leaf_bindings() const {
+  SmallVector<BindingDecl *, 8> Result;
+  auto Collect = [&](auto &&Self, const DecompositionDecl *DD) -> void {
+    for (BindingDecl *Binding : DD->flat_bindings()) {
+      if (DecompositionDecl *Nested = Binding->getNestedDecomposition())
+        Self(Self, Nested);
+      else
+        Result.push_back(Binding);
+    }
+  };
+  Collect(Collect, this);
+  return Result;
+}
+
+SmallVector<BindingDecl *, 8> DecompositionDecl::all_source_bindings() const {
+  SmallVector<BindingDecl *, 8> Result;
+  auto Collect = [&](auto &&Self, const DecompositionDecl *DD) -> void {
+    for (BindingDecl *Binding : DD->bindings()) {
+      Result.push_back(Binding);
+      if (DecompositionDecl *Nested = Binding->getNestedDecomposition())
+        Self(Self, Nested);
+    }
+  };
+  Collect(Collect, this);
+  return Result;
+}
+
+SmallVector<BindingDecl *, 8> DecompositionDecl::source_leaf_bindings() const {
+  SmallVector<BindingDecl *, 8> Result;
+  auto Collect = [&](auto &&Self, const DecompositionDecl *DD) -> void {
+    for (BindingDecl *Binding : DD->bindings()) {
+      if (DecompositionDecl *Nested = Binding->getNestedDecomposition())
+        Self(Self, Nested);
+      else if (Binding->getIdentifier())
+        Result.push_back(Binding);
+    }
+  };
+  Collect(Collect, this);
+  return Result;
 }
 
 void DecompositionDecl::anchor() {}
@@ -3821,7 +3877,12 @@ void DecompositionDecl::printName(llvm::raw_ostream &OS,
   for (const auto *B : bindings()) {
     if (Comma)
       OS << ", ";
-    B->printName(OS, Policy);
+    if (B->isParameterPack())
+      OS << "...";
+    if (const DecompositionDecl *Nested = B->getNestedDecomposition())
+      Nested->printName(OS, Policy);
+    else
+      B->printName(OS, Policy);
     Comma = true;
   }
   OS << ']';

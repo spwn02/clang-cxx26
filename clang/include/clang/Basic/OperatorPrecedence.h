@@ -14,7 +14,7 @@
 #ifndef LLVM_CLANG_BASIC_OPERATORPRECEDENCE_H
 #define LLVM_CLANG_BASIC_OPERATORPRECEDENCE_H
 
-#include "clang/Basic/TokenKinds.h"
+#include "clang/Lex/Token.h"
 
 namespace clang {
 
@@ -44,8 +44,8 @@ namespace prec {
 }
 
 /// Return the precedence of the specified binary operator token.
-prec::Level getBinOpPrecedence(tok::TokenKind Kind, bool GreaterThanIsOperator,
-                               bool CPlusPlus11);
+prec::Level getBinOpPrecedence(const Token &Tok, bool GreaterThanIsOperator,
+                               bool CPlusPlus11, bool PatternMatching);
 
 }  // end namespace clang
 

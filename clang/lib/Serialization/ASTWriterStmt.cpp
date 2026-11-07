@@ -2745,6 +2745,24 @@ void ASTStmtWriter::VisitOpaqueValueExpr(OpaqueValueExpr *E) {
 }
 
 //===----------------------------------------------------------------------===//
+// Pattern Matching
+//===----------------------------------------------------------------------===//
+
+void ASTStmtWriter::VisitMatchTestExpr(MatchTestExpr *E) {
+  VisitExpr(E);
+  Code = serialization::EXPR_MATCH_TEST;
+}
+
+void ASTStmtWriter::VisitCaseConditionExpr(CaseConditionExpr *E) {
+  VisitMatchTestExpr(E);
+}
+
+void ASTStmtWriter::VisitMatchSelectExpr(MatchSelectExpr *E) {
+  VisitExpr(E);
+  Code = serialization::EXPR_MATCH_SELECT;
+}
+
+//===----------------------------------------------------------------------===//
 // CUDA Expressions and Statements.
 //===----------------------------------------------------------------------===//
 

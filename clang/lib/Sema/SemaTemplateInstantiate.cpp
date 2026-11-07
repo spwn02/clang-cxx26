@@ -766,6 +766,7 @@ bool Sema::CodeSynthesisContext::isInstantiationRecord() const {
   case BuildingDeductionGuides:
   case TypeAliasTemplateInstantiation:
   case PartialOrderingTTP:
+  case PatternMatchingExpansion:
     return false;
 
   // This function should never be called when Kind's value is Memoization.
@@ -1445,6 +1446,8 @@ void Sema::PrintInstantiationStack(InstantiationContextDiagFuncRef DiagFunc) {
     case CodeSynthesisContext::ExpansionStmtInstantiation:
       Diags.Report(Active->PointOfInstantiation,
                    diag::note_expansion_stmt_instantiation_here);
+    case CodeSynthesisContext::PatternMatchingExpansion:
+      break;
     }
   }
 }
@@ -1699,6 +1702,14 @@ namespace {
       if (auto *DC = dyn_cast<DeclContext>(Old);
           DC && DC->isDependentContext() && DC->isFunctionOrMethod())
         SemaRef.PerformDependentDiagnostics(DC, TemplateArgs);
+    }
+
+    void remapTransformedLocalDecl(Decl *Old, Decl *New) {
+      SemaRef.CurrentInstantiationScope->ReInstantiatedLocal(Old, New);
+    }
+
+    void remapTransformedLocalDeclPack(Decl *Old, ArrayRef<ValueDecl *> New) {
+      SemaRef.CurrentInstantiationScope->ReInstantiatedLocalPack(Old, New);
     }
 
     /// Transform the definition of the given declaration by
@@ -4879,6 +4890,65 @@ Sema::SubstStmt(Stmt *S, const MultiLevelTemplateArgumentList &TemplateArgs) {
   return Instantiator.TransformStmt(S);
 }
 
+ExprResult Sema::ExpandDeferredMatchSelectExpr(MatchSelectExpr *E) {
+  CodeSynthesisContext Ctx;
+  Ctx.Kind = CodeSynthesisContext::PatternMatchingExpansion;
+  Ctx.PointOfInstantiation = E->getMatchLoc();
+  Ctx.Entity = cast<Decl>(CurContext);
+  ScopedCodeSynthesisContext SynthesisContext(*this, Ctx);
+  LocalInstantiationScope Scope(*this);
+  MultiLevelTemplateArgumentList TemplateArgs;
+  TemplateInstantiator Instantiator(*this, TemplateArgs, E->getMatchLoc(),
+                                    DeclarationName());
+  return Instantiator.TransformExpr(E);
+}
+
+ExprResult Sema::ExpandDeferredMatchTestExpr(MatchTestExpr *E) {
+  CodeSynthesisContext Ctx;
+  Ctx.Kind = CodeSynthesisContext::PatternMatchingExpansion;
+  Ctx.PointOfInstantiation = E->getMatchLoc();
+  Ctx.Entity = cast<Decl>(CurContext);
+  ScopedCodeSynthesisContext SynthesisContext(*this, Ctx);
+  LocalInstantiationScope Scope(*this);
+  MultiLevelTemplateArgumentList TemplateArgs;
+  TemplateInstantiator Instantiator(*this, TemplateArgs, E->getMatchLoc(),
+                                    DeclarationName());
+  return Instantiator.TransformExpr(E);
+}
+
+bool Sema::ExpandMatchCondition(ConditionResult &Condition, SourceLocation Loc,
+                                Stmt *&Handler, Expr *&Increment,
+                                ConditionKind Kind) {
+  assert(
+      (Kind == ConditionKind::Boolean || Kind == ConditionKind::ConstexprIf) &&
+      "unsupported case-condition kind");
+  CodeSynthesisContext Ctx;
+  Ctx.Kind = CodeSynthesisContext::PatternMatchingExpansion;
+  Ctx.PointOfInstantiation = Loc;
+  Ctx.Entity = cast<Decl>(CurContext);
+  ScopedCodeSynthesisContext SynthesisContext(*this, Ctx);
+  LocalInstantiationScope Scope(*this);
+  MultiLevelTemplateArgumentList TemplateArgs;
+  TemplateInstantiator Instantiator(*this, TemplateArgs, Loc,
+                                    DeclarationName());
+  auto Transformed = Instantiator.TransformCaseConditionChain(
+      Condition.get().second, Handler, Increment,
+      Kind == ConditionKind::ConstexprIf);
+  if (Transformed.Invalid)
+    return true;
+
+  Condition = ActOnCondition(nullptr, Loc, Transformed.Condition, Kind,
+                             /*MissingOK=*/false);
+  if (Condition.isInvalid())
+    return true;
+
+  // A null replacement means the handler is represented by candidate-specific
+  // instantiations or was discarded by an if constexpr.
+  Handler = Transformed.Handler;
+  Increment = Transformed.Increment;
+  return false;
+}
+
 bool Sema::SubstTemplateArgument(
     const TemplateArgumentLoc &Input,
     const MultiLevelTemplateArgumentList &TemplateArgs,
@@ -5263,6 +5333,39 @@ void LocalInstantiationScope::InstantiatedLocal(const Decl *D, Decl *Inst) {
   } else {
     assert(cast<Decl *>(Stored) == Inst && "Already instantiated this local");
   }
+}
+
+void LocalInstantiationScope::ReInstantiatedLocal(const Decl *D, Decl *Inst) {
+  D = getCanonicalParmVarDecl(D);
+  for (LocalInstantiationScope *Current = this; Current;
+       Current = Current->CombineWithOuterScope ? Current->Outer : nullptr) {
+    auto Found = Current->LocalDecls.find(D);
+    if (Found == Current->LocalDecls.end())
+      continue;
+    assert(isa<Decl *>(Found->second) &&
+           "cannot replace a local declaration pack");
+    Found->second = Inst;
+    return;
+  }
+  LocalDecls[D] = Inst;
+}
+
+void LocalInstantiationScope::ReInstantiatedLocalPack(
+    const Decl *D, ArrayRef<ValueDecl *> Instantiations) {
+  D = getCanonicalParmVarDecl(D);
+  auto Replace = [&](LocalInstantiationScope *Scope) {
+    DeclArgumentPack *Pack = new DeclArgumentPack(Instantiations);
+    Scope->ArgumentPacks.push_back(Pack);
+    Scope->LocalDecls[D] = Pack;
+  };
+  for (LocalInstantiationScope *Current = this; Current;
+       Current = Current->CombineWithOuterScope ? Current->Outer : nullptr) {
+    if (Current->LocalDecls.contains(D)) {
+      Replace(Current);
+      return;
+    }
+  }
+  Replace(this);
 }
 
 void LocalInstantiationScope::InstantiatedLocalPackArg(const Decl *D,

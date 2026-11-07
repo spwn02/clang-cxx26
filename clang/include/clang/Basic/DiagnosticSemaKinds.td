@@ -142,7 +142,7 @@ def err_typecheck_converted_constant_expression_indirect : Error<
 def err_expr_not_cce : Error<
   "%select{case value|enumerator value|non-type template argument|non-type parameter of template template parameter|"
   "array size|explicit specifier argument|noexcept specifier argument|"
-  "call to 'size()'|call to 'data()'}0 is not a constant expression">;
+  "call to 'size()'|call to 'data()'|pattern}0 is not a constant expression">;
 def ext_cce_narrowing : ExtWarn<
   "%select{case value|enumerator value|non-type template argument|non-type parameter of template template parameter|"
   "array size|explicit specifier argument|noexcept specifier argument|"
@@ -613,6 +613,17 @@ def err_decomp_decl_wrong_number_bindings : Error<
   "type %0 binds to %3 %plural{1:element|:elements}2, but "
   "%select{%plural{0:no|:only %1}1|%1}4 "
   "%plural{1:name was|:names were}1 provided">;
+def err_decomp_pattern_multiple_packs : Error<
+  "multiple arity-inferred packs in decomposition pattern">;
+def err_decomp_pattern_pack_in_or_pattern : Error<
+  "pattern pack must be a direct element of a decomposition pattern">;
+def err_decomp_pattern_pack_too_small : Error<
+  "type %0 decomposes into %1 elements, but decomposition pattern requires "
+  "at least %2">;
+def err_decomp_pattern_concrete_declaration_pack : Error<
+  "arity-inferred declaration pattern pack requires a placeholder type">;
+def err_decomp_pattern_unbindable_type : Error<
+  "cannot decompose type %0 in pattern">;
 def err_decomp_decl_unbindable_type : Error<
   "cannot bind %select{union|non-class, non-array}1 type %2">;
 def err_decomp_decl_multiple_bases_with_members : Error<
@@ -2426,7 +2437,8 @@ def err_init_conversion_failed : Error<
   "base class|a constructor delegation|a vector element|a matrix element|a "
   "block element|a block element|a complex element|a lambda capture|a compound"
   " literal initializer|a related result|a parameter of CF audited function|a "
-  "structured binding|a member subobject|do-expression result}0 "
+  "structured binding|a member subobject|match expression result|"
+  "do-expression result}0 "
   "%diff{of type $ with an %select{rvalue|lvalue}2 of type $|"
   "with an %select{rvalue|lvalue}2 of incompatible type}1,3"
   "%select{|: different classes%diff{ ($ vs $)|}5,6"
@@ -7048,6 +7060,10 @@ def note_enters_statement_expression : Note<
 def note_enters_defer_stmt : Note<"jump enters a defer statement">;
 def note_enters_do_expression : Note<
   "jump enters a do-expression">;
+def note_enters_match_handler : Note<
+  "jump enters a match handler">;
+def note_enters_pattern_condition_handler : Note<
+  "jump enters a statement controlled by a pattern condition">;
 
 def note_exits_cleanup : Note<
   "jump exits scope of variable with __attribute__((cleanup))">;
@@ -9190,6 +9206,7 @@ def err_typecheck_missing_return_type_incompatible : Error<
   "%diff{return type $ must match previous return type $|"
   "return type must match previous return type}0,1 when %select{block "
   "literal|lambda expression}2 has unspecified explicit return type">;
+
 def warn_compatible_implicit_pointer_conv : Warning<
   "implicit conversion when %select{"
   "%diff{assigning to $ from type $|assigning to type from type}0,1|"
@@ -14190,4 +14207,110 @@ def err_cuda_device_kernel_launch_require_rdc
 def err_annotation_appertainment : Error<
   "annotation cannot be applied to %select{a declaration whose host scope differs from its target scope|a non-defining friend declaration|a void parameter|a template parameter}0">;
 
+
+// Pattern Matching
+def err_pattern_binding_used_in_pattern : Error<
+  "pattern binding %0 cannot be used within the pattern that introduces it">;
+def err_pattern_binding_used_in_subject : Error<
+  "pattern binding %0 cannot be used in its own subject initializer">;
+def err_match_multiple_subject_void : Error<
+  "void expression cannot be an element of a multiple-subject match">;
+def err_match_multiple_subject_pattern : Error<
+  "multiple match subjects require a decomposition pattern, structured "
+  "binding declaration pattern, or wildcard">;
+def warn_match_case_redundant : Warning<"match case is redundant">,
+  InGroup<RedundantMatchCases>;
+def err_match_case_impossible : Error<
+  "match case can never match a subject of type %0">;
+def err_case_condition_guard : Error<
+  "a pattern condition cannot have a trailing guard">;
+def err_case_init_statement : Error<
+  "a pattern condition cannot be used as an init-statement">;
+def err_case_switch_condition : Error<
+  "a pattern condition is not permitted in a switch statement">;
+def err_pattern_declaration_top_level : Error<
+  "a pattern declaration must begin with a decomposition or alternative pattern">;
+def err_pattern_declaration_requires_else : Error<
+  "refutable pattern declaration requires an 'else' statement">;
+def err_pattern_declaration_else_fallthrough : Error<
+  "'else' statement of a pattern declaration must not complete normally">;
+def err_pattern_declaration_requires_compound_scope : Error<
+  "a pattern declaration must appear directly in a compound statement">;
+def err_match_not_exhaustive : Error<
+  "match expression is not exhaustive%select{|; example of a missing case: %1}0">;
+def err_match_handler_type_mismatch : Error<
+  "match handler yields type %0, conflicting with previously deduced type %1">;
+def err_dependent_match_result_type_missing_body : Error<
+  "expected '{' after match result type">;
+def err_declaration_pattern_not_applicable : Error<
+  "declaration pattern of type %0 is not applicable to subject of type %1">;
+def err_type_pattern_not_applicable : Error<
+  "type pattern of type %0 is not applicable to subject of type %1">;
+def err_expression_pattern_not_testable : Error<
+  "expression pattern of type %0 is neither equality-comparable with a "
+  "subject of type %1 nor callable with it">;
+def err_expression_pattern_incompatible_builtin_operands : Error<
+  "expression pattern of type %0 is not compatible with a subject of type %1 "
+  "under built-in value-pattern comparison">;
+def err_or_pattern_binding_mismatch : Error<
+  "all alternatives in an or-pattern must introduce the same bindings">;
+def err_declaration_pattern_pack_not_in_decomposition : Error<
+  "declaration pattern pack must appear directly within a decomposition "
+  "pattern">;
+def note_or_pattern_binding_interface : Note<
+  "binding interface established by this alternative">;
+def err_or_pattern_no_viable_alternative : Error<
+  "no alternative in the or-pattern can match a subject of type %0">;
+def warn_or_pattern_alternative_redundant : Warning<
+  "or-pattern alternative is redundant">, InGroup<RedundantMatchCases>;
+def err_guarded_declaration_pattern_move : Error<
+  "guarded declaration pattern of type %0 invokes a non-trivial move "
+  "constructor before its guard; bind a reference and move in the handler "
+  "instead">;
+def err_and_pattern_declaration_move : Error<
+  "declaration pattern of type %0 invokes a non-trivial move constructor "
+  "before a later operand of an and-pattern; bind a reference and move in "
+  "the handler instead">;
+def err_alternative_traits_missing : Error<
+  "type %0 does not provide a usable 'std::alternative_traits' specialization">;
+def err_alternative_traits_alternatives_invalid : Error<
+  "invalid alternative protocol; 'std::alternative_traits<%0>::alternatives' "
+  "must be a constant array of 'std::alternative_info'">;
+def err_alternative_info_invalid : Error<
+  "invalid alternative protocol; state %1 of type %0 has an invalid %2 "
+  "in its 'alternative_info' descriptor">;
+def err_alternative_info_empty_and_typed : Error<
+  "invalid alternative protocol; state %1 of type %0 is both empty and typed">;
+def err_alternative_type_without_projection : Error<
+  "invalid alternative protocol; state %1 of type %0 advertises type %2, "
+  "but 'get<%1>' does not provide a compatible projection">;
+def err_alternative_traits_member_missing : Error<
+  "invalid alternative protocol; 'std::alternative_traits<%0>' does not "
+  "provide a usable %1 member">;
+def err_alternative_traits_index_not_noexcept : Error<
+  "invalid alternative protocol; 'std::alternative_traits<%0>::index' "
+  "must be noexcept">;
+def err_alternative_state_not_projectable : Error<
+  "alternative state %1 of type %0 has no projected value; omit the "
+  "': pattern'">;
+def err_alternative_name_not_found : Error<
+  "alternative name %0 is not defined by the discriminator type returned by "
+  "'std::alternative_traits<%1>::index'">;
+def err_braced_alternative_no_viable_state : Error<
+  "braced alternative pattern does not match any projectable state of %0">;
+def err_empty_alternative_not_found : Error<
+  "type %0 has no non-projectable alternative state">;
+def err_open_alternative_pattern_not_type_directed : Error<
+  "open alternative protocol for type %0 requires an explicit "
+  "non-placeholder, non-void type selector of the form '{ T: pattern }' or "
+  "declaration pattern of the form '{ T name }'">;
+def err_open_alternative_type_constraint_selector : Error<
+  "type-constraint alternative selector cannot be used with open alternative type %0">;
+def err_type_constraint_selector_not_satisfied : Error<
+  "projected type %0 does not satisfy type constraint %1">;
+def err_alternative_index_out_of_range : Error<
+  "alternative index %0 is outside the range [0, %1)">;
+def err_open_alternative_operation_result : Error<
+  "invalid open alternative protocol for type %0; '%1' must return a "
+  "contextually Boolean-testable and dereferenceable object">;
 } // end of sema component.

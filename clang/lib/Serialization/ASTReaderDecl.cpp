@@ -1828,6 +1828,7 @@ void ASTDeclReader::VisitDecompositionDecl(DecompositionDecl *DD) {
 void ASTDeclReader::VisitBindingDecl(BindingDecl *BD) {
   VisitValueDecl(BD);
   BD->Binding = Record.readExpr();
+  BD->NestedDecomposition = readDeclAs<DecompositionDecl>();
 }
 
 void ASTDeclReader::VisitFileScopeAsmDecl(FileScopeAsmDecl *AD) {

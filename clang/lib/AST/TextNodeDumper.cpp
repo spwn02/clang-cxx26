@@ -968,7 +968,10 @@ void TextNodeDumper::dumpBareDeclRef(const Decl *D) {
       switch (ND->getKind()) {
       case Decl::Decomposition: {
         auto *DD = cast<DecompositionDecl>(ND);
-        OS << " first_binding '" << DD->bindings()[0]->getDeclName() << '\'';
+        if (auto Bindings = DD->source_leaf_bindings(); !Bindings.empty())
+          OS << " first_binding '" << Bindings[0]->getDeclName() << '\'';
+        else
+          OS << " no_bindings";
         break;
       }
       case Decl::Field: {
@@ -3318,4 +3321,36 @@ void TextNodeDumper::VisitConvertVectorExpr(const ConvertVectorExpr *S) {
   VisitStmt(S);
   if (S->hasStoredFPFeatures())
     printFPOptions(S->getStoredFPFeatures());
+}
+
+void TextNodeDumper::VisitMatchTestExpr(const MatchTestExpr *Node) {
+  if (Node->hasSemanticInstantiations())
+    OS << " instantiated";
+}
+
+void TextNodeDumper::VisitCaseConditionExpr(const CaseConditionExpr *Node) {
+  VisitMatchTestExpr(Node);
+  if (Node->isPatternDeclaration())
+    OS << " pattern_declaration";
+}
+
+void TextNodeDumper::VisitMatchSelectExpr(const MatchSelectExpr *Node) {
+  if (Node->isConstexpr())
+    OS << " constexpr";
+  if (Node->isStatement())
+    OS << " statement";
+}
+
+void TextNodeDumper::Visit(const MatchPattern *Node) {
+  if (!Node) {
+    ColorScope Color(OS, ShowColors, NullColor);
+    OS << "<<<NULL>>>";
+    return;
+  }
+  {
+    ColorScope Color(OS, ShowColors, StmtColor);
+    OS << Node->getMatchPatternClassName();
+  }
+  dumpPointer(Node);
+  dumpSourceRange(Node->getSourceRange());
 }

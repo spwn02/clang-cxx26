@@ -219,6 +219,11 @@ def CXXDestructurableExpansionSelectExpr : StmtNode<Expr>;
 def CXXIterableExpansionSelectExpr : StmtNode<Expr>;
 def CXXIndeterminateExpansionSelectExpr : StmtNode<Expr>;
 
+// Pattern matching expression
+def MatchTestExpr : StmtNode<Expr>;
+def CaseConditionExpr : StmtNode<MatchTestExpr>;
+def MatchSelectExpr : StmtNode<Expr>;
+
 // Obj-C Expressions.
 def ObjCStringLiteral : StmtNode<Expr>;
 def ObjCBoxedExpr : StmtNode<Expr>;

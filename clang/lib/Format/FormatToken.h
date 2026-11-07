@@ -856,8 +856,8 @@ public:
   prec::Level getPrecedence() const {
     if (ForcedPrecedence != prec::Unknown)
       return ForcedPrecedence;
-    return getBinOpPrecedence(Tok.getKind(), /*GreaterThanIsOperator=*/true,
-                              /*CPlusPlus11=*/true);
+    return getBinOpPrecedence(Tok, /*GreaterThanIsOperator=*/true,
+                              /*CPlusPlus11=*/true, /*PatternMatching=*/false);
   }
 
   /// Returns the previous token ignoring comments.

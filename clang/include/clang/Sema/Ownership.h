@@ -33,6 +33,7 @@ class CXXBaseSpecifier;
 class CXXCtorInitializer;
 class Decl;
 class Expr;
+class MatchPattern;
 class ParsedTemplateArgument;
 class QualType;
 class SpliceSpecifier;

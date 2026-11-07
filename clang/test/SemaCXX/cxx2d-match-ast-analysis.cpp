@@ -1,0 +1,44 @@
+// RUN: %clang_cc1 -std=c++2d -verify -Wunused-value %s
+
+void may_throw();
+bool throwing_bool();
+int throwing_int();
+
+struct ThrowingCopy {
+  ThrowingCopy(const ThrowingCopy&) noexcept(false);
+  ~ThrowingCopy() noexcept(false);
+};
+
+extern ThrowingCopy throwing_copy;
+
+struct ThrowingPattern {
+  friend bool operator==(int, ThrowingPattern) noexcept(false);
+};
+
+inline constexpr ThrowingPattern throwing_pattern;
+
+static_assert(noexcept(match (0) { case _ => 0; }));
+static_assert(noexcept(match(0, case _)));
+static_assert(noexcept(match(throwing_copy, case ThrowingCopy)));
+
+static_assert(!noexcept(match (throwing_int()) { case _ => 0; }));
+static_assert(!noexcept(match(0, case throwing_pattern)));
+static_assert(!noexcept(match (0) {
+  case _ if (throwing_bool()) => 0;
+  case _ => 1;
+}));
+static_assert(!noexcept(match (0) { case _ => may_throw(); }));
+static_assert(!noexcept(match(0, case _ if (throwing_bool()))));
+
+void side_effects_are_observed(int &value) {
+  match (throwing_int()) { case _ => 0; } // expected-warning {{expression result unused}}
+  match (value) {
+    case _ if (++value, true) => 0; // expected-warning {{expression result unused}}
+    case _ => 1; // expected-warning {{expression result unused}}
+  }
+  match (value) { case _ => ++value; }
+  match(value, case _ if ((++value, true)));
+
+  match (value) { case _ => value; } // expected-warning {{expression result unused}}
+  match(value, case _); // expected-warning {{expression result unused}}
+}

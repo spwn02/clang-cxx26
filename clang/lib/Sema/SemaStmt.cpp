@@ -963,6 +963,23 @@ StmtResult Sema::ActOnIfStmt(SourceLocation IfLoc,
   Expr *CondExpr = Cond.get().second;
   assert((CondExpr || ConstevalOrNegatedConsteval) &&
          "If statement: missing condition");
+  if (auto *Match = dyn_cast_or_null<CaseConditionExpr>(
+          MatchTestExpr::findInCondition(CondExpr));
+      Match && Match->isPatternDeclaration() &&
+      !Match->needsCaseInstantiation() &&
+      !Match->getSubject()->isTypeDependent()) {
+    if (std::optional<MatchExhaustivenessResult> Exhaustiveness =
+            GetPatternDeclarationExhaustiveness(Match)) {
+      if (!elseStmt && !Exhaustiveness->IsExhaustive) {
+        Diag(Match->getPattern()->getBeginLoc(),
+             diag::err_pattern_declaration_requires_else);
+        return StmtError();
+      }
+      if (Exhaustiveness->IsFullyCovered ||
+          (!elseStmt && Exhaustiveness->IsExhaustive))
+        Match->setFailureUnreachable();
+    }
+  }
   // Only call the CommaVisitor when not C89 due to differences in scope flags.
   if (CondExpr && (getLangOpts().C99 || getLangOpts().CPlusPlus) &&
       !Diags.isIgnored(diag::warn_comma_operator, CondExpr->getExprLoc()))
@@ -2431,6 +2448,16 @@ VarDecl *BuildForRangeVarDecl(Sema &SemaRef, SourceLocation Loc,
 
 }
 
+StmtResult Sema::BuildMatchForRangeLoopVar(Scope *S, SourceLocation Loc) {
+  const std::string Depth = std::to_string(S->getDepth() / 2);
+  IdentifierInfo *Name = PP.getIdentifierInfo("__match_element" + Depth);
+  VarDecl *LoopVar = BuildForRangeVarDecl(
+      *this, Loc, Context.getAutoRRefDeductType(), Name->getName());
+  Decl *D = LoopVar;
+  DeclGroupPtrTy Group = BuildDeclaratorGroup(MutableArrayRef<Decl *>(&D, 1));
+  return ActOnDeclStmt(Group, Loc, Loc);
+}
+
 static bool ObjCEnumerationCollection(Expr *Collection) {
   return !Collection->isTypeDependent()
           && Collection->getType()->getAs<ObjCObjectPointerType>() != nullptr;
@@ -2730,7 +2757,7 @@ StmtResult Sema::BuildCXXForRangeStmt(
     // them in properly when we instantiate the loop.
     if (!LoopVar->isInvalidDecl() && Kind != BFRK_Check) {
       if (auto *DD = dyn_cast<DecompositionDecl>(LoopVar))
-        for (auto *Binding : DD->bindings()) {
+        for (auto *Binding : DD->all_bindings()) {
           if (!Binding->isParameterPack())
             Binding->setType(Context.DependentTy);
         }
@@ -3804,39 +3831,24 @@ TypeLoc Sema::getReturnTypeLoc(FunctionDecl *FD) const {
       .getReturnLoc();
 }
 
-bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
-                                            SourceLocation ReturnLoc,
-                                            Expr *RetExpr, const AutoType *AT) {
-  // If this is the conversion function for a lambda, we choose to deduce its
-  // type from the corresponding call operator, not from the synthesized return
-  // statement within it. See Sema::DeduceReturnType.
-  if (isLambdaConversionOperator(FD))
-    return false;
-
-  if (isa_and_nonnull<InitListExpr>(RetExpr)) {
+bool Sema::DeduceAutoTypeFromExpr(TypeLoc OrigResultType,
+                                  SourceLocation ReturnLoc, Expr *E,
+                                  QualType &Deduced, const AutoType *AT,
+                                  AutoTypeDeductionContext DeductionContext) {
+  if (isa_and_nonnull<InitListExpr>(E)) {
     //  If the deduction is for a return statement and the initializer is
     //  a braced-init-list, the program is ill-formed.
-    Diag(RetExpr->getExprLoc(),
+    Diag(E->getExprLoc(),
          getCurLambda() ? diag::err_lambda_return_init_list
                         : diag::err_auto_fn_return_init_list)
-        << RetExpr->getSourceRange();
+        << E->getSourceRange();
     return true;
   }
 
-  if (FD->isDependentContext()) {
-    // C++1y [dcl.spec.auto]p12:
-    //   Return type deduction [...] occurs when the definition is
-    //   instantiated even if the function body contains a return
-    //   statement with a non-type-dependent operand.
-    assert(AT->isDeduced() && "should have deduced to dependent type");
-    return false;
-  }
-
-  TypeLoc OrigResultType = getReturnTypeLoc(FD);
   //  In the case of a return with no operand, the initializer is considered
   //  to be void().
   CXXScalarValueInitExpr VoidVal(Context.VoidTy, nullptr, SourceLocation());
-  if (!RetExpr) {
+  if (!E) {
     // For a function with a deduced result type to return with omitted
     // expression, the result type as written must be 'auto' or
     // 'decltype(auto)', possibly cv-qualified or constrained, but not
@@ -3846,27 +3858,25 @@ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
           << OrigResultType.getType();
       return true;
     }
-    RetExpr = &VoidVal;
+    E = &VoidVal;
   }
 
-  QualType Deduced = AT->getDeducedType();
+  Deduced = AT->getDeducedType();
   {
     //  Otherwise, [...] deduce a value for U using the rules of template
     //  argument deduction.
-    auto RetExprLoc = RetExpr->getExprLoc();
-    TemplateDeductionInfo Info(RetExprLoc);
+    auto ELoc = E->getExprLoc();
+    TemplateDeductionInfo Info(ELoc);
     SourceLocation TemplateSpecLoc;
-    if (RetExpr->getType() == Context.OverloadTy) {
-      auto FindResult = OverloadExpr::find(RetExpr);
+    if (E->getType() == Context.OverloadTy) {
+      auto FindResult = OverloadExpr::find(E);
       if (FindResult.Expression)
         TemplateSpecLoc = FindResult.Expression->getNameLoc();
     }
     TemplateSpecCandidateSet FailedTSC(TemplateSpecLoc);
     TemplateDeductionResult Res = DeduceAutoType(
-        OrigResultType, RetExpr, Deduced, Info, /*DependentDeduction=*/false,
+        OrigResultType, E, Deduced, Info, /*DependentDeduction=*/false,
         /*IgnoreConstraints=*/false, &FailedTSC);
-    if (Res != TemplateDeductionResult::Success && FD->isInvalidDecl())
-      return true;
     switch (Res) {
     case TemplateDeductionResult::Success:
       break;
@@ -3878,7 +3888,10 @@ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
       //  each return statement. [...] if the type deduced is not the same in
       //  each deduction, the program is ill-formed.
       const LambdaScopeInfo *LambdaSI = getCurLambda();
-      if (LambdaSI && LambdaSI->HasImplicitReturnType)
+      if (DeductionContext == AutoTypeDeductionContext::MatchHandler)
+        Diag(ReturnLoc, diag::err_match_handler_type_mismatch)
+            << Info.SecondArg << Info.FirstArg;
+      else if (LambdaSI && LambdaSI->HasImplicitReturnType)
         Diag(ReturnLoc, diag::err_typecheck_missing_return_type_incompatible)
             << Info.SecondArg << Info.FirstArg << true /*IsLambda*/;
       else
@@ -3888,16 +3901,43 @@ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
       return true;
     }
     default:
-      Diag(RetExpr->getExprLoc(), diag::err_auto_fn_deduction_failure)
-          << OrigResultType.getType() << RetExpr->getType();
-      FailedTSC.NoteCandidates(*this, RetExprLoc);
+      Diag(E->getExprLoc(), diag::err_auto_fn_deduction_failure)
+          << OrigResultType.getType() << E->getType();
+      FailedTSC.NoteCandidates(*this, ELoc);
       return true;
     }
   }
 
   // If a local type is part of the returned type, mark its fields as
   // referenced.
-  LocalTypedefNameReferencer(*this).TraverseType(RetExpr->getType());
+  LocalTypedefNameReferencer(*this).TraverseType(E->getType());
+  return false;
+}
+
+bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
+                                            SourceLocation ReturnLoc,
+                                            Expr *RetExpr, const AutoType *AT) {
+  // If this is the conversion function for a lambda, we choose to deduce its
+  // type from the corresponding call operator, not from the synthesized return
+  // statement within it. See Sema::DeduceReturnType.
+  if (isLambdaConversionOperator(FD))
+    return false;
+
+  if (FD->isDependentContext()) {
+    // C++1y [dcl.spec.auto]p12:
+    //   Return type deduction [...] occurs when the definition is
+    //   instantiated even if the function body contains a return
+    //   statement with a non-type-dependent operand.
+    assert(AT->isDeduced() && "should have deduced to dependent type");
+    return false;
+  }
+
+  TypeLoc OrigResultType = getReturnTypeLoc(FD);
+  QualType Deduced;
+  if (DeduceAutoTypeFromExpr(OrigResultType, ReturnLoc, RetExpr, Deduced, AT,
+                             AutoTypeDeductionContext::ReturnStatement)) {
+    return true;
+  }
 
   // CUDA: Kernel function must have 'void' return type.
   if (getLangOpts().CUDA && FD->hasAttr<CUDAGlobalAttr>() &&

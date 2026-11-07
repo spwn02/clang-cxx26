@@ -25,6 +25,7 @@
 #include "clang/AST/DeclarationName.h"
 #include "clang/AST/DependenceFlags.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/MatchPattern.h"
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/OperationKinds.h"
 #include "clang/AST/Reflection.h"
@@ -5534,6 +5535,446 @@ public:
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == BuiltinBitCastExprClass;
+  }
+};
+
+struct MatchGuard {
+  Stmt *Init = nullptr;
+  VarDecl *ConditionVariable = nullptr;
+  Expr *Condition = nullptr;
+
+  bool hasGuard() const { return Condition != nullptr; }
+};
+
+/// A semantically checked form of a single-pattern test. A source test can
+/// have multiple instantiations when a generic projection selects differently
+/// typed alternatives. Direct control-statement conditions also retain the
+/// successful statement, and a for condition retains its increment, in the
+/// same implicit template region as the pattern bindings.
+struct MatchTestInstantiation {
+  MatchPattern *Pattern;
+  SourceLocation IfLoc;
+  MatchGuard Guard;
+  MatchPatternInstantiation *PatternInstantiation;
+  bool PatternIsIrrefutable = false;
+  Expr *Condition = nullptr;
+  Stmt *Handler = nullptr;
+  Expr *Increment = nullptr;
+};
+
+class MatchTestExpr : public Expr {
+  VarDecl *HoldingVar;
+  Expr *Subject;
+  SourceLocation MatchLoc;
+  SourceLocation RParenLoc;
+  MatchPattern *Pattern;
+  MatchPatternInstantiation *PatternInstantiation;
+  SourceLocation IfLoc;
+  MatchGuard Guard;
+  ArrayRef<MatchTestInstantiation> Instantiations;
+  bool PatternIsIrrefutable;
+  bool NeedsCaseInstantiation;
+  bool HasSemanticInstantiations;
+  bool HasSubjectProduct;
+
+protected:
+  explicit MatchTestExpr(StmtClass SC, const ASTContext &Ctx,
+                         VarDecl *HoldingVar, Expr *Subject,
+                         SourceLocation MatchLoc, MatchPattern *Pattern,
+                         MatchPatternInstantiation *PatternInstantiation,
+                         SourceLocation IfLoc, MatchGuard Guard,
+                         bool PatternIsIrrefutable, bool NeedsCaseInstantiation,
+                         ArrayRef<MatchTestInstantiation> Instantiations,
+                         bool HasSemanticInstantiations, bool HasSubjectProduct)
+      : Expr(SC, Ctx.BoolTy, VK_PRValue, OK_Ordinary), HoldingVar(HoldingVar),
+        Subject(Subject), MatchLoc(MatchLoc), Pattern(Pattern),
+        PatternInstantiation(PatternInstantiation), IfLoc(IfLoc), Guard(Guard),
+        PatternIsIrrefutable(PatternIsIrrefutable),
+        NeedsCaseInstantiation(NeedsCaseInstantiation),
+        HasSemanticInstantiations(HasSemanticInstantiations),
+        HasSubjectProduct(HasSubjectProduct) {
+    if (!Instantiations.empty()) {
+      auto *Storage =
+          Ctx.Allocate<MatchTestInstantiation>(Instantiations.size());
+      std::uninitialized_copy(Instantiations.begin(), Instantiations.end(),
+                              Storage);
+      this->Instantiations = ArrayRef(Storage, Instantiations.size());
+    }
+    setDependence(computeDependence(this));
+  }
+
+  explicit MatchTestExpr(StmtClass SC, EmptyShell Empty)
+      : Expr(SC, Empty), PatternInstantiation(nullptr),
+        PatternIsIrrefutable(false), NeedsCaseInstantiation(false),
+        HasSemanticInstantiations(false), HasSubjectProduct(false) {}
+
+public:
+  explicit MatchTestExpr(const ASTContext &Ctx, VarDecl *HoldingVar,
+                         Expr *Subject, SourceLocation MatchLoc,
+                         MatchPattern *Pattern,
+                         MatchPatternInstantiation *PatternInstantiation,
+                         SourceLocation IfLoc, MatchGuard Guard,
+                         bool PatternIsIrrefutable, bool NeedsCaseInstantiation,
+                         ArrayRef<MatchTestInstantiation> Instantiations = {},
+                         bool HasSemanticInstantiations = false,
+                         bool HasSubjectProduct = false)
+      : MatchTestExpr(MatchTestExprClass, Ctx, HoldingVar, Subject, MatchLoc,
+                      Pattern, PatternInstantiation, IfLoc, Guard,
+                      PatternIsIrrefutable, NeedsCaseInstantiation,
+                      Instantiations, HasSemanticInstantiations,
+                      HasSubjectProduct) {}
+
+  explicit MatchTestExpr(EmptyShell Empty)
+      : MatchTestExpr(MatchTestExprClass, Empty) {}
+
+  const VarDecl* getHoldingVar() const { return HoldingVar; }
+  VarDecl* getHoldingVar() { return HoldingVar; }
+
+  const Expr* getSubject() const { return Subject; }
+  Expr* getSubject() { return Subject; }
+
+  SourceLocation getMatchLoc() const LLVM_READONLY {
+    return MatchLoc;
+  }
+
+  SourceLocation getRParenLoc() const LLVM_READONLY { return RParenLoc; }
+  void setRParenLoc(SourceLocation Loc) { RParenLoc = Loc; }
+
+  bool hasSubjectProduct() const { return HasSubjectProduct; }
+
+  ArrayRef<Expr *> getSubjectProductElements() const;
+
+  const MatchPattern* getPattern() const { return Pattern; }
+  MatchPattern* getPattern() { return Pattern; }
+
+  const MatchPatternInstantiation *getPatternInstantiation() const {
+    return PatternInstantiation;
+  }
+  MatchPatternInstantiation *getPatternInstantiation() {
+    return PatternInstantiation;
+  }
+
+  SourceLocation getIfLoc() const LLVM_READONLY {
+    return IfLoc;
+  }
+
+  const MatchGuard &getGuard() const { return Guard; }
+  MatchGuard &getGuard() { return Guard; }
+
+  ArrayRef<MatchTestInstantiation> getInstantiations() const {
+    return Instantiations;
+  }
+
+  MatchTestInstantiation getDirectInstantiation() const {
+    return {Pattern, IfLoc, Guard, PatternInstantiation, PatternIsIrrefutable};
+  }
+
+  bool hasSemanticInstantiations() const {
+    return HasSemanticInstantiations;
+  }
+
+  bool hasConditionInstantiations() const {
+    return llvm::any_of(Instantiations, [](const auto &Instantiation) {
+      return Instantiation.Handler != nullptr;
+    });
+  }
+
+  bool hasConditionContinuations() const {
+    return llvm::any_of(Instantiations, [](const auto &Instantiation) {
+      return Instantiation.Condition != nullptr;
+    });
+  }
+
+  bool isPatternIrrefutable() const { return PatternIsIrrefutable; }
+
+  bool needsCaseInstantiation() const { return NeedsCaseInstantiation; }
+
+  static const Expr *getConditionSubExpr(const Expr *Condition) {
+    while (Condition) {
+      Condition = Condition->IgnoreParens();
+      if (const auto *Constant = dyn_cast<ConstantExpr>(Condition))
+        Condition = Constant->getSubExpr();
+      else if (const auto *Cleanups = dyn_cast<ExprWithCleanups>(Condition))
+        Condition = Cleanups->getSubExpr();
+      else
+        break;
+    }
+    return Condition;
+  }
+
+  static Expr *getConditionSubExpr(Expr *Condition) {
+    return const_cast<Expr *>(
+        getConditionSubExpr(static_cast<const Expr *>(Condition)));
+  }
+
+  static MatchTestExpr *findInCondition(Expr *Condition) {
+    return dyn_cast_or_null<MatchTestExpr>(getConditionSubExpr(Condition));
+  }
+
+  static bool containsCaseCondition(const Expr *Condition) {
+    if (!Condition)
+      return false;
+    Condition = getConditionSubExpr(Condition);
+    if (const auto *Match = dyn_cast<MatchTestExpr>(Condition))
+      return Match->getStmtClass() == CaseConditionExprClass;
+    if (const auto *Binary = dyn_cast<BinaryOperator>(Condition);
+        Binary && Binary->getOpcode() == BO_LAnd)
+      return containsCaseCondition(Binary->getLHS()) ||
+             containsCaseCondition(Binary->getRHS());
+    return false;
+  }
+
+  static bool isCaseConditionChain(const Expr *Condition) {
+    if (!Condition)
+      return false;
+    Condition = getConditionSubExpr(Condition);
+    if (const auto *Match = dyn_cast<MatchTestExpr>(Condition))
+      return Match->hasConditionContinuations();
+    const auto *Binary = dyn_cast<BinaryOperator>(Condition);
+    return Binary && Binary->getOpcode() == BO_LAnd &&
+           containsCaseCondition(Binary);
+  }
+
+  static MatchTestExpr *
+  findCaseConditionRequiringInstantiation(Expr *Condition) {
+    if (!Condition)
+      return nullptr;
+    Condition = getConditionSubExpr(Condition);
+    if (auto *Match = dyn_cast<MatchTestExpr>(Condition);
+        Match && Match->getStmtClass() == CaseConditionExprClass &&
+        (Match->needsCaseInstantiation() || Match->isInstantiationDependent()))
+      return Match;
+    if (auto *Binary = dyn_cast<BinaryOperator>(Condition);
+        Binary && Binary->getOpcode() == BO_LAnd) {
+      if (auto *Match =
+              findCaseConditionRequiringInstantiation(Binary->getLHS()))
+        return Match;
+      return findCaseConditionRequiringInstantiation(Binary->getRHS());
+    }
+    return nullptr;
+  }
+
+  static const MatchTestExpr *
+  findCaseConditionRequiringInstantiation(const Expr *Condition) {
+    return findCaseConditionRequiringInstantiation(
+        const_cast<Expr *>(Condition));
+  }
+  static const MatchTestExpr *findInCondition(const Expr *Condition) {
+    return findInCondition(const_cast<Expr *>(Condition));
+  }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY { return MatchLoc; }
+
+  SourceLocation getEndLoc() const LLVM_READONLY {
+    if (Guard.Condition)
+      return RParenLoc.isValid() ? RParenLoc : Guard.Condition->getEndLoc();
+    if (RParenLoc.isValid())
+      return RParenLoc;
+    return getStmtClass() == CaseConditionExprClass ? Subject->getEndLoc()
+                                                    : Pattern->getEndLoc();
+  }
+
+  child_range children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == MatchTestExprClass ||
+           T->getStmtClass() == CaseConditionExprClass;
+  }
+};
+
+class CaseConditionExpr final : public MatchTestExpr {
+  bool IsPatternDeclaration = false;
+  bool FailureIsUnreachable = false;
+
+public:
+  explicit CaseConditionExpr(
+      const ASTContext &Ctx, VarDecl *HoldingVar, Expr *Subject,
+      SourceLocation CaseLoc, MatchPattern *Pattern,
+      MatchPatternInstantiation *PatternInstantiation,
+      bool PatternIsIrrefutable, bool NeedsCaseInstantiation,
+      ArrayRef<MatchTestInstantiation> Instantiations = {},
+      bool HasSemanticInstantiations = false, bool IsPatternDeclaration = false)
+      : MatchTestExpr(CaseConditionExprClass, Ctx, HoldingVar, Subject, CaseLoc,
+                      Pattern, PatternInstantiation, /*IfLoc=*/{},
+                      /*Guard=*/{}, PatternIsIrrefutable,
+                      NeedsCaseInstantiation, Instantiations,
+                      HasSemanticInstantiations, /*HasSubjectProduct=*/false),
+        IsPatternDeclaration(IsPatternDeclaration) {}
+
+  explicit CaseConditionExpr(EmptyShell Empty)
+      : MatchTestExpr(CaseConditionExprClass, Empty) {}
+
+  bool isPatternDeclaration() const { return IsPatternDeclaration; }
+  void setIsPatternDeclaration() { IsPatternDeclaration = true; }
+  bool isFailureUnreachable() const { return FailureIsUnreachable; }
+  void setFailureUnreachable() { FailureIsUnreachable = true; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == CaseConditionExprClass;
+  }
+};
+
+struct MatchCase {
+  MatchPattern *Pattern;
+  SourceLocation IfLoc;
+  MatchGuard Guard;
+  Stmt *Handler;
+  bool MaybeUseful = false;
+  MatchPatternInstantiation *PatternInstantiation = nullptr;
+  ArrayRef<const Attr *> Attributes;
+  SourceLocation NotReturnLoc;
+
+  bool isNonReturning() const { return NotReturnLoc.isValid(); }
+};
+
+/// A semantically checked form of a source match case. A source case can have
+/// multiple instantiations when its pattern matches more than one alternative.
+struct MatchCaseInstantiation {
+  MatchPattern *Pattern;
+  SourceLocation IfLoc;
+  MatchGuard Guard;
+  Stmt *Handler;
+  unsigned CaseIndex;
+  MatchPatternInstantiation *PatternInstantiation = nullptr;
+  ArrayRef<const Attr *> Attributes;
+  SourceLocation NotReturnLoc;
+
+  bool isNonReturning() const { return NotReturnLoc.isValid(); }
+};
+
+class MatchSelectExpr final
+    : public Expr,
+      private llvm::TrailingObjects<MatchSelectExpr, Stmt *, MatchCase,
+                                    MatchCaseInstantiation> {
+  friend class TrailingObjects;
+
+  Stmt *InitStmt;
+  VarDecl *HoldingVar;
+  Expr *Subject;
+  SourceLocation MatchLoc;
+  bool IsConstexpr;
+  /// True when the cases cover required and residual runtime states.
+  bool IsFullyCovered;
+  /// True when the selection was parsed directly as a statement.
+  bool IsStatement;
+  /// True when the subject is an implementation-generated product of the
+  /// expressions written in a multiple-subject selection.
+  bool HasSubjectProduct;
+  TypeLoc OrigResultType;
+  unsigned NumPreambleStatements;
+  unsigned NumCases;
+  unsigned NumCaseInstantiations;
+  SourceRange Braces;
+
+  explicit MatchSelectExpr(Stmt *InitStmt, VarDecl *HoldingVar, Expr *Subject,
+                           SourceLocation MatchLoc, bool IsConstexpr,
+                           bool IsStatement, bool HasSubjectProduct,
+                           bool IsFullyCovered, TypeLoc OrigResultType,
+                           QualType Ty, ArrayRef<Stmt *> Preamble,
+                           ArrayRef<MatchCase> Cases,
+                           ArrayRef<MatchCaseInstantiation> Instantiations,
+                           SourceRange Braces);
+
+  explicit MatchSelectExpr(unsigned NumPreambleStatements, unsigned NumCases,
+                           unsigned NumCaseInstantiations, EmptyShell Empty)
+      : Expr(MatchSelectExprClass, Empty), InitStmt(nullptr),
+        HoldingVar(nullptr), Subject(nullptr), IsConstexpr(false),
+        IsFullyCovered(false), IsStatement(false), HasSubjectProduct(false),
+        NumPreambleStatements(NumPreambleStatements), NumCases(NumCases),
+        NumCaseInstantiations(NumCaseInstantiations) {}
+
+public:
+  unsigned numTrailingObjects(OverloadToken<Stmt *>) const {
+    return NumPreambleStatements;
+  }
+
+  unsigned numTrailingObjects(OverloadToken<MatchCase>) const {
+    return NumCases;
+  }
+
+  unsigned numTrailingObjects(OverloadToken<MatchCaseInstantiation>) const {
+    return NumCaseInstantiations;
+  }
+
+  static MatchSelectExpr *
+  Create(const ASTContext &Ctx, Stmt *InitStmt, VarDecl *HoldingVar,
+         Expr *Subject, SourceLocation MatchLoc, bool IsConstexpr,
+         bool IsStatement, bool HasSubjectProduct, bool IsFullyCovered,
+         TypeLoc OrigResultType, QualType Ty, ArrayRef<Stmt *> Preamble,
+         ArrayRef<MatchCase> Cases,
+         ArrayRef<MatchCaseInstantiation> Instantiations, SourceRange Braces);
+
+  static MatchSelectExpr *CreateEmpty(const ASTContext &Ctx,
+                                      unsigned NumPreambleStatements,
+                                      unsigned NumCases,
+                                      unsigned NumCaseInstantiations);
+
+  const Stmt *getInitStmt() const { return InitStmt; }
+  Stmt *getInitStmt() { return InitStmt; }
+
+  const VarDecl *getHoldingVar() const { return HoldingVar; }
+  VarDecl *getHoldingVar() { return HoldingVar; }
+
+  const Expr* getSubject() const { return Subject; }
+  Expr* getSubject() { return Subject; }
+
+  SourceLocation getMatchLoc() const LLVM_READONLY {
+    return MatchLoc;
+  }
+
+  TypeLoc getOrigResultType() const { return OrigResultType; }
+
+  bool isConstexpr() const { return IsConstexpr; }
+
+  bool isFullyCovered() const { return IsFullyCovered; }
+
+  bool isStatement() const { return IsStatement; }
+
+  bool hasSubjectProduct() const { return HasSubjectProduct; }
+
+  ArrayRef<Expr *> getSubjectProductElements() const;
+
+  ArrayRef<Stmt *> getPreamble() const {
+    return llvm::ArrayRef(getTrailingObjects<Stmt *>(), NumPreambleStatements);
+  }
+
+  ArrayRef<MatchCase> getCases() const {
+    return llvm::ArrayRef(getTrailingObjects<MatchCase>(), NumCases);
+  }
+
+  ArrayRef<MatchCaseInstantiation> getCaseInstantiations() const {
+    return llvm::ArrayRef(getTrailingObjects<MatchCaseInstantiation>(),
+                          NumCaseInstantiations);
+  }
+
+  unsigned getNumCases() const { return NumCases; }
+  unsigned getNumPreambleStatements() const { return NumPreambleStatements; }
+  unsigned getNumCaseInstantiations() const { return NumCaseInstantiations; }
+
+  SourceLocation getBeginLoc() const LLVM_READONLY {
+    return MatchLoc;
+  }
+
+  SourceLocation getEndLoc() const LLVM_READONLY { return Braces.getEnd(); }
+
+  SourceRange getBraces() const { return Braces; }
+
+  child_range children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == MatchSelectExprClass;
   }
 };
 

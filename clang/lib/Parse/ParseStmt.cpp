@@ -178,6 +178,37 @@ Retry:
     }
 
     Token Next = NextToken();
+    if (isPrefixMatchTestExpression())
+      return ParseExprStatement(StmtCtx);
+
+    SourceLocation MissingCasePatternLoc;
+    bool MissingSubjectParens = false;
+    if (isPrefixMatchSelection(/*StatementContext=*/true,
+                               &MissingCasePatternLoc, &MissingSubjectParens))
+      return ParseMatchStatement(MissingSubjectParens);
+    if (MissingCasePatternLoc.isValid()) {
+      Diag(MissingCasePatternLoc,
+           diag::err_expected_case_before_match_pattern)
+          << FixItHint::CreateInsertion(MissingCasePatternLoc, "case ");
+      Diag(Tok, diag::note_match_type_name_declaration_ambiguity);
+
+      // The construct is not reinterpreted as a match. Skip the invalid
+      // declaration-shaped statement to avoid unrelated vexing-parse and
+      // declaration diagnostics.
+      ConsumeToken();
+      TryConsumeToken(tok::kw_constexpr);
+      BalancedDelimiterTracker Parens(*this, tok::l_paren);
+      if (!Parens.consumeOpen())
+        Parens.skipToEnd();
+      if (Tok.is(tok::l_brace)) {
+        BalancedDelimiterTracker Braces(*this, tok::l_brace);
+        Braces.consumeOpen();
+        Braces.skipToEnd();
+      }
+      TryConsumeToken(tok::semi);
+      return StmtError();
+    }
+
     if (Next.is(tok::colon)) { // C99 6.8.1: labeled-statement
       // Both C++11 and GNU attributes preceding the label appertain to the
       // label, so put them in a single list to pass on to
@@ -326,7 +357,10 @@ Retry:
   }
 
   case tok::kw_case:                // C99 6.8.1: labeled-statement
+    if (getLangOpts().PatternMatching && isPatternDeclaration())
+      return ParsePatternDeclaration(StmtCtx);
     return ParseCaseStatement(StmtCtx);
+
   case tok::kw_default:             // C99 6.8.1: labeled-statement
     return ParseDefaultStatement(StmtCtx);
 
@@ -640,6 +674,136 @@ StmtResult Parser::ParseExprStatement(ParsedStmtContext StmtCtx) {
   return R;
 }
 
+StmtResult Parser::ParseMatchStatement(bool MissingSubjectParens) {
+  ExprStatementTokLoc = Tok.getLocation();
+  ExprResult Expr =
+      ParseMatchSelection(/*IsStatement=*/true, MissingSubjectParens);
+  if (Expr.isInvalid())
+    return Actions.ActOnExprStmtError();
+  return Actions.ActOnExprStmt(Expr, /*DiscardedValue=*/true);
+}
+
+bool Parser::isPatternDeclaration() {
+  assert(Tok.is(tok::kw_case) && "not at a case introducer");
+  if (!NextToken().isOneOf(tok::l_square, tok::l_brace))
+    return false;
+
+  TentativeParsingAction TPA(*this);
+  ConsumeToken();
+  tok::TokenKind Open = Tok.getKind();
+  BalancedDelimiterTracker Delimiter(*this, Open);
+  if (Delimiter.consumeOpen()) {
+    TPA.Revert();
+    return false;
+  }
+  Delimiter.skipToEnd();
+  bool Result = Tok.is(tok::equal);
+  TPA.Revert();
+  return Result;
+}
+
+StmtResult Parser::ParsePatternDeclaration(ParsedStmtContext StmtCtx) {
+  assert(Tok.is(tok::kw_case) && "not at a pattern declaration");
+  SourceLocation CaseLoc = Tok.getLocation();
+  bool IsNestedPatternDeclaration = ParsingPatternDeclarationContinuation;
+
+  if ((StmtCtx & ParsedStmtContext::AllowDeclarationsInC) ==
+      ParsedStmtContext()) {
+    Diag(CaseLoc, diag::err_pattern_declaration_requires_compound_scope);
+    return StmtError();
+  }
+
+  InjectedDeclSet PatternDecls;
+  Sema::ConditionResult Condition = ParseCaseCondition(
+      /*InitStmt=*/nullptr, CaseLoc, Sema::ConditionKind::Boolean,
+      /*MissingOK=*/false, &PatternDecls);
+  if (Condition.isInvalid())
+    return StmtError();
+  SmallVector<Decl *, 4> PatternDeclList(PatternDecls.begin(),
+                                         PatternDecls.end());
+  llvm::sort(PatternDeclList, [&](Decl *LHS, Decl *RHS) {
+    return PP.getSourceManager().isBeforeInTranslationUnit(LHS->getLocation(),
+                                                           RHS->getLocation());
+  });
+  bool InvalidScope =
+      Actions.CheckPatternDeclarationScope(getCurScope(), PatternDeclList);
+
+  auto *Match = dyn_cast_or_null<CaseConditionExpr>(
+      MatchTestExpr::findInCondition(Condition.get().second));
+  if (!Match)
+    return StmtError();
+
+  MatchPattern *Pattern = Match->getPattern()->IgnoreParens();
+  if (!isa<DecompositionPattern, AlternativePattern>(Pattern)) {
+    Diag(Pattern->getBeginLoc(), diag::err_pattern_declaration_top_level);
+    return StmtError();
+  }
+
+  SourceLocation ElseLoc;
+  StmtResult Failure;
+  if (TryConsumeToken(tok::kw_else, ElseLoc)) {
+    Failure = ParseStatement();
+    if (Failure.isInvalid())
+      return StmtError();
+  } else {
+    if (ExpectAndConsumeSemi(diag::err_expected_semi_after_expr))
+      return StmtError();
+  }
+
+  // A pattern declaration governs the remainder of its compound statement.
+  // Parse that continuation with the introduced names in scope so deferred
+  // alternative candidates can instantiate it as their handler.
+  for (Decl *D : PatternDecls)
+    if (auto *ND = dyn_cast<NamedDecl>(D);
+        ND && ND->getDeclName() && !ND->isInvalidDecl())
+      Actions.PushOnScopeChains(ND, getCurScope(), /*AddToContext=*/false);
+
+  SourceLocation ContinuationBegin = Tok.getLocation();
+  StmtVector ContinuationStmts;
+  bool LastIsError = false;
+  {
+    SaveAndRestore ParsingContinuation(ParsingPatternDeclarationContinuation,
+                                       true);
+    ParseCompoundStatementSequence(ContinuationStmts, StmtCtx, LastIsError);
+  }
+  StmtResult Continuation = Actions.ActOnCompoundStmt(
+      ContinuationBegin, Tok.getLocation(), ContinuationStmts,
+      /*isStmtExpr=*/false);
+  if (Continuation.isInvalid())
+    return StmtError();
+
+  if (Failure.isUsable() &&
+      Actions.CheckPatternDeclarationElse(Failure.get(), ElseLoc))
+    return StmtError();
+  if (InvalidScope)
+    return StmtError();
+
+  Match->setIsPatternDeclaration();
+  Stmt *Handler = Continuation.get();
+  Expr *Increment = nullptr;
+  if (PrepareCaseCondition(Condition, CaseLoc, Handler, Increment,
+                           Sema::ConditionKind::Boolean,
+                           /*ExpandImmediately=*/!IsNestedPatternDeclaration) ==
+      CaseConditionPreparation::Invalid)
+    return StmtError();
+  assert(!Increment && "pattern declaration acquired an increment");
+  if (!Handler)
+    Handler = new (Actions.Context) CompoundStmt(
+        Continuation.get()->getBeginLoc(), Continuation.get()->getEndLoc());
+
+  StmtResult Result =
+      Actions.ActOnIfStmt(CaseLoc, IfStatementKind::Ordinary,
+                          /*LParenLoc=*/{}, /*InitStmt=*/nullptr, Condition,
+                          /*RParenLoc=*/{}, Handler, ElseLoc, Failure.get());
+  if (Result.isUsable() && Failure.isUsable()) {
+    auto *PreparedMatch = cast<CaseConditionExpr>(
+        MatchTestExpr::findInCondition(Condition.get().second));
+    if (PreparedMatch->isFailureUnreachable())
+      Diag(ElseLoc, diag::warn_match_case_redundant);
+  }
+  return Result;
+}
+
 StmtResult Parser::ParseSEHTryBlock() {
   assert(Tok.is(tok::kw___try) && "Expected '__try'");
   SourceLocation TryLoc = ConsumeToken();
@@ -832,7 +996,11 @@ StmtResult Parser::ParseLabeledStatement(ParsedAttributes &Attrs,
   return Actions.ActOnLabelStmt(IdentTok.getLocation(), LD, ColonLoc,
                                 SubStmt.get());
 }
-
+/// ParseCaseStatement
+///       labeled-statement:
+///         'case' constant-expression ':' statement
+/// [GNU]   'case' constant-expression '...' constant-expression ':' statement
+///
 StmtResult Parser::ParseCaseStatement(ParsedStmtContext StmtCtx,
                                       bool MissingCase, ExprResult Expr) {
   assert((MissingCase || Tok.is(tok::kw_case)) && "Not a case stmt!");
@@ -1188,6 +1356,77 @@ StmtResult Parser::handleExprStmt(ExprResult E, ParsedStmtContext StmtCtx) {
   return Actions.ActOnExprStmt(E, /*DiscardedValue=*/!IsStmtExprResult);
 }
 
+void Parser::ParseCompoundStatementSequence(StmtVector &Stmts,
+                                            ParsedStmtContext StmtCtx,
+                                            bool &LastIsError) {
+  while (!tryParseMisplacedModuleImport() && Tok.isNot(tok::r_brace) &&
+         Tok.isNot(tok::eof)) {
+    if (Tok.is(tok::annot_pragma_unused)) {
+      HandlePragmaUnused();
+      continue;
+    }
+
+    if (ConsumeNullStmt(Stmts))
+      continue;
+
+    StmtResult R;
+    if (Tok.isNot(tok::kw___extension__)) {
+      R = ParseStatementOrDeclaration(Stmts, StmtCtx);
+    } else {
+      // __extension__ can start declarations and it can also be a unary
+      // operator for expressions.  Consume multiple __extension__ markers here
+      // until we can determine which is which.
+      // FIXME: This loses extension expressions in the AST!
+      SourceLocation ExtLoc = ConsumeToken();
+      while (Tok.is(tok::kw___extension__))
+        ConsumeToken();
+
+      ParsedAttributes attrs(AttrFactory);
+      MaybeParseCXX11Attributes(attrs, /*MightBeObjCMessageSend*/ true);
+
+      // If this is the start of a declaration, parse it as such.
+      if (isDeclarationStatement()) {
+        // __extension__ silences extension warnings in the subdeclaration.
+        // FIXME: Save the __extension__ on the decl as a node somehow?
+        ExtensionRAIIObject O(Diags);
+
+        SourceLocation DeclStart = Tok.getLocation(), DeclEnd;
+        ParsedAttributes DeclSpecAttrs(AttrFactory);
+        DeclGroupPtrTy Res = ParseDeclaration(DeclaratorContext::Block, DeclEnd,
+                                              attrs, DeclSpecAttrs);
+        R = Actions.ActOnDeclStmt(Res, DeclStart, DeclEnd);
+      } else {
+        // Otherwise this was a unary __extension__ marker.
+        ExprResult Res(ParseExpressionWithLeadingExtension(ExtLoc));
+
+        if (Res.isInvalid()) {
+          SkipUntil(tok::semi);
+          continue;
+        }
+
+        // Eat the semicolon at the end of stmt and convert the expr into a
+        // statement.
+        ExpectAndConsumeSemi(diag::err_expected_semi_after_expr);
+        R = handleExprStmt(Res, StmtCtx);
+        if (R.isUsable())
+          R = Actions.ActOnAttributedStmt(attrs, R.get());
+      }
+    }
+
+    if (R.isUsable())
+      Stmts.push_back(R.get());
+    LastIsError = R.isInvalid();
+
+    // Pick up any statements injected by consteval blocks
+    // (e.g., return statements from queue_injection).
+    if (!Actions.PendingInjectedStmts.empty()) {
+      Stmts.append(Actions.PendingInjectedStmts.begin(),
+                   Actions.PendingInjectedStmts.end());
+      Actions.PendingInjectedStmts.clear();
+    }
+  }
+}
+
 StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr, bool isDoExpr) {
   PrettyStackTraceLoc CrashInfo(PP.getSourceManager(),
                                 Tok.getLocation(),
@@ -1258,72 +1497,7 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr, bool isDoExpr) {
   });
 
   bool LastIsError = false;
-  while (!tryParseMisplacedModuleImport() && Tok.isNot(tok::r_brace) &&
-         Tok.isNot(tok::eof)) {
-    if (Tok.is(tok::annot_pragma_unused)) {
-      HandlePragmaUnused();
-      continue;
-    }
-
-    if (ConsumeNullStmt(Stmts))
-      continue;
-
-    StmtResult R;
-    if (Tok.isNot(tok::kw___extension__)) {
-      R = ParseStatementOrDeclaration(Stmts, SubStmtCtx);
-    } else {
-      // __extension__ can start declarations and it can also be a unary
-      // operator for expressions.  Consume multiple __extension__ markers here
-      // until we can determine which is which.
-      // FIXME: This loses extension expressions in the AST!
-      SourceLocation ExtLoc = ConsumeToken();
-      while (Tok.is(tok::kw___extension__))
-        ConsumeToken();
-
-      ParsedAttributes attrs(AttrFactory);
-      MaybeParseCXX11Attributes(attrs, /*MightBeObjCMessageSend*/ true);
-
-      // If this is the start of a declaration, parse it as such.
-      if (isDeclarationStatement()) {
-        // __extension__ silences extension warnings in the subdeclaration.
-        // FIXME: Save the __extension__ on the decl as a node somehow?
-        ExtensionRAIIObject O(Diags);
-
-        SourceLocation DeclStart = Tok.getLocation(), DeclEnd;
-        ParsedAttributes DeclSpecAttrs(AttrFactory);
-        DeclGroupPtrTy Res = ParseDeclaration(DeclaratorContext::Block, DeclEnd,
-                                              attrs, DeclSpecAttrs);
-        R = Actions.ActOnDeclStmt(Res, DeclStart, DeclEnd);
-      } else {
-        // Otherwise this was a unary __extension__ marker.
-        ExprResult Res(ParseExpressionWithLeadingExtension(ExtLoc));
-
-        if (Res.isInvalid()) {
-          SkipUntil(tok::semi);
-          continue;
-        }
-
-        // Eat the semicolon at the end of stmt and convert the expr into a
-        // statement.
-        ExpectAndConsumeSemi(diag::err_expected_semi_after_expr);
-        R = handleExprStmt(Res, SubStmtCtx);
-        if (R.isUsable())
-          R = Actions.ActOnAttributedStmt(attrs, R.get());
-      }
-    }
-
-    if (R.isUsable())
-      Stmts.push_back(R.get());
-    LastIsError = R.isInvalid();
-
-    // Pick up any statements injected by consteval blocks
-    // (e.g., return statements from queue_injection).
-    if (!Actions.PendingInjectedStmts.empty()) {
-      Stmts.append(Actions.PendingInjectedStmts.begin(),
-                   Actions.PendingInjectedStmts.end());
-      Actions.PendingInjectedStmts.clear();
-    }
-  }
+  ParseCompoundStatementSequence(Stmts, SubStmtCtx, LastIsError);
   // StmtExpr needs to do copy initialization for last statement.
   // If last statement is invalid, the last statement in `Stmts` will be
   // incorrect. Then the whole compound statement should also be marked as
@@ -1367,13 +1541,14 @@ bool Parser::ParseParenExprOrCondition(StmtResult *InitStmt,
                                        SourceLocation Loc,
                                        Sema::ConditionKind CK,
                                        SourceLocation &LParenLoc,
-                                       SourceLocation &RParenLoc) {
+                                       SourceLocation &RParenLoc,
+                                       InjectedDeclSet *InjectedDecls) {
   BalancedDelimiterTracker T(*this, tok::l_paren);
   T.consumeOpen();
   SourceLocation Start = Tok.getLocation();
 
   if (getLangOpts().CPlusPlus) {
-    Cond = ParseCXXCondition(InitStmt, Loc, CK, false);
+    Cond = ParseCXXCondition(InitStmt, Loc, CK, false, InjectedDecls);
   } else {
     ExprResult CondExpr = ParseExpression();
 
@@ -1516,6 +1691,51 @@ struct MisleadingIndentationChecker {
 
 }
 
+Parser::CaseConditionPreparation Parser::PrepareCaseCondition(
+    Sema::ConditionResult &Condition, SourceLocation Loc, Stmt *&Handler,
+    Expr *&Increment, Sema::ConditionKind Kind, bool ExpandImmediately) {
+  Expr *ConditionExpr = Condition.get().second;
+  auto *Match = dyn_cast_if_present<CaseConditionExpr>(
+      MatchTestExpr::findInCondition(ConditionExpr));
+  if (Actions.CurContext->isDependentContext())
+    return CaseConditionPreparation::Ready;
+
+  const bool ExpandPatternDeclaration =
+      ExpandImmediately && Match && Match->isPatternDeclaration();
+  if (Match && !Match->needsCaseInstantiation() &&
+      !ExpandPatternDeclaration) {
+    ExprResult Attached =
+        Actions.AttachMatchTestCondition(Match, Handler, Increment);
+    if (Attached.isInvalid())
+      return CaseConditionPreparation::Invalid;
+    Condition = Actions.ActOnCondition(getCurScope(), Loc, Attached.get(), Kind,
+                                       /*MissingOK=*/false);
+    if (Condition.isInvalid())
+      return CaseConditionPreparation::Invalid;
+    return CaseConditionPreparation::Ready;
+  }
+
+  if (!ExpandImmediately)
+    return CaseConditionPreparation::Ready;
+
+  MatchTestExpr *MatchToExpand =
+      Match && Match->needsCaseInstantiation()
+          ? Match
+          : MatchTestExpr::findCaseConditionRequiringInstantiation(
+                ConditionExpr);
+  // An outer pattern declaration owns its whole continuation, which may
+  // contain nested deferred declarations even when this pattern is concrete.
+  if (!MatchToExpand && ExpandPatternDeclaration)
+    MatchToExpand = Match;
+  if (!MatchToExpand)
+    return CaseConditionPreparation::Ready;
+
+  if (Actions.ExpandMatchCondition(Condition, MatchToExpand->getMatchLoc(),
+                                   Handler, Increment, Kind))
+    return CaseConditionPreparation::Invalid;
+  return CaseConditionPreparation::Expanded;
+}
+
 StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   assert(Tok.is(tok::kw_if) && "Not an if stmt!");
   SourceLocation IfLoc = ConsumeToken();  // eat the 'if'.
@@ -1577,13 +1797,14 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   Sema::ConditionResult Cond;
   SourceLocation LParen;
   SourceLocation RParen;
+  InjectedDeclSet InjectedDecls;
   std::optional<bool> ConstexprCondition;
   if (!IsConsteval) {
 
     if (ParseParenExprOrCondition(&InitStmt, Cond, IfLoc,
                                   IsConstexpr ? Sema::ConditionKind::ConstexprIf
                                               : Sema::ConditionKind::Boolean,
-                                  LParen, RParen))
+                                  LParen, RParen, &InjectedDecls))
       return StmtError();
 
     if (IsConstexpr)
@@ -1631,7 +1852,23 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
     EnterExpressionEvaluationContext PotentiallyDiscarded(
         Actions, Context, nullptr,
         Sema::ExpressionEvaluationContextRecord::EK_Other, ShouldEnter);
-    ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
+    if (IsBracedThen && !InjectedDecls.empty()) {
+      ParseScope CompoundScope(this,
+                               Scope::DeclScope | Scope::CompoundStmtScope);
+      for (Decl *D : InjectedDecls)
+        if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+          Actions.PushOnScopeChains(ND, getCurScope(),
+                                    /*AddToContext=*/false);
+      StackHandler.runWithSufficientStackSpace(Tok.getLocation(), [&, this]() {
+        ThenStmt = ParseCompoundStatementBody();
+      });
+    } else {
+      for (Decl *D : InjectedDecls)
+        if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+          Actions.PushOnScopeChains(ND, getCurScope(),
+                                    /*AddToContext=*/false);
+      ThenStmt = ParseStatement(&InnerStatementTrailingElseLoc);
+    }
   }
 
   if (Tok.isNot(tok::kw_else))
@@ -1735,8 +1972,32 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
     Kind = NotLocation.isValid() ? IfStatementKind::ConstevalNegated
                                  : IfStatementKind::ConstevalNonNegated;
 
+  bool AttachPatternCondition =
+      Kind == IfStatementKind::Ordinary || Kind == IfStatementKind::Constexpr;
+  Stmt *Then = ThenStmt.get();
+  Expr *Increment = nullptr;
+  CaseConditionPreparation Preparation = CaseConditionPreparation::Ready;
+  if (AttachPatternCondition)
+    Preparation = PrepareCaseCondition(Cond, IfLoc, Then, Increment,
+                                       Kind == IfStatementKind::Constexpr
+                                           ? Sema::ConditionKind::ConstexprIf
+                                           : Sema::ConditionKind::Boolean);
+  if (Preparation == CaseConditionPreparation::Invalid)
+    return StmtError();
+  assert(!Increment && "if condition acquired an increment");
+
+  bool SelectedConstexprHandler =
+      Kind == IfStatementKind::Constexpr &&
+      Preparation == CaseConditionPreparation::Expanded && Then;
+  if (!Then)
+    Then = new (Actions.Context) CompoundStmt(ThenStmt.get()->getBeginLoc(),
+                                              ThenStmt.get()->getEndLoc());
+  if (SelectedConstexprHandler && ElseStmt.get())
+    ElseStmt = new (Actions.Context) CompoundStmt(ElseStmt.get()->getBeginLoc(),
+                                                  ElseStmt.get()->getEndLoc());
+
   return Actions.ActOnIfStmt(IfLoc, Kind, LParen, InitStmt.get(), Cond, RParen,
-                             ThenStmt.get(), ElseLoc, ElseStmt.get());
+                             Then, ElseLoc, ElseStmt.get());
 }
 
 StmtResult Parser::ParseSwitchStatement(SourceLocation *TrailingElseLoc,
@@ -1821,7 +2082,9 @@ StmtResult Parser::ParseSwitchStatement(SourceLocation *TrailingElseLoc,
   InnerScope.Exit();
   SwitchScope.Exit();
 
-  return Actions.ActOnFinishSwitchStmt(SwitchLoc, Switch.get(), Body.get());
+  StmtResult Result =
+      Actions.ActOnFinishSwitchStmt(SwitchLoc, Switch.get(), Body.get());
+  return Result;
 }
 
 StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc,
@@ -1899,7 +2162,18 @@ StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc,
   if (Cond.isInvalid() || Body.isInvalid())
     return StmtError();
 
-  return Actions.ActOnWhileStmt(WhileLoc, LParen, Cond, RParen, Body.get());
+  Stmt *TransformedBody = Body.get();
+  Expr *Increment = nullptr;
+  if (PrepareCaseCondition(Cond, WhileLoc, TransformedBody, Increment) ==
+      CaseConditionPreparation::Invalid)
+    return StmtError();
+  assert(!Increment && "while condition acquired an increment");
+  if (!TransformedBody)
+    TransformedBody = new (Actions.Context)
+        CompoundStmt(Body.get()->getBeginLoc(), Body.get()->getEndLoc());
+
+  return Actions.ActOnWhileStmt(WhileLoc, LParen, Cond, RParen,
+                                TransformedBody);
 }
 
 StmtResult Parser::ParseDoStatement(LabelDecl *PrecedingLabel) {
@@ -2068,6 +2342,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
   ExprResult Collection;
   ForRangeInfo ForRangeInfo;
   FullExprArg ThirdPart(Actions);
+  Sema::ConditionResult PatternRangeCondition;
 
   ForRangeInfo.ExpansionStmt = TemplateKWLoc.isValid();
   const unsigned ErrorsAtForStart = Diags.getNumErrors();
@@ -2113,6 +2388,17 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
 
     ForRangeInfo.LoopVar =
         Actions.ActOnCXXForRangeIdentifier(getCurScope(), Loc, Name, attrs);
+  } else if (getLangOpts().PatternMatching && Tok.is(tok::kw_case)) {
+    ProhibitAttributes(attrs);
+    SecondPart = ParseCXXCondition(&FirstPart, ForLoc,
+                                   Sema::ConditionKind::Boolean,
+                                   /*MissingOK=*/true,
+                                   /*InjectedDecls=*/nullptr, &ForRangeInfo);
+    if (ForRangeInfo.Pattern) {
+      ForRangeInfo.LoopVar = Actions.BuildMatchForRangeLoopVar(
+          getCurScope(), ForRangeInfo.PatternCaseLoc);
+    }
+
   } else if (isForInitDeclaration()) {  // for (int X = 4;
     ParenBraceBracketBalancer BalancerRAIIObj(*this);
 
@@ -2238,7 +2524,8 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
         SecondPart = ParseCXXCondition(
             /*InitStmt=*/nullptr, ForLoc, CK,
             // FIXME: recovery if we don't see another semi!
-            /*MissingOK=*/true, MightBeForRangeStmt ? &ForRangeInfo : nullptr,
+            /*MissingOK=*/true, /*InjectedDecls=*/nullptr,
+            MightBeForRangeStmt ? &ForRangeInfo : nullptr,
             /*EnterForConditionScope=*/true);
 
         if (ForRangeInfo.ParsedForRangeDecl()) {
@@ -2341,12 +2628,23 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
           FirstPart.get(), ForRangeInfo.LoopVar.get(), ForRangeInfo.ColonLoc,
           ForRangeInfo.RangeExpr.get(), T.getCloseLocation(), Sema::BFRK_Build,
           ForRangeInfo.LifetimeExtendTemps);
-    else
+    else {
       ForRangeStmt = Actions.ActOnCXXForRangeStmt(
           getCurScope(), ForLoc, CoawaitLoc, FirstPart.get(),
           ForRangeInfo.LoopVar.get(), ForRangeInfo.ColonLoc,
           ForRangeInfo.RangeExpr.get(), T.getCloseLocation(), Sema::BFRK_Build,
           ForRangeInfo.LifetimeExtendTemps);
+      if (ForRangeInfo.Pattern && ForRangeStmt.isUsable()) {
+        ExprResult Filter = BuildCaseForRangeCondition(ForRangeInfo);
+        if (Filter.isInvalid())
+          return StmtError();
+        PatternRangeCondition = Actions.ActOnCondition(
+            getCurScope(), ForLoc, Filter.get(), Sema::ConditionKind::Boolean,
+            /*MissingOK=*/false);
+        if (PatternRangeCondition.isInvalid())
+          return StmtError();
+      }
+    }
   } else if (ForEach) {
     // Similarly, we need to do the semantic analysis for a for-range
     // statement immediately in order to close over temporaries correctly.
@@ -2407,6 +2705,22 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
   // Pop the body scope if needed.
   InnerScope.Exit();
 
+  if (Body.isUsable() && ForRangeInfo.Pattern) {
+    Stmt *TransformedBody = Body.get();
+    Expr *Increment = nullptr;
+    if (PrepareCaseCondition(PatternRangeCondition, ForLoc, TransformedBody,
+                             Increment) == CaseConditionPreparation::Invalid)
+      return StmtError();
+    assert(!Increment && "range condition acquired an increment");
+    if (!TransformedBody)
+      TransformedBody = new (Actions.Context)
+          CompoundStmt(Body.get()->getBeginLoc(), Body.get()->getEndLoc());
+    Body = Actions.ActOnIfStmt(
+        ForLoc, IfStatementKind::Ordinary, /*LParenLoc=*/{},
+        /*InitStmt=*/nullptr, PatternRangeCondition, /*RParenLoc=*/{},
+        TransformedBody, /*ElseLoc=*/{}, /*ElseStmt=*/nullptr);
+  }
+
   getActions().OpenACC().ActOnForStmtEnd(ForLoc, Body);
 
   // Leave the for-scope.
@@ -2426,9 +2740,24 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc,
       return Actions.FinishCXXForRangeStmt(ForRangeStmt.get(), Body.get());
   }
 
+  if (ForRangeInfo.ParsedForRangeDecl())
+    return Actions.FinishCXXForRangeStmt(ForRangeStmt.get(), Body.get());
+
+  Stmt *TransformedBody = Body.get();
+  Expr *Increment = ThirdPart.get();
+  CaseConditionPreparation Preparation =
+      PrepareCaseCondition(SecondPart, ForLoc, TransformedBody, Increment);
+  if (Preparation == CaseConditionPreparation::Invalid)
+    return StmtError();
+  if (!TransformedBody)
+    TransformedBody = new (Actions.Context)
+        CompoundStmt(Body.get()->getBeginLoc(), Body.get()->getEndLoc());
+  if (Preparation == CaseConditionPreparation::Expanded)
+    ThirdPart = Actions.MakeFullDiscardedValueExpr(Increment);
+
   return Actions.ActOnForStmt(ForLoc, T.getOpenLocation(), FirstPart.get(),
                               SecondPart, ThirdPart, T.getCloseLocation(),
-                              Body.get());
+                              TransformedBody);
 }
 
 StmtResult Parser::ParseGotoStatement() {

@@ -1,0 +1,10 @@
+// RUN: %clang_cc1 -std=c++2d -triple x86_64-unknown-unknown -O0 -emit-llvm %s -o %t.ll
+// RUN: FileCheck --input-file=%t.ll %s
+
+void check(bool b);
+
+// CHECK-LABEL: _Z5basicii
+void basic(int a, int b) {
+  // CHECK: call void @_Z5checkb(i1 {{.*}} true)
+  check(match(0, case _));
+}

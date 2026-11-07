@@ -1517,7 +1517,7 @@ void CXXNameMangler::mangleUnqualifiedName(
       //
       // Proposed on cxx-abi-dev on 2016-08-12
       Out << "DC";
-      for (auto *BD : DD->bindings())
+      for (auto *BD : DD->source_leaf_bindings())
         mangleSourceName(BD->getDeclName().getAsIdentifierInfo());
       Out << 'E';
       writeAbiTags(ND, AdditionalAbiTags);
@@ -6439,6 +6439,10 @@ recurse:
     Diags.Report(DiagID);
     return;
   }
+  case Expr::MatchTestExprClass:
+  case Expr::CaseConditionExprClass:
+  case Expr::MatchSelectExprClass:
+    assert(0 && "not implemented");
   }
 
   if (AsTemplateArg && !IsPrimaryExpr)

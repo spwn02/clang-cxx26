@@ -718,6 +718,29 @@ public:
     }
   };
 
+  /// Retain deferred lifetime-extended cleanups in the surrounding scope
+  /// without running its ordinary cleanups.
+  class LifetimeExtendedCleanupScope {
+    CodeGenFunction &CGF;
+    size_t OldLifetimeExtendedSize;
+    CleanupDeactivationScope DeactivateCleanups;
+
+  public:
+    explicit LifetimeExtendedCleanupScope(CodeGenFunction &CGF)
+        : CGF(CGF),
+          OldLifetimeExtendedSize(CGF.LifetimeExtendedCleanupStack.size()),
+          DeactivateCleanups(CGF) {}
+
+    LifetimeExtendedCleanupScope(const LifetimeExtendedCleanupScope &) = delete;
+    LifetimeExtendedCleanupScope &
+    operator=(const LifetimeExtendedCleanupScope &) = delete;
+
+    ~LifetimeExtendedCleanupScope() {
+      DeactivateCleanups.ForceDeactivate();
+      CGF.PushLifetimeExtendedCleanups(OldLifetimeExtendedSize);
+    }
+  };
+
   llvm::SmallVector<const JumpDest *, 2> SEHTryEpilogueStack;
 
   llvm::Instruction *CurrentFuncletPad = nullptr;
@@ -1020,6 +1043,15 @@ public:
   /// process all branch fixups.
   void PopCleanupBlock(bool FallThroughIsBranchThrough = false,
                        bool ForDeactivation = false);
+
+  /// Push deferred lifetime-extended cleanups into the current cleanup scope.
+  void PushLifetimeExtendedCleanups(size_t OldSize);
+
+  void CaptureConditionTemporaryCleanups(
+      EHScopeStack::stable_iterator OldDepth, llvm::Instruction *InitIP,
+      SmallVectorImpl<EHScopeStack::stable_iterator> &Cleanups);
+  void EmitConditionTemporaryCleanups(
+      ArrayRef<EHScopeStack::stable_iterator> Cleanups);
 
   /// DeactivateCleanupBlock - Deactivates the given cleanup block.
   /// The block cannot be reactivated.  Pops it if it's the top of the
@@ -3679,6 +3711,8 @@ public:
   void EmitLabel(const LabelDecl *D); // helper for EmitLabelStmt.
 
   void EmitLabelStmt(const LabelStmt &S);
+  void EmitWithStmtAttributes(const Stmt *S, ArrayRef<const Attr *> Attrs,
+                              llvm::function_ref<void()> Emit);
   void EmitAttributedStmt(const AttributedStmt &S);
   void EmitGotoStmt(const GotoStmt &S);
   void EmitIndirectGotoStmt(const IndirectGotoStmt &S);
@@ -3699,6 +3733,7 @@ public:
   void EmitCaseStmt(const CaseStmt &S, ArrayRef<const Attr *> Attrs);
   void EmitCaseStmtRange(const CaseStmt &S, ArrayRef<const Attr *> Attrs);
   void EmitDeferStmt(const DeferStmt &S);
+
   void EmitAsmStmt(const AsmStmt &S);
 
   const BreakContinue *GetDestForLoopControlStmt(const LoopControlStmt &S);
@@ -5251,6 +5286,73 @@ public:
   RValue EmitAtomicExpr(AtomicExpr *E);
 
   void EmitFakeUse(Address Addr);
+  RValue EmitMatchTestExpr(const MatchTestExpr &S);
+  void EmitMatchTestSubject(const MatchTestExpr &S);
+  void EmitMatchTestDispatch(
+      const MatchTestExpr &S, JumpDest SuccessDest,
+      llvm::function_ref<void(const MatchTestInstantiation &)> EmitSuccess,
+      JumpDest FailureDest, llvm::function_ref<void()> EmitFailure);
+  void EmitCaseConditionChain(
+      const Expr *Condition,
+      llvm::function_ref<void(const MatchTestInstantiation *)> EmitSuccess,
+      JumpDest FailureDest);
+  void EmitCaseConditionChainImpl(
+      const Expr *Condition,
+      llvm::function_ref<void(const MatchTestInstantiation *)> EmitSuccess,
+      JumpDest FailureDest,
+      SmallVectorImpl<EHScopeStack::stable_iterator> &TemporaryCleanups);
+  void EmitSelectedMatchTestInstantiation(
+      const MatchTestExpr &S, const MatchTestInstantiation &Instantiation,
+      llvm::function_ref<void()> EmitSuccess);
+  RValue EmitMatchSelectExpr(const MatchSelectExpr &S);
+  RValue EmitMatchSelectExpr(const MatchSelectExpr &S, AggValueSlot Dest);
+  LValue EmitMatchSelectExprLValue(const MatchSelectExpr *E);
+  struct StagedPatternDeclarations {
+    SmallVector<std::unique_ptr<RunCleanupsScope>, 2> Scopes;
+    SmallVector<RawAddress, 2> ActiveFlags;
+
+    void begin(CodeGenFunction &CGF);
+    void markInitialized(CodeGenFunction &CGF);
+    void emitCleanups(CodeGenFunction &CGF);
+  };
+  enum class MatchCandidateKind { Test, Condition, Selection };
+  void EmitMatchCandidate(
+      const MatchPattern *Pattern,
+      const MatchPatternInstantiation *Instantiation, const MatchGuard &Guard,
+      llvm::BasicBlock *PatternFailure, llvm::BasicBlock *GuardFailure,
+      llvm::BasicBlock *Success,
+      llvm::function_ref<void(llvm::BasicBlock *, llvm::BasicBlock *,
+                              StagedPatternDeclarations *)>
+          EmitPattern,
+      llvm::function_ref<void()> EmitAction, Stmt::Likelihood GuardLikelihood,
+      MatchCandidateKind Kind);
+  RValue
+  EmitMatchPattern(const MatchPattern *Pattern,
+                   const MatchPatternInstantiation *Instantiation,
+                   const Expr *Subject,
+                   StagedPatternDeclarations *StagedDeclarations = nullptr);
+  void EmitMatchPatternBranch(
+      const MatchPattern *Pattern,
+      const MatchPatternInstantiation *Instantiation, const Expr *Subject,
+      llvm::BasicBlock *Success, llvm::BasicBlock *Failure,
+      StagedPatternDeclarations *StagedDeclarations = nullptr,
+      ArrayRef<const MatchPattern *> KnownTestPatterns = {},
+      ArrayRef<const MatchPattern *> CompletedPatterns = {});
+  void EmitMatchDiscriminator(const MatchProjection &Projection);
+  void EmitMatchProjectionValue(const MatchProjection &Projection);
+  void EmitSharedDeclarationProjections(
+      const MatchPattern *Pattern,
+      const MatchPatternInstantiation *Instantiation);
+  void
+  EmitMatchPatternDeclarations(const MatchPattern *Pattern,
+                               const MatchPatternInstantiation *Instantiation);
+  void EmitSelectedMatchPatternProjections(
+      const MatchPattern *Pattern,
+      const MatchPatternInstantiation *Instantiation);
+  void EmitMatchGuardBranch(const MatchGuard &MG, llvm::BasicBlock *Success,
+                            llvm::BasicBlock *Failure,
+                            Stmt::Likelihood LH = Stmt::LH_None);
+  RValue EmitMatchGuard(const MatchGuard &MG, llvm::Value *PatBoolRes);
 
   //===--------------------------------------------------------------------===//
   //                         Annotations Emission

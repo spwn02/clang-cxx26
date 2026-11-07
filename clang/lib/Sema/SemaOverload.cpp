@@ -6213,6 +6213,14 @@ TryCopyInitialization(Sema &S, Expr *From, QualType ToType,
                                /*AllowObjCConversionOnExplicit=*/false);
 }
 
+ImplicitConversionSequence Sema::TryCopyInitializationConversion(
+    Expr *From, QualType ToType, bool SuppressUserConversions,
+    bool InOverloadResolution, bool AllowObjCWritebackConversion) {
+  return TryCopyInitialization(*this, From, ToType, SuppressUserConversions,
+                               InOverloadResolution,
+                               AllowObjCWritebackConversion);
+}
+
 static bool TryCopyInitialization(const CanQualType FromQTy,
                                   const CanQualType ToQTy,
                                   Sema &S,
@@ -15430,6 +15438,14 @@ static ExprResult FinishOverloadedCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
   }
 
   case OR_No_Viable_Function: {
+    SourceLocation MatchResultTypeLoc =
+        SemaRef.getPotentialMatchResultTypeLoc(ULE->getNameLoc());
+    if (CandidateSet->empty() && MatchResultTypeLoc.isValid()) {
+      SemaRef.Diag(MatchResultTypeLoc,
+                   diag::err_dependent_match_result_type_missing_body);
+      return ExprError();
+    }
+
     if (*Best != CandidateSet->end() &&
         CandidateSet->getKind() ==
             clang::OverloadCandidateSet::CSK_AddressOfOverloadSet) {

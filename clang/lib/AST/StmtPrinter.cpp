@@ -89,7 +89,10 @@ namespace {
         // If this is an expr used in a stmt context, indent and newline it.
         Indent();
         Visit(S);
-        OS << ";" << NL;
+        if (!isa<MatchSelectExpr>(S) ||
+            !cast<MatchSelectExpr>(S)->isStatement())
+          OS << ";";
+        OS << NL;
       } else if (S) {
         Visit(S);
       } else {
@@ -140,6 +143,10 @@ namespace {
       else
         OS << "<null expr>";
     }
+
+    void PrintMatchPattern(const MatchPattern *Pattern);
+    void PrintMatchGuard(const MatchGuard &Guard);
+    void PrintMatchHandler(Stmt *Handler);
 
     raw_ostream &Indent(int Delta = 0) {
       for (int i = 0, e = IndentLevel+Delta; i < e; ++i)
@@ -1362,7 +1369,7 @@ void StmtPrinter::VisitDeclRefExpr(DeclRefExpr *Node) {
     }
     case Decl::Decomposition:
       OS << "decomposition";
-      for (const auto &I : cast<DecompositionDecl>(VD)->bindings())
+      for (const auto &I : cast<DecompositionDecl>(VD)->source_leaf_bindings())
         OS << '-' << I->getName();
       break;
     default:
@@ -3361,6 +3368,240 @@ void StmtPrinter::VisitAsTypeExpr(AsTypeExpr *Node) {
 
 void StmtPrinter::VisitHLSLOutArgExpr(HLSLOutArgExpr *Node) {
   PrintExpr(Node->getArgLValue());
+}
+
+void StmtPrinter::PrintMatchPattern(const MatchPattern *Pattern) {
+  switch (Pattern->getMatchPatternClass()) {
+  case MatchPattern::WildcardPatternClass: {
+    if (static_cast<const WildcardPattern *>(Pattern)->isPackExpansion()) {
+      OS << "...";
+      return;
+    }
+    OS << "_";
+    return;
+  }
+  case MatchPattern::ExpressionPatternClass: {
+    const auto *P = static_cast<const ExpressionPattern *>(Pattern);
+    PrintExpr(const_cast<Expr *>(P->getExpr()));
+    return;
+  }
+  case MatchPattern::ParenPatternClass: {
+    const auto *P = static_cast<const ParenPattern *>(Pattern);
+    OS << '(';
+    PrintMatchPattern(P->getSubPattern());
+    OS << ')';
+    return;
+  }
+  case MatchPattern::DeclarationPatternClass: {
+    const auto *P = static_cast<const DeclarationPattern *>(Pattern);
+    const VarDecl *D = P->getDeclaration();
+    QualType WrittenType = D->getTypeSourceInfo()
+                               ? D->getTypeSourceInfo()->getType()
+                               : D->getType();
+    if (const auto *Decomposition = dyn_cast<DecompositionDecl>(D)) {
+      WrittenType.print(OS, Policy);
+      OS << ' ';
+      Decomposition->printName(OS, Policy);
+    } else {
+      WrittenType.print(OS, Policy, D->getName());
+    }
+    return;
+  }
+  case MatchPattern::TypePatternClass: {
+    const auto *P = static_cast<const TypePattern *>(Pattern);
+    P->getTypeSourceInfo()->getType().print(OS, Policy);
+    return;
+  }
+  case MatchPattern::AndPatternClass: {
+    const auto *P = static_cast<const AndPattern *>(Pattern);
+    llvm::interleave(
+        P->conjuncts(),
+        [&](const MatchPattern *Conjunct) { PrintMatchPattern(Conjunct); },
+        [&] { OS << " && "; });
+    return;
+  }
+  case MatchPattern::OrPatternClass: {
+    const auto *P = static_cast<const OrPattern *>(Pattern);
+    llvm::interleave(
+        P->alternatives(),
+        [&](const MatchPattern *Alternative) {
+          PrintMatchPattern(Alternative);
+        },
+        [&] { OS << " || "; });
+    return;
+  }
+  case MatchPattern::AlternativePatternClass: {
+    const auto *P = static_cast<const AlternativePattern *>(Pattern);
+    OS << "{";
+    if (P->isNamed() || P->isParameterizedNamed()) {
+      OS << " ." << P->getName()->getName();
+      if (P->isParameterizedNamed()) {
+        OS << "<";
+        PrintMatchPattern(P->getSelector());
+        OS << ">";
+      }
+      if (P->getSubPattern()) {
+        OS << ": ";
+        PrintMatchPattern(P->getSubPattern());
+      }
+      OS << " ";
+    } else if (const ConceptReference *Constraint =
+                   P->getTypeConstraintSelector()) {
+      OS << " ";
+      Constraint->print(OS, Policy);
+      OS << ": ";
+      PrintMatchPattern(P->getSubPattern());
+      OS << " ";
+    } else if (P->isSelected()) {
+      OS << " ";
+      PrintMatchPattern(P->getSelector());
+      if (P->getSubPattern()) {
+        OS << ": ";
+        PrintMatchPattern(P->getSubPattern());
+      }
+      OS << " ";
+    } else if (!P->isEmpty()) {
+      OS << " ";
+      PrintMatchPattern(P->getSubPattern());
+      OS << " ";
+    }
+    OS << "}";
+    return;
+  }
+  case MatchPattern::DecompositionPatternClass: {
+    const auto *P = static_cast<const DecompositionPattern *>(Pattern);
+    OS << "[";
+    llvm::interleaveComma(P->children(), OS, [&](const MatchPattern *Child) {
+      PrintMatchPattern(Child);
+    });
+    OS << "]";
+    return;
+  }
+  }
+  llvm_unreachable("unknown match pattern kind");
+}
+
+void StmtPrinter::PrintMatchGuard(const MatchGuard &Guard) {
+  if (!Guard.hasGuard())
+    return;
+  OS << " if (";
+  if (Guard.Init) {
+    if (const auto *DS = dyn_cast<DeclStmt>(Guard.Init))
+      PrintRawDeclStmt(DS);
+    else
+      PrintExpr(cast<Expr>(Guard.Init));
+    OS << "; ";
+  }
+  if (Guard.ConditionVariable)
+    PrintRawDecl(Guard.ConditionVariable);
+  else
+    PrintExpr(Guard.Condition);
+  OS << ")";
+}
+
+void StmtPrinter::PrintMatchHandler(Stmt *Handler) {
+  if (auto *E = dyn_cast<Expr>(Handler)) {
+    PrintExpr(E);
+    OS << ";";
+    return;
+  }
+  if (auto *CS = dyn_cast<CompoundStmt>(Handler)) {
+    PrintRawCompoundStmt(CS);
+    return;
+  }
+  if (isa<NullStmt>(Handler)) {
+    OS << ";";
+    return;
+  }
+  if (auto *DS = dyn_cast<DeclStmt>(Handler)) {
+    PrintRawDeclStmt(DS);
+    OS << ";";
+    return;
+  }
+
+  unsigned SavedIndent = IndentLevel;
+  bool SavedIncludeNewlines = Policy.IncludeNewlines;
+  IndentLevel = 0;
+  Policy.IncludeNewlines = false;
+  Visit(Handler);
+  Policy.IncludeNewlines = SavedIncludeNewlines;
+  IndentLevel = SavedIndent;
+}
+
+void StmtPrinter::VisitMatchTestExpr(MatchTestExpr *Node) {
+  OS << "match(";
+  if (Node->hasSubjectProduct()) {
+    llvm::interleaveComma(Node->getSubjectProductElements(), OS,
+                          [&](Expr *Subject) { PrintExpr(Subject); });
+  } else {
+    Expr *Subject = Node->getHoldingVar() && Node->getHoldingVar()->hasInit()
+                        ? Node->getHoldingVar()->getInit()
+                        : Node->getSubject();
+    PrintExpr(Subject);
+  }
+  OS << ", case ";
+  PrintMatchPattern(Node->getPattern());
+  PrintMatchGuard(Node->getGuard());
+  OS << ")";
+}
+
+void StmtPrinter::VisitCaseConditionExpr(CaseConditionExpr *Node) {
+  Expr *Subject = Node->getHoldingVar() && Node->getHoldingVar()->hasInit()
+                      ? Node->getHoldingVar()->getInit()
+                      : Node->getSubject();
+  OS << "case ";
+  PrintMatchPattern(Node->getPattern());
+  OS << " = ";
+  PrintExpr(Subject);
+}
+
+void StmtPrinter::VisitMatchSelectExpr(MatchSelectExpr *Node) {
+  OS << "match";
+  if (Node->isConstexpr())
+    OS << " constexpr";
+  OS << " (";
+  if (Stmt *Init = Node->getInitStmt()) {
+    if (auto *DS = dyn_cast<DeclStmt>(Init))
+      PrintRawDeclStmt(DS);
+    else if (auto *E = dyn_cast<Expr>(Init))
+      PrintExpr(E);
+    OS << "; ";
+  }
+  if (Node->hasSubjectProduct()) {
+    llvm::interleaveComma(Node->getSubjectProductElements(), OS,
+                          [&](Expr *Subject) { PrintExpr(Subject); });
+  } else {
+    Expr *Subject = Node->getHoldingVar() && Node->getHoldingVar()->hasInit()
+                        ? Node->getHoldingVar()->getInit()
+                        : Node->getSubject();
+    PrintExpr(Subject);
+  }
+  OS << ")";
+  if (Node->getOrigResultType().getBeginLoc().isValid()) {
+    OS << " -> ";
+    Node->getOrigResultType().getType().print(OS, Policy);
+  }
+  OS << " {" << NL;
+  IndentLevel += Policy.Indentation;
+  for (Stmt *Statement : Node->getPreamble())
+    PrintStmt(Statement, /*SubIndent=*/0);
+  for (const MatchCase &Case : Node->getCases()) {
+    Indent();
+    for (const Attr *Attribute : Case.Attributes) {
+      Attribute->printPretty(OS, Policy);
+      OS << ' ';
+    }
+    OS << "case ";
+    PrintMatchPattern(Case.Pattern);
+    PrintMatchGuard(Case.Guard);
+    OS << " => ";
+    if (Case.isNonReturning())
+      OS << "not return ";
+    PrintMatchHandler(Case.Handler);
+    OS << NL;
+  }
+  IndentLevel -= Policy.Indentation;
+  Indent() << "}";
 }
 
 //===----------------------------------------------------------------------===//

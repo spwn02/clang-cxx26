@@ -29,6 +29,7 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaCodeCompletion.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -2117,7 +2118,8 @@ Parser::ParseAliasDeclarationInInitStatement(DeclaratorContext Context,
 Sema::ConditionResult
 Parser::ParseCXXCondition(StmtResult *InitStmt, SourceLocation Loc,
                           Sema::ConditionKind CK, bool MissingOK,
-                          ForRangeInfo *FRI, bool EnterForConditionScope) {
+                          InjectedDeclSet *InjectedDecls, ForRangeInfo *FRI,
+                          bool EnterForConditionScope) {
   // Helper to ensure we always enter a continue/break scope if requested.
   struct ForConditionScopeRAII {
     Scope *S;
@@ -2173,7 +2175,7 @@ Parser::ParseCXXCondition(StmtResult *InitStmt, SourceLocation Loc,
       }
       ConsumeToken();
       *InitStmt = Actions.ActOnNullStmt(SemiLoc);
-      return ParseCXXCondition(nullptr, Loc, CK, MissingOK);
+      return ParseCXXCondition(nullptr, Loc, CK, MissingOK, InjectedDecls);
     }
 
     EnterExpressionEvaluationContext Eval(
@@ -2182,7 +2184,27 @@ Parser::ParseCXXCondition(StmtResult *InitStmt, SourceLocation Loc,
         /*ExprContext=*/Sema::ExpressionEvaluationContextRecord::EK_Other,
         /*ShouldEnter=*/CK == Sema::ConditionKind::ConstexprIf);
 
-    ExprResult Expr = ParseExpression();
+    if (getLangOpts().PatternMatching && Tok.is(tok::kw_case) &&
+        (CK != Sema::ConditionKind::Switch || InitStmt))
+      return ParseCaseConditionChain(InitStmt, Loc, CK, MissingOK,
+                                     InjectedDecls, FRI);
+    std::optional<CaseConditionParseState> CaseState;
+    if (getLangOpts().PatternMatching)
+      CaseState.emplace(
+          CaseConditionParseState{InitStmt, Loc, CK, MissingOK, {}});
+    CaseConditionParseState *State = CaseState ? &*CaseState : nullptr;
+    ExprResult Expr =
+        ParseExpression(TypoCorrectionTypeBehavior::AllowNonTypes,
+                        /*InjectedDecls=*/nullptr, State);
+
+    if (CaseState && !CaseState->Decls.empty() && InjectedDecls) {
+      for (Decl *D : CaseState->Decls) {
+        getCurScope()->RemoveDecl(D);
+        if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+          Actions.IdResolver.RemoveDecl(ND);
+        InjectedDecls->insert(D);
+      }
+    }
 
     if (Expr.isInvalid())
       return Sema::ConditionError();
@@ -2191,7 +2213,7 @@ Parser::ParseCXXCondition(StmtResult *InitStmt, SourceLocation Loc,
       WarnOnInit();
       *InitStmt = Actions.ActOnExprStmt(Expr.get());
       ConsumeToken();
-      return ParseCXXCondition(nullptr, Loc, CK, MissingOK);
+      return ParseCXXCondition(nullptr, Loc, CK, MissingOK, InjectedDecls);
     }
 
     return Actions.ActOnCondition(getCurScope(), Loc, Expr.get(), CK,
@@ -2211,7 +2233,7 @@ Parser::ParseCXXCondition(StmtResult *InitStmt, SourceLocation Loc,
                                   attrs, DeclSpecAttrs, /*RequireSemi=*/true);
     }
     *InitStmt = Actions.ActOnDeclStmt(DG, DeclStart, DeclEnd);
-    return ParseCXXCondition(nullptr, Loc, CK, MissingOK);
+    return ParseCXXCondition(nullptr, Loc, CK, MissingOK, InjectedDecls);
   }
 
   case ConditionOrInitStatement::ForRangeDecl: {
@@ -2284,9 +2306,8 @@ Parser::ParseCXXCondition(StmtResult *InitStmt, SourceLocation Loc,
     SourceLocation LParen = ConsumeParen(), RParen = LParen;
     if (SkipUntil(tok::r_paren, StopAtSemi | StopBeforeMatch))
       RParen = ConsumeParen();
-    Diag(DeclOut->getLocation(),
-         diag::err_expected_init_in_condition_lparen)
-      << SourceRange(LParen, RParen);
+    Diag(DeclOut->getLocation(), diag::err_expected_init_in_condition_lparen)
+        << SourceRange(LParen, RParen);
   } else {
     Diag(DeclOut->getLocation(), diag::err_expected_init_in_condition);
   }
@@ -4094,4 +4115,1564 @@ ExprResult Parser::ParseBuiltinBitCast() {
 
   return Actions.ActOnBuiltinBitCastExpr(KWLoc, DeclaratorInfo, Operand,
                                          T.getCloseLocation());
+}
+
+static bool needsAlternativeCandidateSpecialization(MatchPattern *Pattern) {
+  if (Pattern->getMatchPatternClass() ==
+      MatchPattern::AlternativePatternClass) {
+    auto *Alternative = static_cast<AlternativePattern *>(Pattern);
+    if (Alternative->getAlternativeKind() == AlternativePattern::Generic ||
+        Alternative->isTypeSelected() ||
+        Alternative->isTypeConstraintSelected())
+      return true;
+  }
+  return llvm::any_of(Pattern->children(),
+                      needsAlternativeCandidateSpecialization);
+}
+
+static bool containsDeclarationBindingPack(MatchPattern *Pattern) {
+  if (Pattern->getMatchPatternClass() ==
+      MatchPattern::DeclarationPatternClass) {
+    auto *Declaration =
+        static_cast<DeclarationPattern *>(Pattern)->getDeclaration();
+    if (Declaration->isParameterPack())
+      return true;
+    if (auto *Decomposition = dyn_cast<DecompositionDecl>(Declaration))
+      return llvm::any_of(
+          Decomposition->all_source_bindings(),
+          [](BindingDecl *Binding) { return Binding->isParameterPack(); });
+  }
+  return llvm::any_of(Pattern->children(), containsDeclarationBindingPack);
+}
+
+Sema::ConditionResult
+Parser::ParseCaseCondition(StmtResult *InitStmt, SourceLocation Loc,
+                           Sema::ConditionKind CK, bool MissingOK,
+                           InjectedDeclSet *InjectedDecls,
+                           ForRangeInfo *FRI) {
+  assert(Tok.is(tok::kw_case) && "not a case condition");
+  SourceLocation CaseLoc = ConsumeToken();
+  ParseScope MatchTestScope(this, Scope::DeclScope);
+  ActionResult<MatchPattern *> ParsedPattern =
+      ParsePattern(/*AllowPackExpansion=*/false, /*StopAtEqual=*/true);
+  if (ParsedPattern.isInvalid())
+    return Sema::ConditionError();
+  MatchPattern *Pattern = ParsedPattern.get();
+  if (Actions.CheckConstantExpressionPatterns(Pattern))
+    return Sema::ConditionError();
+
+  SmallVector<NamedDecl *, 4> PatternDecls;
+  for (Decl *D : getCurScope()->decls())
+    if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName()) {
+      PatternDecls.push_back(ND);
+      Actions.IdResolver.RemoveDecl(ND);
+    }
+  llvm::scope_exit RestorePatternDecls([&] {
+    for (NamedDecl *D : PatternDecls)
+      Actions.IdResolver.AddDecl(D);
+  });
+
+  if (FRI && Tok.is(tok::colon)) {
+    FRI->Pattern = Pattern;
+    FRI->PatternCaseLoc = CaseLoc;
+    FRI->ColonLoc = ConsumeToken();
+    ParseForRangeInitializerAfterColon(*FRI, /*VarDeclSpec=*/nullptr);
+
+    Scope::decl_range DR = getCurScope()->decls();
+    InjectedDeclSet Decls = {DR.begin(), DR.end()};
+    for (Decl *D : Decls)
+      getCurScope()->RemoveDecl(D);
+    RestorePatternDecls.release();
+    MatchTestScope.Exit();
+    if (InjectedDecls) {
+      *InjectedDecls = Decls;
+    } else {
+      Scope *S = getCurScope();
+      for (Decl *D : Decls)
+        if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+          Actions.PushOnScopeChains(ND, S, /*AddToContext=*/false);
+    }
+    return {};
+  }
+
+  // Unlike a range initializer, the subject initializer follows ordinary
+  // declaration lookup: a same-named binding denotes the binding being
+  // introduced, not an outer declaration. Its use is diagnosed below.
+  for (NamedDecl *D : PatternDecls)
+    Actions.IdResolver.AddDecl(D);
+  RestorePatternDecls.release();
+
+  if (ExpectAndConsume(tok::equal, diag::err_expected_after, "pattern"))
+    return Sema::ConditionError();
+
+  ExprResult Subject = ParseCastExpression(CastParseKind::AnyCastExpr);
+  if (!Subject.isInvalid())
+    Subject = ParseRHSOfBinaryExpression(Subject, prec::InclusiveOr);
+  if (Subject.isInvalid())
+    return Sema::ConditionError();
+  if (Actions.CheckMatchSubjectBindingReferences(Subject.get(), Pattern))
+    return Sema::ConditionError();
+  if (InitStmt && Tok.is(tok::semi)) {
+    Diag(CaseLoc, diag::err_case_init_statement);
+    SkipUntil(tok::r_paren, StopBeforeMatch);
+    return Sema::ConditionError();
+  }
+  VarDecl *HoldingVar = nullptr;
+  Subject = Actions.ActOnMatchSubject(Subject.get(), HoldingVar);
+  if (Subject.isInvalid())
+    return Sema::ConditionError();
+
+  bool PatternNeedsAlternativeSpecialization =
+      needsAlternativeCandidateSpecialization(Pattern);
+  bool PatternContainsBindingPack = containsDeclarationBindingPack(Pattern);
+  Sema::MatchProjectionCache ProjectionCache;
+  Sema::MatchPatternState PatternState;
+  ProjectionCache.DeferAlternativeChoices = true;
+  if (Actions.CheckCompleteMatchPattern(Subject.get(), Pattern, PatternState,
+                                        &ProjectionCache))
+    return Sema::ConditionError();
+
+  if (Tok.is(tok::kw_if)) {
+    Diag(Tok, diag::err_case_condition_guard);
+    SourceLocation IfLoc;
+    StmtResult GuardInit;
+    ParseMatchGuard(IfLoc, GuardInit);
+    return Sema::ConditionError();
+  }
+
+  bool NeedsCaseInstantiation = ProjectionCache.HasDeferredAlternativeChoices ||
+                                PatternContainsBindingPack ||
+                                (PatternNeedsAlternativeSpecialization &&
+                                 Subject.get()->isTypeDependent());
+  Sema::MatchPatternSemanticAnalysis Semantic =
+      Actions.AnalyzeMatchPatternSemantics(Pattern, PatternState);
+  bool PatternIsIrrefutable = Semantic.isUnconditionallyMatched();
+  ExprResult Result = Actions.ActOnCaseConditionExpr(
+      HoldingVar, Subject.get(), CaseLoc, Pattern,
+      MatchPatternInstantiation::Create(Actions.Context, Pattern,
+                                        PatternState.Infos),
+      PatternIsIrrefutable, NeedsCaseInstantiation);
+  if (Result.isInvalid())
+    return Sema::ConditionError();
+
+  Scope::decl_range DR = getCurScope()->decls();
+  InjectedDeclSet Decls = {DR.begin(), DR.end()};
+  for (Decl *D : Decls) {
+    getCurScope()->RemoveDecl(D);
+    if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+      Actions.IdResolver.RemoveDecl(ND);
+  }
+  MatchTestScope.Exit();
+
+  if (InjectedDecls) {
+    *InjectedDecls = Decls;
+  } else {
+    Scope *S = getCurScope();
+    for (Decl *D : Decls)
+      if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+        Actions.PushOnScopeChains(ND, S, /*AddToContext=*/false);
+  }
+
+  if (CK == Sema::ConditionKind::Switch) {
+    Diag(CaseLoc, diag::err_case_switch_condition);
+    return Sema::ConditionError();
+  }
+
+  return Actions.ActOnCondition(getCurScope(), Loc, Result.get(),
+                                Sema::ConditionKind::Boolean,
+                                /*MissingOK=*/false);
+}
+
+ExprResult Parser::ParseCaseConditionOperand(CaseConditionParseState &State) {
+  InjectedDeclSet ElementDecls;
+  Sema::ConditionResult Parsed =
+      ParseCaseCondition(State.InitStmt, State.StatementLoc,
+                         State.ConditionKind, State.MissingOK, &ElementDecls);
+  if (Parsed.isInvalid())
+    return ExprError();
+
+  for (Decl *D : ElementDecls) {
+    State.Decls.insert(D);
+    if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+      Actions.PushOnScopeChains(ND, getCurScope(), /*AddToContext=*/false);
+  }
+  return Parsed.get().second;
+}
+
+Sema::ConditionResult Parser::ParseCaseConditionChain(
+    StmtResult *InitStmt, SourceLocation Loc, Sema::ConditionKind CK,
+    bool MissingOK, InjectedDeclSet *InjectedDecls, ForRangeInfo *FRI) {
+  ParseScope ChainScope(this, Scope::DeclScope);
+  ExprResult Condition;
+  SourceLocation AndLoc;
+
+  while (true) {
+    ExprResult Element;
+    if (Tok.is(tok::kw_case)) {
+      InjectedDeclSet ElementDecls;
+      Sema::ConditionResult Parsed =
+          ParseCaseCondition(InitStmt, Loc, CK, MissingOK, &ElementDecls, FRI);
+      if (Parsed.isInvalid())
+        return Sema::ConditionError();
+      if (FRI && FRI->Pattern) {
+        ChainScope.Exit();
+        if (InjectedDecls) {
+          *InjectedDecls = ElementDecls;
+        } else {
+          Scope *S = getCurScope();
+          for (Decl *D : ElementDecls)
+            if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+              Actions.PushOnScopeChains(ND, S, /*AddToContext=*/false);
+        }
+        return Parsed;
+      }
+      Element = Parsed.get().second;
+      for (Decl *D : ElementDecls)
+        if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+          Actions.PushOnScopeChains(ND, getCurScope(),
+                                    /*AddToContext=*/false);
+    } else {
+      Element = ParseCastExpression(CastParseKind::AnyCastExpr);
+      if (!Element.isInvalid())
+        Element = ParseRHSOfBinaryExpression(Element, prec::InclusiveOr);
+      if (Element.isInvalid())
+        return Sema::ConditionError();
+      if (!Element.get()->getType()->isDependentType()) {
+        Element = Actions.PerformContextuallyConvertToBool(Element.get());
+        if (Element.isInvalid())
+          return Sema::ConditionError();
+      }
+    }
+
+    if (Condition.isUnset()) {
+      Condition = Element;
+    } else {
+      Condition =
+          Actions.BuildCaseConditionAnd(AndLoc, Condition.get(), Element.get());
+      if (Condition.isInvalid())
+        return Sema::ConditionError();
+    }
+
+    if (!TryConsumeToken(tok::ampamp, AndLoc))
+      break;
+  }
+
+  Scope::decl_range DR = getCurScope()->decls();
+  InjectedDeclSet Decls = {DR.begin(), DR.end()};
+  for (Decl *D : Decls) {
+    getCurScope()->RemoveDecl(D);
+    if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+      Actions.IdResolver.RemoveDecl(ND);
+  }
+  ChainScope.Exit();
+
+  if (InjectedDecls) {
+    *InjectedDecls = Decls;
+  } else {
+    Scope *S = getCurScope();
+    for (Decl *D : Decls)
+      if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+        Actions.PushOnScopeChains(ND, S, /*AddToContext=*/false);
+  }
+
+  if (CK == Sema::ConditionKind::Switch) {
+    Diag(Loc, diag::err_case_switch_condition);
+    return Sema::ConditionError();
+  }
+
+  Sema::ConditionKind EffectiveCK = CK;
+  if (CK == Sema::ConditionKind::ConstexprIf &&
+      MatchTestExpr::findCaseConditionRequiringInstantiation(Condition.get()))
+    EffectiveCK = Sema::ConditionKind::Boolean;
+  return Actions.ActOnCondition(getCurScope(), Loc, Condition.get(),
+                                EffectiveCK, MissingOK);
+}
+
+ExprResult Parser::BuildCaseForRangeCondition(const ForRangeInfo &FRI) {
+  auto *LoopDeclStmt = dyn_cast_if_present<DeclStmt>(FRI.LoopVar.get());
+  if (!LoopDeclStmt || !LoopDeclStmt->isSingleDecl())
+    return ExprError();
+  auto *LoopVar = dyn_cast<VarDecl>(LoopDeclStmt->getSingleDecl());
+  if (!LoopVar || LoopVar->isInvalidDecl())
+    return ExprError();
+
+  ExprResult Subject = Actions.BuildDeclRefExpr(
+      LoopVar, LoopVar->getType().getNonReferenceType(), VK_LValue,
+      FRI.PatternCaseLoc);
+  if (Subject.isInvalid())
+    return ExprError();
+
+  bool PatternNeedsAlternativeSpecialization =
+      needsAlternativeCandidateSpecialization(FRI.Pattern);
+  bool PatternContainsBindingPack =
+      containsDeclarationBindingPack(FRI.Pattern);
+  Sema::MatchProjectionCache ProjectionCache;
+  Sema::MatchPatternState PatternState;
+  ProjectionCache.DeferAlternativeChoices = true;
+  if (Actions.CheckCompleteMatchPattern(Subject.get(), FRI.Pattern,
+                                        PatternState, &ProjectionCache))
+    return ExprError();
+
+  bool NeedsCaseInstantiation = ProjectionCache.HasDeferredAlternativeChoices ||
+                                PatternContainsBindingPack ||
+                                (PatternNeedsAlternativeSpecialization &&
+                                 Subject.get()->isTypeDependent());
+  Sema::MatchPatternSemanticAnalysis Semantic =
+      Actions.AnalyzeMatchPatternSemantics(FRI.Pattern, PatternState);
+  return Actions.ActOnCaseConditionExpr(
+      /*HoldingVar=*/nullptr, Subject.get(), FRI.PatternCaseLoc, FRI.Pattern,
+      MatchPatternInstantiation::Create(Actions.Context, FRI.Pattern,
+                                        PatternState.Infos),
+      Semantic.isUnconditionallyMatched(), NeedsCaseInstantiation);
+}
+
+ExprResult Parser::ParseMatchSelection(bool IsStatement,
+                                       bool MissingSubjectParens) {
+  SourceLocation MatchLoc = ConsumeToken();
+  ParseScope MatchScope(this, Scope::DeclScope);
+  bool IsConstexpr = TryConsumeToken(tok::kw_constexpr);
+
+  StmtResult InitStmt;
+  ExprResult Subject;
+  ExprVector Subjects;
+  if (MissingSubjectParens) {
+    Diag(Tok, diag::err_expected_lparen_after) << "match";
+    Subject = ParseExpression();
+    if (Subject.isInvalid() || Tok.isNot(tok::l_brace))
+      return ExprError();
+    Subjects.push_back(Subject.get());
+  } else {
+    BalancedDelimiterTracker Parens(*this, tok::l_paren);
+    if (Parens.expectAndConsume())
+      return ExprError();
+    if (Tok.is(tok::r_paren)) {
+      Diag(Tok, diag::err_expected_expression);
+      Parens.consumeClose();
+      if (Tok.is(tok::l_brace)) {
+        BalancedDelimiterTracker Body(*this, tok::l_brace);
+        Body.consumeOpen();
+        Body.skipToEnd();
+      }
+      return ExprError();
+    }
+
+    bool HasInitStatement = false;
+    {
+      RevertingTentativeParsingAction Probe(*this);
+      if (SkipUntil(tok::semi, tok::r_paren, StopBeforeMatch))
+        HasInitStatement = Tok.is(tok::semi);
+    }
+
+    ParsedAttributes Attrs(AttrFactory);
+    MaybeParseCXX11Attributes(Attrs);
+    bool InvalidSubjects = false;
+    if (HasInitStatement) {
+      ConditionOrInitStatement ClauseKind =
+          isCXXConditionDeclarationOrInitStatement(
+              /*InitStmt=*/true, /*CanBeForRangeDecl=*/false);
+      if (ClauseKind == ConditionOrInitStatement::InitStmtDecl) {
+        DeclGroupPtrTy DG;
+        SourceLocation DeclStart = Tok.getLocation(), DeclEnd;
+        if (Tok.is(tok::kw_using))
+          DG = ParseAliasDeclarationInInitStatement(
+              DeclaratorContext::SelectionInit, Attrs);
+        else {
+          ParsedAttributes DeclSpecAttrs(AttrFactory);
+          DG = ParseSimpleDeclaration(DeclaratorContext::SelectionInit, DeclEnd,
+                                      Attrs, DeclSpecAttrs,
+                                      /*RequireSemi=*/true);
+        }
+        InitStmt = Actions.ActOnDeclStmt(DG, DeclStart, DeclEnd);
+      } else if (ClauseKind == ConditionOrInitStatement::Expression) {
+        ProhibitAttributes(Attrs);
+        if (Tok.is(tok::semi)) {
+          SourceLocation SemiLoc = ConsumeToken();
+          InitStmt = Actions.ActOnNullStmt(SemiLoc);
+        } else {
+          ExprResult Init = ParseExpression();
+          if (Init.isInvalid())
+            InvalidSubjects = true;
+          else
+            InitStmt = Actions.ActOnExprStmt(Init.get());
+          if (ExpectAndConsume(tok::semi, diag::err_expected_semi_after_expr))
+            InvalidSubjects = true;
+        }
+      } else {
+        InvalidSubjects = true;
+      }
+
+      if (!InvalidSubjects)
+        InvalidSubjects =
+            ParseExpressionList(Subjects, /*ExpressionStarts=*/{},
+                                /*FailImmediatelyOnInvalidExpr=*/false,
+                                /*AllowBracedInitList=*/false);
+    } else {
+      ProhibitAttributes(Attrs);
+      InvalidSubjects =
+          ParseExpressionList(Subjects, /*ExpressionStarts=*/{},
+                              /*FailImmediatelyOnInvalidExpr=*/false,
+                              /*AllowBracedInitList=*/false);
+    }
+
+    bool InvalidParens = Parens.consumeClose();
+    if (InvalidSubjects || InvalidParens) {
+      if (Tok.is(tok::l_brace)) {
+        BalancedDelimiterTracker Body(*this, tok::l_brace);
+        Body.consumeOpen();
+        Body.skipToEnd();
+      }
+      return ExprError();
+    }
+  }
+
+  QualType RetTy;
+  TypeSourceInfo *TSI = nullptr;
+  if (Tok.is(tok::arrow)) {
+    SourceLocation ArrowLoc = Tok.getLocation();
+    if (IsStatement) {
+      Diag(ArrowLoc, diag::err_match_statement_result_type);
+      ConsumeToken();
+      if (!SkipUntil(tok::l_brace, StopAtSemi | StopBeforeMatch) ||
+          Tok.isNot(tok::l_brace))
+        return ExprError();
+    } else {
+      SourceRange Range;
+      TypeResult TrailingReturnType =
+          ParseTrailingReturnType(Range, /*MayBeFollowedByDirectInit=*/false);
+      if (TrailingReturnType.isInvalid()) {
+        if (Tok.isNot(tok::l_brace))
+          SkipUntil(tok::l_brace, StopAtSemi | StopBeforeMatch);
+        if (Tok.is(tok::l_brace)) {
+          BalancedDelimiterTracker Braces(*this, tok::l_brace);
+          Braces.consumeOpen();
+          Braces.skipToEnd();
+        }
+        return ExprError();
+      }
+      RetTy = Actions.GetTypeFromParser(TrailingReturnType.get(), &TSI);
+      if (Tok.isNot(tok::l_brace))
+        return ExprError(
+            Diag(Tok, diag::err_expected_lbrace_after_match_result_type));
+    }
+  }
+  if (RetTy.isNull()) {
+    RetTy = IsStatement ? Actions.Context.VoidTy
+                        : Actions.Context.getAutoDeductType();
+    TSI = Actions.Context.CreateTypeSourceInfo(RetTy);
+  }
+
+  TypeLoc OrigResultType = TSI->getTypeLoc();
+  SmallVector<Stmt *, 8> Preamble;
+  SmallVector<MatchCase, 32> Cases;
+  SourceRange Braces;
+  bool HasDeferredCases = false;
+  VarDecl *HoldingVar = nullptr;
+  Subject = Actions.ActOnMatchSubjects(Subjects, MatchLoc, HoldingVar);
+  if (Subject.isInvalid()) {
+    if (Subjects.size() != 1 && Tok.is(tok::l_brace)) {
+      BalancedDelimiterTracker Body(*this, tok::l_brace);
+      Body.consumeOpen();
+      Body.skipToEnd();
+    }
+    return ExprError();
+  }
+  if (ParseMatchBody(Subject.get(), OrigResultType, RetTy, Preamble, Cases,
+                     Braces, HasDeferredCases, IsStatement,
+                     /*DeferHandlerChecking=*/IsConstexpr))
+    return ExprError();
+  if (IsConstexpr) {
+    bool SelectionIsDependent =
+        Subject.get()->isTypeDependent() || Subject.get()->isValueDependent() ||
+        llvm::any_of(Cases, [](const MatchCase &Case) {
+          return static_cast<bool>(Case.Pattern->getDependence() &
+                                   ExprDependence::Instantiation) ||
+                 (Case.Guard.Condition &&
+                  (Case.Guard.Condition->isTypeDependent() ||
+                   Case.Guard.Condition->isValueDependent()));
+        });
+    HasDeferredCases |= !SelectionIsDependent;
+    if (OrigResultType.getType()->getContainedAutoType())
+      RetTy = Actions.Context.DependentTy;
+  }
+  return Actions.ActOnMatchSelectExpr(
+      InitStmt.get(), HoldingVar, Subject.get(), MatchLoc, IsConstexpr,
+      IsStatement, OrigResultType, RetTy, Preamble, Cases, Braces,
+      HasDeferredCases);
+}
+
+bool Parser::hasPossibleOrdinaryMatchCall() {
+  RevertingTentativeParsingAction Probe(*this, /*Unannotated=*/true);
+  SourceLocation MatchLoc = ConsumeToken();
+  BalancedDelimiterTracker Parens(*this, tok::l_paren);
+  if (Parens.expectAndConsume())
+    return true;
+
+  DiagnosticsEngine &Diags = PP.getDiagnostics();
+  bool PreviouslySuppressed = Diags.getSuppressAllDiagnostics();
+  Diags.setSuppressAllDiagnostics(true);
+  llvm::scope_exit RestoreDiagnostics(
+      [&] { Diags.setSuppressAllDiagnostics(PreviouslySuppressed); });
+  Sema::TentativeAnalysisScope Trap(Actions);
+
+  ExprVector Args;
+  if ((Tok.isNot(tok::r_paren) && ParseExpressionList(Args)) ||
+      Parens.consumeClose())
+    return true;
+
+  return Actions.classifyUnqualifiedCallCandidates(getCurScope(), Ident_match,
+                                                   MatchLoc, Args) !=
+         Sema::UnqualifiedCallCandidateStatus::None;
+}
+
+bool Parser::isPrefixMatchTestExpression() {
+  if (!getLangOpts().PatternMatching || Tok.isNot(tok::identifier) ||
+      Tok.getIdentifierInfo() != Ident_match || NextToken().isNot(tok::l_paren))
+    return false;
+
+  RevertingTentativeParsingAction Probe(*this, /*Unannotated=*/true);
+  ConsumeToken();
+  ConsumeParen();
+  // A top-level comma either separates subjects or introduces the final
+  // `case` operand. Commas in nested expressions are skipped.
+  while (SkipUntil({tok::comma, tok::r_paren}, StopBeforeMatch)) {
+    if (Tok.is(tok::r_paren))
+      return false;
+    ConsumeToken();
+    if (Tok.is(tok::kw_case))
+      return true;
+  }
+  return false;
+}
+
+bool Parser::isPrefixMatchSelection(bool StatementContext,
+                                    SourceLocation *MissingCasePatternLoc,
+                                    bool *MissingSubjectParens) {
+  if (MissingCasePatternLoc)
+    *MissingCasePatternLoc = SourceLocation();
+  if (MissingSubjectParens)
+    *MissingSubjectParens = false;
+  if (!getLangOpts().PatternMatching || Tok.isNot(tok::identifier) ||
+      Tok.getIdentifierInfo() != Ident_match)
+    return false;
+  bool IsConstexpr = NextToken().is(tok::kw_constexpr);
+  if (GetLookAheadToken(IsConstexpr ? 2 : 1).isNot(tok::l_paren)) {
+    // A label does not participate in ordinary name lookup.
+    if (StatementContext && NextToken().is(tok::colon))
+      return false;
+
+    // Preserve explicit-template-argument calls for dependent ADL.
+    if (NextToken().is(tok::less))
+      return false;
+
+    // Without the parenthesized subject, an ordinary declaration or
+    // expression can only be valid if `match` names something. Otherwise,
+    // prefer the match parser's missing-parenthesis diagnostic. Defer when
+    // lookup depends on a later template instantiation.
+    if (Actions.classifyUnqualifiedCallCandidates(getCurScope(), Ident_match,
+                                                  Tok.getLocation(), {}) !=
+        Sema::UnqualifiedCallCandidateStatus::None)
+      return false;
+    if (MissingSubjectParens)
+      *MissingSubjectParens = true;
+    return true;
+  }
+
+  // Establish the prefix shape before doing lookup or tentative declarator
+  // parsing. A non-type entity named `match`, including a function or a
+  // callable object, cannot be followed by a braced match body as part of its
+  // call, so most uses are unambiguous after this balanced scan.
+  tok::TokenKind FirstBodyToken;
+  SourceLocation FirstBodyLoc;
+  bool BodyBeginsAttribute = false;
+  bool ProbeOrdinaryMatchCall = false;
+  {
+    RevertingTentativeParsingAction Selection(*this, /*Unannotated=*/true);
+    ConsumeToken();
+    TryConsumeToken(tok::kw_constexpr);
+    ConsumeParen();
+    if (!SkipUntil(tok::r_paren))
+      return false;
+    if (Tok.is(tok::arrow)) {
+      // An arrow can begin either ordinary member access or an explicit match
+      // result type. First use the syntax-only type-id probe for the normative
+      // classification. The real type parser is used separately below only
+      // for diagnostic recovery.
+      bool CanOnlyBeginTypeId = false;
+      {
+        RevertingTentativeParsingAction TypeId(*this, /*Unannotated=*/true);
+        ConsumeToken();
+        const bool CanBeginMemberAccess = Tok.isOneOf(
+            tok::identifier, tok::annot_typename, tok::annot_template_id,
+            tok::kw_operator, tok::kw_template, tok::tilde);
+        CanOnlyBeginTypeId =
+            !CanBeginMemberAccess &&
+            (Tok.isOneOf(tok::kw_auto, tok::kw_decltype, tok::kw_typename,
+                         tok::annot_decltype, tok::annot_pack_indexing_type) ||
+             isTypeSpecifierQualifier());
+
+        Sema::TentativeAnalysisScope Trap(Actions);
+        // A complete trailing result type establishes the match prefix without
+        // examining the body's first token or probing a declarator.
+        if (isCXXTypeId(TentativeCXXTypeIdContext::InMatchTrailingReturnType) &&
+            Tok.is(tok::l_brace))
+          return true;
+      }
+
+      // Neither constexpr nor a type-only start permits ordinary member
+      // access. Let the real match parser diagnose the type directly.
+      if (IsConstexpr || CanOnlyBeginTypeId)
+        return true;
+
+      // Run the real trailing-return-type parser under rollback. Unlike the
+      // syntax-only probe above, this permits ordinary type recovery and
+      // typo correction. Reaching the immediately following brace is enough
+      // to establish that the ill-formed construct was intended as a match.
+      bool RecoveredToMatchBody = false;
+      {
+        RevertingTentativeParsingAction Recovery(*this,
+                                                 /*Unannotated=*/true);
+        DiagnosticsEngine &Diags = PP.getDiagnostics();
+        bool PreviouslySuppressed = Diags.getSuppressAllDiagnostics();
+        Diags.setSuppressAllDiagnostics(true);
+        llvm::scope_exit RestoreDiagnostics(
+            [&] { Diags.setSuppressAllDiagnostics(PreviouslySuppressed); });
+        auto PreviousTypoFailures = Actions.TypoCorrectionFailures;
+        unsigned PreviousTyposCorrected = Actions.TyposCorrected;
+        SourceRange Range;
+        (void)ParseTrailingReturnType(Range,
+                                      /*MayBeFollowedByDirectInit=*/false);
+        RecoveredToMatchBody = Tok.is(tok::l_brace);
+        Actions.TypoCorrectionFailures = std::move(PreviousTypoFailures);
+        Actions.TyposCorrected = PreviousTyposCorrected;
+      }
+      if (RecoveredToMatchBody)
+        return true;
+
+      // Identifier-like syntax can also be ordinary member access. Decide
+      // using candidate existence, not call viability, after restoring to
+      // the original `match` token below.
+      ProbeOrdinaryMatchCall = true;
+    }
+    if (!ProbeOrdinaryMatchCall) {
+      if (Tok.isNot(tok::l_brace))
+        return false;
+      ConsumeBrace();
+      FirstBodyToken = Tok.getKind();
+      FirstBodyLoc = Tok.getLocation();
+      BodyBeginsAttribute =
+          Tok.is(tok::l_square) && NextToken().is(tok::l_square);
+    }
+  }
+
+  if (ProbeOrdinaryMatchCall)
+    return !hasPossibleOrdinaryMatchCall();
+
+  // Every valid arm starts with one of these tokens, so no declarator probe
+  // is needed in the common match-statement case.
+  if (FirstBodyToken == tok::kw_case || FirstBodyToken == tok::kw_using ||
+      FirstBodyToken == tok::kw_namespace ||
+      FirstBodyToken == tok::kw_static_assert || BodyBeginsAttribute)
+    return true;
+
+  if (!StatementContext ||
+      !Actions.getTypeName(*Tok.getIdentifierInfo(), Tok.getLocation(),
+                           getCurScope()))
+    return true;
+
+  // A type named match can begin an ordinary declaration, with constexpr in
+  // its decl-specifier-seq. Preserve that parsing when the parenthesized
+  // contents form a declarator. Otherwise (for example, `x + 1`), this is a
+  // selection.
+  //
+  // Merely seeing `[` after the brace is insufficient: a declaration's
+  // braced initializer can begin with a lambda. `[[` is sufficient and no
+  // attribute parsing is needed because an attribute followed by a case is
+  // not an initializer-clause.
+  RevertingTentativeParsingAction Declarator(*this);
+  ConsumeToken();
+  TryConsumeToken(tok::kw_constexpr);
+  if (TryParseDeclarator(/*mayBeAbstract=*/false) == TPResult::False)
+    return true;
+
+  // `=>` has no meaning in a braced initializer. Do not use it to choose the
+  // match grammar, but remember it as a diagnostic clue so that a missing
+  // `case` does not produce only declaration diagnostics. SkipUntil ignores
+  // arrows in nested delimiters, such as a match expression used as an
+  // initializer.
+  if (MissingCasePatternLoc && Tok.is(tok::l_brace)) {
+    ConsumeBrace();
+    if (SkipUntil({tok::equalgreater, tok::comma, tok::semi, tok::r_brace},
+                  StopBeforeMatch) &&
+        Tok.is(tok::equalgreater))
+      *MissingCasePatternLoc = FirstBodyLoc;
+  }
+  return false;
+}
+
+ExprResult Parser::ParseMatchTestExpression() {
+  SourceLocation MatchLoc = ConsumeToken();
+  ParseScope MatchTestScope(this, Scope::DeclScope);
+  BalancedDelimiterTracker Parens(*this, tok::l_paren);
+  if (Parens.expectAndConsume())
+    return ExprError();
+
+  ExprVector Subjects;
+  while (true) {
+    ExprResult Subject;
+    if (Tok.is(tok::l_brace)) {
+      Diag(Tok, diag::err_expected_expression);
+      BalancedDelimiterTracker Braces(*this, tok::l_brace);
+      Braces.consumeOpen();
+      Braces.skipToEnd();
+      Subject = ExprError();
+    } else {
+      Subject = ParseAssignmentExpression();
+    }
+
+    if (Tok.is(tok::ellipsis))
+      Subject = Actions.ActOnPackExpansion(Subject.get(), ConsumeToken());
+    else if (Tok.is(tok::code_completion)) {
+      // The subject expression is complete. Let an enclosing caller provide
+      // any applicable completion rather than treating this as a separator.
+      cutOffParsing();
+      return ExprError();
+    }
+    if (Subject.isInvalid()) {
+      SkipUntil(tok::r_paren, StopBeforeMatch);
+      Parens.consumeClose();
+      return ExprError();
+    }
+    Subjects.push_back(Subject.get());
+
+    Token Comma = Tok;
+    if (ExpectAndConsume(tok::comma)) {
+      SkipUntil(tok::r_paren, StopBeforeMatch);
+      Parens.consumeClose();
+      return ExprError();
+    }
+    checkPotentialAngleBracketDelimiter(Comma);
+    if (Tok.is(tok::kw_case))
+      break;
+  }
+  if (ExpectAndConsume(tok::kw_case)) {
+    SkipUntil(tok::r_paren, StopBeforeMatch);
+    Parens.consumeClose();
+    return ExprError();
+  }
+
+  VarDecl *HoldingVar = nullptr;
+  ExprResult Subject = Actions.ActOnMatchSubjects(
+      Subjects, MatchLoc, HoldingVar, /*ForceProduct=*/false,
+      /*IsFullExpression=*/false);
+  if (Subject.isInvalid())
+    return ExprError();
+
+  ActionResult<MatchPattern *> Pattern = ParsePattern();
+  if (Pattern.isUsable() &&
+      Actions.CheckConstantExpressionPatterns(Pattern.get())) {
+    SkipUntil(tok::r_paren, StopBeforeMatch);
+    Parens.consumeClose();
+    return ExprError();
+  }
+  bool PatternNeedsAlternativeSpecialization =
+      Pattern.isUsable() &&
+      needsAlternativeCandidateSpecialization(Pattern.get());
+  bool PatternContainsBindingPack =
+      Pattern.isUsable() && containsDeclarationBindingPack(Pattern.get());
+  Sema::MatchProjectionCache ProjectionCache;
+  Sema::MatchPatternState PatternState;
+  ProjectionCache.DeferAlternativeChoices = true;
+  if (Pattern.isInvalid() ||
+      Actions.CheckCompleteMatchPattern(Subject.get(), Pattern.get(),
+                                        PatternState, &ProjectionCache))
+    return ExprError();
+  SourceLocation IfLoc;
+  StmtResult GuardInit;
+  Sema::ConditionResult Guard = ParseMatchGuard(IfLoc, GuardInit);
+  if (Guard.isInvalid()) {
+    SkipUntil(tok::r_paren, StopBeforeMatch);
+    return ExprError();
+  }
+  if (Parens.consumeClose())
+    return ExprError();
+
+  bool NeedsCaseInstantiation = ProjectionCache.HasDeferredAlternativeChoices ||
+                                PatternContainsBindingPack ||
+                                (PatternNeedsAlternativeSpecialization &&
+                                 Subject.get()->isTypeDependent());
+  Sema::MatchPatternSemanticAnalysis Semantic =
+      Actions.AnalyzeMatchPatternSemantics(Pattern.get(), PatternState);
+  bool PatternIsIrrefutable = Semantic.isUnconditionallyMatched();
+  ExprResult Result = Actions.ActOnMatchTestExpr(
+      HoldingVar, Subject.get(), MatchLoc, Pattern.get(),
+      MatchPatternInstantiation::Create(Actions.Context, Pattern.get(),
+                                        PatternState.Infos),
+      IfLoc, {GuardInit.get(), Guard.get().first, Guard.get().second},
+      PatternIsIrrefutable, NeedsCaseInstantiation);
+  if (Result.isUsable())
+    cast<MatchTestExpr>(Result.get())->setRParenLoc(Parens.getCloseLocation());
+  if (Result.isInvalid() || !NeedsCaseInstantiation ||
+      Actions.CurContext->isDependentContext() ||
+      Subject.get()->isTypeDependent())
+    return Result;
+  return Actions.ExpandDeferredMatchTestExpr(cast<MatchTestExpr>(Result.get()));
+}
+
+bool Parser::ParseMatchBody(Expr *Subject, TypeLoc OrigResultType,
+                            QualType &RetTy, SmallVectorImpl<Stmt *> &Preamble,
+                            SmallVectorImpl<MatchCase> &Result,
+                            SourceRange &Braces, bool &HasDeferredCases,
+                            bool IsStatement, bool DeferHandlerChecking) {
+  PrettyStackTraceLoc CrashInfo(PP.getSourceManager(),
+                                Tok.getLocation(),
+                                "in match body");
+  BalancedDelimiterTracker T(*this, tok::l_brace);
+  if (T.expectAndConsume())
+    return true;
+  Sema::MatchProjectionCache ProjectionCache;
+  // Parse each source arm once. Sema specializes every generic projection arm
+  // after its guard and handler are parsed.
+  ProjectionCache.DeferAlternativeChoices = true;
+  if (Subject->isTypeDependent() &&
+      OrigResultType.getType()->getContainedAutoType())
+    RetTy = Actions.Context.DependentTy;
+  bool InvalidBody = false;
+
+  auto StartsPreambleDeclaration = [&] {
+    if (Tok.isOneOf(tok::kw_using, tok::kw_static_assert))
+      return true;
+    return Tok.is(tok::kw_namespace) && NextToken().is(tok::identifier) &&
+           GetLookAheadToken(2).is(tok::equal);
+  };
+  while (StartsPreambleDeclaration()) {
+    StmtResult Declaration = ParseStatement();
+    if (Declaration.isInvalid()) {
+      InvalidBody = true;
+      SkipUntil(tok::r_brace, StopAtSemi | StopBeforeMatch);
+      TryConsumeToken(tok::semi);
+      continue;
+    }
+    Preamble.push_back(Declaration.get());
+  }
+
+  while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof)) {
+    if (StartsPreambleDeclaration()) {
+      Diag(Tok, diag::err_match_preamble_after_case);
+      StmtResult Declaration = ParseStatement();
+      InvalidBody = true;
+      if (Declaration.isInvalid()) {
+        SkipUntil(tok::r_brace, StopAtSemi | StopBeforeMatch);
+        TryConsumeToken(tok::semi);
+      }
+      continue;
+    }
+    ProjectionCache.AlternativeChoices.clear();
+    ProjectionCache.HasDeferredAlternativeChoices = false;
+    size_t SavedProjectionCount = ProjectionCache.Entries.size();
+    MatchCase Case;
+    bool Invalid =
+        ParseMatchCase(Subject, OrigResultType, RetTy, Case, ProjectionCache,
+                       IsStatement, DeferHandlerChecking);
+    bool ContainsBindingPack =
+        !Invalid && containsDeclarationBindingPack(Case.Pattern);
+    if (ProjectionCache.HasDeferredAlternativeChoices || ContainsBindingPack) {
+      ProjectionCache.Entries.resize(SavedProjectionCount);
+      HasDeferredCases = true;
+    }
+    ProjectionCache.AlternativeChoices.clear();
+
+    if (Invalid) {
+      InvalidBody = true;
+      bool AtNextCase =
+          Tok.is(tok::kw_case) ||
+          (Tok.is(tok::l_square) && NextToken().is(tok::l_square));
+      // ParseStatement normally consumes a complete statement, including its
+      // semicolon, even when semantic checking rejects it. Do not recover past
+      // the following arm in that case. Expression handlers leave their
+      // terminator for this recovery path when building the handler fails.
+      if (!IsStatement || (!AtNextCase && Tok.isNot(tok::r_brace))) {
+        SkipUntil(tok::r_brace, StopAtSemi | StopBeforeMatch);
+        TryConsumeToken(tok::semi);
+      }
+      continue;
+    }
+    Result.push_back(Case);
+  }
+  T.consumeClose();
+  Braces = T.getRange();
+  return InvalidBody;
+}
+
+bool Parser::ParseMatchCase(Expr *Subject, TypeLoc OrigResultType,
+                            QualType &RetTy, MatchCase &Case,
+                            Sema::MatchProjectionCache &ProjectionCache,
+                            bool IsStatement, bool DeferHandlerChecking) {
+  ParsedAttributes Attributes(AttrFactory);
+  MaybeParseCXX11Attributes(Attributes,
+                            /*MightBeObjCMessageSend=*/true);
+  SourceLocation IntroducerLoc;
+  if (!TryConsumeToken(tok::kw_case, IntroducerLoc)) {
+    DiagnosticBuilder DB =
+        Diag(Tok, diag::err_expected_case_before_match_pattern);
+    if (Tok.isNot(tok::r_brace) && Tok.isNot(tok::semi) &&
+        Tok.isNot(tok::eof))
+      DB << FixItHint::CreateInsertion(Tok.getLocation(), "case ");
+    return true;
+  }
+
+  ParseScope MatchCaseScope(this, Scope::DeclScope);
+  Sema::MatchPatternState PatternState;
+
+  ActionResult<MatchPattern *> Pattern = [&] {
+    EnterExpressionEvaluationContext ConstantEvaluated(
+        Actions, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+    return ParsePattern();
+  }();
+  if (Pattern.isInvalid()) {
+    SkipUntil(tok::kw_if, tok::equalgreater, tok::r_brace,
+              StopAtSemi | StopBeforeMatch);
+    if (Tok.isOneOf(tok::semi, tok::r_brace))
+      return true;
+  } else if (Actions.CheckCompleteMatchPattern(Subject, Pattern.get(),
+                                               PatternState, &ProjectionCache))
+    return true;
+  if (ProjectionCache.HasDeferredAlternativeChoices &&
+      OrigResultType.getType()->getContainedAutoType())
+    RetTy = Actions.Context.DependentTy;
+  SourceLocation IfLoc;
+  StmtResult GuardInit;
+  Sema::ConditionResult Guard = ParseMatchGuard(IfLoc, GuardInit);
+  if (Pattern.isUsable() && IfLoc.isValid())
+    Actions.CheckGuardedMatchPattern(Pattern.get());
+  if (Guard.isInvalid()) {
+    SkipUntil(tok::equalgreater, tok::r_brace, StopAtSemi | StopBeforeMatch);
+    if (Tok.isOneOf(tok::semi, tok::r_brace))
+      return true;
+  }
+  if (ExpectAndConsume(tok::equalgreater, diag::err_expected_after,
+                       "pattern"))
+    return true;
+  SourceLocation NotReturnLoc;
+  StmtResult Handler = ParseMatchHandler(OrigResultType, RetTy, IsStatement,
+                                         NotReturnLoc, DeferHandlerChecking);
+  bool InvalidConstantPattern =
+      Pattern.isUsable() &&
+      Actions.CheckConstantExpressionPatterns(Pattern.get());
+  if (Pattern.isInvalid() || Guard.isInvalid() || Handler.isInvalid() ||
+      InvalidConstantPattern)
+    return true;
+  Case = {Pattern.get(), IfLoc,
+          {GuardInit.get(), Guard.get().first, Guard.get().second},
+          Handler.get(),
+          /*MaybeUseful=*/false,
+          /*PatternInstantiation=*/nullptr,
+          /*Attributes=*/{},
+          NotReturnLoc};
+  Case.Attributes =
+      Actions.ActOnMatchCaseAttributes(Attributes, Handler.get());
+  Case.PatternInstantiation = MatchPatternInstantiation::Create(
+      Actions.Context, Pattern.get(), PatternState.Infos);
+  return false;
+}
+
+Sema::ConditionResult Parser::ParseMatchGuard(SourceLocation &IfLoc,
+                                              StmtResult &InitStmt) {
+  if (TryConsumeToken(tok::kw_if, IfLoc)) {
+    BalancedDelimiterTracker T(*this, tok::l_paren);
+    if (T.expectAndConsume(diag::err_expected_after, "if"))
+      return Sema::ConditionError();
+    Sema::ConditionResult Condition =
+        ParseCXXCondition(&InitStmt, IfLoc, Sema::ConditionKind::Boolean,
+                          /*MissingOK=*/false, /*InjectedDecls=*/nullptr);
+    T.consumeClose();
+    return Condition;
+  }
+  return {};
+}
+
+StmtResult Parser::ParseMatchHandler(TypeLoc OrigResultType, QualType &RetTy,
+                                     bool IsStatement,
+                                     SourceLocation &NotReturnLoc,
+                                     bool DeferSemanticChecking) {
+  if (IsStatement)
+    return ParseStatement();
+
+  if (Tok.is(tok::exclaim) && NextToken().is(tok::kw_return)) {
+    NotReturnLoc = ConsumeToken();
+    ConsumeToken();
+  }
+
+  const char *SemiError = nullptr;
+  StmtResult Result;
+  if (NotReturnLoc.isValid()) {
+    ExprResult Expression = ParseExpression();
+    if (DeferSemanticChecking)
+      Result = Expression.isInvalid() ? StmtError() : Expression.get();
+    else
+      Result = Actions.ActOnExprStmt(Expression, /*DiscardedValue=*/true);
+    if (Result.isInvalid() ||
+        ExpectAndConsumeSemi(diag::err_expected_semi_after_expr))
+      return StmtError();
+    return Result;
+  }
+
+  switch (Tok.getKind()) {
+  default: {
+    ExprResult Expression =
+        Tok.is(tok::l_brace) ? ParseBraceInitializer() : ParseExpression();
+    if (DeferSemanticChecking)
+      Result = Expression.isInvalid() ? StmtError() : Expression.get();
+    else
+      Result = Actions.ActOnMatchExprHandler(OrigResultType, RetTy,
+                                             Expression);
+    if (Result.isInvalid() ||
+        ExpectAndConsumeSemi(diag::err_expected_semi_after_expr)) {
+      return StmtError();
+    }
+    return Result;
+  }
+  case tok::semi: {
+    bool HasLeadingEmptyMacro = Tok.hasLeadingEmptyMacro();
+    Result = Actions.ActOnNullStmt(ConsumeToken(), HasLeadingEmptyMacro);
+    if (!DeferSemanticChecking &&
+        Actions.ActOnMatchVoidHandler(OrigResultType, RetTy,
+                                      Result.get()->getBeginLoc()))
+      return StmtError();
+    return Result;
+  }
+  case tok::kw_static_assert: {
+    SourceLocation DeclStart = Tok.getLocation();
+    SourceLocation DeclEnd;
+    Decl *D = ParseStaticAssertDeclaration(DeclEnd);
+    if (!D || cast<StaticAssertDecl>(D)->isFailed())
+      return StmtError();
+    DeclGroupPtrTy DG = Actions.ConvertDeclToDeclGroup(D);
+    Result = Actions.ActOnDeclStmt(DG, DeclStart, DeclEnd);
+    if (!DeferSemanticChecking &&
+        Actions.ActOnMatchVoidHandler(OrigResultType, RetTy, DeclStart))
+      return StmtError();
+    return Result;
+  }
+  case tok::kw_break:
+    Result = ParseBreakStatement();
+    SemiError = "break";
+    break;
+  case tok::kw_continue:
+    Result = ParseContinueStatement();
+    SemiError = "continue";
+    break;
+  case tok::kw_do_return:
+    Result = ParseDoReturnStatement();
+    SemiError = "do_return";
+    break;
+  case tok::kw_goto:
+    Result = ParseGotoStatement();
+    SemiError = "goto";
+    break;
+  case tok::kw_return:
+    Result = ParseReturnStatement();
+    SemiError = "return";
+    break;
+  case tok::kw_co_return:
+    Result = ParseReturnStatement();
+    SemiError = "co_return";
+    break;
+  }
+  if (Result.isInvalid() ||
+      ExpectAndConsumeSemi(diag::err_expected_semi_after_stmt, SemiError)) {
+    return StmtError();
+  }
+  return Result;
+}
+
+ActionResult<MatchPattern *>
+Parser::ParsePattern(bool AllowPackExpansion,
+                     bool StopAtEqual,
+                     TypoCorrectionTypeBehavior CorrectionBehavior,
+                     bool AllowUnnamedPack) {
+  auto ParseAlternative = [&](SmallVectorImpl<Decl *> &Declarations) {
+    ParseScope AlternativeScope(this, Scope::DeclScope);
+    ActionResult<MatchPattern *> First = ParsePrimaryPattern(
+        AllowPackExpansion, StopAtEqual, CorrectionBehavior, AllowUnnamedPack);
+    if (First.isInvalid())
+      return First;
+
+    SmallVector<MatchPattern *, 4> Conjuncts = {First.get()};
+    SmallVector<SourceLocation, 4> AndLocs;
+    while (Tok.is(tok::ampamp)) {
+      AndLocs.push_back(ConsumeToken());
+      ActionResult<MatchPattern *> Next =
+          ParsePrimaryPattern(AllowPackExpansion, StopAtEqual,
+                              CorrectionBehavior, AllowUnnamedPack);
+      if (Next.isInvalid())
+        return Next;
+      Conjuncts.push_back(Next.get());
+    }
+
+    ActionResult<MatchPattern *> Result =
+        Conjuncts.size() == 1 ? First
+                              : Actions.ActOnAndPattern(Conjuncts, AndLocs);
+    if (Result.isUsable())
+      llvm::append_range(Declarations, getCurScope()->decls());
+    AlternativeScope.Exit(/*DiagnoseDecls=*/false);
+    return Result;
+  };
+  auto InjectDeclarations = [&](auto Declarations) {
+    for (Decl *D : Declarations) {
+      if (auto *ND = dyn_cast<NamedDecl>(D); ND && ND->getDeclName())
+        Actions.PushOnScopeChains(ND, getCurScope(), /*AddToContext=*/false);
+      else
+        getCurScope()->AddDecl(D);
+    }
+  };
+
+  SmallVector<Decl *, 4> FirstDeclarations;
+  ActionResult<MatchPattern *> First = ParseAlternative(FirstDeclarations);
+  if (First.isInvalid())
+    return First;
+  if (Tok.isNot(tok::pipepipe)) {
+    InjectDeclarations(FirstDeclarations);
+    return First;
+  }
+
+  SmallVector<MatchPattern *, 4> Alternatives = {First.get()};
+  SmallVector<SourceLocation, 4> OrLocs;
+  do {
+    OrLocs.push_back(ConsumeToken());
+    SmallVector<Decl *, 4> Declarations;
+    ActionResult<MatchPattern *> Next = ParseAlternative(Declarations);
+    if (Next.isInvalid())
+      return true;
+    Alternatives.push_back(Next.get());
+  } while (Tok.is(tok::pipepipe));
+
+  ActionResult<MatchPattern *> Result =
+      Actions.ActOnOrPattern(Alternatives, OrLocs);
+  if (Result.isUsable())
+    InjectDeclarations(Result.getAs<OrPattern>()->bindings());
+  else
+    InjectDeclarations(FirstDeclarations);
+  return Result;
+}
+
+Parser::DeclarationPatternKind Parser::TryParseDeclarationPatternSyntax() {
+  if (!TrySkipAttributes())
+    return DeclarationPatternKind::Error;
+
+  bool HasTypeSpecifier = false;
+  bool HasAutoSpecifier = false;
+  while (true) {
+    // In `auto [[x, y]]`, `[[` begins a nested structured binding rather than
+    // an attribute. The real declaration parser makes the same distinction.
+    if (HasAutoSpecifier && Tok.is(tok::l_square) &&
+        isNestedDecompositionDeclarator())
+      break;
+
+    if (isCXX11AttributeSpecifier(/*Disambiguate=*/true) ==
+        CXX11AttributeKind::AttributeSpecifier) {
+      if (!TrySkipAttributes())
+        return DeclarationPatternKind::Error;
+      continue;
+    }
+
+    // Once a type has been seen, an identifier is the optional pattern name,
+    // even if lookup could also find a type or concept with that name.
+    if (HasTypeSpecifier && Tok.is(tok::identifier))
+      break;
+
+    TPResult Result = isCXXDeclarationSpecifier(ImplicitTypenameContext::No);
+    if (Result == TPResult::Error)
+      return DeclarationPatternKind::Error;
+    if (Result == TPResult::False)
+      break;
+
+    HasTypeSpecifier |= isCXXDeclarationSpecifierAType() ||
+                        (Tok.is(tok::identifier) && Result == TPResult::True);
+    HasAutoSpecifier |= Tok.is(tok::kw_auto);
+    if (TryConsumeDeclarationSpecifier() == TPResult::Error)
+      return DeclarationPatternKind::Error;
+  }
+
+  if (!HasTypeSpecifier)
+    return DeclarationPatternKind::Expression;
+
+  // A terminal parenthesized declarator such as `bool(value)` is a
+  // functional-cast expression pattern. It is a declaration pattern when a
+  // function or array suffix extends that parenthesized declarator, as in
+  // `int (*fn)()` or `int (&array)[5]`. Parse the enclosed ptr-declarator
+  // recursively so that redundant parentheses, as in `int ((*fn))()`, do not
+  // affect the result.
+  if (Tok.is(tok::l_paren)) {
+    ConsumeParen();
+    TPResult Result = TryParseDeclarator(
+        /*mayBeAbstract=*/true, /*mayHaveIdentifier=*/true,
+        /*mayHaveDirectInit=*/false, /*mayHaveTrailingReturnType=*/true);
+    if (Result == TPResult::Error)
+      return DeclarationPatternKind::Error;
+    if (Result == TPResult::False || Tok.isNot(tok::r_paren))
+      return DeclarationPatternKind::Expression;
+    ConsumeParen();
+    return Tok.isOneOf(tok::l_paren, tok::l_square)
+               ? DeclarationPatternKind::Pattern
+               : DeclarationPatternKind::Expression;
+  }
+
+  if (TryParsePtrOperatorSeq() == TPResult::Error)
+    return DeclarationPatternKind::Error;
+
+  if (Tok.is(tok::l_brace))
+    return DeclarationPatternKind::Expression;
+
+  return DeclarationPatternKind::Pattern;
+}
+
+bool Parser::isDeclarationPatternSyntax() {
+  RevertingTentativeParsingAction TPA(*this, /*Unannotated=*/true);
+  return TryParseDeclarationPatternSyntax() !=
+         DeclarationPatternKind::Expression;
+}
+
+ActionResult<MatchPattern *>
+Parser::ParsePrimaryPattern(bool AllowPackExpansion, bool StopAtEqual,
+                            TypoCorrectionTypeBehavior CorrectionBehavior,
+                            bool AllowUnnamedPack) {
+  if (AllowUnnamedPack && Tok.is(tok::ellipsis)) {
+    SourceLocation EllipsisLoc = ConsumeToken();
+    return Actions.ActOnWildcardPattern(EllipsisLoc,
+                                        /*IsPackExpansion=*/true);
+  }
+
+  switch (Tok.getKind()) {
+  case tok::l_paren:
+    return ParseParenPattern(StopAtEqual, CorrectionBehavior);
+  case tok::l_brace:
+    return ParseBracedAlternativePattern();
+  case tok::l_square:
+    if (NextToken().is(tok::l_square) &&
+        !isNestedDecompositionDeclarator(/*BeforeDeclSpecifier=*/true))
+      return ParseDeclarationPattern(AllowPackExpansion);
+    return ParseDecompositionPattern();
+  case tok::identifier: {
+    IdentifierInfo *II = Tok.getIdentifierInfo();
+    if (II == Ident_wildcard)
+      return ParseWildcardPattern();
+    [[fallthrough]];
+  }
+  default: {
+    if (isDeclarationPatternSyntax())
+      return ParseDeclarationPattern(AllowPackExpansion);
+    return ParseExpressionPattern(AllowPackExpansion, StopAtEqual,
+                                  CorrectionBehavior);
+  }
+  }
+}
+
+ActionResult<MatchPattern *>
+Parser::ParseParenPattern(bool StopAtEqual,
+                          TypoCorrectionTypeBehavior CorrectionBehavior) {
+  assert(Tok.is(tok::l_paren) && "not a parenthesized pattern");
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  if (T.expectAndConsume())
+    return true;
+
+  ActionResult<MatchPattern *> SubPattern = ParsePattern(
+      /*AllowPackExpansion=*/false, StopAtEqual, CorrectionBehavior,
+      /*AllowUnnamedPack=*/false);
+  if (SubPattern.isInvalid()) {
+    T.skipToEnd();
+    return true;
+  }
+  if (T.consumeClose())
+    return true;
+  return Actions.ActOnParenPattern(T.getRange(), SubPattern.get());
+}
+
+ActionResult<MatchPattern *>
+Parser::ParseWildcardPattern() {
+  return Actions.ActOnWildcardPattern(ConsumeToken());
+}
+
+ActionResult<MatchPattern *>
+Parser::ParseDeclarationPattern(bool AllowPackExpansion) {
+  ParsedAttributes DeclAttrs(AttrFactory);
+  MaybeParseCXX11Attributes(DeclAttrs, /*MightBeObjCMessageSend=*/true);
+
+  ParsingDeclSpec DS(*this);
+  ParsedTemplateInfo TemplateInfo;
+  ParseDeclarationSpecifiers(DS, TemplateInfo, AS_none,
+                             DeclSpecContext::DSC_normal);
+
+  ParsingDeclarator D(*this, DS, DeclAttrs, DeclaratorContext::ForInit);
+  D.setIdentifierMayBeOmitted();
+  if (AllowPackExpansion)
+    D.setPatternPackAllowed();
+  if (TemplateInfo.TemplateParams)
+    D.setTemplateParameterLists(*TemplateInfo.TemplateParams);
+  ParseDeclarator(D);
+  if (D.hasEllipsis() && !AllowPackExpansion) {
+    Diag(D.getEllipsisLoc(),
+         diag::err_declaration_pattern_pack_not_in_decomposition);
+    D.complete(nullptr);
+    return true;
+  }
+  if (D.isInvalidType() || ParseAsmAttributesAfterDeclarator(D)) {
+    D.complete(nullptr);
+    return true;
+  }
+
+  if (!D.hasName()) {
+    DiagnoseAndRemoveTypeNameDeclSpec(DS, DeclSpecContext::DSC_normal);
+    TypeResult Type = Actions.ActOnTypeName(D);
+    D.complete(nullptr);
+    if (Type.isInvalid())
+      return true;
+
+    TypeSourceInfo *TInfo = nullptr;
+    Actions.GetTypeFromParser(Type.get(), &TInfo);
+    if (!TInfo)
+      return true;
+    return Actions.ActOnTypePattern(TInfo);
+  }
+
+  Decl *ThisDecl =
+      Actions.ActOnDeclarator(getCurScope(), D, /*IsPatternDecl=*/true);
+  Actions.ActOnCXXForRangeDecl(ThisDecl);
+  D.complete(ThisDecl);
+  DeclGroupPtrTy Group =
+      Actions.FinalizeDeclaratorGroup(getCurScope(), DS, ThisDecl);
+  if (!Group)
+    return true;
+
+  DeclGroupRef Decls = Group.get();
+  if (!Decls.isSingleDecl()) {
+    Diag(D.getEndLoc(), diag::err_for_range_decl_must_be_var) << false;
+    return true;
+  }
+
+  auto *VD = dyn_cast<VarDecl>(Decls.getSingleDecl());
+  if (!VD)
+    return true;
+  return Actions.ActOnDeclarationPattern(VD, VD->getSourceRange());
+}
+
+ActionResult<MatchPattern *>
+Parser::ParseExpressionPattern(bool AllowPackExpansion, bool StopAtEqual,
+                               TypoCorrectionTypeBehavior CorrectionBehavior) {
+  ExprResult LHS =
+      ParseCastExpression(CastParseKind::AnyCastExpr,
+                          /*isAddressOfOperand=*/false, CorrectionBehavior);
+  ExprResult Expr = ParseRHSOfBinaryExpression(LHS, prec::InclusiveOr);
+  if (Expr.isInvalid())
+    return true;
+  bool IsPackExpansion = AllowPackExpansion && Tok.is(tok::ellipsis);
+  if (IsPackExpansion) {
+    Expr = Actions.ActOnPackExpansion(Expr.get(), ConsumeToken());
+    if (Expr.isInvalid())
+      return true;
+  }
+  return Actions.ActOnExpressionPattern(Expr.get(), IsPackExpansion);
+}
+
+ActionResult<MatchPattern *> Parser::ParseBracedAlternativePattern() {
+  assert(Tok.is(tok::l_brace) && "not a braced alternative pattern");
+  BalancedDelimiterTracker T(*this, tok::l_brace);
+  if (T.expectAndConsume())
+    return true;
+
+  if (Tok.is(tok::r_brace)) {
+    T.consumeClose();
+    return Actions.ActOnEmptyAlternativePattern(T.getRange());
+  }
+
+  SourceLocation ColonLoc;
+  if (Tok.is(tok::period)) {
+    SourceLocation PeriodLoc = ConsumeToken();
+    if (Tok.isNot(tok::identifier)) {
+      Diag(Tok, diag::err_expected) << tok::identifier;
+      T.skipToEnd();
+      return true;
+    }
+    IdentifierInfo *Name = Tok.getIdentifierInfo();
+    SourceLocation NameLoc = ConsumeToken();
+    SourceRange NameRange(PeriodLoc, NameLoc);
+
+    MatchPattern *Argument = nullptr;
+    if (Tok.is(tok::less)) {
+      SourceLocation LAngleLoc;
+      SourceLocation RAngleLoc;
+      TemplateArgList Args;
+      if (ParseTemplateIdAfterTemplateName(
+              /*ConsumeLastToken=*/true, LAngleLoc, Args, RAngleLoc)) {
+        T.skipToEnd();
+        return true;
+      }
+      NameRange.setEnd(RAngleLoc);
+      if (Args.size() != 1 ||
+          Args.front().getKind() != ParsedTemplateArgument::NonType) {
+        Diag(LAngleLoc, diag::err_expected)
+            << "a single constant expression template argument";
+        T.skipToEnd();
+        return true;
+      }
+      ActionResult<MatchPattern *> ParsedArgument =
+          Actions.ActOnExpressionPattern(Args.front().getAsExpr());
+      if (ParsedArgument.isInvalid()) {
+        T.skipToEnd();
+        return true;
+      }
+      Argument = ParsedArgument.get();
+    }
+
+    if (Tok.is(tok::r_brace)) {
+      T.consumeClose();
+      if (Argument)
+        return Actions.ActOnParameterizedNamedAlternativePattern(
+            T.getRange(), NameRange, Name, Argument, SourceLocation(), nullptr);
+      return Actions.ActOnNamedAlternativePattern(T.getRange(), NameRange, Name,
+                                                  SourceLocation(), nullptr);
+    }
+    if (ExpectAndConsume(tok::colon)) {
+      T.skipToEnd();
+      return true;
+    }
+    ColonLoc = PrevTokLocation;
+
+    ActionResult<MatchPattern *> SubPattern = ParsePattern();
+    if (SubPattern.isInvalid()) {
+      T.skipToEnd();
+      return true;
+    }
+    if (T.consumeClose())
+      return true;
+    if (Argument)
+      return Actions.ActOnParameterizedNamedAlternativePattern(
+          T.getRange(), NameRange, Name, Argument, ColonLoc, SubPattern.get());
+    return Actions.ActOnNamedAlternativePattern(T.getRange(), NameRange, Name,
+                                                ColonLoc, SubPattern.get());
+  }
+
+  bool InvalidTypeConstraint;
+  {
+    ColonProtectionRAIIObject ColonProtection(*this);
+    InvalidTypeConstraint = TryAnnotateTypeConstraint();
+  }
+  if (InvalidTypeConstraint) {
+    T.skipToEnd();
+    return true;
+  }
+  unsigned AfterConstraint = Tok.is(tok::annot_cxxscope) ? 2 : 1;
+  if (isTypeConstraintAnnotation() &&
+      GetLookAheadToken(AfterConstraint).is(tok::colon)) {
+    SourceLocation ConstraintBegin = Tok.getLocation();
+    CXXScopeSpec SS;
+    ParseOptionalCXXScopeSpecifier(SS, /*ObjectType=*/nullptr,
+                                   /*ObjectHasErrors=*/false,
+                                   /*EnteringContext=*/false);
+    auto *Constraint =
+        static_cast<TemplateIdAnnotation *>(Tok.getAnnotationValue());
+    assert(Constraint->Kind == TNK_Concept_template &&
+           "expected a type-constraint annotation");
+    SourceRange ConstraintNameRange = ConsumeAnnotationToken();
+    SourceRange ConstraintRange(ConstraintBegin, ConstraintNameRange.getEnd());
+    if (Actions.CheckTypeConstraint(Constraint)) {
+      T.skipToEnd();
+      return true;
+    }
+
+    const ASTTemplateArgumentListInfo *ArgsAsWritten = nullptr;
+    if (Constraint->LAngleLoc.isValid()) {
+      TemplateArgumentListInfo Args(Constraint->LAngleLoc,
+                                    Constraint->RAngleLoc);
+      ASTTemplateArgsPtr ParsedArgs(Constraint->getTemplateArgs(),
+                                    Constraint->NumArgs);
+      Actions.translateTemplateArguments(ParsedArgs, Args);
+      ArgsAsWritten =
+          ASTTemplateArgumentListInfo::Create(Actions.Context, Args);
+    }
+
+    NamedDecl *FoundDecl;
+    if (UsingShadowDecl *USD =
+            Constraint->Template.get().getAsUsingShadowDecl())
+      FoundDecl = USD;
+    else
+      FoundDecl = cast_if_present<NamedDecl>(
+          Constraint->Template.get().getAsTemplateDecl());
+    ConceptReference *CR = ConceptReference::Create(
+        Actions.Context,
+        SS.isSet() ? SS.getWithLocInContext(Actions.Context)
+                   : NestedNameSpecifierLoc{},
+        Constraint->TemplateKWLoc,
+        DeclarationNameInfo(Constraint->Name, Constraint->TemplateNameLoc),
+        FoundDecl, Constraint->Template.get().getAsTemplateDecl(),
+        ArgsAsWritten);
+
+    ColonLoc = ConsumeToken();
+    ActionResult<MatchPattern *> SubPattern = ParsePattern();
+    if (SubPattern.isInvalid()) {
+      T.skipToEnd();
+      return true;
+    }
+    if (T.consumeClose())
+      return true;
+    return Actions.ActOnTypeConstraintAlternativePattern(
+        T.getRange(), ConstraintRange, CR, ColonLoc, SubPattern.get());
+  }
+
+  ActionResult<MatchPattern *> Pattern = [&] {
+    ColonProtectionRAIIObject ColonProtection(*this);
+    return ParsePattern();
+  }();
+  if (Pattern.isInvalid()) {
+    T.skipToEnd();
+    return true;
+  }
+
+  if (Tok.is(tok::colon)) {
+    auto *Selector = Pattern.get();
+    if (!isa<TypePattern>(Selector)) {
+      Diag(Selector->getBeginLoc(), diag::err_expected) << "a type before ':'";
+      T.skipToEnd();
+      return true;
+    }
+    ColonLoc = ConsumeToken();
+    Pattern = ParsePattern();
+    if (Pattern.isInvalid()) {
+      T.skipToEnd();
+      return true;
+    }
+    if (T.consumeClose())
+      return true;
+    return Actions.ActOnSelectedAlternativePattern(T.getRange(), Selector,
+                                                   ColonLoc, Pattern.get());
+  }
+
+  if (T.consumeClose())
+    return true;
+
+  return Actions.ActOnBracedAlternativePattern(T.getRange(), Pattern.get());
+}
+
+ActionResult<MatchPattern *> Parser::ParseDecompositionPattern() {
+  assert(Tok.is(tok::l_square) && "Not a decomposition pattern");
+  BalancedDelimiterTracker T(*this, tok::l_square);
+  if (T.expectAndConsume())
+    return true;
+
+  SmallVector<MatchPattern *, 4> Patterns;
+  if (Tok.isNot(tok::r_square)) {
+    do {
+      ActionResult<MatchPattern *> Pattern =
+          ParsePattern(/*AllowPackExpansion=*/true, /*StopAtEqual=*/false,
+                       TypoCorrectionTypeBehavior::AllowNonTypes,
+                       /*AllowUnnamedPack=*/true);
+      if (Pattern.isInvalid()) {
+        T.skipToEnd();
+        return true;
+      }
+      Patterns.push_back(Pattern.get());
+    } while (TryConsumeToken(tok::comma));
+  }
+  T.consumeClose();
+
+  return Actions.ActOnDecompositionPattern(Patterns, T.getRange());
 }

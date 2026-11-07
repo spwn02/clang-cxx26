@@ -475,6 +475,16 @@ def err_expected_parentheses_around_typename : Error<
 
 def err_expected_case_before_expression: Error<
   "expected 'case' keyword before expression">;
+def err_expected_case_before_match_pattern: Error<
+  "expected 'case' before pattern">;
+def err_match_preamble_after_case: Error<
+  "match preamble declaration must precede all cases">;
+def note_match_type_name_declaration_ambiguity: Note<
+  "'match' names a type, so this construct is otherwise parsed as a declaration">;
+def err_match_statement_result_type: Error<
+  "match statement cannot have an explicit result type">;
+def err_expected_lbrace_after_match_result_type: Error<
+  "expected '{' after match result type">;
 
 def ext_warn_gnu_final : ExtWarn<
   "__final is a GNU extension, consider using C++11 final">,
@@ -534,6 +544,8 @@ def err_expected_coloncolon_after_super : Error<
 def ext_decomp_decl_empty : ExtWarn<
   "ISO C++17 does not allow a structured binding group to be empty">,
   InGroup<DiagGroup<"empty-decomposition">>;
+def err_decomp_decl_nested_pack : Error<
+  "a nested structured binding cannot be a pack expansion">;
 
 def err_function_parameter_limit_exceeded : Error<
   "too many function parameters; subsequent parameters will be ignored">;

@@ -1955,7 +1955,8 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(DeclaratorContext Context,
 Parser::DeclGroupPtrTy Parser::ParseSimpleDeclaration(
     DeclaratorContext Context, SourceLocation &DeclEnd,
     ParsedAttributes &DeclAttrs, ParsedAttributes &DeclSpecAttrs,
-    bool RequireSemi, ForRangeInit *FRI, SourceLocation *DeclSpecStart) {
+    bool RequireSemi, ForRangeInit *FRI, SourceLocation *DeclSpecStart,
+    bool IsPatternDecl) {
   // Need to retain these for diagnostics before we add them to the DeclSepc.
   ParsedAttributesView OriginalDeclSpecAttrs;
   OriginalDeclSpecAttrs.prepend(DeclSpecAttrs.begin(), DeclSpecAttrs.end());
@@ -1999,7 +2000,8 @@ Parser::DeclGroupPtrTy Parser::ParseSimpleDeclaration(
   if (DeclSpecStart)
     DS.SetRangeStart(*DeclSpecStart);
 
-  return ParseDeclGroup(DS, Context, DeclAttrs, TemplateInfo, &DeclEnd, FRI);
+  return ParseDeclGroup(DS, Context, DeclAttrs, TemplateInfo, &DeclEnd, FRI,
+                        IsPatternDecl);
 }
 
 bool Parser::MightBeDeclarator(DeclaratorContext Context) {
@@ -2148,12 +2150,64 @@ void Parser::SkipMalformedDecl() {
   }
 }
 
+void Parser::ParseForRangeInitializerAfterColon(ForRangeInit &FRI,
+                                                ParsingDeclSpec *VarDeclSpec) {
+  // Use an immediate function context if this is the initializer for a
+  // constexpr variable in an expansion statement.
+  auto Ctx = Sema::ExpressionEvaluationContext::PotentiallyEvaluated;
+  if (FRI.ExpansionStmt && VarDeclSpec && VarDeclSpec->hasConstexprSpecifier())
+    Ctx = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
+
+  EnterExpressionEvaluationContext ForRangeInitContext(
+      Actions, Ctx,
+      /*LambdaContextDecl=*/nullptr,
+      Sema::ExpressionEvaluationContextRecord::EK_Other,
+      getLangOpts().CPlusPlus23);
+
+  // P2718R0 - Lifetime extension in range-based for loops.
+  if (getLangOpts().CPlusPlus23) {
+    auto &LastRecord = Actions.currentEvaluationContext();
+    LastRecord.InLifetimeExtendingContext = true;
+    LastRecord.RebuildDefaultArgOrDefaultInit = true;
+  }
+
+  if (getLangOpts().OpenMP)
+    Actions.OpenMP().startOpenMPCXXRangeFor();
+
+  {
+    DeclContext *DC = Actions.CurContext;
+    while (isa<ExpansionStmtDecl>(DC))
+      DC = DC->getParent();
+    Sema::ContextRAII CtxGuard(Actions, DC, /*NewThis=*/false);
+
+    if (Tok.is(tok::l_brace))
+      FRI.RangeExpr = FRI.ExpansionStmt ? ParseExpansionInitList() :
+                                            ParseBraceInitializer();
+    else
+      FRI.RangeExpr = ParseExpression();
+
+    if (FRI.ExpansionStmt)
+      FRI.RangeExpr = Actions.MaybeCreateExprWithCleanups(FRI.RangeExpr);
+  }
+
+  // Before c++23, ForRangeLifetimeExtendTemps should be empty.
+  assert(
+      getLangOpts().CPlusPlus23 ||
+      Actions.ExprEvalContexts.back().ForRangeLifetimeExtendTemps.empty());
+
+  // Move the collected materialized temporaries into ForRangeInit before
+  // ForRangeInitContext exit.
+  FRI.LifetimeExtendTemps = std::move(
+      Actions.ExprEvalContexts.back().ForRangeLifetimeExtendTemps);
+}
+
 Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
                                               DeclaratorContext Context,
                                               ParsedAttributes &Attrs,
                                               ParsedTemplateInfo &TemplateInfo,
                                               SourceLocation *DeclEnd,
-                                              ForRangeInit *FRI) {
+                                              ForRangeInit *FRI,
+                                              bool IsPatternDecl) {
   // Parse the first declarator.
   // Consume all of the attributes from `Attrs` by moving them to our own local
   // list. This ensures that we will not attempt to interpret them as statement
@@ -2334,6 +2388,14 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
   if (ParseAsmAttributesAfterDeclarator(D))
     return nullptr;
 
+  if (IsPatternDecl) {
+    Decl *ThisDecl =
+        Actions.ActOnDeclarator(getCurScope(), D, /*IsPatternDecl=*/true);
+    Actions.ActOnCXXForRangeDecl(ThisDecl);
+    D.complete(ThisDecl);
+    return Actions.FinalizeDeclaratorGroup(getCurScope(), DS, ThisDecl);
+  }
+
   // C++0x [stmt.iter]p1: Check if we have a for-range-declarator. If so, we
   // must parse and analyze the for-range-initializer before the declaration is
   // analyzed.
@@ -2344,54 +2406,7 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
     bool IsForRangeLoop = false;
     if (TryConsumeToken(tok::colon, FRI->ColonLoc)) {
       IsForRangeLoop = true;
-
-      // Use an immediate function context if this is the initializer for a
-      // constexpr variable in an expansion statement.
-      auto Ctx = Sema::ExpressionEvaluationContext::PotentiallyEvaluated;
-      if (FRI->ExpansionStmt && DS.hasConstexprSpecifier())
-        Ctx = Sema::ExpressionEvaluationContext::ImmediateFunctionContext;
-
-      EnterExpressionEvaluationContext ForRangeInitContext(
-          Actions, Ctx,
-          /*LambdaContextDecl=*/nullptr,
-          Sema::ExpressionEvaluationContextRecord::EK_Other,
-          getLangOpts().CPlusPlus23);
-
-      // P2718R0 - Lifetime extension in range-based for loops.
-      if (getLangOpts().CPlusPlus23) {
-        auto &LastRecord = Actions.currentEvaluationContext();
-        LastRecord.InLifetimeExtendingContext = true;
-        LastRecord.RebuildDefaultArgOrDefaultInit = true;
-      }
-
-      if (getLangOpts().OpenMP)
-        Actions.OpenMP().startOpenMPCXXRangeFor();
-
-      {
-        DeclContext *DC = Actions.CurContext;
-        while (isa<ExpansionStmtDecl>(DC))
-          DC = DC->getParent();
-        Sema::ContextRAII CtxGuard(Actions, DC, /*NewThis=*/false);
-
-        if (Tok.is(tok::l_brace))
-          FRI->RangeExpr = FRI->ExpansionStmt ? ParseExpansionInitList() :
-                                                ParseBraceInitializer();
-        else
-          FRI->RangeExpr = ParseExpression();
-
-        if (FRI->ExpansionStmt)
-          FRI->RangeExpr = Actions.MaybeCreateExprWithCleanups(FRI->RangeExpr);
-      }
-
-      // Before c++23, ForRangeLifetimeExtendTemps should be empty.
-      assert(
-          getLangOpts().CPlusPlus23 ||
-          Actions.ExprEvalContexts.back().ForRangeLifetimeExtendTemps.empty());
-
-      // Move the collected materialized temporaries into ForRangeInit before
-      // ForRangeInitContext exit.
-      FRI->LifetimeExtendTemps = std::move(
-          Actions.ExprEvalContexts.back().ForRangeLifetimeExtendTemps);
+      ParseForRangeInitializerAfterColon(*FRI, &DS);
     }
 
     Decl *ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
@@ -2801,6 +2816,11 @@ void Parser::ParseSpecifierQualifierList(
   ParseDeclarationSpecifiers(DS, TemplateInfo, AS, DSC, nullptr,
                              AllowImplicitTypename);
 
+  DiagnoseAndRemoveTypeNameDeclSpec(DS, DSC);
+}
+
+void Parser::DiagnoseAndRemoveTypeNameDeclSpec(DeclSpec &DS,
+                                               DeclSpecContext DSC) {
   // Validate declspec for type-name.
   unsigned Specs = DS.getParsedSpecifiers();
   if (isTypeSpecifier(DSC) && !DS.hasTypeSpecifier()) {
@@ -3628,6 +3648,10 @@ void Parser::ParseDeclarationSpecifiers(
       }
       [[fallthrough]];
     case tok::l_square:
+      if (!isTypeSpecifier(DSContext) &&
+          DS.getTypeSpecType() == DeclSpec::TST_auto &&
+          isNestedDecompositionDeclarator())
+        goto DoneWithDeclSpec;
       if (!isAllowedCXX11AttributeSpecifier())
         goto DoneWithDeclSpec;
 
@@ -3639,7 +3663,12 @@ void Parser::ParseDeclarationSpecifiers(
       attrs.clear();
       attrs.Range = SourceRange();
 
-      ParseCXX11Attributes(attrs);
+      if (!isTypeSpecifier(DSContext) &&
+          DS.getTypeSpecType() == DeclSpec::TST_auto && Tok.is(tok::l_square) &&
+          NextToken().is(tok::l_square))
+        ParseCXX11AttributeSpecifier(attrs);
+      else
+        ParseCXX11Attributes(attrs);
       AttrsLastTime = true;
       continue;
 
@@ -6385,11 +6414,16 @@ bool Parser::isConstructorDeclarator(bool IsUnqualified, bool DeductionGuide,
 
 void Parser::ParseTypeQualifierListOpt(
     DeclSpec &DS, unsigned AttrReqs, bool AtomicOrPtrauthAllowed,
-    bool IdentifierRequired, llvm::function_ref<void()> CodeCompletionHandler) {
-  if ((AttrReqs & AR_CXX11AttributesParsed) &&
-      isAllowedCXX11AttributeSpecifier()) {
+    bool IdentifierRequired, llvm::function_ref<void()> CodeCompletionHandler,
+    bool StopAtNestedDecomposition) {
+  while ((AttrReqs & AR_CXX11AttributesParsed) &&
+         isAllowedCXX11AttributeSpecifier() &&
+         !(StopAtNestedDecomposition && isNestedDecompositionDeclarator())) {
     ParsedAttributes Attrs(AttrFactory);
-    ParseCXX11Attributes(Attrs);
+    SourceLocation StartLoc = Tok.getLocation();
+    SourceLocation EndLoc = StartLoc;
+    ParseCXX11AttributeSpecifier(Attrs, &EndLoc);
+    Attrs.Range = SourceRange(StartLoc, EndLoc);
     DS.takeAttributesAppendingingFrom(Attrs);
   }
 
@@ -6549,6 +6583,34 @@ void Parser::ParseTypeQualifierListOpt(
     }
     EndLoc = ConsumeToken();
   }
+}
+
+bool Parser::isNestedDecompositionDeclarator(bool BeforeDeclSpecifier) {
+  // Nested structured bindings are C++29 (P2688R6); earlier modes see only
+  // an attribute-specifier here.
+  if (!getLangOpts().CPlusPlus29 || Tok.isNot(tok::l_square) ||
+      NextToken().isNot(tok::l_square))
+    return false;
+
+  RevertingTentativeParsingAction TPA(*this);
+  ConsumeBracket();
+  ConsumeBracket();
+  if (!SkipUntil(tok::r_square, StopBeforeMatch) || Tok.isNot(tok::r_square))
+    return true;
+  ConsumeBracket();
+
+  // A complete attribute-specifier-seq has a second closing bracket. If what
+  // follows can be a declarator, the brackets belong to that attribute. An
+  // adjacent attribute likewise means that this is not a nested binding.
+  if (Tok.is(tok::r_square)) {
+    ConsumeBracket();
+    if (Tok.is(tok::l_square))
+      return false;
+  }
+  if (BeforeDeclSpecifier)
+    return isCXXDeclarationSpecifier(ImplicitTypenameContext::No) ==
+           TPResult::False;
+  return TryParseDeclarator(/*mayBeAbstract=*/false) == TPResult::False;
 }
 
 void Parser::ParseDeclarator(Declarator &D) {
@@ -6759,10 +6821,11 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
         D.getContext() == DeclaratorContext::TrailingReturnVar)
       CompleteQualifiers = CompleteTrailing;
     // GNU-style and C++11 attributes are allowed here, as is restrict.
-    ParseTypeQualifierListOpt(DS, AR_AllAttributesParsed,
-                              /*AtomicOrPtrauthAllowed=*/true,
-                              /*IdentifierRequired=*/false,
-                              CompleteQualifiers);
+    ParseTypeQualifierListOpt(
+        DS, AR_AllAttributesParsed, /*AtomicOrPtrauthAllowed=*/true,
+        /*IdentifierRequired=*/false, CompleteQualifiers,
+        D.mayHaveDecompositionDeclarator() &&
+            D.getDeclSpec().getTypeSpecType() == DeclSpec::TST_auto);
     D.ExtendWithDeclSpec(DS);
 
     // C++ 8.3.2p1: cv-qualified references are ill-formed except when the
@@ -6827,7 +6890,8 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
 
   if (getLangOpts().CPlusPlus && D.mayHaveIdentifier()) {
     // This might be a C++17 structured binding.
-    if (Tok.is(tok::l_square) && !D.mayOmitIdentifier() &&
+    if (Tok.is(tok::l_square) &&
+        (!D.mayOmitIdentifier() || D.isIdentifierOmissionAllowed()) &&
         D.getCXXScopeSpec().isEmpty())
       return ParseDecompositionDeclarator(D);
 
@@ -7192,110 +7256,153 @@ void Parser::ParseDecompositionDeclarator(Declarator &D) {
   assert(Tok.is(tok::l_square));
 
   TentativeParsingAction PA(*this);
-  BalancedDelimiterTracker T(*this, tok::l_square);
-  T.consumeOpen();
-
-  if (isCXX11AttributeSpecifier() != CXX11AttributeKind::NotAttributeSpecifier)
-    DiagnoseAndSkipCXX11Attributes();
-
-  // If this doesn't look like a structured binding, maybe it's a misplaced
-  // array declarator.
-  if (!(Tok.isOneOf(tok::identifier, tok::ellipsis) &&
-        NextToken().isOneOf(tok::comma, tok::r_square, tok::kw_alignas,
-                            tok::identifier, tok::l_square, tok::ellipsis)) &&
-      !(Tok.is(tok::r_square) &&
-        NextToken().isOneOf(tok::equal, tok::l_brace))) {
-    PA.Revert();
-    return ParseMisplacedBracketDeclarator(D);
-  }
-
-  SourceLocation PrevEllipsisLoc;
-  SmallVector<DecompositionDeclarator::Binding, 32> Bindings;
-  while (Tok.isNot(tok::r_square)) {
-    if (!Bindings.empty()) {
-      if (Tok.is(tok::comma))
-        ConsumeToken();
-      else {
-        if (Tok.is(tok::identifier)) {
-          SourceLocation EndLoc = getEndOfPreviousToken();
-          Diag(EndLoc, diag::err_expected)
-              << tok::comma << FixItHint::CreateInsertion(EndLoc, ",");
-        } else {
-          Diag(Tok, diag::err_expected_comma_or_rsquare);
-        }
-
-        SkipUntil({tok::r_square, tok::comma, tok::identifier, tok::ellipsis},
-                  StopAtSemi | StopBeforeMatch);
-        if (Tok.is(tok::comma))
-          ConsumeToken();
-        else if (Tok.is(tok::r_square))
-          break;
-      }
-    }
+  // Nested bindings and unnamed packs are C++29 (P2688R6); in earlier modes
+  // they are not recognized at all, so the diagnostics are the ones of the
+  // language without them.
+  const bool AllowNested = getLangOpts().CPlusPlus29;
+  auto ParseBindingList = [&](auto &&Self, DecompositionDeclarator *Nested,
+                              bool IsNested) -> bool {
+    BalancedDelimiterTracker T(*this, tok::l_square);
+    T.consumeOpen();
 
     if (isCXX11AttributeSpecifier() !=
         CXX11AttributeKind::NotAttributeSpecifier)
       DiagnoseAndSkipCXX11Attributes();
 
-    SourceLocation EllipsisLoc;
+    // If the outermost list does not look like a structured binding, it may
+    // instead be a misplaced array declarator. Perform this check after
+    // diagnosing attributes in the binding position, matching the existing
+    // structured-binding recovery behavior.
+    if (!IsNested) {
+      const bool StartsBinding =
+          (Tok.isOneOf(tok::identifier, tok::ellipsis) &&
+           NextToken().isOneOf(tok::comma, tok::r_square, tok::kw_alignas,
+                               tok::identifier, tok::l_square,
+                               tok::ellipsis)) ||
+          (AllowNested && Tok.is(tok::l_square));
+      const bool IsEmpty = Tok.is(tok::r_square) &&
+                           NextToken().isOneOf(tok::equal, tok::l_brace);
+      if (!StartsBinding && !IsEmpty)
+        return false;
+    }
 
-    if (Tok.is(tok::ellipsis)) {
-      Diag(Tok, getLangOpts().CPlusPlus26 ? diag::warn_cxx23_compat_binding_pack
-                                          : diag::ext_cxx_binding_pack);
-      if (PrevEllipsisLoc.isValid()) {
-        Diag(Tok, diag::err_binding_multiple_ellipses);
-        Diag(PrevEllipsisLoc, diag::note_previous_ellipsis);
-        break;
+    SourceLocation PrevEllipsisLoc;
+    SmallVector<DecompositionDeclarator::Binding, 32> Bindings;
+    while (Tok.isNot(tok::r_square)) {
+      if (!Bindings.empty()) {
+        if (Tok.is(tok::comma))
+          ConsumeToken();
+        else {
+          if (Tok.is(tok::identifier) ||
+              (AllowNested && Tok.is(tok::l_square))) {
+            SourceLocation EndLoc = getEndOfPreviousToken();
+            Diag(EndLoc, diag::err_expected)
+                << tok::comma << FixItHint::CreateInsertion(EndLoc, ",");
+          } else {
+            Diag(Tok, diag::err_expected_comma_or_rsquare);
+          }
+
+          if (AllowNested)
+            SkipUntil({tok::r_square, tok::comma, tok::identifier,
+                       tok::l_square, tok::ellipsis},
+                      StopAtSemi | StopBeforeMatch);
+          else
+            SkipUntil({tok::r_square, tok::comma, tok::identifier,
+                       tok::ellipsis},
+                      StopAtSemi | StopBeforeMatch);
+          if (Tok.is(tok::comma))
+            ConsumeToken();
+          else if (Tok.is(tok::r_square))
+            break;
+        }
       }
-      EllipsisLoc = Tok.getLocation();
-      PrevEllipsisLoc = EllipsisLoc;
-      ConsumeToken();
-    }
 
-    if (Tok.isNot(tok::identifier)) {
-      Diag(Tok, diag::err_expected) << tok::identifier;
-      break;
-    }
+      if (isCXX11AttributeSpecifier() !=
+          CXX11AttributeKind::NotAttributeSpecifier)
+        DiagnoseAndSkipCXX11Attributes();
 
-    IdentifierInfo *II = Tok.getIdentifierInfo();
-    SourceLocation Loc = Tok.getLocation();
-    ConsumeToken();
+      SourceLocation EllipsisLoc;
+      if (Tok.is(tok::ellipsis)) {
+        Diag(Tok, getLangOpts().CPlusPlus26
+                    ? diag::warn_cxx23_compat_binding_pack
+                    : diag::ext_cxx_binding_pack);
+        if (PrevEllipsisLoc.isValid()) {
+          Diag(Tok, diag::err_binding_multiple_ellipses);
+          Diag(PrevEllipsisLoc, diag::note_previous_ellipsis);
+          break;
+        }
+        EllipsisLoc = Tok.getLocation();
+        PrevEllipsisLoc = EllipsisLoc;
+        ConsumeToken();
+      }
 
-    if (Tok.is(tok::ellipsis) && !PrevEllipsisLoc.isValid()) {
-      DiagnoseMisplacedEllipsis(Tok.getLocation(), Loc, EllipsisLoc.isValid(),
-                                true);
-      EllipsisLoc = Tok.getLocation();
-      ConsumeToken();
-    }
+      IdentifierInfo *II = nullptr;
+      SourceLocation Loc = EllipsisLoc;
+      ParsedAttributes Attrs(AttrFactory);
+      std::unique_ptr<DecompositionDeclarator> Child;
+      if (AllowNested && Tok.is(tok::l_square)) {
+        if (EllipsisLoc.isValid())
+          Diag(EllipsisLoc, diag::err_decomp_decl_nested_pack);
+        Loc = Tok.getLocation();
+        Child = std::make_unique<DecompositionDeclarator>();
+        (void)Self(Self, Child.get(), /*IsNested=*/true);
+      } else if (AllowNested && EllipsisLoc.isValid() &&
+                 Tok.isOneOf(tok::comma, tok::r_square)) {
+        // An unnamed pack: `[a, ..., b]`.
+      } else {
+        if (Tok.isNot(tok::identifier)) {
+          Diag(Tok, diag::err_expected) << tok::identifier;
+          break;
+        }
 
-    ParsedAttributes Attrs(AttrFactory);
-    if (isCXX11AttributeSpecifier() !=
-        CXX11AttributeKind::NotAttributeSpecifier) {
-      Diag(Tok, getLangOpts().CPlusPlus26
+        II = Tok.getIdentifierInfo();
+        Loc = Tok.getLocation();
+        ConsumeToken();
+
+        if (Tok.is(tok::ellipsis) && !PrevEllipsisLoc.isValid()) {
+          DiagnoseMisplacedEllipsis(Tok.getLocation(), Loc,
+                                    EllipsisLoc.isValid(), true);
+          EllipsisLoc = Tok.getLocation();
+          ConsumeToken();
+        }
+
+        if (isCXX11AttributeSpecifier() !=
+            CXX11AttributeKind::NotAttributeSpecifier) {
+          Diag(Tok, getLangOpts().CPlusPlus26
                     ? diag::warn_cxx23_compat_decl_attrs_on_binding
                     : diag::ext_decl_attrs_on_binding);
-      MaybeParseCXX11Attributes(Attrs);
+          MaybeParseCXX11Attributes(Attrs);
+        }
+      }
+
+      Bindings.emplace_back(II, Loc, std::move(Attrs), EllipsisLoc,
+                            std::move(Child));
     }
 
-    Bindings.push_back({II, Loc, std::move(Attrs), EllipsisLoc});
-  }
+    if (Tok.isNot(tok::r_square))
+      T.skipToEnd();
+    else {
+      // C++17 does not allow the identifier-list in a structured binding to be
+      // empty; C++29 (P2688R6) does.
+      if (Bindings.empty() && !getLangOpts().CPlusPlus29)
+        Diag(Tok.getLocation(), diag::ext_decomp_decl_empty);
+      T.consumeClose();
+    }
 
-  if (Tok.isNot(tok::r_square))
-    // We've already diagnosed a problem here.
-    T.skipToEnd();
-  else {
-    // C++17 does not allow the identifier-list in a structured binding
-    // to be empty.
-    if (Bindings.empty())
-      Diag(Tok.getLocation(), diag::ext_decomp_decl_empty);
+    if (Nested)
+      Nested->setBindings(T.getOpenLocation(), Bindings, T.getCloseLocation());
+    else
+      D.setDecompositionBindings(T.getOpenLocation(), Bindings,
+                                 T.getCloseLocation());
+    return true;
+  };
 
-    T.consumeClose();
+  if (!ParseBindingList(ParseBindingList, nullptr, /*IsNested=*/false)) {
+    PA.Revert();
+    return ParseMisplacedBracketDeclarator(D);
   }
 
   PA.Commit();
-
-  return D.setDecompositionBindings(T.getOpenLocation(), Bindings,
-                                    T.getCloseLocation());
 }
 
 void Parser::ParseParenDeclarator(Declarator &D) {

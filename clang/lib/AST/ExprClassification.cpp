@@ -238,6 +238,8 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
   case Expr::CXXIndeterminateExpansionSelectExprClass:
   case Expr::CXXIterableExpansionSelectExprClass:
   case Expr::CXXDestructurableExpansionSelectExprClass:
+  case Expr::MatchTestExprClass:
+  case Expr::CaseConditionExprClass:
     return Cl::CL_PRValue;
 
   case Expr::CXXMetafunctionExprClass:
@@ -516,6 +518,9 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
   case Expr::LambdaExprClass:
   case Expr::CXXStdInitializerListExprClass:
     return Cl::CL_ClassTemporary;
+
+  case Expr::MatchSelectExprClass:
+    return ClassifyExprValueKind(Lang, E, E->getValueKind());
 
   case Expr::VAArgExprClass:
     return ClassifyUnnamed(Ctx, E->getType());

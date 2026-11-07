@@ -159,7 +159,8 @@ public:
 
       // Some statements have custom mechanisms for dumping their children.
       if (isa<DeclStmt, GenericSelectionExpr, RequiresExpr,
-              OpenACCWaitConstruct, SYCLKernelCallStmt, ContractStmt>(S))
+              OpenACCWaitConstruct, SYCLKernelCallStmt, ContractStmt, MatchTestExpr,
+              MatchSelectExpr>(S))
         return;
 
       if (Traversal == TK_IgnoreUnlessSpelledInSource &&
@@ -600,6 +601,8 @@ public:
   }
 
   void VisitBindingDecl(const BindingDecl *D) {
+    if (const auto *Nested = D->getNestedDecomposition())
+      Visit(Nested);
     if (Traversal == TK_IgnoreUnlessSpelledInSource)
       return;
 
@@ -1024,6 +1027,100 @@ public:
 
   void VisitCXXDefaultInitExpr(const CXXDefaultInitExpr *Node) {
     Visit(Node->getExpr());
+  }
+
+  void VisitMatchTestExpr(const MatchTestExpr *Node) {
+    if (const VarDecl *HoldingVar = Node->getHoldingVar())
+      Visit(HoldingVar);
+    Visit(Node->getSubject());
+    if (!Node->getInstantiations().empty()) {
+      for (const MatchTestInstantiation &Instantiation :
+           Node->getInstantiations()) {
+        getNodeDelegate().AddChild([&] {
+          VisitMatchPattern(Instantiation.Pattern);
+          if (Instantiation.Guard.hasGuard()) {
+            if (Instantiation.Guard.Init)
+              Visit(Instantiation.Guard.Init);
+            Visit(Instantiation.Guard.ConditionVariable);
+            Visit(Instantiation.Guard.Condition);
+          }
+          if (Instantiation.Handler)
+            Visit(Instantiation.Handler);
+          if (Instantiation.Increment)
+            Visit(Instantiation.Increment);
+        });
+      }
+      return;
+    }
+    VisitMatchPattern(Node->getPattern());
+    const MatchGuard &Guard = Node->getGuard();
+    if (Guard.hasGuard()) {
+      if (Guard.Init)
+        Visit(Guard.Init);
+      Visit(Guard.ConditionVariable);
+      Visit(Guard.Condition);
+    }
+  }
+
+  void VisitMatchSelectExpr(const MatchSelectExpr *Node) {
+    if (const Stmt *Init = Node->getInitStmt())
+      Visit(Init);
+    if (const VarDecl *HoldingVar = Node->getHoldingVar())
+      Visit(HoldingVar);
+    Visit(Node->getSubject());
+    for (const Stmt *Statement : Node->getPreamble())
+      Visit(Statement);
+    for (const MatchCaseInstantiation &Case : Node->getCaseInstantiations()) {
+      StringRef Label;
+      if (Case.isNonReturning())
+        Label = "not return";
+      getNodeDelegate().AddChild(Label, [&] {
+        for (const Attr *Attribute : Case.Attributes)
+          Visit(Attribute);
+        VisitMatchPattern(Case.Pattern);
+        if (Case.Guard.hasGuard()) {
+          if (Case.Guard.Init)
+            Visit(Case.Guard.Init);
+          Visit(Case.Guard.ConditionVariable);
+          Visit(Case.Guard.Condition);
+        }
+        Visit(Case.Handler);
+      });
+    }
+  }
+
+  void VisitMatchPattern(const MatchPattern* Node) {
+    getNodeDelegate().AddChild([=] {
+      getNodeDelegate().Visit(Node);
+      if (!Node) {
+        return;
+      }
+      switch (Node->getMatchPatternClass()) {
+      case MatchPattern::ExpressionPatternClass:
+        Visit(static_cast<const ExpressionPattern *>(Node)->getExpr());
+        break;
+      case MatchPattern::DeclarationPatternClass:
+        Visit(static_cast<const DeclarationPattern *>(Node)->getDeclaration());
+        break;
+      case MatchPattern::TypePatternClass:
+        Visit(static_cast<const TypePattern *>(Node)
+                  ->getTypeSourceInfo()
+                  ->getType());
+        break;
+      case MatchPattern::AlternativePatternClass:
+        if (const auto *Alternative =
+                static_cast<const AlternativePattern *>(Node);
+            Alternative->getTypeConstraintSelector())
+          Visit(Alternative->getTypeConstraintSelector());
+        else if (const MatchPattern *Selector = Alternative->getSelector())
+          VisitMatchPattern(Selector);
+        break;
+      default:
+        break;
+      }
+      for (const MatchPattern *Pattern : Node->children())
+        VisitMatchPattern(Pattern);
+    });
   }
 
   // Implements Visit methods for Attrs.

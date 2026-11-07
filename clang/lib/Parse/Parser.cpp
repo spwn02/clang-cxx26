@@ -481,12 +481,12 @@ void Parser::EnterScope(Scope::FlagsType ScopeFlags) {
   }
 }
 
-void Parser::ExitScope() {
+void Parser::ExitScope(bool DiagnoseDecls) {
   assert(getCurScope() && "Scope imbalance!");
 
   // Inform the actions module that this scope is going away if there are any
   // decls in it.
-  Actions.ActOnPopScope(Tok.getLocation(), getCurScope());
+  Actions.ActOnPopScope(Tok.getLocation(), getCurScope(), DiagnoseDecls);
 
   Scope *OldScope = getCurScope();
   Actions.CurScope = OldScope->getParent();
@@ -575,6 +575,8 @@ void Parser::Initialize() {
   Ident___pre = nullptr;
   Ident_post = nullptr;
   Ident___post = nullptr;
+  Ident_match = nullptr;
+  Ident_wildcard = nullptr;
 
   Ident_super = &PP.getIdentifierTable().get("super");
 
@@ -633,6 +635,11 @@ void Parser::Initialize() {
   if (getLangOpts().CPlusPlusModules) {
     Ident_import = PP.getIdentifierInfo("import");
     Ident_module = PP.getIdentifierInfo("module");
+  }
+
+  if (getLangOpts().PatternMatching) {
+    Ident_match = PP.getIdentifierInfo("match");
+    Ident_wildcard = PP.getIdentifierInfo("_");
   }
 
   Actions.Initialize();

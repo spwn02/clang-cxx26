@@ -839,6 +839,7 @@ enum class CCEKind {
                            ///< message.
   StaticAssertMessageData, ///< Call to data() in a static assert
                            ///< message.
+  PatternExpr, ///< Expression in a pattern.
 };
 
 /// Enums for the diagnostics of target, target_version and target_clones.
@@ -890,14 +891,15 @@ class Sema final : public SemaBase {
   // 20. Name Lookup (SemaLookup.cpp)
   // 21. Modules (SemaModule.cpp)
   // 22. C++ Overloading (SemaOverload.cpp)
-  // 23. Statements (SemaStmt.cpp)
-  // 24. `inline asm` Statement (SemaStmtAsm.cpp)
-  // 25. Statement Attribute Handling (SemaStmtAttr.cpp)
-  // 26. C++ Templates (SemaTemplate.cpp)
-  // 27. C++ Template Argument Deduction (SemaTemplateDeduction.cpp)
-  // 28. C++ Template Deduction Guide (SemaTemplateDeductionGuide.cpp)
-  // 29. C++ Template Instantiation (SemaTemplateInstantiate.cpp)
-  // 30. C++ Template Declaration Instantiation
+  // 23. C++ Pattern Matching (SemaMatchPattern.cpp)
+  // 24. Statements (SemaStmt.cpp)
+  // 25. `inline asm` Statement (SemaStmtAsm.cpp)
+  // 26. Statement Attribute Handling (SemaStmtAttr.cpp)
+  // 27. C++ Templates (SemaTemplate.cpp)
+  // 28. C++ Template Argument Deduction (SemaTemplateDeduction.cpp)
+  // 29. C++ Template Deduction Guide (SemaTemplateDeductionGuide.cpp)
+  // 30. C++ Template Instantiation (SemaTemplateInstantiate.cpp)
+  // 31. C++ Template Declaration Instantiation
   //     (SemaTemplateInstantiateDecl.cpp)
   // 31. C++ Variadic Templates (SemaTemplateVariadic.cpp)
   // 32. Constraints and Concepts (SemaConcept.cpp)
@@ -4187,10 +4189,11 @@ public:
   void warnOnReservedIdentifier(const NamedDecl *D);
   void warnOnCTypeHiddenInCPlusPlus(const NamedDecl *D);
 
-  Decl *ActOnDeclarator(Scope *S, Declarator &D);
+  Decl *ActOnDeclarator(Scope *S, Declarator &D, bool IsPatternDecl = false);
 
   NamedDecl *HandleDeclarator(Scope *S, Declarator &D,
-                              MultiTemplateParamsArg TemplateParameterLists);
+                              MultiTemplateParamsArg TemplateParameterLists,
+                              bool IsPatternDecl = false);
 
   /// Attempt to fold a variable-sized type to a constant-sized type, returning
   /// true if we were successful.
@@ -4446,7 +4449,10 @@ public:
   /// AddInitializerToDecl - Adds the initializer Init to the
   /// declaration dcl. If DirectInit is true, this is C++ direct
   /// initialization rather than copy initialization.
-  void AddInitializerToDecl(Decl *dcl, Expr *init, bool DirectInit);
+  /// Implicit bindings within expressions can share the enclosing
+  /// full-expression by setting IsFullExpression to false.
+  void AddInitializerToDecl(Decl *dcl, Expr *init, bool DirectInit,
+                            bool IsFullExpression = true);
   void ActOnUninitializedDecl(Decl *dcl);
 
   /// ActOnInitializerError - Given that there was an error parsing an
@@ -4575,7 +4581,7 @@ public:
   TopLevelStmtDecl *ActOnStartTopLevelStmtDecl(Scope *S);
   void ActOnFinishTopLevelStmtDecl(TopLevelStmtDecl *D, Stmt *Statement);
 
-  void ActOnPopScope(SourceLocation Loc, Scope *S);
+  void ActOnPopScope(SourceLocation Loc, Scope *S, bool DiagnoseDecls = true);
 
   /// ParsedFreeStandingDeclSpec - This method is invoked when a declspec with
   /// no declarator (e.g. "struct foo;") is parsed.
@@ -6891,7 +6897,8 @@ public:
 
   NamedDecl *
   ActOnDecompositionDeclarator(Scope *S, Declarator &D,
-                               MultiTemplateParamsArg TemplateParamLists);
+                               MultiTemplateParamsArg TemplateParamLists,
+                               bool IsPatternDecl = false);
   void DiagPlaceholderVariableDefinition(SourceLocation Loc);
   bool DiagRedefinedPlaceholderFieldDecl(SourceLocation Loc,
                                          RecordDecl *ClassDecl,
@@ -6900,6 +6907,9 @@ public:
   UnsignedOrNone GetDecompositionElementCount(QualType DecompType,
                                               SourceLocation Loc);
   void CheckCompleteDecompositionDeclaration(DecompositionDecl *DD);
+  bool CheckCompleteNestedDecompositionDeclaration(DecompositionDecl *DD,
+                                                   BindingDecl *Source,
+                                                   DecompositionDecl *Root);
 
   /// Stack containing information needed when in C++2a an 'auto' is encountered
   /// in a function declaration parameter type specifier in order to invent a
@@ -8814,6 +8824,8 @@ public:
   QualType CheckCompareOperands( // C99 6.5.8/9
       ExprResult &LHS, ExprResult &RHS, SourceLocation Loc,
       BinaryOperatorKind Opc);
+  QualType ConvertArithmeticOrEnumeralThreeWayCompareOperands(
+      ExprResult &LHS, ExprResult &RHS, SourceLocation Loc);
   QualType CheckBitwiseOperands( // C99 6.5.[10...12]
       ExprResult &LHS, ExprResult &RHS, SourceLocation Loc,
       BinaryOperatorKind Opc);
@@ -9972,6 +9984,16 @@ public:
   ///@{
 
 public:
+  enum class UnqualifiedCallCandidateStatus { None, Found, Dependent };
+
+  /// Determine whether an unqualified call name has any ordinary or
+  /// argument-dependent lookup candidates, without performing overload
+  /// resolution.
+  UnqualifiedCallCandidateStatus
+  classifyUnqualifiedCallCandidates(Scope *S, IdentifierInfo *Name,
+                                    SourceLocation NameLoc,
+                                    ArrayRef<Expr *> Args);
+
   /// Tracks whether we are in a context where typo correction is
   /// disabled.
   bool DisableTypoCorrection;
@@ -10826,6 +10848,10 @@ public:
       AllowedExplicit AllowExplicit, bool InOverloadResolution, bool CStyle,
       bool AllowObjCWritebackConversion);
 
+  ImplicitConversionSequence TryCopyInitializationConversion(
+      Expr *From, QualType ToType, bool SuppressUserConversions,
+      bool InOverloadResolution, bool AllowObjCWritebackConversion);
+
   /// PerformImplicitConversion - Perform an implicit conversion of the
   /// expression From to the type ToType. Returns the
   /// converted expression. Flavor is the kind of conversion we're
@@ -11662,6 +11688,317 @@ public:
   //
   //
 
+  /// \name Pattern Matching
+  /// Implementations are in SemaMatchPattern.cpp
+  ///@{
+
+private:
+  SourceLocation PotentialMatchCallLoc;
+  SourceLocation PotentialMatchResultTypeLoc;
+  llvm::SmallPtrSet<const CXXRecordDecl *, 8> MatchSubjectProductDecls;
+
+public:
+  class MatchResultTypeDiagnosticRAII {
+    Sema &S;
+    SourceLocation PreviousCallLoc;
+    SourceLocation PreviousResultTypeLoc;
+
+  public:
+    MatchResultTypeDiagnosticRAII(Sema &S, SourceLocation CallLoc,
+                                  SourceLocation ResultTypeLoc)
+        : S(S), PreviousCallLoc(S.PotentialMatchCallLoc),
+          PreviousResultTypeLoc(S.PotentialMatchResultTypeLoc) {
+      S.PotentialMatchCallLoc = CallLoc;
+      S.PotentialMatchResultTypeLoc = ResultTypeLoc;
+    }
+
+    ~MatchResultTypeDiagnosticRAII() {
+      S.PotentialMatchCallLoc = PreviousCallLoc;
+      S.PotentialMatchResultTypeLoc = PreviousResultTypeLoc;
+    }
+
+    MatchResultTypeDiagnosticRAII(const MatchResultTypeDiagnosticRAII &) =
+        delete;
+    MatchResultTypeDiagnosticRAII &
+    operator=(const MatchResultTypeDiagnosticRAII &) = delete;
+  };
+
+  SourceLocation getPotentialMatchResultTypeLoc(SourceLocation CallLoc) const {
+    return CallLoc == PotentialMatchCallLoc ? PotentialMatchResultTypeLoc
+                                            : SourceLocation();
+  }
+
+  ExprResult ActOnMatchSubject(Expr *Subject, VarDecl *&HoldingVar,
+                               bool IsFullExpression = true);
+  ExprResult ActOnMatchSubjects(ArrayRef<Expr *> Subjects,
+                                SourceLocation MatchLoc, VarDecl *&HoldingVar,
+                                bool ForceProduct = false,
+                                bool IsFullExpression = true);
+  bool isMatchSubjectProductType(QualType Type) const;
+  bool CheckMatchSubjectBindingReferences(Expr *Subject,
+                                          MatchPattern *Pattern);
+  struct MatchPatternState;
+  void CheckGuardedMatchPattern(MatchPattern *Pattern);
+  void CheckAndMatchPattern(MatchPattern *Pattern);
+
+  StmtResult ActOnMatchExprHandler(TypeLoc OrigResultType, QualType &RetTy,
+                                   ExprResult ER);
+  bool ActOnMatchVoidHandler(TypeLoc OrigResultType, QualType &RetTy,
+                             SourceLocation Loc);
+
+  ExprResult ActOnMatchTestExpr(
+      VarDecl *HoldingVar, Expr *Subject, SourceLocation MatchLoc,
+      MatchPattern *Pattern, MatchPatternInstantiation *PatternInstantiation,
+      SourceLocation IfLoc, MatchGuard Guard,
+      bool PatternIsIrrefutable, bool NeedsCaseInstantiation,
+      ArrayRef<MatchTestInstantiation> Instantiations = {},
+      bool HasSemanticInstantiations = false);
+  ExprResult ActOnCaseConditionExpr(
+      VarDecl *HoldingVar, Expr *Subject, SourceLocation CaseLoc,
+      MatchPattern *Pattern, MatchPatternInstantiation *PatternInstantiation,
+      bool PatternIsIrrefutable, bool NeedsCaseInstantiation,
+      ArrayRef<MatchTestInstantiation> Instantiations = {},
+      bool HasSemanticInstantiations = false,
+      bool IsPatternDeclaration = false);
+  ExprResult BuildCaseConditionAnd(SourceLocation AndLoc, Expr *LHS, Expr *RHS);
+  ExprResult AttachMatchTestCondition(CaseConditionExpr *E, Stmt *Handler,
+                                      Expr *Increment = nullptr);
+  bool CheckPatternDeclarationScope(Scope *S, ArrayRef<Decl *> Declarations);
+  bool CheckPatternDeclarationElse(Stmt *Else, SourceLocation ElseLoc);
+  struct MatchExhaustivenessResult {
+    bool IsExhaustive;
+    bool IsFullyCovered;
+  };
+  std::optional<MatchExhaustivenessResult>
+  GetPatternDeclarationExhaustiveness(CaseConditionExpr *Condition);
+  ExprResult ExpandDeferredMatchTestExpr(MatchTestExpr *E);
+  bool ExpandMatchCondition(ConditionResult &Condition, SourceLocation Loc,
+                            Stmt *&Handler, Expr *&Increment,
+                            ConditionKind Kind);
+  class MatchUsefulnessContext;
+  ExprResult ActOnMatchSelectExpr(
+      Stmt *InitStmt, VarDecl *HoldingVar, Expr *Subject,
+      SourceLocation MatchLoc, bool IsConstexpr, bool IsStatement,
+      TypeLoc OrigResultType, QualType RetTy, ArrayRef<Stmt *> Preamble,
+      SmallVectorImpl<MatchCase> &Cases, SourceRange Braces,
+      bool ExpandDeferredCases = false,
+      std::optional<ArrayRef<MatchCaseInstantiation>> Instantiations =
+          std::nullopt,
+      MatchUsefulnessContext *UsefulnessContext = nullptr);
+
+  ArrayRef<const Attr *>
+  ActOnMatchCaseAttributes(const ParsedAttributes &Attributes, Stmt *Handler);
+  ExprResult ExpandDeferredMatchSelectExpr(MatchSelectExpr *E);
+
+  ActionResult<MatchPattern *>
+  ActOnWildcardPattern(SourceLocation Loc, bool IsPackExpansion = false);
+  ActionResult<MatchPattern *> ActOnExpressionPattern(Expr *SubExpr,
+                                                      bool IsPackExpansion = false);
+  bool CheckConstantExpressionPatterns(MatchPattern *Pattern);
+  ActionResult<MatchPattern *> ActOnParenPattern(SourceRange Parens,
+                                                 MatchPattern *SubPattern);
+  ActionResult<MatchPattern *>
+  ActOnDeclarationPattern(VarDecl *Declaration, SourceRange WrittenRange,
+                          VarDecl *PackSourceDeclaration = nullptr);
+  ActionResult<MatchPattern *> ActOnTypePattern(TypeSourceInfo *TInfo);
+  ActionResult<MatchPattern *>
+  ActOnAndPattern(ArrayRef<MatchPattern *> Conjuncts,
+                  ArrayRef<SourceLocation> AndLocs);
+  ActionResult<MatchPattern *>
+  ActOnOrPattern(ArrayRef<MatchPattern *> Alternatives,
+                 ArrayRef<SourceLocation> OrLocs);
+  ActionResult<MatchPattern *>
+  ActOnBracedAlternativePattern(SourceRange Braces, MatchPattern *SubPattern);
+  ActionResult<MatchPattern *>
+  ActOnNamedAlternativePattern(SourceRange Braces, SourceRange NameRange,
+                               IdentifierInfo *Name, SourceLocation ColonLoc,
+                               MatchPattern *SubPattern);
+  ActionResult<MatchPattern *> ActOnParameterizedNamedAlternativePattern(
+      SourceRange Braces, SourceRange NameRange, IdentifierInfo *Name,
+      MatchPattern *Argument, SourceLocation ColonLoc,
+      MatchPattern *SubPattern);
+  ActionResult<MatchPattern *>
+  ActOnSelectedAlternativePattern(SourceRange Braces, MatchPattern *Selector,
+                                  SourceLocation ColonLoc,
+                                  MatchPattern *SubPattern);
+  ActionResult<MatchPattern *> ActOnTypeConstraintAlternativePattern(
+      SourceRange Braces, SourceRange ConstraintRange,
+      ConceptReference *Constraint, SourceLocation ColonLoc,
+      MatchPattern *SubPattern);
+  ActionResult<MatchPattern *> ActOnEmptyAlternativePattern(SourceRange Braces);
+  ActionResult<MatchPattern *>
+  ActOnDecompositionPattern(ArrayRef<MatchPattern *> Patterns,
+                            SourceRange Squares);
+
+  struct MatchProjectionCache {
+    struct AlternativeProjectionInfo {
+      QualType TraitsType;
+      QualType SubjectType;
+      QualType IndexType;
+      ExprValueKind SubjectValueKind;
+      ExprObjectKind SubjectObjectKind;
+      bool HasParameterizedIndexName;
+      SmallVector<QualType, 4> ProjectionTypes;
+      SmallVector<ExprValueKind, 4> ProjectionValueKinds;
+      SmallVector<bool, 4> Projectable;
+    };
+
+    struct Entry {
+      const Expr *Subject;
+      MatchProjection *Projection;
+      QualType Discriminator;
+      unsigned Arity;
+      // The full semantic path identifies conditionally initialized projected
+      // values. The discriminator path contains only enclosing alternatives,
+      // allowing independent sibling discriminators to be shared.
+      SmallVector<unsigned, 4> Path;
+      SmallVector<unsigned, 4> DiscriminatorPath;
+    };
+
+    struct AlternativeChoice {
+      SmallVector<unsigned, 4> Alternatives;
+      unsigned Selected;
+    };
+
+    SmallVector<Entry, 8> Entries;
+    SmallVector<AlternativeProjectionInfo, 2> AlternativeProjections;
+    SmallVector<AlternativeChoice, 4> AlternativeChoices;
+    ArrayRef<unsigned> PlannedAlternativeSelections;
+    unsigned NextPlannedAlternativeSelection = 0;
+    bool DeferAlternativeChoices = false;
+    bool HasDeferredAlternativeChoices = false;
+    bool IsExpandingCandidate = false;
+    bool CandidateIsNotViable = false;
+    SmallVector<unsigned, 4> CurrentProjectionPath;
+    SmallVector<unsigned, 4> CurrentDiscriminatorPath;
+    struct {
+      MatchUsefulnessContext *Context = nullptr;
+      MatchPattern *RootPattern = nullptr;
+      unsigned CaseIndex = 0;
+      bool IsNotUseful = false;
+    } CandidateUsefulness;
+  };
+  /// Enumerates the semantic candidates produced by generic alternative and
+  /// declaration-bearing or-pattern choices. Each completed check records the
+  /// choices it encountered in the projection cache; advance selects the next
+  /// unexplored path in depth-first order.
+  struct MatchAlternativeSelectionPlan {
+    SmallVector<unsigned, 4> Selections;
+    bool SawAlternativeChoice = false;
+
+    static bool isRequired(const MatchPattern *Pattern);
+    void beginCandidate(MatchProjectionCache &Cache,
+                        bool IsExpandingCandidate) const;
+    bool advance(const MatchProjectionCache &Cache);
+  };
+  struct MatchPatternState {
+    SmallVector<MatchPatternInfo, 8> Infos;
+    bool CheckedBindingReferences = false;
+    bool CheckedAndPatternMoves = false;
+
+    MatchPatternInfo &get(MatchPattern *Pattern) {
+      for (MatchPatternInfo &Info : Infos)
+        if (Info.Pattern == Pattern)
+          return Info;
+      MatchPatternInfo &Info = Infos.emplace_back();
+      Info.Pattern = Pattern;
+      return Info;
+    }
+
+    const MatchPatternInfo *find(const MatchPattern *Pattern) const {
+      for (const MatchPatternInfo &Info : Infos)
+        if (Info.Pattern == Pattern)
+          return &Info;
+      return nullptr;
+    }
+  };
+  enum class MatchPatternRefutability { Impossible, Refutable, Irrefutable };
+
+  /// A closed-choice state restriction under which a semantic match arm is
+  /// instantiated. An empty set of constraints denotes the whole subject.
+  struct MatchSemanticDomainConstraint {
+    const Expr *Subject = nullptr;
+    QualType AlternativeTraitsType;
+    SmallVector<unsigned, 2> Alternatives;
+  };
+
+  /// Classifies one fully checked pattern without consulting prior arms or the
+  /// usefulness matrix.
+  struct MatchPatternSemanticAnalysis {
+    MatchPatternRefutability Refutability = MatchPatternRefutability::Refutable;
+    SmallVector<MatchSemanticDomainConstraint, 4> Domain;
+
+    bool isUnconditionallyMatched() const {
+      return Domain.empty() &&
+             Refutability == MatchPatternRefutability::Irrefutable;
+    }
+  };
+
+  MatchPatternSemanticAnalysis
+  AnalyzeMatchPatternSemantics(MatchPattern *Pattern,
+                               const MatchPatternState &State);
+
+  enum class MatchPatternUsefulness { NotUseful, MaybeUseful, Useful };
+
+  /// Incremental coverage and normalized candidate state for a match.
+  class MatchUsefulnessContext {
+    struct Impl;
+    std::unique_ptr<Impl> State;
+
+    friend class Sema;
+
+  public:
+    explicit MatchUsefulnessContext(QualType SubjectType);
+    ~MatchUsefulnessContext();
+
+    MatchUsefulnessContext(const MatchUsefulnessContext &) = delete;
+    MatchUsefulnessContext &operator=(const MatchUsefulnessContext &) = delete;
+  };
+
+  /// Record a specialized candidate and classify it against the coverage of
+  /// the preceding unguarded candidates.
+  MatchPatternUsefulness
+  UpdateMatchUsefulness(MatchUsefulnessContext &Context, MatchPattern *Pattern,
+                        const MatchPatternInstantiation *PatternInstantiation,
+                        unsigned CaseIndex, bool ContributesCoverage);
+
+  /// Classify an alternative candidate using its enclosing structural domain,
+  /// before checking the candidate's selector and payload pattern.
+  MatchPatternUsefulness UpdateMatchCandidateDomainUsefulness(
+      MatchUsefulnessContext &Context, MatchPattern *RootPattern,
+      AlternativePattern *Candidate, const MatchPatternState &State,
+      unsigned CaseIndex, bool RecordNotUseful = true);
+
+  /// Diagnose source-level usefulness and compute final coverage from the
+  /// candidates accumulated in Context.
+  std::optional<MatchExhaustivenessResult>
+  FinalizeMatchUsefulness(MatchUsefulnessContext &Context, Expr *Subject,
+                          ArrayRef<MatchCase> Cases,
+                          bool DiagnoseExhaustiveness = true);
+  bool
+  CheckCompleteMatchPattern(Expr *Subject, MatchPattern *Pattern,
+                            MatchPatternState &State,
+                            MatchProjectionCache *ProjectionCache = nullptr);
+  void DiscardUninitializedMatchPatternDeclarations(MatchPattern *Pattern);
+  bool CheckCompleteMatchPatternImpl(Expr *Subject, MatchPattern *Pattern,
+                                     MatchPatternState &State,
+                                     MatchProjectionCache *ProjectionCache);
+  /// Diagnose required exhaustiveness and report both required and residual
+  /// coverage.
+  std::optional<MatchExhaustivenessResult> CheckMatchExhaustiveness(
+      Expr *Subject, ArrayRef<MatchCase> Cases,
+      ArrayRef<MatchCaseInstantiation> Instantiations,
+      bool DiagnoseExhaustiveness = true,
+      bool UseResolvedInstantiationDependentPatterns = false);
+
+  ///@}
+
+  //
+  //
+  // -------------------------------------------------------------------------
+  //
+  //
+
   /// \name Statements
   /// Implementations are in SemaStmt.cpp
   ///@{
@@ -11805,6 +12142,8 @@ public:
       BuildForRangeKind Kind,
       ArrayRef<MaterializeTemporaryExpr *> LifetimeExtendTemps = {});
 
+  StmtResult BuildMatchForRangeLoopVar(Scope *S, SourceLocation Loc);
+
   /// FinishCXXForRangeStmt - Attach the body to a C++0x for-range statement.
   /// This is a separate step from ActOnCXXForRangeStmt because analysis of the
   /// body cannot be performed until after the type of the range variable is
@@ -11888,6 +12227,12 @@ public:
                                   bool SupressSimplerImplicitMoves = false);
 
   TypeLoc getReturnTypeLoc(FunctionDecl *FD) const;
+
+  enum class AutoTypeDeductionContext { ReturnStatement, MatchHandler };
+
+  bool DeduceAutoTypeFromExpr(TypeLoc OrigResultType, SourceLocation ReturnLoc,
+                              Expr *E, QualType &Deduced, const AutoType *AT,
+                              AutoTypeDeductionContext DeductionContext);
 
   /// Deduce the return type for a function from a returned expression, per
   /// C++1y [dcl.spec.auto]p6.
@@ -13946,6 +14291,9 @@ public:
 
       /// We are instantiating an expansion statement.
       ExpansionStmtInstantiation,
+
+      /// We are expanding dependent pattern-matching alternatives.
+      PatternMatchingExpansion,
     } Kind;
 
     /// Whether we're substituting into constraints.
@@ -14319,6 +14667,23 @@ public:
     SynthesizedFunctionScope(const SynthesizedFunctionScope &) = delete;
     SynthesizedFunctionScope &
     operator=(const SynthesizedFunctionScope &) = delete;
+  };
+
+  /// RAII object to ensure that a code synthesis context is popped on scope
+  /// exit.
+  class ScopedCodeSynthesisContext {
+    Sema &S;
+
+  public:
+    ScopedCodeSynthesisContext(Sema &S, const CodeSynthesisContext &Ctx)
+        : S(S) {
+      S.pushCodeSynthesisContext(Ctx);
+    }
+
+    ~ScopedCodeSynthesisContext() { S.popCodeSynthesisContext(); }
+    ScopedCodeSynthesisContext(const ScopedCodeSynthesisContext &) = delete;
+    ScopedCodeSynthesisContext &
+    operator=(const ScopedCodeSynthesisContext &) = delete;
   };
 
   /// List of active code synthesis contexts.

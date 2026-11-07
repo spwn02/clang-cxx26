@@ -161,6 +161,8 @@ enum class TentativeCXXTypeIdContext {
   InTrailingReturnType,
   AsGenericSelectionArgument,
   AsReflectionOperand,
+  InMatchPattern,
+  InMatchTrailingReturnType
 };
 
 /// The kind of attribute specifier we have found.
@@ -447,9 +449,9 @@ public:
 
     // Exit - Exit the scope associated with this object now, rather
     // than waiting until the object is destroyed.
-    void Exit() {
+    void Exit(bool DiagnoseDecls = true) {
       if (Self) {
-        Self->ExitScope();
+        Self->ExitScope(DiagnoseDecls);
         Self = nullptr;
       }
     }
@@ -484,7 +486,7 @@ public:
   void EnterScope(Scope::FlagsType ScopeFlags);
 
   /// ExitScope - Pop a scope off the scope stack.
-  void ExitScope();
+  void ExitScope(bool DiagnoseDecls = true);
 
   //===--------------------------------------------------------------------===//
   // Diagnostic Emission and Error recovery.
@@ -609,6 +611,10 @@ private:
   bool CalledSignatureHelp = false;
 
   IdentifierInfo *getSEHExceptKeyword();
+  /// Whether a block-scope pattern declaration is parsing the continuation
+  /// that will become its successful handler.
+  bool ParsingPatternDeclarationContinuation = false;
+
 
   /// Whether to skip parsing of function bodies.
   ///
@@ -1787,7 +1793,13 @@ private:
   };
   struct ForRangeInfo : ForRangeInit {
     StmtResult LoopVar;
+    MatchPattern *Pattern = nullptr;
+    SourceLocation PatternCaseLoc;
   };
+
+  /// Parse the for-range-initializer after the ':' has been consumed.
+  void ParseForRangeInitializerAfterColon(ForRangeInit &FRI,
+                                          ParsingDeclSpec *VarDeclSpec);
 
   /// ParseDeclaration - Parse a full 'declaration', which consists of
   /// declaration-specifiers, some number of declarators, and a semicolon.
@@ -1841,7 +1853,8 @@ private:
                          ParsedAttributes &DeclAttrs,
                          ParsedAttributes &DeclSpecAttrs, bool RequireSemi,
                          ForRangeInit *FRI = nullptr,
-                         SourceLocation *DeclSpecStart = nullptr);
+                         SourceLocation *DeclSpecStart = nullptr,
+                         bool IsPatternDecl = false);
 
   /// ParseDeclGroup - Having concluded that this is either a function
   /// definition or a group of object declarations, actually parse the
@@ -1854,7 +1867,8 @@ private:
                                 ParsedAttributes &Attrs,
                                 ParsedTemplateInfo &TemplateInfo,
                                 SourceLocation *DeclEnd = nullptr,
-                                ForRangeInit *FRI = nullptr);
+                                ForRangeInit *FRI = nullptr,
+                                bool IsPatternDecl = false);
 
   /// Parse 'declaration' after parsing 'declaration-specifiers
   /// declarator'. This method parses the remainder of the declaration
@@ -1985,6 +1999,8 @@ private:
       DeclSpec &DS, ImplicitTypenameContext AllowImplicitTypename,
       AccessSpecifier AS = AS_none,
       DeclSpecContext DSC = DeclSpecContext::DSC_normal);
+
+  void DiagnoseAndRemoveTypeNameDeclSpec(DeclSpec &DS, DeclSpecContext DSC);
 
   /// ParseEnumSpecifier
   /// \verbatim
@@ -2692,7 +2708,8 @@ private:
   void ParseTypeQualifierListOpt(
       DeclSpec &DS, unsigned AttrReqs = AR_AllAttributesParsed,
       bool AtomicOrPtrauthAllowed = true, bool IdentifierRequired = false,
-      llvm::function_ref<void()> CodeCompletionHandler = {});
+      llvm::function_ref<void()> CodeCompletionHandler = {},
+      bool StopAtNestedDecomposition = false);
 
   /// ParseDirectDeclarator
   /// \verbatim
@@ -2918,6 +2935,10 @@ private:
   mutable IdentifierInfo *Ident_GNU_final;
   mutable IdentifierInfo *Ident_override;
 
+  /// C++2c contextual keywords.
+  mutable IdentifierInfo *Ident_match;
+  mutable IdentifierInfo *Ident_wildcard;
+
   /// Representation of a class that has been parsed, including
   /// any member function declarations or definitions that need to be
   /// parsed after the corresponding top-level class is complete.
@@ -3046,6 +3067,12 @@ private:
             isCXX11AttributeSpecifier(Disambiguate, OuterMightBeMessageSend) !=
                 CXX11AttributeKind::NotAttributeSpecifier);
   }
+
+  /// Determine whether a leading '[[' starts a nested structured-binding
+  /// declarator rather than an attribute-specifier-seq. When
+  /// BeforeDeclSpecifier is true, an attribute is followed by declaration
+  /// specifiers rather than a declarator.
+  bool isNestedDecompositionDeclarator(bool BeforeDeclSpecifier = false);
 
   /// Skip C++11 and C23 attributes and return the end location of the
   /// last one.
@@ -3489,8 +3516,12 @@ private:
   ///
   /// Prior to C++0x, the assignment-expression in an initializer-clause must
   /// be a constant-expression.
+  ///
+  /// With \p AddInitializerToDecl the initializer is also added to \p D (a
+  /// static data member) before its evaluation context is left.
   ExprResult ParseCXXMemberInitializer(Decl *D, bool IsFunction,
-                                       SourceLocation &EqualLoc);
+                                       SourceLocation &EqualLoc,
+                                       bool AddInitializerToDecl = false);
 
   /// Parse a C++ member-declarator up to, but not including, the optional
   /// brace-or-equal-initializer or pure-specifier.
@@ -3803,8 +3834,20 @@ public:
   ///         assignment-expression ...[opt]
   ///         expression ',' assignment-expression ...[opt]
   /// \endverbatim
+  using InjectedDeclSet = llvm::SmallPtrSet<Decl *, 4>;
+
+  struct CaseConditionParseState {
+    StmtResult *InitStmt;
+    SourceLocation StatementLoc;
+    Sema::ConditionKind ConditionKind;
+    bool MissingOK;
+    InjectedDeclSet Decls;
+  };
+
   ExprResult ParseExpression(TypoCorrectionTypeBehavior CorrectionBehavior =
-                                 TypoCorrectionTypeBehavior::AllowNonTypes);
+                                 TypoCorrectionTypeBehavior::AllowNonTypes,
+                             InjectedDeclSet *Decls = nullptr,
+                             CaseConditionParseState *CaseState = nullptr);
 
   ExprResult ParseConstantExpressionInExprEvalContext(
       TypoCorrectionTypeBehavior CorrectionBehavior =
@@ -3847,7 +3890,9 @@ public:
   /// Parse an expr that doesn't include (top-level) commas.
   ExprResult
   ParseAssignmentExpression(TypoCorrectionTypeBehavior CorrectionBehavior =
-                                TypoCorrectionTypeBehavior::AllowNonTypes);
+                                TypoCorrectionTypeBehavior::AllowNonTypes,
+                            InjectedDeclSet *Decls = nullptr,
+                            CaseConditionParseState *CaseState = nullptr);
 
   ExprResult ParseConditionalExpression();
 
@@ -3883,8 +3928,8 @@ private:
   /// Checks if the \p Level is valid for use in a fold expression.
   bool isFoldOperator(prec::Level Level) const;
 
-  /// Checks if the \p Kind is a valid operator for fold expressions.
-  bool isFoldOperator(tok::TokenKind Kind) const;
+  /// Checks if the \p Tok is a valid operator for fold expressions.
+  bool isFoldOperator(const Token &Tok) const;
 
   /// We have just started parsing the definition of a new class,
   /// so push that class onto our stack of classes that is currently
@@ -3917,11 +3962,20 @@ private:
   /// This routine is called when a leading '__extension__' is seen and
   /// consumed.  This is necessary because the token gets consumed in the
   /// process of disambiguating between an expression and a declaration.
-  ExprResult ParseExpressionWithLeadingExtension(SourceLocation ExtLoc);
+  ExprResult ParseExpressionWithLeadingExtension(
+      SourceLocation ExtLoc, InjectedDeclSet *InjectedDecls = nullptr,
+      CaseConditionParseState *CaseState = nullptr);
 
   /// Parse a binary expression that starts with \p LHS and has a
   /// precedence of at least \p MinPrec.
-  ExprResult ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec);
+  ExprResult
+  ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec,
+                             InjectedDeclSet *Decls = nullptr,
+                             CaseConditionParseState *CaseState = nullptr);
+  ExprResult ParseRHSExprOfBinaryExpression(
+      ExprResult &LHS, ExprResult *TernaryMiddle, bool &RHSIsInitList,
+      prec::Level ThisPrec, prec::Level &NextTokPrec, InjectedDeclSet *Decls,
+      CaseConditionParseState *CaseState);
 
   bool isRevertibleTypeTrait(const IdentifierInfo *Id,
                              clang::tok::TokenKind *Kind = nullptr);
@@ -4266,7 +4320,8 @@ private:
   bool ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
                            llvm::function_ref<void()> ExpressionStarts =
                                llvm::function_ref<void()>(),
-                           bool FailImmediatelyOnInvalidExpr = false);
+                           bool FailImmediatelyOnInvalidExpr = false,
+                           bool AllowBracedInitList = true);
 
   /// ParseSimpleExpressionList - A simple comma-separated list of expressions,
   /// used for misc language extensions.
@@ -4310,6 +4365,11 @@ private:
   /// [OPENMP] Array shaping operation
   ///       '(' '[' expression ']' { '[' expression ']' } cast-expression
   /// \endverbatim
+  ExprResult ParseExpressionWithLeadingParen(
+      ParenParseOption &ExprType, bool StopIfCastExpr,
+      ParenExprKind ParenBehavior,
+      TypoCorrectionTypeBehavior CorrectionBehavior, ParsedType &CastTy,
+      SourceLocation &RParenLoc, BalancedDelimiterTracker &T, bool &Fallback);
   ExprResult ParseParenExpression(ParenParseOption &ExprType,
                                   bool StopIfCastExpr,
                                   ParenExprKind ParenBehavior,
@@ -4459,6 +4519,77 @@ private:
   bool tryParseOpenMPArrayShapingCastPart();
 
   ExprResult ParseBuiltinPtrauthTypeDiscriminator();
+
+  //===--------------------------------------------------------------------===//
+  // C++ Pattern Matching
+  bool isPrefixMatchSelection(bool StatementContext,
+                              SourceLocation *MissingCasePatternLoc = nullptr,
+                              bool *MissingSubjectParens = nullptr);
+  bool isPrefixMatchTestExpression();
+  bool hasPossibleOrdinaryMatchCall();
+  ExprResult ParseMatchSelection(bool IsStatement,
+                                 bool MissingSubjectParens = false);
+  ExprResult ParseMatchTestExpression();
+  Sema::ConditionResult
+  ParseCaseCondition(StmtResult *InitStmt, SourceLocation Loc,
+                     Sema::ConditionKind CK, bool MissingOK,
+                     InjectedDeclSet *InjectedDecls,
+                     ForRangeInfo *FRI = nullptr);
+  ExprResult ParseCaseConditionOperand(CaseConditionParseState &State);
+  Sema::ConditionResult ParseCaseConditionChain(StmtResult *InitStmt,
+                                                SourceLocation Loc,
+                                                Sema::ConditionKind CK,
+                                                bool MissingOK,
+                                                InjectedDeclSet *InjectedDecls,
+                                                ForRangeInfo *FRI = nullptr);
+  ExprResult BuildCaseForRangeCondition(const ForRangeInfo &FRI);
+  enum class CaseConditionPreparation { Ready, Expanded, Invalid };
+  CaseConditionPreparation
+  PrepareCaseCondition(Sema::ConditionResult &Condition, SourceLocation Loc,
+                       Stmt *&Handler, Expr *&Increment,
+                       Sema::ConditionKind Kind = Sema::ConditionKind::Boolean,
+                       bool ExpandImmediately = true);
+
+  bool ParseMatchBody(Expr *Subject, TypeLoc OrigResultType, QualType &RetTy,
+                      SmallVectorImpl<Stmt *> &Preamble,
+                      SmallVectorImpl<MatchCase> &Result, SourceRange &Braces,
+                      bool &HasDeferredCases, bool IsStatement,
+                      bool DeferHandlerChecking);
+  bool ParseMatchCase(Expr *Subject, TypeLoc OrigResultType, QualType &RetTy,
+                      MatchCase &Case,
+                      Sema::MatchProjectionCache &ProjectionCache,
+                      bool IsStatement, bool DeferHandlerChecking);
+  Sema::ConditionResult ParseMatchGuard(SourceLocation &IfLoc,
+                                        StmtResult &InitStmt);
+  StmtResult ParseMatchHandler(TypeLoc OrigResultType, QualType &RetTy,
+                               bool IsStatement, SourceLocation &NotReturnLoc,
+                               bool DeferSemanticChecking = false);
+  ActionResult<MatchPattern *>
+  ParsePattern(bool AllowPackExpansion = false,
+               bool StopAtEqual = false,
+               TypoCorrectionTypeBehavior CorrectionBehavior =
+                   TypoCorrectionTypeBehavior::AllowNonTypes,
+               bool AllowUnnamedPack = false);
+  ActionResult<MatchPattern *>
+  ParsePrimaryPattern(bool AllowPackExpansion, bool StopAtEqual,
+                      TypoCorrectionTypeBehavior CorrectionBehavior,
+                      bool AllowUnnamedPack);
+
+  enum class DeclarationPatternKind { Pattern, Expression, Error };
+  DeclarationPatternKind TryParseDeclarationPatternSyntax();
+  bool isDeclarationPatternSyntax();
+  ActionResult<MatchPattern *>
+  ParseWildcardPattern();
+  ActionResult<MatchPattern *>
+  ParseDeclarationPattern(bool AllowPackExpansion = false);
+  ActionResult<MatchPattern *>
+  ParseExpressionPattern(bool AllowPackExpansion, bool StopAtEqual,
+                         TypoCorrectionTypeBehavior CorrectionBehavior);
+  ActionResult<MatchPattern *>
+  ParseParenPattern(bool StopAtEqual,
+                    TypoCorrectionTypeBehavior CorrectionBehavior);
+  ActionResult<MatchPattern *> ParseBracedAlternativePattern();
+  ActionResult<MatchPattern *> ParseDecompositionPattern();
 
   ///@}
 
@@ -5056,6 +5187,7 @@ private:
                                           SourceLocation Loc,
                                           Sema::ConditionKind CK,
                                           bool MissingOK,
+                                          InjectedDeclSet *InjectedDecls = nullptr,
                                           ForRangeInfo *FRI = nullptr,
                                           bool EnterForConditionScope = false);
   DeclGroupPtrTy ParseAliasDeclarationInInitStatement(DeclaratorContext Context,
@@ -7391,6 +7523,14 @@ public:
   /// Parse an expression statement.
   StmtResult ParseExprStatement(ParsedStmtContext StmtCtx);
 
+  StmtResult ParseMatchStatement(bool MissingSubjectParens = false);
+  bool isPatternDeclaration();
+  StmtResult ParsePatternDeclaration(ParsedStmtContext StmtCtx);
+
+  void ParseCompoundStatementSequence(StmtVector &Stmts,
+                                      ParsedStmtContext StmtCtx,
+                                      bool &LastIsError);
+
   /// ParseLabeledStatement - We have an identifier and a ':' after it.
   ///
   /// \verbatim
@@ -7493,7 +7633,8 @@ public:
                                  Sema::ConditionResult &CondResult,
                                  SourceLocation Loc, Sema::ConditionKind CK,
                                  SourceLocation &LParenLoc,
-                                 SourceLocation &RParenLoc);
+                                 SourceLocation &RParenLoc,
+                                 InjectedDeclSet *InjectedDecls = nullptr);
 
   /// ParseIfStatement
   /// \verbatim
@@ -8716,7 +8857,7 @@ private:
                    PrevSpliceCount;
     bool isActive;
 
-  public:
+public:
     explicit TentativeParsingAction(Parser &p, bool Unannotated = false)
         : P(p), PrevPreferredType(P.PreferredType) {
       PrevTok = P.Tok;
@@ -8887,6 +9028,10 @@ private:
   /// the function returns true to let the declaration parsing code handle it.
   ///
   /// \verbatim
+  /// When Context is InMatchTrailingReturnType, this function consumes the
+  /// complete type-id and leaves the current token immediately after it. The
+  /// caller is responsible for performing this query within a tentative parse.
+  ///
   /// type-id:
   ///   type-specifier-seq abstract-declarator[opt]
   /// \endverbatim
@@ -9088,7 +9233,7 @@ private:
   ///         '<' identifier-list '>'
   TPResult TryParseProtocolQualifiers();
 
-  TPResult TryParsePtrOperatorSeq();
+  TPResult TryParsePtrOperatorSeq(bool *HadPtrOperator = nullptr);
 
   /// \verbatim
   ///         operator-function-id:
@@ -9141,7 +9286,9 @@ private:
   ///         '{' '}'
   /// \endverbatim
   ///
-  TPResult TryParseInitDeclaratorList(bool MayHaveTrailingReturnType = false);
+  TPResult TryParseInitDeclaratorList(bool MayHaveTrailingReturnType = false,
+                                      bool StopAfterFirstDeclarator = false,
+                                      bool MayBeAbstract = false);
 
   /// \verbatim
   ///         declarator:

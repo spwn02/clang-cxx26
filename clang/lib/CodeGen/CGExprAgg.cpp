@@ -252,9 +252,17 @@ public:
   void VisitPackIndexingExpr(PackIndexingExpr *E) {
     Visit(E->getSelectedExpr());
   }
-
   void VisitCXXSpliceExpr(CXXSpliceExpr *E) {
     Visit(E->getModel());
+  }
+
+  void VisitMatchSelectExpr(MatchSelectExpr *IE) {
+    if (IE->isGLValue()) {
+      LValue LV = CGF.EmitMatchSelectExprLValue(IE);
+      EmitFinalDestCopy(IE->getType(), LV);
+      return;
+    }
+    CGF.EmitMatchSelectExpr(*IE, Dest);
   }
 };
 }  // end anonymous namespace.
