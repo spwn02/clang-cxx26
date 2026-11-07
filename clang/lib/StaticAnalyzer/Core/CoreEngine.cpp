@@ -388,7 +388,13 @@ void CoreEngine::HandleBlockExit(const CFGBlock * B, ExplodedNode *Pred) {
         HandleBranch(cast<ChooseExpr>(Term)->getCond(), Term, B, Pred);
         return;
 
+      case Stmt::MatchSelectExprClass:
+      case Stmt::MatchTestExprClass:
+      case Stmt::CaseConditionExprClass:
       case Stmt::CXXTryStmtClass:
+        // A match selection, a match test or a pattern condition (C++29)
+        // chooses among its successors by testing patterns that are not
+        // modeled: any may be taken.
         // Generate a node for each of the successors.
         // Our logic for EH analysis can certainly be improved.
         for (CFGBlock::const_succ_iterator it = B->succ_begin(),

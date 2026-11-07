@@ -602,6 +602,7 @@ private:
   CFGBlock *VisitConditionalOperator(AbstractConditionalOperator *C,
                                      AddStmtChoice asc);
   CFGBlock *VisitMatchTestExpr(MatchTestExpr *E, AddStmtChoice asc);
+  DeclStmt *makeHoldingVarDeclStmt(VarDecl *HoldingVar);
   std::pair<CFGBlock *, CFGBlock *> VisitMatchTestExpr(MatchTestExpr *E,
                                                        Stmt *Term,
                                                        CFGBlock *TrueBlock,
@@ -3266,6 +3267,14 @@ std::pair<CFGBlock *, CFGBlock *> CFGBuilder::VisitCaseConditionChain(
   return {EntryBlock ? EntryBlock : ExitBlock, ExitBlock};
 }
 
+DeclStmt *CFGBuilder::makeHoldingVarDeclStmt(VarDecl *HoldingVar) {
+  // The variable that holds the subject of a match is declared before the
+  // patterns are tested; the declaration evaluates the subject.
+  return new (Context) DeclStmt(DeclGroupRef(HoldingVar),
+                                HoldingVar->getBeginLoc(),
+                                HoldingVar->getEndLoc());
+}
+
 std::pair<CFGBlock *, CFGBlock *> CFGBuilder::VisitMatchTestExpr(
     MatchTestExpr *E, Stmt *Term, ArrayRef<CFGBlock *> TrueBlocks,
     CFGBlock *FalseBlock, std::optional<unsigned> SelectedInstantiation) {
@@ -3274,7 +3283,7 @@ std::pair<CFGBlock *, CFGBlock *> CFGBuilder::VisitMatchTestExpr(
     Block = nullptr;
     CFGBlock *EntryBlock;
     if (VarDecl *HoldingVar = E->getHoldingVar())
-      EntryBlock = addStmt(HoldingVar->getInit());
+      EntryBlock = addStmt(makeHoldingVarDeclStmt(HoldingVar));
     else
       EntryBlock = addStmt(E->getSubject());
     return {EntryBlock ? EntryBlock : FalseBlock, nullptr};
@@ -3326,10 +3335,14 @@ std::pair<CFGBlock *, CFGBlock *> CFGBuilder::VisitMatchTestExpr(
     addSuccessor(PatternBlock, PatternBodyBlock,
                  /* IsReachable = */
                  Guard.hasGuard() || !KnownVal.isFalse());
-    if (!PatternIsIrrefutable)
-      addSuccessor(PatternBlock, CandidateFalseBlock,
-                   /* IsReachable = */
-                   !(IsFinalCandidate && KnownVal.isTrue()));
+    // The terminator branches two ways even when the pattern always matches;
+    // consumers of the CFG (the static analyzer, bug report visitors) rely on
+    // a conditional terminator having two successors, so the edge for a failed
+    // match is kept and marked unreachable.
+    addSuccessor(PatternBlock, CandidateFalseBlock,
+                 /* IsReachable = */
+                 !PatternIsIrrefutable &&
+                     !(IsFinalCandidate && KnownVal.isTrue()));
     return PatternBlock;
   };
 
@@ -3374,7 +3387,7 @@ std::pair<CFGBlock *, CFGBlock *> CFGBuilder::VisitMatchTestExpr(
   Block = nullptr;
   CFGBlock *EntryBlock;
   if (VarDecl *HoldingVar = E->getHoldingVar())
-    EntryBlock = addStmt(HoldingVar->getInit());
+    EntryBlock = addStmt(makeHoldingVarDeclStmt(HoldingVar));
   else
     EntryBlock = addStmt(E->getSubject());
   return {EntryBlock ? EntryBlock : CandidateEntry, PatternBlock};
@@ -3471,7 +3484,7 @@ CFGBlock *CFGBuilder::VisitMatchSelectExpr(MatchSelectExpr *E,
   Block = nullptr;
   CFGBlock *EntryBlock;
   if (VarDecl *HoldingVar = E->getHoldingVar())
-    EntryBlock = addStmt(HoldingVar->getInit());
+    EntryBlock = addStmt(makeHoldingVarDeclStmt(HoldingVar));
   else
     EntryBlock = addStmt(E->getSubject());
 
