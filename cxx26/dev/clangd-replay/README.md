@@ -9,7 +9,7 @@ Example (do expressions, C++29):
 
     cxx26/dev/clangd-replay/replay.sh build-nyx/bin/clangd t.cpp \
       '[{"input":"ggjjOint z = do ","show":true,"report":"after-do","wait":3000}]' \
-      -std=c++29 -fdo-expressions
+      -std=c++29
 
 Traps: key input is only processed once the main loop runs, so steps are chained with
 timers; type `<lt>` for `<`; wait for the first DiagnosticChanged (done by the script)

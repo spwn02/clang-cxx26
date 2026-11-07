@@ -62,7 +62,7 @@ experimental flag until the fork has completed the next standard and WG21 has ac
 
 ## Is there C++29 work?
 
-Yes, on the branch `cxx29` (branched from `cxx26`; the `cxx26` branch and its releases are not affected). It uses `-std=c++29` (alias `-std=c++2d`) and is a work in progress: `do` expressions (P2806) are ported in the compiler, and token sequence injection (P4380), pattern matching (P2688) and the networking papers (P4048, P4100) are planned. A feature counts as done only when clangd, clang-tidy, clang-format and the other tools understand it as well. Progress is in the GitHub milestones whose names start with `C++29`. C++29 features can be enabled in older modes with per-feature flags (for example `-fdo-expressions`) while the standard is incomplete.
+Yes, on the branch `cxx29` (branched from `cxx26`; the `cxx26` branch and its releases are not affected). It uses `-std=c++29` (alias `-std=c++2d`) and is a work in progress: `do` expressions (P2806) are ported in the compiler, and token sequence injection (P4380), pattern matching (P2688) and the networking papers (P4048, P4100) are planned. A feature counts as done only when clangd, clang-tidy, clang-format and the other tools understand it as well. Progress is in the GitHub milestones whose names start with `C++29`. C++29 features are available only in `-std=c++29`; no flag enables them in an earlier mode.
 
 ## Will my existing code build?
 
