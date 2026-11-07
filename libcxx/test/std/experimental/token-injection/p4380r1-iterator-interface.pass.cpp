@@ -144,6 +144,16 @@ struct Counter {
 
 static_assert(std::random_access_iterator<Counter>);
 
+// Adaptor path: base_can_deref / base_can_pre_inc / base_can_eq are evaluated
+// for the type of the adaptor member (substitute + extract<bool>), and every
+// operation the base has is forwarded to it.
+struct Wrapper {
+  int const *base = nullptr;
+  consteval { iterator_interface(^^Wrapper, {.iterator_concept = ^^std::forward_iterator_tag, .value_type = ^^int, .adaptor = ^^Wrapper::base}); }
+};
+
+static_assert(std::forward_iterator<Wrapper>);
+
 constexpr bool run() {
   Counter c{3};
   assert(*c == 3);
@@ -163,6 +173,16 @@ constexpr bool run() {
   assert(c != Counter{3});
   assert(c < Counter{3});
   assert((Counter{7} - Counter{2}) == 5);
+
+  static constexpr int data[] = {10, 20, 30};
+  Wrapper w{data};
+  assert(*w == 10);
+  ++w;
+  assert(*w == 20);
+  Wrapper old = w++;
+  assert(*old == 20 && *w == 30);
+  assert(old == Wrapper{data + 1});
+  assert(!(w == old));
   return true;
 }
 static_assert(run());

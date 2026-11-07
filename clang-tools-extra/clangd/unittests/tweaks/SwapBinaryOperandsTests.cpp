@@ -89,8 +89,8 @@ TEST_F(SwapBinaryOperandsTest, Test) {
 
 // The expansion of an expression macro is made of tokens that all have the
 // location of the invocation: its operands and operator are not three pieces of
-// the file, and swapping them would be three overlapping edits (found with
-// 'clangd --check' on the P4380R1 examples.
+// the file. The operator of an expansion is not offered; one written in an
+// argument of the invocation, or next to it, is.
 TEST_F(SwapBinaryOperandsTest, ExpressionMacroExpansion) {
   ExtraArgs = {"-std=c++2d"};
   Context = CodeContext::File;
@@ -117,7 +117,9 @@ __macro both(bool a, bool b) { return ^^{ \(a) or \(b) }; }
 }
 
 // A macro that stands for an overloaded operator: the operator written by the
-// user is replaced by the expansion.
+// user is replaced by the expansion, whose operands and operator would be three
+// overlapping edits (found with 'clangd --check' on the P4380R1 tuple example,
+// #498; this test fails without the check in prepare).
 TEST_F(SwapBinaryOperandsTest, OperatorMacro) {
   ExtraArgs = {"-std=c++2d"};
   Context = CodeContext::File;
