@@ -567,6 +567,10 @@ class CFGBuilder {
   CFG::BuildOptions::ForcedBlkExprs::value_type *cachedEntry = nullptr;
   const Stmt *lastLookup = nullptr;
 
+  /// The opaque values that stand for the arguments of the expression macro
+  /// invocations being built, each visited as its source expression.
+  llvm::SmallPtrSet<const OpaqueValueExpr *, 8> MacroArgumentValues;
+
   // Caches boolean evaluations of expressions to avoid multiple re-evaluations
   // during construction of branches for chained logical operators.
   using CachedBoolEvalsTy = llvm::DenseMap<Expr *, TryResult>;
@@ -2469,37 +2473,38 @@ CFGBlock *CFGBuilder::Visit(Stmt * S, AddStmtChoice asc,
 
     case Stmt::CXXMacroInvocationExprClass: {
       // A resolved invocation stands for its expansion, which holds the
-      // values of the arguments as opaque values: the arguments are evaluated
-      // first, once.
+      // arguments of the macro as opaque values. An argument is evaluated
+      // where the expansion uses it, and not at all if the expansion does not
+      // get there: that is what the program does (the right operand of an
+      // operator macro `or` is not evaluated when the left one decides, and
+      // the same expansion in the code generator branches the same way), so
+      // the opaque value is visited as the argument it stands for (see
+      // OpaqueValueExprClass). A macro uses each argument once: using one
+      // twice is an error.
       auto *MI = cast<CXXMacroInvocationExpr>(S);
-      CFGBlock *Result = Visit(MI->getExpansion(), asc);
-      // (The opaque values of constructs that bind their own, such as a
-      // conditional with an omitted middle operand, are theirs.)
-      SmallVector<Expr *, 4> ArgValues;
       std::function<void(Stmt *)> Collect = [&](Stmt *C) {
         if (!C || isa<BinaryConditionalOperator, PseudoObjectExpr,
                       ArrayInitLoopExpr>(C))
           return;
+        // (The opaque values of constructs that bind their own, such as a
+        // conditional with an omitted middle operand, are theirs.) A nested
+        // invocation collects its own when it is visited; the opaque values in
+        // its arguments are ours.
         if (auto *Nested = dyn_cast<CXXMacroInvocationExpr>(C)) {
-          // The values it is given are ours if they come from our arguments;
-          // its own arguments are evaluated when it is visited.
           for (Expr *NestedArg : Nested->getArgs())
             Collect(NestedArg);
           return;
         }
         if (auto *OVE = dyn_cast<OpaqueValueExpr>(C)) {
-          if (Expr *Src = OVE->getSourceExpr())
-            if (!llvm::is_contained(ArgValues, Src))
-              ArgValues.push_back(Src);
+          if (OVE->getSourceExpr())
+            MacroArgumentValues.insert(OVE);
           return;
         }
         for (Stmt *Child : C->children())
           Collect(Child);
       };
       Collect(MI->getExpansion());
-      for (Expr *Arg : llvm::reverse(ArgValues))
-        Result = Visit(Arg);
-      return Result;
+      return Visit(MI->getExpansion(), asc);
     }
 
     case Stmt::IndirectGotoStmtClass:
@@ -2542,8 +2547,14 @@ CFGBlock *CFGBuilder::Visit(Stmt * S, AddStmtChoice asc,
     case Stmt::ObjCMessageExprClass:
       return VisitObjCMessageExpr(cast<ObjCMessageExpr>(S), asc);
 
-    case Stmt::OpaqueValueExprClass:
+    case Stmt::OpaqueValueExprClass: {
+      // The argument of an expression macro: evaluated here, where the
+      // expansion uses it (the other opaque values are bound by their owners).
+      auto *OVE = cast<OpaqueValueExpr>(S);
+      if (MacroArgumentValues.contains(OVE))
+        return Visit(OVE->getSourceExpr(), asc);
       return Block;
+    }
 
     case Stmt::PseudoObjectExprClass:
       return VisitPseudoObjectExpr(cast<PseudoObjectExpr>(S));

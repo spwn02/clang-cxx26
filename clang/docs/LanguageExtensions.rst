@@ -1808,8 +1808,9 @@ A resolved macro invocation stays in the AST as a ``CXXMacroInvocationExpr`` aro
 macro that was invoked (clangd completion, hover, go-to-definition, references and semantic tokens work on the name at
 the call site). This holds for ``m!(..)``, ``obj.m!(..)``, and for statement- and declaration-position invocations,
 which are kept as an invocation with an empty expansion ahead of the statements or declarations they expand to (in
-declaration position inside a consteval block that does nothing). The static analyzer evaluates the arguments of an
-invocation once, ahead of the expansion. In the experimental syntax-tree library (``clang-check -syntax-tree-dump``) a
+declaration position inside a consteval block that does nothing). The control flow graph (and so the static analyzer) evaluates an
+argument where the expansion uses it, as the generated code does: the right operand of an operator macro ``or`` is not
+evaluated when the left one decides. In the experimental syntax-tree library (``clang-check -syntax-tree-dump``) a
 literal and an invocation are one leaf; what was injected or expanded from a literal, or made by ``tokenize``,
 ``str_lit`` or ``id``, is left out, because its tokens are not where it is used.
 The raw identifiers of a literal are not names until the sequence is injected; clangd shows them as unresolved (dependent)
