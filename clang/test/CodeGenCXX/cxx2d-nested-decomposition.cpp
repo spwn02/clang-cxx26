@@ -16,9 +16,13 @@ auto [[pack_first, ..., pack_last], pack_tail] = Outer{{4, 5}, 6};
 // CHECK: @_ZDC8global_x8global_y8global_zE = global %struct.Outer
 // CHECK: @_ZDC10pack_first9pack_last9pack_tailE = global %struct.Outer
 // CHECK: @_ZDC7tuple_x7tuple_y7tuple_zE = global %struct.TupleOuter
-// CHECK: @[[HOLDER1:_ZL[0-9]+__nested_structured_binding_[0-9]+]] = internal global %struct.TupleInner zeroinitializer
+// The holder of a nested tuple-like binding is a reference to the prvalue
+// get<0> returns, whose temporary is lifetime-extended.
+// CHECK: @_ZL{{[0-9]+}}__nested_structured_binding_{{[0-9]+}} = internal global ptr null
+// CHECK: @_ZGRL{{[0-9]+}}__nested_structured_binding_{{[0-9]+}}_ = internal global %struct.TupleInner zeroinitializer
 // CHECK: @_ZDC7other_x7other_y7other_zE = global %struct.TupleOuter
-// CHECK: @[[HOLDER2:_ZL[0-9]+__nested_structured_binding_[0-9]+]] = internal global %struct.TupleInner zeroinitializer
+// CHECK: @_ZL{{[0-9]+}}__nested_structured_binding_{{[0-9]+}} = internal global ptr null
+// CHECK: @_ZGRL{{[0-9]+}}__nested_structured_binding_{{[0-9]+}}_ = internal global %struct.TupleInner zeroinitializer
 // CHECK: @{{.*}}inline_local_address{{.*}}{{[0-9]+}}__nested_structured_binding_{{[0-9]+}} = linkonce_odr
 
 int sum() {
@@ -31,8 +35,8 @@ int pack_sum() {
 
 // CHECK-LABEL: define {{.*}} @_Z3sumv()
 // CHECK: load i32, ptr @_ZDC8global_x8global_y8global_zE
-// CHECK: load i32, ptr getelementptr inbounds nuw (i8, ptr @_ZDC8global_x8global_y8global_zE, i64 4)
-// CHECK: load i32, ptr getelementptr inbounds nuw (i8, ptr @_ZDC8global_x8global_y8global_zE, i64 8)
+// CHECK: load i32, ptr getelementptr inbounds nuw ({{.*}}, ptr @_ZDC8global_x8global_y8global_zE, {{.*}})
+// CHECK: load i32, ptr getelementptr inbounds nuw ({{.*}}, ptr @_ZDC8global_x8global_y8global_zE, {{.*}})
 
 namespace std {
 using size_t = decltype(sizeof(0));

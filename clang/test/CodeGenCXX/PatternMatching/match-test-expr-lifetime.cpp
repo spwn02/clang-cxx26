@@ -27,25 +27,25 @@ struct Lifetime {
 // CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[N_ADDR]], align 4
 // CHECK-NEXT:    call void @_ZN8LifetimeC1EPbi(ptr noundef nonnull align 8 dereferenceable(12) [[REF_TMP]], ptr noundef [[FLAG]], i32 noundef [[TMP2]])
 // CHECK-NEXT:    store ptr [[REF_TMP]], ptr [[TMP0]], align 8
-// CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[TMP0]], align 8, !nonnull [[META1:![0-9]+]], !align [[META2:![0-9]+]]
+// CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[TMP0]], align 8, !nonnull [[META2:![0-9]+]], !align [[META3:![0-9]+]]
 // CHECK-NEXT:    store ptr [[TMP3]], ptr [[TMP1]], align 8
 // CHECK-NEXT:    br label %[[MATCH_DECOMP_NEXT_PATTERN:.*]]
 // CHECK:       [[MATCH_DECOMP_NEXT_PATTERN]]:
-// CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[TMP1]], align 8, !nonnull [[META1]], !align [[META2]]
+// CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[TMP1]], align 8, !nonnull [[META2]], !align [[META3]]
 // CHECK-NEXT:    [[N1:%.*]] = getelementptr inbounds nuw [[STRUCT_LIFETIME]], ptr [[TMP4]], i32 0, i32 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr [[N1]], align 8
 // CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[TMP5]], 101
 // CHECK-NEXT:    br i1 [[CMP]], label %[[MATCH_TEST_INIT:.*]], label %[[MATCH_TEST_NO_MATCH:.*]]
 // CHECK:       [[MATCH_TEST_INIT]]:
-// CHECK-NEXT:    [[TMP6:%.*]] = load ptr, ptr [[TMP1]], align 8, !nonnull [[META1]], !align [[META2]]
+// CHECK-NEXT:    [[TMP6:%.*]] = load ptr, ptr [[TMP1]], align 8, !nonnull [[META2]], !align [[META3]]
 // CHECK-NEXT:    [[FLAG2:%.*]] = getelementptr inbounds nuw [[STRUCT_LIFETIME]], ptr [[TMP6]], i32 0, i32 0
 // CHECK-NEXT:    store ptr [[FLAG2]], ptr [[B]], align 8
 // CHECK-NEXT:    br i1 true, label %[[MATCH_TEST_ACTION:.*]], label %[[MATCH_TEST_GUARD_FAILED:.*]]
 // CHECK:       [[MATCH_TEST_ACTION]]:
-// CHECK-NEXT:    [[TMP7:%.*]] = load ptr, ptr [[B]], align 8, !nonnull [[META1]], !align [[META2]]
+// CHECK-NEXT:    [[TMP7:%.*]] = load ptr, ptr [[B]], align 8, !nonnull [[META2]], !align [[META3]]
 // CHECK-NEXT:    [[TMP8:%.*]] = load ptr, ptr [[TMP7]], align 8
 // CHECK-NEXT:    [[TMP9:%.*]] = load i8, ptr [[TMP8]], align 1
-// CHECK-NEXT:    [[LOADEDV:%.*]] = icmp ne i8 [[TMP9]], 0
+// CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP9]] to i1
 // CHECK-NEXT:    store i1 [[LOADEDV]], ptr [[RETVAL]], align 1
 // CHECK-NEXT:    store i32 1, ptr [[CLEANUP_DEST_SLOT]], align 4
 // CHECK-NEXT:    br label %[[CLEANUP:.*]]
@@ -64,7 +64,7 @@ struct Lifetime {
 // CHECK-NEXT:    br i1 [[CMP3]], label %[[IF_THEN:.*]], label %[[IF_END:.*]]
 // CHECK:       [[IF_THEN]]:
 // CHECK-NEXT:    [[TMP12:%.*]] = load i8, ptr [[FLAG]], align 1
-// CHECK-NEXT:    [[LOADEDV4:%.*]] = icmp ne i8 [[TMP12]], 0
+// CHECK-NEXT:    [[LOADEDV4:%.*]] = trunc i8 [[TMP12]] to i1
 // CHECK-NEXT:    store i1 [[LOADEDV4]], ptr [[RETVAL]], align 1
 // CHECK-NEXT:    store i32 1, ptr [[CLEANUP_DEST_SLOT]], align 4
 // CHECK-NEXT:    br label %[[CLEANUP]]
@@ -72,7 +72,7 @@ struct Lifetime {
 // CHECK-NEXT:    store i32 2, ptr [[CLEANUP_DEST_SLOT]], align 4
 // CHECK-NEXT:    br label %[[CLEANUP]]
 // CHECK:       [[CLEANUP]]:
-// CHECK-NEXT:    call void @_ZN8LifetimeD1Ev(ptr noundef nonnull align 8 dead_on_return(12) dereferenceable(12) [[REF_TMP]]) #[[ATTR1:[0-9]+]]
+// CHECK-NEXT:    call void @_ZN8LifetimeD1Ev(ptr noundef nonnull align 8 dereferenceable(12) [[REF_TMP]]) #[[ATTR1:[0-9]+]]
 // CHECK-NEXT:    [[CLEANUP_DEST:%.*]] = load i32, ptr [[CLEANUP_DEST_SLOT]], align 4
 // CHECK-NEXT:    switch i32 [[CLEANUP_DEST]], label %[[UNREACHABLE:.*]] [
 // CHECK-NEXT:      i32 1, label %[[RETURN:.*]]
@@ -80,7 +80,7 @@ struct Lifetime {
 // CHECK-NEXT:    ]
 // CHECK:       [[IF_END5]]:
 // CHECK-NEXT:    [[TMP13:%.*]] = load i8, ptr [[FLAG]], align 1
-// CHECK-NEXT:    [[LOADEDV6:%.*]] = icmp ne i8 [[TMP13]], 0
+// CHECK-NEXT:    [[LOADEDV6:%.*]] = trunc i8 [[TMP13]] to i1
 // CHECK-NEXT:    store i1 [[LOADEDV6]], ptr [[RETVAL]], align 1
 // CHECK-NEXT:    br label %[[RETURN]]
 // CHECK:       [[RETURN]]:
@@ -113,11 +113,11 @@ bool extend(int n) {
 // CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[N_ADDR]], align 4
 // CHECK-NEXT:    call void @_ZN8LifetimeC1EPbi(ptr noundef nonnull align 8 dereferenceable(12) [[REF_TMP]], ptr noundef [[FLAG]], i32 noundef [[TMP2]])
 // CHECK-NEXT:    store ptr [[REF_TMP]], ptr [[TMP0]], align 8
-// CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[TMP0]], align 8, !nonnull [[META1]], !align [[META2]]
+// CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[TMP0]], align 8, !nonnull [[META2]], !align [[META3]]
 // CHECK-NEXT:    store ptr [[TMP3]], ptr [[TMP1]], align 8
 // CHECK-NEXT:    br label %[[MATCH_DECOMP_NEXT_PATTERN:.*]]
 // CHECK:       [[MATCH_DECOMP_NEXT_PATTERN]]:
-// CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[TMP1]], align 8, !nonnull [[META1]], !align [[META2]]
+// CHECK-NEXT:    [[TMP4:%.*]] = load ptr, ptr [[TMP1]], align 8, !nonnull [[META2]], !align [[META3]]
 // CHECK-NEXT:    [[N1:%.*]] = getelementptr inbounds nuw [[STRUCT_LIFETIME]], ptr [[TMP4]], i32 0, i32 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr [[N1]], align 8
 // CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[TMP5]], 101
@@ -128,11 +128,11 @@ bool extend(int n) {
 // CHECK-NEXT:    br label %[[MATCH_PATTERN_END]]
 // CHECK:       [[MATCH_PATTERN_END]]:
 // CHECK-NEXT:    [[MATCH_PATTERN_RESULT:%.*]] = phi i1 [ true, %[[MATCH_PATTERN_SUCCESS]] ], [ false, %[[MATCH_PATTERN_FAILURE]] ]
-// CHECK-NEXT:    call void @_ZN8LifetimeD1Ev(ptr noundef nonnull align 8 dead_on_return(12) dereferenceable(12) [[REF_TMP]]) #[[ATTR1]]
+// CHECK-NEXT:    call void @_ZN8LifetimeD1Ev(ptr noundef nonnull align 8 dereferenceable(12) [[REF_TMP]]) #[[ATTR1]]
 // CHECK-NEXT:    br i1 [[MATCH_PATTERN_RESULT]], label %[[IF_THEN:.*]], label %[[IF_ELSE:.*]]
 // CHECK:       [[IF_THEN]]:
 // CHECK-NEXT:    [[TMP6:%.*]] = load i8, ptr [[FLAG]], align 1
-// CHECK-NEXT:    [[LOADEDV:%.*]] = icmp ne i8 [[TMP6]], 0
+// CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP6]] to i1
 // CHECK-NEXT:    store i1 [[LOADEDV]], ptr [[RETVAL]], align 1
 // CHECK-NEXT:    br label %[[RETURN:.*]]
 // CHECK:       [[IF_ELSE]]:
@@ -141,14 +141,14 @@ bool extend(int n) {
 // CHECK-NEXT:    br i1 [[CMP2]], label %[[IF_THEN3:.*]], label %[[IF_END:.*]]
 // CHECK:       [[IF_THEN3]]:
 // CHECK-NEXT:    [[TMP8:%.*]] = load i8, ptr [[FLAG]], align 1
-// CHECK-NEXT:    [[LOADEDV4:%.*]] = icmp ne i8 [[TMP8]], 0
+// CHECK-NEXT:    [[LOADEDV4:%.*]] = trunc i8 [[TMP8]] to i1
 // CHECK-NEXT:    store i1 [[LOADEDV4]], ptr [[RETVAL]], align 1
 // CHECK-NEXT:    br label %[[RETURN]]
 // CHECK:       [[IF_END]]:
 // CHECK-NEXT:    br label %[[IF_END5:.*]]
 // CHECK:       [[IF_END5]]:
 // CHECK-NEXT:    [[TMP9:%.*]] = load i8, ptr [[FLAG]], align 1
-// CHECK-NEXT:    [[LOADEDV6:%.*]] = icmp ne i8 [[TMP9]], 0
+// CHECK-NEXT:    [[LOADEDV6:%.*]] = trunc i8 [[TMP9]] to i1
 // CHECK-NEXT:    store i1 [[LOADEDV6]], ptr [[RETVAL]], align 1
 // CHECK-NEXT:    br label %[[RETURN]]
 // CHECK:       [[RETURN]]:
@@ -165,6 +165,6 @@ bool do_not_extend(int n) {
   return flag;
 }
 //.
-// CHECK: [[META1]] = !{}
-// CHECK: [[META2]] = !{i64 8}
+// CHECK: [[META2]] = !{}
+// CHECK: [[META3]] = !{i64 8}
 //.

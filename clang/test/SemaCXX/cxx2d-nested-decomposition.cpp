@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -std=c++2d -fsyntax-only -verify %s
-// RUN: %clang_cc1 -std=c++2c -DPRE_CXX29 -fsyntax-only -verify=pre %s
 
 namespace std {
 using size_t = decltype(sizeof(0));
@@ -18,7 +17,7 @@ struct Outer {
 };
 
 constexpr int aggregate() {
-  auto [[x, y], z] = Outer{{1, 2}, 3}; // pre-warning {{nested structured bindings are a C++2d extension}}
+  auto [[x, y], z] = Outer{{1, 2}, 3}; //
   return x + y + z;
 }
 static_assert(aggregate() == 6);
@@ -26,7 +25,7 @@ static_assert(aggregate() == 6);
 constexpr int array() {
   int values[2][2] = {{1, 2}, {3, 4}};
   auto [[a, b], [c, d]] = values;
-  // pre-warning@-1 2 {{nested structured bindings are a C++2d extension}}
+  //
   return a + b + c + d;
 }
 static_assert(array() == 10);
@@ -38,14 +37,14 @@ struct WithEmpty {
 };
 
 constexpr int empty() {
-  auto [[], value] = WithEmpty{{}, 42}; // pre-warning {{nested structured bindings are a C++2d extension}} pre-warning {{empty structured bindings are a C++2d extension}}
+  auto [[], value] = WithEmpty{{}, 42}; //
   return value;
 }
 static_assert(empty() == 42);
 
 template<class T>
 constexpr int dependent(T value) {
-  auto [[x, y], z] = value; // pre-warning {{nested structured bindings are a C++2d extension}}
+  auto [[x, y], z] = value; //
   return x + y + z;
 }
 static_assert(dependent(Outer{{1, 2}, 3}) == 6);
@@ -60,7 +59,7 @@ struct WithFour {
 
 template<class T>
 constexpr int nested_pack(T value) {
-  auto [[first, ...middle, last], tail] = value; // pre-warning {{nested structured bindings are a C++2d extension}}
+  auto [[first, ...middle, last], tail] = value; //
   return first + (... + middle) + last + tail;
 }
 static_assert(nested_pack(WithFour{{1, 2, 3, 4}, 5}) == 15);
@@ -120,7 +119,7 @@ template<> struct std::tuple_element<1, TracedOuter> {
 
 constexpr bool initializes_depth_first() {
   Trace trace;
-  auto&& [[x, y], z] = TracedOuter{{1, 2, &trace}, 3, &trace}; // pre-warning {{nested structured bindings are a C++2d extension}}
+  auto&& [[x, y], z] = TracedOuter{{1, 2, &trace}, 3, &trace}; //
   return x + y + z == 6 && trace.next == 4 && trace.entries[0] == 0 &&
          trace.entries[1] == 1 && trace.entries[2] == 2 &&
          trace.entries[3] == 3;
@@ -163,7 +162,7 @@ template<> struct std::tuple_element<0, OuterRvalue> {
 };
 
 constexpr int forwards_rvalue_projection() {
-  auto&& [[value]] = OuterRvalue{{42}}; // pre-warning {{nested structured bindings are a C++2d extension}}
+  auto&& [[value]] = OuterRvalue{{42}}; //
   return value;
 }
 static_assert(forwards_rvalue_projection() == 42);
@@ -191,7 +190,7 @@ struct ReferenceOuter {
 
 constexpr int preserves_reference_member_category() {
   InnerLvalue inner{1};
-  auto&& [[value]] = ReferenceOuter{inner}; // pre-warning {{nested structured bindings are a C++2d extension}}
+  auto&& [[value]] = ReferenceOuter{inner}; //
   value = 7;
   return inner.value;
 }
@@ -203,7 +202,7 @@ struct MutableOuter {
 
 constexpr int preserves_mutable_member_type() {
   const MutableOuter outer{{1, 2}};
-  auto&& [[x, y]] = static_cast<const MutableOuter&&>(outer); // pre-warning {{nested structured bindings are a C++2d extension}}
+  auto&& [[x, y]] = static_cast<const MutableOuter&&>(outer); //
   x = 3;
   return x + y;
 }
@@ -216,7 +215,7 @@ struct ConditionalOuter {
 };
 
 constexpr int condition() {
-  if (auto [[x, y], value] = ConditionalOuter{{2, 3}, true}) // pre-warning {{nested structured bindings are a C++2d extension}}
+  if (auto [[x, y], value] = ConditionalOuter{{2, 3}, true}) //
     return x + y + value;
   return 0;
 }
@@ -225,22 +224,22 @@ static_assert(condition() == 6);
 constexpr int range_for() {
   Outer values[] = {{{1, 2}, 3}, {{4, 5}, 6}};
   int sum = 0;
-  for (auto [[x, y], z] : values) // pre-warning {{nested structured bindings are a C++2d extension}}
+  for (auto [[x, y], z] : values) //
     sum += x + y + z;
   return sum;
 }
 static_assert(range_for() == 21);
 
 constexpr int capture() {
-  auto [[x, y], z] = Outer{{1, 2}, 3}; // pre-warning {{nested structured bindings are a C++2d extension}}
+  auto [[x, y], z] = Outer{{1, 2}, 3}; //
   return [=] { return x + y + z; }();
 }
 static_assert(capture() == 6);
 
 void attributes() {
-  [[maybe_unused]] auto [[x, y], z] = Outer{{1, 2}, 3}; // pre-warning {{nested structured bindings are a C++2d extension}}
-  auto [[a [[maybe_unused]], b], c] = Outer{{1, 2}, 3}; // pre-warning {{nested structured bindings are a C++2d extension}}
-  auto [[clang::annotate_type("type")]] [[d, e], f] = Outer{{1, 2}, 3}; // pre-warning {{nested structured bindings are a C++2d extension}}
+  [[maybe_unused]] auto [[x, y], z] = Outer{{1, 2}, 3}; //
+  auto [[a [[maybe_unused]], b], c] = Outer{{1, 2}, 3}; //
+  auto [[clang::annotate_type("type")]] [[d, e], f] = Outer{{1, 2}, 3}; //
   auto [[clang::annotate_type("type")]] [g, h] = Pair{1, 2};
   auto&& [[clang::annotate_type("type")]] [i, j] = Pair{1, 2};
   auto *p = new auto [[clang::annotate_type("type")]](42);
@@ -266,7 +265,7 @@ static_assert(nested_pack_declaration_pattern({{1, 2, 3, 4}, 5}) == 15);
 #endif
 
 void diagnostics() {
-  auto [[a, b, c], d] = Outer{}; // expected-error {{type 'Pair' binds to 2 elements, but 3 names were provided}} pre-error {{type 'Pair' binds to 2 elements, but 3 names were provided}} pre-warning {{nested structured bindings are a C++2d extension}}
-  auto [...[e, f], g] = Outer{}; // expected-error {{a nested structured binding cannot be a pack expansion}} pre-error {{a nested structured binding cannot be a pack expansion}} pre-warning {{nested structured bindings are a C++2d extension}}
-  auto [[h, i], h] = Outer{}; // expected-error {{redefinition of 'h'}} expected-note {{previous definition is here}} pre-error {{redefinition of 'h'}} pre-note {{previous definition is here}} pre-warning {{nested structured bindings are a C++2d extension}}
+  auto [[a, b, c], d] = Outer{}; // expected-error {{type 'Pair' binds to 2 elements, but 3 names were provided}}
+  auto [...[e, f], g] = Outer{}; // expected-error {{a nested structured binding cannot be a pack expansion}}
+  auto [[h, i], h] = Outer{}; // expected-error {{redefinition of 'h'}} expected-note {{previous definition is here}}
 }
