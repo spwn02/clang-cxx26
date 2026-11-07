@@ -49,6 +49,7 @@ public:
     case Stmt::CXXForRangeStmtClass:
     case Stmt::ForStmtClass:
     case Stmt::SwitchStmtClass:
+    case Stmt::MatchSelectExprClass:
       ++Info.Branches;
       [[fallthrough]];
     case Stmt::CompoundStmtClass:

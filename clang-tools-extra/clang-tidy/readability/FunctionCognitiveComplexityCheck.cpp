@@ -47,7 +47,7 @@ struct CognitiveComplexity final {
     // B1, increases cognitive complexity (by 1)
     // What causes it:
     // * if, else if, else, ConditionalOperator (not BinaryConditionalOperator)
-    // * SwitchStmt
+    // * SwitchStmt, MatchSelectExpr (C++29 pattern matching)
     // * ForStmt, CXXForRangeStmt
     // * WhileStmt, DoStmt
     // * CXXCatchStmt
@@ -59,7 +59,7 @@ struct CognitiveComplexity final {
     // B2, increases current nesting level (by 1)
     // What causes it:
     // * if, else if, else, ConditionalOperator (not BinaryConditionalOperator)
-    // * SwitchStmt
+    // * SwitchStmt, MatchSelectExpr (C++29 pattern matching)
     // * ForStmt, CXXForRangeStmt
     // * WhileStmt, DoStmt
     // * CXXCatchStmt
@@ -72,7 +72,7 @@ struct CognitiveComplexity final {
     // Applied before IncrementNesting
     // What causes it:
     // * IfStmt, ConditionalOperator (not BinaryConditionalOperator)
-    // * SwitchStmt
+    // * SwitchStmt, MatchSelectExpr (C++29 pattern matching)
     // * ForStmt, CXXForRangeStmt
     // * WhileStmt, DoStmt
     // * CXXCatchStmt
@@ -359,6 +359,7 @@ public:
     // FIXME: "each method in a recursion cycle" Increment is not implemented.
     case Stmt::ConditionalOperatorClass:
     case Stmt::SwitchStmtClass:
+    case Stmt::MatchSelectExprClass:
     case Stmt::ForStmtClass:
     case Stmt::CXXForRangeStmtClass:
     case Stmt::WhileStmtClass:
@@ -382,6 +383,7 @@ public:
     // Nested methods and such are handled in TraverseDecl.
     case Stmt::ConditionalOperatorClass:
     case Stmt::SwitchStmtClass:
+    case Stmt::MatchSelectExprClass:
     case Stmt::ForStmtClass:
     case Stmt::CXXForRangeStmtClass:
     case Stmt::WhileStmtClass:
@@ -402,6 +404,7 @@ public:
     // if, else if, else are handled in TraverseIfStmt().
     case Stmt::ConditionalOperatorClass:
     case Stmt::SwitchStmtClass:
+    case Stmt::MatchSelectExprClass:
     case Stmt::ForStmtClass:
     case Stmt::CXXForRangeStmtClass:
     case Stmt::WhileStmtClass:
