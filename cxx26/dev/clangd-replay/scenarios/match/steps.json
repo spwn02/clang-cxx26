@@ -1,0 +1,4 @@
+[
+ {"input":"ggjO<Esc>","pre":200,"wait":300},
+ {"input":"iint c = match (n) { case 0 => 1; case a","show":true,"pre":200,"report":"pattern","wait":3000}
+]

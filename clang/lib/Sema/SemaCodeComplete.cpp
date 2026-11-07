@@ -5145,6 +5145,8 @@ struct SemaCodeCompletion::CodeCompleteExpressionData {
   bool IntegralConstantExpression;
   bool ObjCCollection;
   bool IsParenthesized;
+  /// A pattern of a match case (P2688): names, types and the pattern forms.
+  bool IsMatchPattern = false;
   SmallVector<Decl *, 4> IgnoreDecls;
 };
 
@@ -5262,6 +5264,8 @@ void SemaCodeCompletion::CodeCompleteExpression(
       Data.IsParenthesized ? PCC_ParenthesizedExpression : PCC_Expression;
   if (Data.ObjCCollection)
     Results.setFilter(&ResultBuilder::IsObjCCollection);
+  else if (Data.IsMatchPattern)
+    Results.setFilter(&ResultBuilder::IsOrdinaryName);
   else if (Data.IntegralConstantExpression)
     Results.setFilter(&ResultBuilder::IsIntegralConstantValue);
   else if (WantTypesInContext(PCC, getLangOpts()))
@@ -5283,6 +5287,25 @@ void SemaCodeCompletion::CodeCompleteExpression(
 
   Results.EnterNewScope();
   AddOrdinaryNameResults(PCC, S, SemaRef, Results);
+  if (Data.IsMatchPattern) {
+    // The forms of a pattern that are not an expression or a type.
+    CodeCompletionBuilder Builder(Results.getAllocator(),
+                                  Results.getCodeCompletionTUInfo());
+    Builder.AddTypedTextChunk("_");
+    Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+    Builder.AddTypedTextChunk("auto");
+    Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+    Builder.AddPlaceholderChunk("name");
+    Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+    Builder.AddChunk(CodeCompletionString::CK_LeftBracket);
+    Builder.AddPlaceholderChunk("patterns");
+    Builder.AddChunk(CodeCompletionString::CK_RightBracket);
+    Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+    Builder.AddChunk(CodeCompletionString::CK_LeftBrace);
+    Builder.AddPlaceholderChunk("pattern");
+    Builder.AddChunk(CodeCompletionString::CK_RightBrace);
+    Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+  }
   Results.ExitScope();
 
   bool PreferredTypeIsPointer = false;
@@ -7494,6 +7517,45 @@ static bool isNamespaceScope(Scope *S) {
     return false;
 
   return DC->isFileContext();
+}
+
+void SemaCodeCompletion::CodeCompleteMatchCase(Scope *S) {
+  ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
+                        CodeCompleter->getCodeCompletionTUInfo(),
+                        CodeCompletionContext::CCC_Other);
+  Results.EnterNewScope();
+  CodeCompletionBuilder Builder(Results.getAllocator(),
+                                Results.getCodeCompletionTUInfo());
+  // case pattern => handler;
+  Builder.AddTypedTextChunk("case");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddPlaceholderChunk("pattern");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddTextChunk("=>");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddPlaceholderChunk("handler");
+  Builder.AddChunk(CodeCompletionString::CK_SemiColon);
+  Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+  // case _ => handler;
+  Builder.AddTypedTextChunk("case");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddTextChunk("_");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddTextChunk("=>");
+  Builder.AddChunk(CodeCompletionString::CK_HorizontalSpace);
+  Builder.AddPlaceholderChunk("handler");
+  Builder.AddChunk(CodeCompletionString::CK_SemiColon);
+  Results.AddResult(CodeCompletionResult(Builder.TakeString()));
+  Results.ExitScope();
+  HandleCodeCompleteResults(&SemaRef, CodeCompleter,
+                            Results.getCompletionContext(), Results.data(),
+                            Results.size());
+}
+
+void SemaCodeCompletion::CodeCompleteMatchPattern(Scope *S) {
+  CodeCompleteExpressionData Data;
+  Data.IsMatchPattern = true;
+  CodeCompleteExpression(S, Data);
 }
 
 void SemaCodeCompletion::CodeCompleteDoExprIntroducer(Scope *S,

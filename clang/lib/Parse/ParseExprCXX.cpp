@@ -4956,6 +4956,11 @@ bool Parser::ParseMatchBody(Expr *Subject, TypeLoc OrigResultType,
   }
 
   while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof)) {
+    if (Tok.is(tok::code_completion)) {
+      cutOffParsing();
+      Actions.CodeCompletion().CodeCompleteMatchCase(getCurScope());
+      return true;
+    }
     if (StartsPreambleDeclaration()) {
       Diag(Tok, diag::err_match_preamble_after_case);
       StmtResult Declaration = ParseStatement();
@@ -5022,6 +5027,12 @@ bool Parser::ParseMatchCase(Expr *Subject, TypeLoc OrigResultType,
 
   ParseScope MatchCaseScope(this, Scope::DeclScope);
   Sema::MatchPatternState PatternState;
+
+  if (Tok.is(tok::code_completion)) {
+    cutOffParsing();
+    Actions.CodeCompletion().CodeCompleteMatchPattern(getCurScope());
+    return true;
+  }
 
   ActionResult<MatchPattern *> Pattern = [&] {
     EnterExpressionEvaluationContext ConstantEvaluated(

@@ -190,6 +190,10 @@ public:
   /// Completion right after `do` or after its init-captures: the pieces of the
   /// do-expression that may follow (`[captures]`, `-> type`, the body).
   void CodeCompleteDoExprIntroducer(Scope *S, bool AfterCaptures);
+  /// Complete the start of a case of a match body (P2688): `case`.
+  void CodeCompleteMatchCase(Scope *S);
+  /// Complete a pattern (after `case`): names, types and the pattern forms.
+  void CodeCompleteMatchPattern(Scope *S);
   void CodeCompleteAfterFunctionEquals(Declarator &D);
 
   void CodeCompleteObjCAtDirective(Scope *S);
