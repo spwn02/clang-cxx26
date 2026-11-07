@@ -6329,7 +6329,9 @@ class CXXMacroInvocationExpr : public Expr {
   bool ArgsUnparsed = false;
   /// Where unparsed arguments are to be parsed: the context the invocation
   /// was written in, and the template parameters in scope there (ASTContext
-  /// storage). Not serialized, as token sequences are not.
+  /// storage). Serialized with the invocation (the context as a declaration
+  /// reference): an instantiation after loading a PCH or a module parses the
+  /// arguments in it.
   DeclContext *UnparsedContext = nullptr;
   NamedDecl *const *UnparsedTemplateParams = nullptr;
   unsigned NumUnparsedTemplateParams = 0;
@@ -6337,7 +6339,7 @@ class CXXMacroInvocationExpr : public Expr {
   DeclarationNameInfo MemberNameInfo;
   /// The explicit template arguments of a member invocation,
   /// 'obj.name!<Args>(...)' (ASTContext storage), or null. (Those of a
-  /// non-member invocation are the callee's.) Not serialized.
+  /// non-member invocation are the callee's.) Serialized.
   const ASTTemplateArgumentListInfo *MemberTemplateArgs = nullptr;
   SourceLocation OperatorLoc;
   SourceLocation ExclaimLoc;
