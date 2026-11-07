@@ -8,5 +8,5 @@ struct Pair { int first, second; };
 struct Outer { Pair pair; int last; };
 
 void f(Outer value) {
-  auto [[x, y], z] = value; // expected-error {{expected unqualified-id}}
+  auto [[x, y], z] = value; // expected-error {{expected ']'}} expected-error {{expected unqualified-id}}
 }
