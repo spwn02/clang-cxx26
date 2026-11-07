@@ -87,6 +87,61 @@ TEST_F(SwapBinaryOperandsTest, Test) {
             )cpp");
 }
 
+// The expansion of an expression macro is made of tokens that all have the
+// location of the invocation: its operands and operator are not three pieces of
+// the file, and swapping them would be three overlapping edits (found with
+// 'clangd --check' on the P4380R1 examples.
+TEST_F(SwapBinaryOperandsTest, ExpressionMacroExpansion) {
+  ExtraArgs = {"-std=c++2d"};
+  Context = CodeContext::File;
+  // (In the header: the carets of a token sequence literal are not markers.)
+  Header = R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+};
+} // namespace std::meta
+__macro both(bool a, bool b) { return ^^{ \(a) or \(b) }; }
+)cpp";
+  const char *Pre = "bool f(bool x, bool y) {\n";
+  // The operator of the expansion is not offered...
+  EXPECT_UNAVAILABLE(std::string(Pre) + "  return both!(x, y)^;\n}\n");
+  EXPECT_UNAVAILABLE(std::string(Pre) + "  return bo^th!(x, y);\n}\n");
+  // ... but a binary operator written in an argument of the invocation is.
+  EXPECT_AVAILABLE(std::string(Pre) + "  return both!(x ^== y, y);\n}\n");
+  // ... and so is one next to the invocation.
+  EXPECT_AVAILABLE(std::string(Pre) + "  return both!(x, y) ^== x;\n}\n");
+}
+
+// A macro that stands for an overloaded operator: the operator written by the
+// user is replaced by the expansion.
+TEST_F(SwapBinaryOperandsTest, OperatorMacro) {
+  ExtraArgs = {"-std=c++2d"};
+  Context = CodeContext::File;
+  Header = R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+};
+} // namespace std::meta
+struct Bool {
+  bool b;
+  __macro operator or(this Bool self, bool rhs) {
+    return ^^{ \(self).b or \(rhs) };
+  }
+};
+bool call();
+)cpp";
+  EXPECT_UNAVAILABLE("bool f() { return Bool{true} o^r call(); }");
+  EXPECT_UNAVAILABLE("bool f() { return ^Bool{true} or call(); }");
+}
+
 } // namespace
 } // namespace clangd
 } // namespace clang

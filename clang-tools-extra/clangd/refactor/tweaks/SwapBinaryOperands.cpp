@@ -156,6 +156,27 @@ private:
 
 REGISTER_TWEAK(SwapBinaryOperands)
 
+/// True if the left operand, the operator and the right operand of \p Op are
+/// in the main file, in this order and without overlapping: swapping them is a
+/// set of three disjoint edits.
+bool hasSwappableRanges(ParsedAST &AST, const BinaryOperator &Op) {
+  const auto &Ctx = AST.getASTContext();
+  const auto &SrcMgr = AST.getSourceManager();
+  const auto LHSRng = toHalfOpenFileRange(SrcMgr, Ctx.getLangOpts(),
+                                          Op.getLHS()->getSourceRange());
+  const auto RHSRng = toHalfOpenFileRange(SrcMgr, Ctx.getLangOpts(),
+                                          Op.getRHS()->getSourceRange());
+  const auto OpRng =
+      toHalfOpenFileRange(SrcMgr, Ctx.getLangOpts(), Op.getOperatorLoc());
+  if (!LHSRng || !RHSRng || !OpRng)
+    return false;
+  auto Before = [&](const SourceRange &A, const SourceRange &B) {
+    return !SrcMgr.isBeforeInTranslationUnit(B.getBegin(), A.getEnd());
+  };
+  return Before(*LHSRng, *OpRng) && Before(*OpRng, *RHSRng) &&
+         Before(*LHSRng, *RHSRng);
+}
+
 bool SwapBinaryOperands::prepare(const Selection &Inputs) {
   for (const SelectionTree::Node *N = Inputs.ASTSelection.commonAncestor();
        N && !Op; N = N->Parent) {
@@ -168,6 +189,13 @@ bool SwapBinaryOperands::prepare(const Selection &Inputs) {
     Op = dyn_cast_or_null<BinaryOperator>(N->ASTNode.get<Stmt>());
     // If we hit upon a nonswappable binary operator, ignore and keep going
     if (Op && !isOpSwappable(Op->getOpcode())) {
+      Op = nullptr;
+    }
+    // Likewise one whose operands and operator are not three separate, ordered
+    // pieces of the file: the expansion of an expression macro is made of
+    // tokens that all have the location of the invocation, so the edits would
+    // overlap.
+    if (Op && !hasSwappableRanges(*Inputs.AST, *Op)) {
       Op = nullptr;
     }
   }
