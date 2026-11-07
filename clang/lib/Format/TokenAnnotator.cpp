@@ -2461,6 +2461,10 @@ private:
       // `do [captures] -> type { ... }` (P2806).
       Current.setType(TT_TrailingReturnArrow);
     } else if (Current.is(tok::arrow) && Current.Previous &&
+               isMatchResultArrow(Current)) {
+      // `match (subject) -> type { ... }` (P2688).
+      Current.setType(TT_TrailingReturnArrow);
+    } else if (Current.is(tok::arrow) && Current.Previous &&
                Current.Previous->is(tok::r_brace) &&
                Current.Previous->is(BK_Block)) {
       // Concept implicit conversion constraint needs to be treated like
@@ -2988,6 +2992,18 @@ private:
     return true;
   }
 
+  /// Whether \p Arrow is the `->` of the result type of a match selection
+  /// (P2688): `match (subject) -> T { ... }`.
+  static bool isMatchResultArrow(const FormatToken &Arrow) {
+    const FormatToken *Prev = Arrow.Previous;
+    if (!Prev || Prev->isNot(tok::r_paren) || !Prev->MatchingParen)
+      return false;
+    Prev = Prev->MatchingParen->Previous;
+    if (Prev && Prev->is(tok::kw_constexpr))
+      Prev = Prev->Previous;
+    return Prev && Prev->is(tok::kw_switch) && Prev->TokenText == "match";
+  }
+
   /// Whether \p Arrow is the `->` of a do expression's result type (P2806):
   /// `do -> T { ... }` or `do [captures] -> T { ... }`.
   static bool isDoExpressionResultArrow(const FormatToken &Arrow) {
@@ -3060,7 +3076,7 @@ private:
     const FormatToken *PrevToken = Tok.getPreviousNonComment();
     if (!PrevToken)
       return TT_UnaryOperator;
-    if (PrevToken->isTypeName(LangOpts))
+    if (PrevToken->isTypeName(LangOpts) || PrevToken->is(tok::kw_auto))
       return TT_PointerOrReference;
     if (PrevToken->isPlacementOperator() && Tok.is(tok::ampamp))
       return TT_BinaryOperator;
@@ -4659,6 +4675,9 @@ bool TokenAnnotator::spaceRequiredBetween(const AnnotatedLine &Line,
       Right.isNoneOf(tok::semi, tok::r_paren, tok::hashhash)) {
     return true;
   }
+  // `case [a, b] =>` and `case {P} =>`: a decomposition or alternative pattern.
+  if (Left.is(tok::kw_case) && Right.isOneOf(tok::l_square, tok::l_brace))
+    return true;
   // `do [captures] -> T { ... }` and `do { ... }` in operand position.
   if (isDoExpressionKeyword(Left) &&
       Right.isOneOf(tok::l_square, tok::l_brace, tok::arrow,
@@ -5022,6 +5041,8 @@ bool TokenAnnotator::spaceRequiredBetween(const AnnotatedLine &Line,
       return true;
     if (Left.isOneOf(tok::pp_elif, tok::kw_for, tok::kw_while, tok::kw_switch,
                      tok::kw_case, TT_ForEachMacro, TT_ObjCForIn) ||
+        (Left.is(tok::kw_constexpr) && Left.Previous &&
+         Left.Previous->is(tok::kw_switch)) ||
         Left.isIf(Line.Type != LT_PreprocessorDirective) ||
         Right.is(TT_ConditionLParen)) {
       return Style.SpaceBeforeParensOptions.AfterControlStatements ||

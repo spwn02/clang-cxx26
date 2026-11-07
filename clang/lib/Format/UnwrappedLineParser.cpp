@@ -973,6 +973,94 @@ static bool ShouldBreakBeforeBrace(const FormatStyle &Style,
   }
 }
 
+bool UnwrappedLineParser::lbraceStartsMatchBody() const {
+  if (!IsCpp)
+    return false;
+  // The tail of the line, last token first; Toks[0] is the token before `{`.
+  SmallVector<const FormatToken *, 48> Toks;
+  for (auto It = Line->Tokens.rbegin(), E = Line->Tokens.rend();
+       It != E && Toks.size() < 48; ++It) {
+    if (It->Tok->isNot(tok::comment))
+      Toks.push_back(It->Tok);
+  }
+  const int N = static_cast<int>(Toks.size());
+  int I = 0;
+  // Skip an optional result type up to the `->`.
+  for (int J = 0; J < N; ++J) {
+    if (Toks[J]->isOneOf(tok::semi, tok::l_brace, tok::r_brace, tok::equal,
+                         tok::equalgreater, tok::kw_case)) {
+      break;
+    }
+    if (Toks[J]->is(tok::arrow)) {
+      I = J + 1;
+      break;
+    }
+  }
+  if (I >= N || Toks[I]->isNot(tok::r_paren))
+    return false;
+  // The matching `(`.
+  int Depth = 0;
+  for (; I < N; ++I) {
+    if (Toks[I]->is(tok::r_paren))
+      ++Depth;
+    else if (Toks[I]->is(tok::l_paren) && --Depth == 0)
+      break;
+  }
+  if (I >= N)
+    return false;
+  ++I;
+  if (I < N && Toks[I]->is(tok::kw_constexpr))
+    ++I;
+  if (I >= N || Toks[I]->isNot(tok::identifier) ||
+      Toks[I]->TokenText != "match") {
+    return false;
+  }
+  // `match` begins a selection only in operand position: not where a type or
+  // a declarator comes before it (`void match(int x) {`).
+  if (I + 1 == N) {
+    if (Line->MustBeDeclaration)
+      return false;
+  } else {
+    const FormatToken *Before = Toks[I + 1];
+    if (Before->isOneOf(tok::identifier, tok::greater, tok::star, tok::amp,
+                        tok::ampamp, tok::coloncolon, tok::r_square,
+                        tok::kw_operator) ||
+        Before->isTypeName(LangOpts)) {
+      return false;
+    }
+  }
+  // `match` is formatted like the keyword of a control statement.
+  const_cast<FormatToken *>(Toks[I])->Tok.setKind(tok::kw_switch);
+  return true;
+}
+
+bool UnwrappedLineParser::armHandlerIsBracedInit() {
+  // FormatTok is the `=>`, the next token the `{`.
+  const unsigned StoredPosition = Tokens->getPosition();
+  FormatToken *Tok = Tokens->getNextToken(); // the `{`
+  assert(Tok->is(tok::l_brace));
+  bool HasContents = false, HasStatement = false;
+  int Depth = 1;
+  while (Depth > 0) {
+    Tok = Tokens->getNextToken();
+    if (Tok->is(tok::eof))
+      break;
+    if (Tok->isOneOf(tok::l_brace, tok::l_paren, tok::l_square)) {
+      ++Depth;
+    } else if (Tok->isOneOf(tok::r_brace, tok::r_paren, tok::r_square)) {
+      --Depth;
+      if (Depth == 0)
+        break;
+    } else if (Depth == 1 && Tok->is(tok::semi)) {
+      HasStatement = true;
+    }
+    if (Tok->isNot(tok::comment))
+      HasContents = true;
+  }
+  Tokens->setPosition(StoredPosition);
+  return HasContents && !HasStatement;
+}
+
 bool UnwrappedLineParser::lbraceStartsDoExpression() const {
   // Matches `do {`, `do [captures] {`, `do -> type {` and
   // `do [captures] -> type {`, where `do` is in operand position. Only the
@@ -1977,6 +2065,32 @@ void UnwrappedLineParser::parseStructuralElement(
     case tok::l_brace:
       if (InRequiresExpression)
         FormatTok->setFinalizedType(TT_BracedListLBrace);
+      if (lbraceStartsMatchBody()) {
+        // A statement starts the line with `match`.
+        const auto &Toks = Line->Tokens;
+        const bool IsStatement =
+            !Toks.empty() && Toks.front().Tok->TokenText == "match";
+        ++MatchBodyDepth;
+        if (IsStatement) {
+          // `match (subject) { case ... }` is a statement, like a switch.
+          keepAncestorBraces();
+          CompoundStatementIndenter Indenter(this, Style, Line->Level);
+          // The cases are indented below the `match`.
+          FormatTok->setFinalizedType(TT_SwitchExpressionLBrace);
+          parseBlock();
+          setPreviousRBraceType(TT_ControlStatementRBrace);
+          --MatchBodyDepth;
+          if (Style.RemoveBracesLLVM)
+            NestedTooDeep.pop_back();
+          addUnwrappedLine();
+          return;
+        }
+        // As an expression the line goes on after the closing brace.
+        FormatTok->setFinalizedType(TT_SwitchExpressionLBrace);
+        parseChildBlock();
+        --MatchBodyDepth;
+        break;
+      }
       if (lbraceStartsDoExpression()) {
         // The body of a do expression is an operand: the line goes on after
         // the closing brace.
@@ -2674,6 +2788,15 @@ bool UnwrappedLineParser::parseParens(TokenType AmpAmpTokenType,
     InMacroCall = true;
   do {
     switch (FormatTok->Tok.getKind()) {
+    case tok::kw_case:
+      // `match (subject, case pattern)` (P2688): formatted like the keyword of a
+      // control statement.
+      if (IsCpp && Prev && Prev->is(tok::identifier) &&
+          Prev->TokenText == "match") {
+        Prev->Tok.setKind(tok::kw_switch);
+      }
+      nextToken();
+      break;
     case tok::l_paren:
       if (parseParens(AmpAmpTokenType, InMacroCall))
         SeenEqual = true;
@@ -3464,6 +3587,56 @@ void UnwrappedLineParser::parseLabel(bool LeftAlignLabel) {
 void UnwrappedLineParser::parseCaseLabel() {
   assert(FormatTok->is(tok::kw_case) && "'case' expected");
   auto *Case = FormatTok;
+
+  if (MatchBodyDepth > 0) {
+    // Inside a match selection `case pattern [if (guard)] =>` ends at the
+    // `=>` outside of any brackets; a switch nested in a handler still ends
+    // its labels at the `:`.
+    int Depth = 0;
+    for (nextToken(); !eof(); nextToken()) {
+      if (FormatTok->isOneOf(tok::l_paren, tok::l_square, tok::l_brace)) {
+        // The braces of an alternative pattern `{ P }` are not a block.
+        if (FormatTok->is(tok::l_brace)) {
+          FormatTok->setFinalizedType(TT_BracedListLBrace);
+          FormatTok->setBlockKind(BK_BracedInit);
+        }
+        ++Depth;
+      } else if (FormatTok->isOneOf(tok::r_paren, tok::r_square,
+                                    tok::r_brace)) {
+        if (FormatTok->is(tok::r_brace)) {
+          FormatTok->setBlockKind(BK_BracedInit);
+        }
+        if (--Depth < 0)
+          break;
+      } else if (Depth == 0) {
+        if (FormatTok->is(tok::equalgreater)) {
+          FormatTok->setFinalizedType(TT_CaseLabelArrow);
+          Case->setFinalizedType(TT_SwitchExpressionLabel);
+          break;
+        }
+        if (FormatTok->is(tok::colon)) {
+          FormatTok->setFinalizedType(TT_CaseLabelColon);
+          break;
+        }
+      }
+    }
+    if (FormatTok->is(tok::equalgreater) &&
+        Tokens->peekNextToken()->is(tok::l_brace) && armHandlerIsBracedInit()) {
+      // As parseLabel does for an arm that is not a block: the label is a
+      // level below its handler, which follows on its own line.
+      nextToken();
+      const unsigned OldLineLevel = Line->Level;
+      if (Line->Level > 1 || (!Line->InPPDirective && Line->Level > 0))
+        --Line->Level;
+      addUnwrappedLine();
+      Line->Level = OldLineLevel;
+      parseStructuralElement();
+      addUnwrappedLine();
+      return;
+    }
+    parseLabel();
+    return;
+  }
 
   // FIXME: fix handling of complex expressions here.
   do {

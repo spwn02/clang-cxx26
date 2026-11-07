@@ -23301,6 +23301,62 @@ TEST_F(FormatTest, FormatsWithWebKitStyle) {
                Style);
 }
 
+TEST_F(FormatTest, FormatsMatchSelections) {
+  // P2688 pattern matching: `match` selections, tests and pattern conditions.
+  verifyFormat("int f(int x) {\n"
+               "  return match (x) {\n"
+               "    case 0 => 10;\n"
+               "    case 1 || 2 => 20;\n"
+               "    case auto y if (y > 5) => y;\n"
+               "    case [auto a, auto b] => a + b;\n"
+               "    case {auto &&alt} => 1;\n"
+               "    case _ => -1;\n"
+               "  };\n"
+               "}");
+  verifyFormat("void f(int x) {\n"
+               "  match (x) {\n"
+               "    case 0 => {\n"
+               "      run();\n"
+               "    }\n"
+               "    case _ =>;\n"
+               "  }\n"
+               "}");
+  verifyFormat("auto r = match constexpr (x) -> int {\n"
+               "  case 0 => 1;\n"
+               "  case _ => 2;\n"
+               "};");
+  verifyFormat("auto z = match (x) -> std::pair<int, int> {\n"
+               "  case 0 => {1, 2};\n"
+               "  case _ => std::pair{3, 4};\n"
+               "};");
+  verifyFormat("bool t = match (x, case 1 || 2);");
+  verifyFormat("if (case [0, auto b] = p)\n"
+               "  return b;");
+  verifyFormat("while (case {auto &&n} = next())\n"
+               "  process(n);");
+  // `match` is an ordinary identifier elsewhere.
+  verifyFormat("void match(int x) { other(x); }");
+  verifyFormat("int r = match(3);");
+  verifyFormat("match(3);");
+  verifyFormat("struct S {\n"
+               "  match(int x) {}\n"
+               "};");
+  // A switch nested in a handler keeps its colons.
+  verifyFormat("int f(int x) {\n"
+               "  return match (x) {\n"
+               "    case 0 =>\n"
+               "      do {\n"
+               "        switch (x) {\n"
+               "        case 1:\n"
+               "          do_return 2;\n"
+               "        }\n"
+               "        do_return 3;\n"
+               "      };\n"
+               "    case _ => 4;\n"
+               "  };\n"
+               "}");
+}
+
 TEST_F(FormatTest, FormatsDoExpressions) {
   // P2806 do expressions: `do` in operand position is not a do-while.
   verifyFormat("int x = do {\n"

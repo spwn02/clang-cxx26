@@ -174,6 +174,16 @@ void FormatTokenLexer::tryMergePreviousTokens() {
     return;
   }
 
+  // C++29 (P2688) pattern matching: `=>` separates a case's pattern from its
+  // handler. (The lexer is told no C++29, so it sees the two tokens.)
+  if (Style.isCpp()) {
+    static const tok::TokenKind FatArrow[] = {tok::equal, tok::greater};
+    if (tryMergeTokens(FatArrow, TT_FatArrow)) {
+      Tokens.back()->Tok.setKind(tok::equalgreater);
+      return;
+    }
+  }
+
   if (Style.isJavaScript() || Style.isCSharp()) {
     static const tok::TokenKind NullishCoalescingOperator[] = {tok::question,
                                                                tok::question};
