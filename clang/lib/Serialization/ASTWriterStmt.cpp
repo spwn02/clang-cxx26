@@ -635,6 +635,18 @@ void ASTStmtWriter::VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
   Record.AddSourceLocation(E->getExclaimLoc());
   Record.AddSourceLocation(E->getLParenLoc());
   Record.AddSourceLocation(E->getRParenLoc());
+  // The environment the unparsed arguments are parsed in at instantiation: the
+  // context the invocation was written in, the template parameters in scope
+  // there, and the explicit template arguments of a member invocation.
+  Record.AddDeclRef(E->getUnparsedContext()
+                        ? Decl::castFromDeclContext(E->getUnparsedContext())
+                        : nullptr);
+  Record.push_back(E->getUnparsedTemplateParams().size());
+  for (NamedDecl *P : E->getUnparsedTemplateParams())
+    Record.AddDeclRef(P);
+  Record.push_back(E->getMemberTemplateArgs() != nullptr);
+  if (E->getMemberTemplateArgs())
+    Record.AddASTTemplateArgumentListInfo(E->getMemberTemplateArgs());
   Record.AddStmt(E->getCallee());
   Record.AddStmt(E->getBase());
   Record.AddStmt(E->getExpansion());

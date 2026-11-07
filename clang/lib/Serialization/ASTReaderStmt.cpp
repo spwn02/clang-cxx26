@@ -637,6 +637,18 @@ void ASTStmtReader::VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *E) {
   E->setExclaimLoc(Record.readSourceLocation());
   E->setLParenLoc(Record.readSourceLocation());
   E->setRParenLoc(Record.readSourceLocation());
+  Decl *UnparsedContext = readDecl();
+  SmallVector<NamedDecl *, 4> UnparsedTemplateParams;
+  for (unsigned I = 0, N = Record.readInt(); I != N; ++I)
+    UnparsedTemplateParams.push_back(readDeclAs<NamedDecl>());
+  if (UnparsedContext || !UnparsedTemplateParams.empty())
+    E->setUnparsedEnvironment(Record.getContext(),
+                              UnparsedContext
+                                  ? Decl::castToDeclContext(UnparsedContext)
+                                  : nullptr,
+                              UnparsedTemplateParams);
+  if (Record.readInt())
+    E->MemberTemplateArgs = Record.readASTTemplateArgumentListInfo();
   E->setCallee(cast_or_null<UnresolvedLookupExpr>(Record.readSubExpr()));
   E->setBase(Record.readSubExpr());
   if (Expr *Expansion = Record.readSubExpr())

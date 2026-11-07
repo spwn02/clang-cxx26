@@ -849,6 +849,40 @@ TEST(ParsedASTTest, TokenBufferWhenPreprocessorStopsEarly) {
   EXPECT_EQ(Buffer->expandedTokens().back().kind(), tok::eof);
   EXPECT_EQ(Buffer->expandedTokens().size(), 3u); // int a <eof>
 }
+// A dependent expression-macro invocation in the preamble (a PCH) is
+// instantiated in the main file: its unparsed arguments are parsed in the
+// context it was written in, which the PCH has to carry (#502).
+TEST(ParsedASTTest, DependentMacroInvocationInPreamble) {
+  TestTU TU = TestTU::withCode(R"cpp(
+static_assert(use_member(Holder{10}) == 11);
+static_assert(use_member_tmpl(Holder{10}) == 18);
+static_assert(use_free(Holder{10}) == 11);
+)cpp");
+  TU.ExtraArgs = {"-std=c++2d"};
+  TU.HeaderCode = R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+};
+} // namespace std::meta
+struct Holder {
+  int v;
+  __macro bump(this Holder &self, int n) { return ^^{ (\(self).v += \(n)) }; }
+  template <class U>
+  __macro tm(this Holder &self, int n) { return ^^{ (\(self).v += sizeof(U) * \(n)) }; }
+};
+__macro plus_one(int x) { return ^^{ (\(x) + 1) }; }
+template <class T> constexpr int use_member(T t) { t.bump!(1); return t.v; }
+template <class T> constexpr int use_member_tmpl(T t) { t.tm!<int>(2); return t.v; }
+template <class T> constexpr int use_free(T t) { return plus_one!(t.v); }
+)cpp";
+  auto AST = TU.build();
+  EXPECT_THAT(AST.getDiagnostics(), testing::IsEmpty());
+}
+
 } // namespace
 } // namespace clangd
 } // namespace clang
