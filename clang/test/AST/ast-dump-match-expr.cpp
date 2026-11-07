@@ -49,7 +49,7 @@ void test_match_dump(int x, int *p) {
   // CHECK-NEXT: |-DeclRefExpr 0x{{[^ ]*}} <col:10> 'int' lvalue Var 0x{{[^ ]*}} <col:10> 'int &' non_odr_use_constant
   // CHECK-NEXT: `-
   // CHECK-NEXT:   |-DeclarationPattern 0x{{[^ ]*}} <col:20, col:24>
-  // CHECK-NEXT:   | `-VarDecl 0x{{[^ ]*}} <col:20, col:10> col:24 used value 'int' cinit
+  // CHECK-NEXT:   | `-VarDecl 0x{{[^ ]*}} <col:20, col:24> col:24 used value 'int' cinit
   // CHECK-NEXT:   |   `-ImplicitCastExpr 0x{{[^ ]*}} <col:10> 'int' <LValueToRValue>
   // CHECK-NEXT:   |     `-DeclRefExpr 0x{{[^ ]*}} <col:10> 'int' lvalue Var 0x{{[^ ]*}} <col:10> 'int &' non_odr_use_constant
   // CHECK-NEXT:   `-DeclRefExpr 0x{{[^ ]*}} <col:33> 'int' lvalue Var 0x{{[^ ]*}} 'value' 'int'
