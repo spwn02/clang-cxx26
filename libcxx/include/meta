@@ -401,8 +401,8 @@ consteval auto has_inaccessible_bases(
 #else
 #  include <__algorithm/reverse.h>
 #  include <__config>
+#  include <__memory/addressof.h>
 #  include <__meta/metafunction_ids.h>
-#include <__memory/addressof.h>
 #include <bit>
 #include <compare>
 #include <exception>
