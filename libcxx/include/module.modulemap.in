@@ -167,6 +167,11 @@ module std_core [system] {
     }
   }
 
+  module meta_ids {
+    header "__meta/metafunction_ids.h"
+    export *
+  }
+
   module type_traits {
     module add_cv_quals {
       header "__type_traits/add_cv_quals.h"
@@ -190,6 +195,10 @@ module std_core [system] {
     }
     module alignment_of {
       header "__type_traits/alignment_of.h"
+      export *
+    }
+    module alternative_traits {
+      header "__type_traits/alternative_traits.h"
       export *
     }
     module common_reference {

@@ -709,6 +709,7 @@ set(files
   __memory_resource/pool_options.h
   __memory_resource/synchronized_pool_resource.h
   __memory_resource/unsynchronized_pool_resource.h
+  __meta/metafunction_ids.h
   __mutex/lock_guard.h
   __mutex/mutex.h
   __mutex/once_flag.h
@@ -938,6 +939,7 @@ set(files
   __type_traits/aligned_storage.h
   __type_traits/aligned_union.h
   __type_traits/alignment_of.h
+  __type_traits/alternative_traits.h
   __type_traits/common_reference.h
   __type_traits/common_type.h
   __type_traits/conditional.h

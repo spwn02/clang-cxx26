@@ -231,6 +231,7 @@ namespace std {
 #  include <__tuple/sfinae_helpers.h>
 #  include <__type_traits/add_cv_quals.h>
 #  include <__type_traits/add_pointer.h>
+#  include <__type_traits/alternative_traits.h>
 #  include <__type_traits/common_type.h>
 #  include <__type_traits/conditional.h>
 #  include <__type_traits/conjunction.h>
@@ -1654,6 +1655,34 @@ template <class _Tp, class... _Types>
 _LIBCPP_HIDE_FROM_ABI constexpr auto&& __unchecked_get(const variant<_Types...>& __v) noexcept {
   return std::__unchecked_get<__find_exactly_one_t<_Tp, _Types...>::value>(__v);
 }
+
+#    if _LIBCPP_STD_VER >= 29 && __has_feature(pattern_matching)
+
+template <class... _Types>
+struct alternative_traits<variant<_Types...>> {
+  static constexpr alternative_info alternatives[] = {^^_Types...};
+  static constexpr bool has_residual_states        = true;
+
+  struct state {
+    size_t __value;
+
+    template <size_t _Ip>
+    static constexpr size_t index = _Ip;
+
+    _LIBCPP_HIDE_FROM_ABI constexpr operator size_t() const noexcept { return __value; }
+  };
+
+  _LIBCPP_HIDE_FROM_ABI static constexpr state index(const variant<_Types...>& __value) noexcept {
+    return {__value.index()};
+  }
+
+  template <size_t _Ip, class _Self>
+  _LIBCPP_HIDE_FROM_ABI static constexpr decltype(auto) get(_Self&& __self) noexcept {
+    return std::__unchecked_get<_Ip>(std::forward<_Self>(__self));
+  }
+};
+
+#    endif // _LIBCPP_STD_VER >= 29 && __has_feature(pattern_matching)
 
 template <class _Tp, class... _Types>
 _LIBCPP_HIDE_FROM_ABI constexpr auto&& __unchecked_get(variant<_Types...>& __v) noexcept {

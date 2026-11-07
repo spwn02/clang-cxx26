@@ -587,6 +587,10 @@ namespace std
 #    include <__type_traits/is_within_lifetime.h>
 #  endif
 
+#  if _LIBCPP_STD_VER >= 29
+#    include <__type_traits/alternative_traits.h>
+#  endif
+
 #  include <version>
 
 #  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)

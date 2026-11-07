@@ -121,6 +121,12 @@ export namespace std {
 #  endif
 #endif
 
+#if _LIBCPP_STD_VER >= 29 && __has_feature(pattern_matching)
+  // [P2688R6], alternatives of a pattern matching subject
+  using std::alternative_info;
+  using std::alternative_traits;
+#endif
+
   // [meta.unary.prop.query], type property queries
   using std::alignment_of;
   using std::extent;

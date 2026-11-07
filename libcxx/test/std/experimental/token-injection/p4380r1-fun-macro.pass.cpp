@@ -13,6 +13,9 @@
 // ("failed to parse fun") is a compile-time error; the parse itself is checked
 // by the programs below.
 
+// With pattern matching (P2688R6) `=>` is one token in C++29, where the P4380R1
+// example, written for the two tokens `=` `>`, has to look for `=>` (#501).
+//
 // The paper's macro declares a local `args` while the structured binding `args`
 // is being initialized.
 // ADDITIONAL_COMPILE_FLAGS: -Wno-shadow
@@ -41,14 +44,10 @@ __macro fun(std::meta::token_sequence tokens) {
             auto const tok = tokens[i];
             if (token_kind_of(tok) == std::meta::token_kind::identifier) {
                 args += ^^{ auto&& $tok };
-            } else if (tok == ^^{ = }) {
-                if (tokens[i + 1] != ^^{ > }) {
-                    throw "expected '=>' token";
-                }
-
+            } else if (tok == ^^{ => }) {
                 do_return {
                     .args = args,
-                    .body = tokens.subseq(i + 2),
+                    .body = tokens.subseq(i + 1),
                 };
             }
         }

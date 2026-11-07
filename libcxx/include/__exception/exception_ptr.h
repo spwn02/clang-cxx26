@@ -588,6 +588,31 @@ void exception_ptr_cast(const exception_ptr&&) = delete;
 
 _LIBCPP_END_UNVERSIONED_NAMESPACE_STD
 
+#if _LIBCPP_STD_VER >= 29 && __has_feature(pattern_matching)
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+
+// [P2688R6] An open, type-indexed alternative type: the empty state and the
+// exceptions that can be selected by type.
+template <>
+struct alternative_traits<exception_ptr> {
+  _LIBCPP_HIDE_FROM_ABI static bool has_value(const exception_ptr& __p) noexcept { return bool(__p); }
+
+  template <class _Ep>
+  _LIBCPP_HIDE_FROM_ABI static optional<const _Ep&> try_cast(const exception_ptr& __p) noexcept {
+    return std::exception_ptr_cast<_Ep>(__p);
+  }
+
+  template <class _Ep>
+  _LIBCPP_HIDE_FROM_ABI static optional<const remove_cvref_t<_Ep>&> try_init(const exception_ptr& __p) noexcept {
+    return std::exception_ptr_cast<remove_cvref_t<_Ep>>(__p);
+  }
+};
+
+_LIBCPP_END_NAMESPACE_STD
+
+#endif // _LIBCPP_STD_VER >= 29 && __has_feature(pattern_matching)
+
 #undef _LIBCPP_CONSTEXPR_EXCEPTION_PTR
 #undef _LIBCPP_HAS_CONSTEXPR_EXCEPTION_PTR
 

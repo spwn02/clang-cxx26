@@ -48,7 +48,37 @@ namespace std {
 #    include <__expected/expected.h>
 #    include <__expected/unexpect.h>
 #    include <__expected/unexpected.h>
-#  endif
+
+#    if _LIBCPP_STD_VER >= 29 && __has_feature(pattern_matching)
+#      include <__type_traits/alternative_traits.h>
+#      include <__utility/forward.h>
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+
+template <class _Tp, class _Ep>
+struct alternative_traits<expected<_Tp, _Ep>> {
+  static constexpr alternative_info alternatives[] = {^^_Tp, ^^_Ep};
+  static constexpr bool has_residual_states = false;
+
+  enum class state : bool { value = false, error = true };
+
+  _LIBCPP_HIDE_FROM_ABI static constexpr state index(const expected<_Tp, _Ep>& __value) noexcept {
+    return __value.has_value() ? state::value : state::error;
+  }
+
+  template <state _State, class _Self>
+  _LIBCPP_HIDE_FROM_ABI static constexpr decltype(auto) get(_Self&& __self) {
+    return match constexpr (_State) -> decltype(auto) {
+      case state::value => *std::forward<_Self>(__self);
+      case state::error => std::forward<_Self>(__self).error();
+    };
+  }
+};
+
+_LIBCPP_END_NAMESPACE_STD
+
+#    endif // _LIBCPP_STD_VER >= 29 && __has_feature(pattern_matching)
+#  endif   // _LIBCPP_STD_VER >= 23
 
 #  include <version>
 

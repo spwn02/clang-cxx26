@@ -37,6 +37,7 @@
 #include <__memory/uninitialized_algorithms.h>
 #include <__memory/unique_ptr.h>
 #include <__type_traits/add_reference.h>
+#include <__type_traits/alternative_traits.h>
 #include <__type_traits/conditional.h>
 #include <__type_traits/conjunction.h>
 #include <__type_traits/disjunction.h>
@@ -1753,6 +1754,14 @@ struct hash<shared_ptr<_Tp> > {
     return hash<typename shared_ptr<_Tp>::element_type*>()(__ptr.get());
   }
 };
+
+#if _LIBCPP_STD_VER >= 29 && __has_feature(pattern_matching)
+
+template <class _Tp>
+  requires(!is_array_v<_Tp>)
+struct alternative_traits<shared_ptr<_Tp>> : alternative_traits<_Tp*> {};
+
+#endif // _LIBCPP_STD_VER >= 29 && __has_feature(pattern_matching)
 
 template <class _CharT, class _Traits, class _Yp>
 inline _LIBCPP_HIDE_FROM_ABI basic_ostream<_CharT, _Traits>&

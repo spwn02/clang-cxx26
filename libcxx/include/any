@@ -112,6 +112,12 @@ namespace std {
 #  include <typeinfo>
 #  include <version>
 
+#  if _LIBCPP_STD_VER >= 29
+#    include <__memory/addressof.h>
+#    include <__type_traits/alternative_traits.h>
+#    include <__utility/forward_like.h>
+#  endif
+
 #  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #    pragma GCC system_header
 #  endif
@@ -549,6 +555,37 @@ template <class _ValueType>
   }
   return nullptr;
 }
+
+#    if _LIBCPP_STD_VER >= 29 && __has_feature(pattern_matching)
+
+template <>
+struct alternative_traits<any> {
+  template <class _Self, class _Pointer>
+  struct __result {
+    _Pointer __pointer;
+
+    _LIBCPP_HIDE_FROM_ABI explicit operator bool() const noexcept { return __pointer != nullptr; }
+
+    _LIBCPP_HIDE_FROM_ABI decltype(auto) operator*() && noexcept { return std::forward_like<_Self>(*__pointer); }
+  };
+
+  _LIBCPP_HIDE_FROM_ABI static bool has_value(const any& __value) noexcept { return __value.has_value(); }
+
+  template <class _Tp, class _Self>
+  _LIBCPP_HIDE_FROM_ABI static auto try_cast(_Self&& __self) noexcept {
+    auto* __pointer = std::any_cast<_Tp>(std::addressof(__self));
+    return __result<_Self, decltype(__pointer)>{__pointer};
+  }
+
+  template <class _Tp, class _Self>
+  _LIBCPP_HIDE_FROM_ABI static auto try_init(_Self&& __self) noexcept {
+    using _ValueType = remove_reference_t<_Tp>;
+    auto* __pointer  = std::any_cast<_ValueType>(std::addressof(__self));
+    return __result<_Self, decltype(__pointer)>{__pointer};
+  }
+};
+
+#    endif // _LIBCPP_STD_VER >= 29 && __has_feature(pattern_matching)
 
 #  endif // _LIBCPP_STD_VER >= 17
 
