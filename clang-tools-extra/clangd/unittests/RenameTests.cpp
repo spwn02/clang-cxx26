@@ -972,6 +972,54 @@ TEST(RenameTest, DoExpressions) {
   }
 }
 
+TEST(RenameTest, PatternMatching) {
+  // The variables a pattern declares are renamed with all their uses.
+  llvm::StringRef Tests[] = {
+      R"cpp(
+        int f(int x) {
+          return match (x) { case auto [[y^y]] if ([[yy]] > 5) => [[yy]]; case _ => 0; };
+        }
+      )cpp",
+      R"cpp(
+        int f(int x) {
+          return match (x) { case auto [[yy]] if ([[yy]] > 5) => [[y^y]]; case _ => 0; };
+        }
+      )cpp",
+      R"cpp(
+        struct P { int a, b; };
+        int f(P p) {
+          if (case [0, auto [[b^b]]] = p) return [[bb]];
+          return 0;
+        }
+      )cpp",
+      // The subject.
+      R"cpp(
+        int f(int [[su^b]]) {
+          return match ([[sub]]) { case 0 => 1; case _ => [[sub]]; };
+        }
+      )cpp",
+  };
+  llvm::StringRef NewName = "NewName";
+  for (llvm::StringRef T : Tests) {
+    SCOPED_TRACE(T);
+    Annotations Code(T);
+    auto TU = TestTU::withCode(Code.code());
+    TU.ExtraArgs.push_back("-std=c++2d");
+    auto AST = TU.build();
+    auto Index = TU.index();
+    for (const auto &RenamePos : Code.points()) {
+      auto RenameResult =
+          rename({RenamePos, NewName, AST, testPath(TU.Filename),
+                  getVFSFromAST(AST), Index.get()});
+      ASSERT_TRUE(bool(RenameResult)) << RenameResult.takeError();
+      ASSERT_EQ(1u, RenameResult->GlobalChanges.size());
+      EXPECT_EQ(
+          applyEdits(std::move(RenameResult->GlobalChanges)).front().second,
+          expectedResult(Code, NewName));
+    }
+  }
+}
+
 TEST(RenameTest, ObjCWithinFileRename) {
   struct TestCase {
     /// Annotated source code that should be renamed. Every point (indicated by

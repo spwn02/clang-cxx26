@@ -1640,6 +1640,39 @@ TEST(Hover, DoExpressions) {
   }
 }
 
+TEST(Hover, PatternMatching) {
+  struct {
+    const char *const Code;
+    const char *Name;
+    const char *Type;
+  } Cases[] = {
+      // The variable a declaration pattern declares.
+      {R"cpp(int f(int x) { return match (x) { case auto y^y => yy; }; })cpp",
+       "yy", "int"},
+      // A use of it.
+      {R"cpp(int f(int x) { return match (x) { case auto yy => y^y; }; })cpp",
+       "yy", "int"},
+      // A binding of a decomposition pattern.
+      {R"cpp(struct P { int a; double b; };
+             double f(P p) { if (case [0, auto b^b] = p) return bb; return 0; })cpp",
+       "bb", "double"},
+      // A reference declaration pattern.
+      {R"cpp(int f(int x) { return match (x) { case const auto &r^r => rr; }; })cpp",
+       "rr", "const int &"},
+  };
+  for (const auto &C : Cases) {
+    Annotations T(C.Code);
+    TestTU TU = TestTU::withCode(T.code());
+    TU.ExtraArgs.push_back("-std=c++2d");
+    auto AST = TU.build();
+    auto H = getHover(AST, T.point(), format::getLLVMStyle(), nullptr);
+    ASSERT_TRUE(H) << C.Code;
+    EXPECT_EQ(H->Name, C.Name) << C.Code;
+    ASSERT_TRUE(H->Type) << C.Code;
+    EXPECT_EQ(H->Type->Type, C.Type) << C.Code;
+  }
+}
+
 TEST(Hover, DefinitionLanuage) {
   struct {
     const char *const Code;
