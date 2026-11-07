@@ -59,6 +59,11 @@ SkipDeclarations["type_traits"] = [
     "std::reference_wrapper",
 ]
 
+# include/__type_traits/alternative_traits.h (exported from <type_traits>), gotten through the headers that
+# specialize it
+for _header in ["any", "chrono", "compare", "exception", "expected", "memory", "optional", "variant"]:
+    SkipDeclarations[_header] = SkipDeclarations.get(_header, []) + ["std::alternative_traits"]
+
 ### ExtraDeclarations
 
 # Add declarations in headers.
