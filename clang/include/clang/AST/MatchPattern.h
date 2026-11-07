@@ -129,7 +129,14 @@ public:
 protected:
   explicit MatchPattern(MatchPatternClass MPC) : Class(MPC) {}
 
+  /// Tag for the constructors that produce a pattern to be filled in by the
+  /// AST reader.
+  struct SerializedTag {};
+
   void setDependence(ExprDependence D) { Dependent = D; }
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+
 public:
   MatchPatternClass getMatchPatternClass() const { return Class; }
 
@@ -164,8 +171,13 @@ public:
 };
 
 class WildcardPattern final : public MatchPattern {
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
   SourceLocation Loc;
   bool IsPackExpansion;
+
+  explicit WildcardPattern(SerializedTag)
+      : MatchPattern(WildcardPatternClass), IsPackExpansion(false) {}
 
 public:
   explicit WildcardPattern(SourceLocation Loc, bool IsPackExpansion = false)
@@ -193,8 +205,13 @@ public:
 };
 
 class ExpressionPattern final : public MatchPattern {
-  Expr *E;
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+  Expr *E = nullptr;
   bool IsPackExpansion;
+
+  explicit ExpressionPattern(SerializedTag)
+      : MatchPattern(ExpressionPatternClass), IsPackExpansion(false) {}
 
 public:
   explicit ExpressionPattern(Expr *E, bool IsPackExpansion);
@@ -221,8 +238,12 @@ public:
 };
 
 class ParenPattern final : public MatchPattern {
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
   SourceRange Parens;
-  MatchPattern *Pattern;
+  MatchPattern *Pattern = nullptr;
+
+  explicit ParenPattern(SerializedTag) : MatchPattern(ParenPatternClass) {}
 
 public:
   explicit ParenPattern(SourceRange Parens, MatchPattern *Pattern)
@@ -251,9 +272,14 @@ public:
 };
 
 class DeclarationPattern final : public MatchPattern {
-  VarDecl *Declaration;
-  VarDecl *PackSourceDeclaration;
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+  VarDecl *Declaration = nullptr;
+  VarDecl *PackSourceDeclaration = nullptr;
   SourceRange DeclarationRange;
+
+  explicit DeclarationPattern(SerializedTag)
+      : MatchPattern(DeclarationPatternClass) {}
 
 public:
   explicit DeclarationPattern(VarDecl *Declaration, SourceRange WrittenRange,
@@ -280,7 +306,11 @@ public:
 };
 
 class TypePattern final : public MatchPattern {
-  TypeSourceInfo *TInfo;
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+  TypeSourceInfo *TInfo = nullptr;
+
+  explicit TypePattern(SerializedTag) : MatchPattern(TypePatternClass) {}
 
 public:
   explicit TypePattern(TypeSourceInfo *TInfo)
@@ -311,9 +341,13 @@ public:
 };
 
 class OrPattern final : public MatchPattern {
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
   MutableArrayRef<MatchPattern *> Alternatives;
   ArrayRef<SourceLocation> OrLocs;
   ArrayRef<VarDecl *> Bindings;
+
+  explicit OrPattern(SerializedTag) : MatchPattern(OrPatternClass) {}
 
 public:
   explicit OrPattern(MutableArrayRef<MatchPattern *> Alternatives,
@@ -349,8 +383,12 @@ public:
 };
 
 class AndPattern final : public MatchPattern {
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
   MutableArrayRef<MatchPattern *> Conjuncts;
   ArrayRef<SourceLocation> AndLocs;
+
+  explicit AndPattern(SerializedTag) : MatchPattern(AndPatternClass) {}
 
 public:
   explicit AndPattern(MutableArrayRef<MatchPattern *> Conjuncts,
@@ -393,6 +431,11 @@ public:
   };
 
 private:
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+  explicit AlternativePattern(SerializedTag)
+      : MatchPattern(AlternativePatternClass), Kind(Generic) {}
+
   AlternativeKind Kind;
   SourceRange DiscriminatorRange;
   SourceRange Braces;
@@ -510,6 +553,8 @@ class DecompositionPattern final
     : public MatchPattern,
       private llvm::TrailingObjects<DecompositionPattern, MatchPattern *> {
   friend class TrailingObjects;
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
 
   unsigned NumPatterns;
   SourceRange Squares;
@@ -595,6 +640,9 @@ class MatchPatternInstantiation final
                                     MatchPatternInfo> {
   friend class llvm::TrailingObjects<MatchPatternInstantiation,
                                      MatchPatternInfo>;
+
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
 
   MatchPattern *Pattern;
   unsigned NumInfos;

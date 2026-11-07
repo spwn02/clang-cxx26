@@ -1958,6 +1958,7 @@ enum StmtCode {
   EXPR_REQUIRES,                          // RequiresExpr
 
   EXPR_MATCH_TEST,                        // MatchTestExpr
+  EXPR_CASE_CONDITION,                    // CaseConditionExpr
   EXPR_MATCH_SELECT,                      // MatchSelectExpr
 
   // CUDA

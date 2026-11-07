@@ -5563,6 +5563,9 @@ struct MatchTestInstantiation {
 };
 
 class MatchTestExpr : public Expr {
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+
   VarDecl *HoldingVar;
   Expr *Subject;
   SourceLocation MatchLoc;
@@ -5789,6 +5792,9 @@ public:
 };
 
 class CaseConditionExpr final : public MatchTestExpr {
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+
   bool IsPatternDeclaration = false;
   bool FailureIsUnreachable = false;
 
@@ -5853,6 +5859,8 @@ class MatchSelectExpr final
       private llvm::TrailingObjects<MatchSelectExpr, Stmt *, MatchCase,
                                     MatchCaseInstantiation> {
   friend class TrailingObjects;
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
 
   Stmt *InitStmt;
   VarDecl *HoldingVar;

@@ -13577,6 +13577,12 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     if (VD->getDescribedVarTemplate() ||
         isa<VarTemplatePartialSpecializationDecl>(VD))
       return false;
+    // A nested structured binding is an implicit declaration that is part of
+    // the declaration of the binding that introduces it; it is emitted with
+    // that declaration, never by itself (it is not a declaration of the
+    // translation unit, but a reader that loads it must not make it one).
+    if (isa<DecompositionDecl>(VD) && VD->isImplicit())
+      return false;
   } else if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
     // We never need to emit an uninstantiated function template.
     if (FD->getTemplatedKind() == FunctionDecl::TK_FunctionTemplate)

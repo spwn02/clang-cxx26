@@ -17,6 +17,7 @@
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/ExprOpenMP.h"
+#include "clang/AST/MatchPattern.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/DiagnosticSerialization.h"
 #include "clang/Serialization/ASTReader.h"
@@ -2748,17 +2749,286 @@ void ASTStmtWriter::VisitOpaqueValueExpr(OpaqueValueExpr *E) {
 // Pattern Matching
 //===----------------------------------------------------------------------===//
 
+namespace {
+/// Writes the pattern-matching structures that hang off a MatchTestExpr or a
+/// MatchSelectExpr. Patterns, pattern instantiations and projections are
+/// shared inside one expression (a MatchPatternInfo is found by the identity of
+/// its pattern), so each is written once and later references use its index.
+/// Indices are assigned after the contents are written (children first); the
+/// reader assigns them in the same order. Expressions are queued with AddStmt
+/// and read back in the same order with readSubStmt/readSubExpr.
+class MatchWriter {
+  ASTRecordWriter &R;
+  llvm::DenseMap<const MatchPattern *, unsigned> Patterns;
+  llvm::DenseMap<const MatchPatternInstantiation *, unsigned> Instantiations;
+  llvm::DenseMap<const MatchProjection *, unsigned> Projections;
+
+public:
+  explicit MatchWriter(ASTRecordWriter &R) : R(R) {}
+
+  void guard(const MatchGuard &G) {
+    R.AddStmt(G.Init);
+    R.AddDeclRef(G.ConditionVariable);
+    R.AddStmt(G.Condition);
+  }
+
+  void patternList(ArrayRef<MatchPattern *> List) {
+    R.push_back(List.size());
+    for (const MatchPattern *P : List)
+      pattern(P);
+  }
+
+  void pattern(const MatchPattern *P) {
+    if (!P) {
+      R.push_back(0);
+      return;
+    }
+    if (auto It = Patterns.find(P); It != Patterns.end()) {
+      R.push_back(1);
+      R.push_back(It->second);
+      return;
+    }
+    R.push_back(2 + P->getMatchPatternClass());
+    R.push_back(static_cast<unsigned>(P->getDependence()));
+    switch (P->getMatchPatternClass()) {
+    case MatchPattern::WildcardPatternClass: {
+      auto *W = cast<WildcardPattern>(P);
+      R.AddSourceLocation(W->getBeginLoc());
+      R.push_back(W->isPackExpansion());
+      break;
+    }
+    case MatchPattern::ExpressionPatternClass: {
+      auto *X = cast<ExpressionPattern>(P);
+      R.AddStmt(const_cast<Expr *>(X->getExpr()));
+      R.push_back(X->isPackExpansion());
+      break;
+    }
+    case MatchPattern::ParenPatternClass: {
+      auto *Paren = cast<ParenPattern>(P);
+      R.AddSourceRange(Paren->getParens());
+      pattern(Paren->getSubPattern());
+      break;
+    }
+    case MatchPattern::DeclarationPatternClass: {
+      auto *D = cast<DeclarationPattern>(P);
+      R.AddDeclRef(D->getDeclaration());
+      R.AddDeclRef(D->getPackSourceDeclaration());
+      R.AddSourceRange(SourceRange(D->getBeginLoc(), D->getEndLoc()));
+      break;
+    }
+    case MatchPattern::TypePatternClass:
+      R.AddTypeSourceInfo(cast<TypePattern>(P)->getTypeSourceInfo());
+      break;
+    case MatchPattern::AndPatternClass: {
+      auto *A = cast<AndPattern>(P);
+      patternList(A->conjuncts());
+      R.push_back(A->andLocations().size());
+      for (SourceLocation Loc : A->andLocations())
+        R.AddSourceLocation(Loc);
+      break;
+    }
+    case MatchPattern::OrPatternClass: {
+      auto *O = cast<OrPattern>(P);
+      patternList(O->alternatives());
+      R.push_back(O->orLocations().size());
+      for (SourceLocation Loc : O->orLocations())
+        R.AddSourceLocation(Loc);
+      R.push_back(O->bindings().size());
+      for (VarDecl *D : O->bindings())
+        R.AddDeclRef(D);
+      break;
+    }
+    case MatchPattern::AlternativePatternClass: {
+      auto *A = cast<AlternativePattern>(P);
+      R.push_back(A->getAlternativeKind());
+      R.AddSourceRange(A->getDiscriminatorRange());
+      R.AddSourceRange(A->getBraces());
+      R.AddIdentifierRef(A->getName());
+      pattern(A->getSelector());
+      R.push_back(A->getTypeConstraintSelector() != nullptr);
+      if (A->getTypeConstraintSelector())
+        R.AddConceptReference(A->getTypeConstraintSelector());
+      R.AddSourceLocation(A->getColonLoc());
+      pattern(A->getSubPattern());
+      break;
+    }
+    case MatchPattern::DecompositionPatternClass: {
+      auto *D = cast<DecompositionPattern>(P);
+      patternList(D->patterns());
+      R.AddSourceRange(D->getSquares());
+      break;
+    }
+    }
+    unsigned ID = Patterns.size();
+    Patterns[P] = ID;
+  }
+
+  void projection(const MatchProjection *M) {
+    if (!M) {
+      R.push_back(0);
+      return;
+    }
+    if (auto It = Projections.find(M); It != Projections.end()) {
+      R.push_back(1);
+      R.push_back(It->second);
+      return;
+    }
+    R.push_back(2);
+    R.push_back(M->getKind());
+    R.AddDeclRef(M->getHoldingVar());
+    R.AddDeclRef(M->getIntermediateVar());
+    R.AddDeclRef(M->getConditionVar());
+    R.AddDeclRef(M->getProjectedVar());
+    R.AddDeclRef(M->getDecomposedDecl());
+    R.AddStmt(M->getConditionExpr());
+    R.AddStmt(M->getProjectedExpr());
+    unsigned ID = Projections.size();
+    Projections[M] = ID;
+  }
+
+  template <class T> void bytes(ArrayRef<T> Values) {
+    R.push_back(Values.size());
+    for (T V : Values)
+      R.push_back(V);
+  }
+
+  void info(const MatchPatternInfo &I) {
+    pattern(I.Pattern);
+    R.AddStmt(I.Condition);
+    projection(I.Projection);
+    R.AddTypeRef(I.CheckedSubjectType);
+    R.AddTypeRef(I.AlternativeTraitsType);
+    R.push_back(I.AlternativeTypes.size());
+    for (QualType T : I.AlternativeTypes)
+      R.AddTypeRef(T);
+    bytes(I.ProjectableAlternatives);
+    bytes(I.EmptyAlternatives);
+    R.push_back(I.AlternativeValues.size());
+    for (Expr *E : I.AlternativeValues)
+      R.AddStmt(E);
+    bytes(I.SelectedAlternatives);
+    bytes(I.ViableOrAlternatives);
+    patternList(I.ExpandedPatterns);
+    R.AddTypeRef(I.OpenAlternativeType);
+    unsigned Flags = 0;
+    Flags |= I.IsExhaustive << 0;
+    Flags |= I.HasParameterizedIndexName << 1;
+    Flags |= I.IsAlternativeValuePattern << 2;
+    Flags |= I.IsOpenAlternative << 3;
+    Flags |= I.IsOpenAlternativeInitialization << 4;
+    Flags |= I.TypePatternResolved << 5;
+    Flags |= I.TypePatternMatches << 6;
+    Flags |= I.HasExpandedPatterns << 7;
+    R.push_back(Flags);
+  }
+
+  void instantiation(const MatchPatternInstantiation *I) {
+    if (!I) {
+      R.push_back(0);
+      return;
+    }
+    if (auto It = Instantiations.find(I); It != Instantiations.end()) {
+      R.push_back(1);
+      R.push_back(It->second);
+      return;
+    }
+    R.push_back(2);
+    pattern(I->getPattern());
+    R.push_back(I->infos().size());
+    for (const MatchPatternInfo &Info : I->infos())
+      info(Info);
+    unsigned ID = Instantiations.size();
+    Instantiations[I] = ID;
+  }
+
+  void testInstantiation(const MatchTestInstantiation &T) {
+    pattern(T.Pattern);
+    R.AddSourceLocation(T.IfLoc);
+    guard(T.Guard);
+    instantiation(T.PatternInstantiation);
+    R.push_back(T.PatternIsIrrefutable);
+    R.AddStmt(T.Condition);
+    R.AddStmt(T.Handler);
+    R.AddStmt(T.Increment);
+  }
+
+  void caseCommon(MatchPattern *Pattern, SourceLocation IfLoc,
+                  const MatchGuard &Guard, Stmt *Handler) {
+    pattern(Pattern);
+    R.AddSourceLocation(IfLoc);
+    guard(Guard);
+    R.AddStmt(Handler);
+  }
+
+  void caseTail(const MatchPatternInstantiation *PI,
+                ArrayRef<const Attr *> Attrs, SourceLocation NotReturnLoc) {
+    instantiation(PI);
+    R.AddAttributes(Attrs);
+    R.AddSourceLocation(NotReturnLoc);
+  }
+};
+} // namespace
+
 void ASTStmtWriter::VisitMatchTestExpr(MatchTestExpr *E) {
   VisitExpr(E);
+  MatchWriter W(Record);
+  Record.AddDeclRef(E->getHoldingVar());
+  Record.AddStmt(E->getSubject());
+  Record.AddSourceLocation(E->getMatchLoc());
+  Record.AddSourceLocation(E->getRParenLoc());
+  W.pattern(E->getPattern());
+  W.instantiation(E->getPatternInstantiation());
+  Record.AddSourceLocation(E->getIfLoc());
+  W.guard(E->getGuard());
+  Record.push_back(E->getInstantiations().size());
+  for (const MatchTestInstantiation &I : E->getInstantiations())
+    W.testInstantiation(I);
+  Record.push_back(E->isPatternIrrefutable());
+  Record.push_back(E->needsCaseInstantiation());
+  Record.push_back(E->hasSemanticInstantiations());
+  Record.push_back(E->hasSubjectProduct());
   Code = serialization::EXPR_MATCH_TEST;
 }
 
 void ASTStmtWriter::VisitCaseConditionExpr(CaseConditionExpr *E) {
   VisitMatchTestExpr(E);
+  Record.push_back(E->isPatternDeclaration());
+  Record.push_back(E->isFailureUnreachable());
+  Code = serialization::EXPR_CASE_CONDITION;
 }
 
 void ASTStmtWriter::VisitMatchSelectExpr(MatchSelectExpr *E) {
   VisitExpr(E);
+  MatchWriter W(Record);
+  Record.push_back(E->getNumPreambleStatements());
+  Record.push_back(E->getNumCases());
+  Record.push_back(E->getNumCaseInstantiations());
+  Record.AddStmt(E->getInitStmt());
+  Record.AddDeclRef(E->getHoldingVar());
+  Record.AddStmt(E->getSubject());
+  Record.AddSourceLocation(E->getMatchLoc());
+  Record.push_back(E->isConstexpr());
+  Record.push_back(E->isFullyCovered());
+  Record.push_back(E->isStatement());
+  Record.push_back(E->hasSubjectProduct());
+  Record.push_back(E->getOrigResultType().isNull() ? 0 : 1);
+  if (!E->getOrigResultType().isNull()) {
+    Record.AddTypeRef(E->getOrigResultType().getType());
+    Record.AddTypeLoc(E->getOrigResultType());
+  }
+  Record.AddSourceRange(E->getBraces());
+  for (Stmt *S : E->getPreamble())
+    Record.AddStmt(S);
+  for (const MatchCase &C : E->getCases()) {
+    W.caseCommon(C.Pattern, C.IfLoc, C.Guard, C.Handler);
+    Record.push_back(C.MaybeUseful);
+    W.caseTail(C.PatternInstantiation, C.Attributes, C.NotReturnLoc);
+  }
+  for (const MatchCaseInstantiation &C : E->getCaseInstantiations()) {
+    W.caseCommon(C.Pattern, C.IfLoc, C.Guard, C.Handler);
+    Record.push_back(C.CaseIndex);
+    W.caseTail(C.PatternInstantiation, C.Attributes, C.NotReturnLoc);
+  }
   Code = serialization::EXPR_MATCH_SELECT;
 }
 
