@@ -456,6 +456,19 @@ ExprResult Sema::BuildDoExpr(SourceLocation DoLoc, SourceLocation LBraceLoc,
     ResultType = Context.VoidTy;
   }
 
+  // The result is an object the do-expression creates, like the return value
+  // of a function: its type must be complete and not abstract. (A reference
+  // or void creates no object.) The check also keeps MaybeBindToTemporary
+  // below from looking up the destructor of an incomplete class.
+  if (!ResultType->isVoidType() && !ResultType->isDependentType() &&
+      !ResultType->isReferenceType() &&
+      (RequireCompleteType(DoLoc, ResultType,
+                           diag::err_do_expr_incomplete_result_type) ||
+       RequireNonAbstractType(DoLoc, ResultType,
+                              diag::err_abstract_type_in_decl,
+                              AbstractReturnType)))
+    return ExprError();
+
   // Reachability: a do-expression with a non-void result type is ill-formed
   // if control can fall off the end of the body without exiting via
   // `do_return`, an outer-scope return/break/continue, a throw, or a

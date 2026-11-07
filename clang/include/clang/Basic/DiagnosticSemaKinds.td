@@ -13059,6 +13059,8 @@ def err_do_expr_no_return_but_not_auto : Error<
   "statements">;
 def err_do_return_void_but_not_auto : Error<
   "cannot deduce result type %0 from 'do_return' with omitted expression">;
+def err_do_expr_incomplete_result_type : Error<
+  "incomplete result type %0 of do-expression">;
 def err_do_expr_falls_off_end : Error<
   "control may fall off the end of do-expression with non-void result type "
   "%0; every path must exit via 'do_return', 'return', 'break', 'continue', "
