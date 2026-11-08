@@ -94,6 +94,12 @@ static Expr *IgnoreImplicit(Expr *E) {
                          IgnoreCXXFunctionalCastExprWrappingConstructor);
 }
 
+static Stmt *IgnoreImplicitStmt(Stmt *S) {
+  if (auto *E = dyn_cast_or_null<Expr>(S))
+    return IgnoreImplicit(E);
+  return S;
+}
+
 [[maybe_unused]]
 static bool isImplicitExpr(Expr *E) {
   return IgnoreImplicit(E) != E;
@@ -478,6 +484,11 @@ public:
   /// Whether a node was built for \p S.
   bool isMapped(const Stmt *S) const {
     return Mapping.find(const_cast<Stmt *>(S)) != nullptr;
+  }
+
+  /// Whether a node was built for \p D.
+  bool isMapped(const Decl *D) const {
+    return Mapping.find(const_cast<Decl *>(D)) != nullptr;
   }
 
   /// Whether the token at \p L is not yet part of a node that was built.
@@ -2068,6 +2079,302 @@ public:
     return true;
   }
 
+  // C++29 pattern matching (P2688). A pattern is not a statement, a declaration
+  // or an expression: its node is built when the traversal leaves it, and
+  // remembered here so that the construct that contains it can use it.
+  llvm::DenseMap<const MatchPattern *, syntax::Tree *> PatternNodes;
+
+  bool TraverseMatchPattern(MatchPattern *P) {
+    if (!P)
+      return true;
+    if (!RecursiveASTVisitor::TraverseMatchPattern(P))
+      return false;
+    buildPattern(P);
+    return true;
+  }
+
+  syntax::Tree *patternNode(const MatchPattern *P) {
+    return P ? PatternNodes.lookup(P) : nullptr;
+  }
+
+  /// Marks the node of \p P as an element of a list and, if the token that
+  /// follows it has the kind \p Kind, that token as the delimiter.
+  void markListElement(const MatchPattern *P, tok::TokenKind Kind) {
+    syntax::Tree *N = patternNode(P);
+    if (!N)
+      return;
+    Builder.markChild(N, syntax::NodeRole::ListElement);
+    const syntax::Token *Next = Builder.getRange(P->getSourceRange()).end();
+    if (Next->kind() == Kind)
+      Builder.markChildToken(Next, syntax::NodeRole::ListDelimiter);
+  }
+
+  void buildPattern(MatchPattern *P) {
+    SourceRange Written = P->getSourceRange();
+    if (Written.isInvalid() || !Builder.isTokenStart(Written.getBegin()) ||
+        !Builder.isTokenStart(Written.getEnd()))
+      return;
+    ArrayRef<syntax::Token> Range = Builder.getRange(Written);
+    syntax::Tree *N = nullptr;
+    switch (P->getMatchPatternClass()) {
+    case MatchPattern::WildcardPatternClass:
+      // The bare `...` of a decomposition pattern is not a wildcard token.
+      if (Range.size() == 1 && Range.front().kind() == tok::identifier) {
+        Builder.markChildToken(&Range.front(), syntax::NodeRole::Wildcard);
+        N = new (allocator()) syntax::WildcardPattern;
+      } else {
+        N = new (allocator()) syntax::UnknownPattern;
+      }
+      break;
+    case MatchPattern::ExpressionPatternClass: {
+      Expr *E = static_cast<ExpressionPattern *>(P)->getExpr();
+      if (E && Builder.isMapped(IgnoreImplicit(E)))
+        Builder.markExprChild(E, syntax::NodeRole::Expression);
+      N = new (allocator()) syntax::ExpressionPattern;
+      break;
+    }
+    case MatchPattern::DeclarationPatternClass: {
+      Decl *D = static_cast<DeclarationPattern *>(P)->getDeclaration();
+      if (D && Builder.isMapped(D))
+        Builder.markChild(ASTPtr(D), syntax::NodeRole::Declaration);
+      N = new (allocator()) syntax::DeclarationPattern;
+      break;
+    }
+    case MatchPattern::TypePatternClass:
+      N = new (allocator()) syntax::TypePattern;
+      break;
+    case MatchPattern::ParenPatternClass: {
+      auto *Paren = static_cast<ParenPattern *>(P);
+      Builder.markChildToken(Paren->getParens().getBegin(),
+                             syntax::NodeRole::OpenParen);
+      Builder.markChildToken(Paren->getParens().getEnd(),
+                             syntax::NodeRole::CloseParen);
+      if (syntax::Tree *Sub = patternNode(Paren->getSubPattern()))
+        Builder.markChild(Sub, syntax::NodeRole::Pattern);
+      N = new (allocator()) syntax::ParenPattern;
+      break;
+    }
+    case MatchPattern::OrPatternClass: {
+      auto *Or = static_cast<OrPattern *>(P);
+      if (!llvm::all_of(Or->alternatives(), [&](MatchPattern *Alternative) {
+            return patternNode(Alternative) != nullptr;
+          })) {
+        N = new (allocator()) syntax::UnknownPattern;
+        break;
+      }
+      for (auto [I, Alternative] : llvm::enumerate(Or->alternatives())) {
+        Builder.markChild(patternNode(Alternative),
+                          syntax::NodeRole::ListElement);
+        if (I < Or->orLocations().size())
+          Builder.markChildToken(Or->orLocations()[I],
+                                 syntax::NodeRole::ListDelimiter);
+      }
+      auto *Alternatives = new (allocator()) syntax::PatternAlternatives;
+      Builder.foldNode(Range, Alternatives, nullptr);
+      Builder.markChild(Alternatives, syntax::NodeRole::Alternatives);
+      N = new (allocator()) syntax::OrPattern;
+      break;
+    }
+    case MatchPattern::AlternativePatternClass: {
+      auto *Alternative = static_cast<AlternativePattern *>(P);
+      Builder.markChildToken(Alternative->getBraces().getBegin(),
+                             syntax::NodeRole::OpenParen);
+      Builder.markChildToken(Alternative->getBraces().getEnd(),
+                             syntax::NodeRole::CloseParen);
+      if (syntax::Tree *Sub = patternNode(Alternative->getSubPattern()))
+        Builder.markChild(Sub, syntax::NodeRole::Pattern);
+      N = new (allocator()) syntax::AlternativePattern;
+      break;
+    }
+    case MatchPattern::DecompositionPatternClass: {
+      auto *Decomposition = static_cast<DecompositionPattern *>(P);
+      if (!llvm::all_of(Decomposition->patterns(),
+                        [&](MatchPattern *Element) {
+                          return patternNode(Element) != nullptr;
+                        })) {
+        N = new (allocator()) syntax::UnknownPattern;
+        break;
+      }
+      Builder.markChildToken(Decomposition->getSquares().getBegin(),
+                             syntax::NodeRole::OpenParen);
+      Builder.markChildToken(Decomposition->getSquares().getEnd(),
+                             syntax::NodeRole::CloseParen);
+      for (MatchPattern *Element : Decomposition->patterns())
+        markListElement(Element, tok::comma);
+      if (!Decomposition->patterns().empty()) {
+        auto *Elements = new (allocator()) syntax::PatternElements;
+        Builder.foldNode(
+            Builder.getRange(Decomposition->patterns().front()->getBeginLoc(),
+                             Decomposition->patterns().back()->getEndLoc()),
+            Elements, nullptr);
+        Builder.markChild(Elements, syntax::NodeRole::Elements);
+      }
+      N = new (allocator()) syntax::DecompositionPattern;
+      break;
+    }
+    }
+    Builder.foldNode(Range, N, nullptr);
+    PatternNodes[P] = N;
+  }
+
+  /// Marks the written subjects of \p S, a match selection, test or condition.
+  template <class MatchExprT> void markSubjects(MatchExprT *S) {
+    auto Mark = [&](Expr *E) {
+      if (E && Builder.isMapped(IgnoreImplicit(E)))
+        Builder.markExprChild(E, syntax::NodeRole::Subject);
+    };
+    ArrayRef<Expr *> Elements = S->getSubjectProductElements();
+    if (!Elements.empty()) {
+      for (Expr *E : Elements)
+        Mark(E);
+      return;
+    }
+    VarDecl *Holder = S->getHoldingVar();
+    Mark(Holder && Holder->getInit() ? Holder->getInit() : S->getSubject());
+  }
+
+  /// Builds the node of a source case of a match selection; the tokens `case`
+  /// and `=>` and the guard are found next to the pattern and the handler.
+  void buildMatchCase(const clang::MatchCase &C) {
+    syntax::Tree *Pattern = patternNode(C.Pattern);
+    SourceLocation HandlerBegin =
+        C.isNonReturning() ? C.NotReturnLoc
+                           : (C.Handler ? C.Handler->getBeginLoc()
+                                        : SourceLocation());
+    if (!Pattern || HandlerBegin.isInvalid() ||
+        !Builder.isTokenStart(HandlerBegin) ||
+        !Builder.isTokenStart(C.Pattern->getBeginLoc()))
+      return;
+    const syntax::Token *CaseToken =
+        std::prev(Builder.findToken(C.Pattern->getBeginLoc()));
+    const syntax::Token *ArrowToken =
+        std::prev(Builder.findToken(HandlerBegin));
+    if (CaseToken->kind() != tok::kw_case ||
+        ArrowToken->kind() != tok::equalgreater)
+      return;
+    if (C.Guard.hasGuard() && Builder.isTokenStart(C.IfLoc)) {
+      Builder.markChildToken(C.IfLoc, syntax::NodeRole::IntroducerKeyword);
+      auto *Guard = new (allocator()) syntax::MatchGuard;
+      Builder.foldNode(
+          llvm::ArrayRef(Builder.findToken(C.IfLoc), ArrowToken), Guard,
+          nullptr);
+      Builder.markChild(Guard, syntax::NodeRole::Guard);
+    }
+    Builder.markChildToken(CaseToken, syntax::NodeRole::IntroducerKeyword);
+    Builder.markChild(Pattern, syntax::NodeRole::Pattern);
+    Builder.markChildToken(ArrowToken, syntax::NodeRole::ArrowToken);
+    // (The tokens of a handler that has no syntax node stay leaves.)
+    if (Builder.isMapped(IgnoreImplicitStmt(C.Handler)))
+      Builder.markStmtChild(C.Handler, syntax::NodeRole::Statement);
+    ArrayRef<syntax::Token> Handler = Builder.getStmtRange(C.Handler);
+    auto *Case = new (allocator()) syntax::MatchCase;
+    Builder.foldNode(llvm::ArrayRef(CaseToken, Handler.end()), Case, nullptr);
+    Builder.markChild(Case, syntax::NodeRole::Case);
+  }
+
+  /// Traverses the subjects as they are written. (The expression that holds
+  /// the subject, or the product of several, is made by the compiler and is
+  /// located at the `match` keyword.)
+  template <class MatchExprT> bool traverseSubjects(MatchExprT *S) {
+    ArrayRef<Expr *> Elements = S->getSubjectProductElements();
+    if (!Elements.empty()) {
+      for (Expr *E : Elements)
+        if (!TraverseStmt(E))
+          return false;
+      return true;
+    }
+    VarDecl *Holder = S->getHoldingVar();
+    return TraverseStmt(Holder && Holder->getInit() ? Holder->getInit()
+                                                     : S->getSubject());
+  }
+
+  bool traverseGuard(const clang::MatchGuard &Guard) {
+    if (!Guard.hasGuard())
+      return true;
+    if (!TraverseStmt(Guard.Init))
+      return false;
+    if (Guard.ConditionVariable && !TraverseDecl(Guard.ConditionVariable))
+      return false;
+    return TraverseStmt(Guard.Condition);
+  }
+
+  // Only what is written is traversed: not the instantiations of the cases,
+  // the variables that hold subjects and projections, nor the conditions the
+  // compiler builds to test a pattern.
+  bool TraverseMatchSelectExpr(MatchSelectExpr *S,
+                               DataRecursionQueue *Queue = nullptr) {
+    if (!TraverseStmt(S->getInitStmt()) || !traverseSubjects(S))
+      return false;
+    for (Stmt *Preamble : S->getPreamble())
+      if (!TraverseStmt(Preamble))
+        return false;
+    for (const clang::MatchCase &C : S->getCases()) {
+      if (!TraverseMatchPattern(C.Pattern) || !traverseGuard(C.Guard) ||
+          !TraverseStmt(C.Handler))
+        return false;
+    }
+    return WalkUpFromMatchSelectExpr(S);
+  }
+
+  bool TraverseMatchTestExpr(MatchTestExpr *E,
+                             DataRecursionQueue *Queue = nullptr) {
+    if (!traverseSubjects(E) || !TraverseMatchPattern(E->getPattern()) ||
+        !traverseGuard(E->getGuard()))
+      return false;
+    return WalkUpFromMatchTestExpr(E);
+  }
+
+  bool TraverseCaseConditionExpr(CaseConditionExpr *E,
+                                 DataRecursionQueue *Queue = nullptr) {
+    if (!traverseSubjects(E) || !TraverseMatchPattern(E->getPattern()))
+      return false;
+    return WalkUpFromCaseConditionExpr(E);
+  }
+
+  bool WalkUpFromMatchSelectExpr(MatchSelectExpr *S) {
+    markSubjects(S);
+    Builder.markChildToken(S->getMatchLoc(),
+                           syntax::NodeRole::IntroducerKeyword);
+    Builder.markChildToken(S->getBraces().getBegin(),
+                           syntax::NodeRole::OpenParen);
+    Builder.markChildToken(S->getBraces().getEnd(),
+                           syntax::NodeRole::CloseParen);
+    for (Stmt *Preamble : S->getPreamble())
+      if (Builder.isMapped(Preamble))
+        Builder.markStmtChild(Preamble, syntax::NodeRole::Statement);
+    for (const clang::MatchCase &C : S->getCases())
+      buildMatchCase(C);
+    if (S->isStatement())
+      Builder.foldNode(Builder.getExprRange(S),
+                       new (allocator()) syntax::MatchSelectionStatement, S);
+    else
+      Builder.foldNode(Builder.getExprRange(S),
+                       new (allocator()) syntax::MatchSelectionExpression, S);
+    return true;
+  }
+
+  bool WalkUpFromMatchTestExpr(MatchTestExpr *E) {
+    markSubjects(E);
+    Builder.markChildToken(E->getMatchLoc(),
+                           syntax::NodeRole::IntroducerKeyword);
+    if (syntax::Tree *Pattern = patternNode(E->getPattern()))
+      Builder.markChild(Pattern, syntax::NodeRole::Pattern);
+    Builder.foldNode(Builder.getExprRange(E),
+                     new (allocator()) syntax::MatchTestExpression, E);
+    return true;
+  }
+
+  bool WalkUpFromCaseConditionExpr(CaseConditionExpr *E) {
+    markSubjects(E);
+    Builder.markChildToken(E->getMatchLoc(),
+                           syntax::NodeRole::IntroducerKeyword);
+    if (syntax::Tree *Pattern = patternNode(E->getPattern()))
+      Builder.markChild(Pattern, syntax::NodeRole::Pattern);
+    Builder.foldNode(Builder.getExprRange(E),
+                     new (allocator()) syntax::PatternCondition, E);
+    return true;
+  }
+
   bool WalkUpFromDoExpr(DoExpr *E) {
     Builder.markChildToken(E->getDoLoc(), syntax::NodeRole::IntroducerKeyword);
     Builder.markStmtChild(E->getBody(), syntax::NodeRole::BodyStatement);
@@ -2318,7 +2625,11 @@ void syntax::TreeBuilder::markStmtChild(Stmt *Child, NodeRole Role) {
     return;
 
   syntax::Tree *ChildNode;
-  if (Expr *ChildExpr = dyn_cast<Expr>(Child)) {
+  if (auto *Match = dyn_cast<MatchSelectExpr>(IgnoreImplicitStmt(Child));
+      Match && Match->isStatement()) {
+    // (No ';' follows the closing brace: it is not an expression statement.)
+    ChildNode = Mapping.find(Match);
+  } else if (Expr *ChildExpr = dyn_cast<Expr>(Child)) {
     // This is an expression in a statement position, consume the trailing
     // semicolon and form an 'ExpressionStatement' node.
     markExprChild(ChildExpr, NodeRole::Expression);

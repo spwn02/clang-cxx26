@@ -402,7 +402,10 @@ clang::tok::TokenKind syntax::List::getDelimiterTokenKind() const {
   case NodeKind::CallArguments:
   case NodeKind::ParameterDeclarationList:
   case NodeKind::DeclaratorList:
+  case NodeKind::PatternElements:
     return clang::tok::comma;
+  case NodeKind::PatternAlternatives:
+    return clang::tok::pipepipe;
   default:
     llvm_unreachable("This is not a subclass of List, thus "
                      "getDelimiterTokenKind() cannot be called");
@@ -416,6 +419,8 @@ syntax::List::TerminationKind syntax::List::getTerminationKind() const {
   case NodeKind::CallArguments:
   case NodeKind::ParameterDeclarationList:
   case NodeKind::DeclaratorList:
+  case NodeKind::PatternElements:
+  case NodeKind::PatternAlternatives:
     return TerminationKind::Separated;
   default:
     llvm_unreachable("This is not a subclass of List, thus "
@@ -433,6 +438,10 @@ bool syntax::List::canBeEmpty() const {
     return true;
   case NodeKind::DeclaratorList:
     return true;
+  case NodeKind::PatternElements:
+    return true;
+  case NodeKind::PatternAlternatives:
+    return false;
   default:
     llvm_unreachable("This is not a subclass of List, thus canBeEmpty() "
                      "cannot be called");

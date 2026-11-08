@@ -1912,8 +1912,13 @@ The rest of the toolchain understands pattern matching: ``-ast-print``,
 go-to-definition and semantic tokens for the variables a pattern declares, the
 ``match`` code completion pattern), clang-format, clang-tidy
 (``readability-function-size`` and ``readability-function-cognitive-complexity``
-count a selection like a ``switch``). The syntax-tree library keeps a selection
-as an unknown expression.
+count a selection like a ``switch``). The syntax-tree library has nodes for
+selections (``MatchSelectionExpression``, ``MatchSelectionStatement``), cases
+and guards (``MatchCase``, ``MatchGuard``), tests and conditions
+(``MatchTestExpression``, ``PatternCondition``) and every kind of pattern
+(``WildcardPattern``, ``ExpressionPattern``, ``DeclarationPattern``,
+``TypePattern``, ``ParenPattern``, ``OrPattern``, ``DecompositionPattern``,
+``AlternativePattern``).
 
 Language Extensions Back-ported to Previous Standards
 =====================================================

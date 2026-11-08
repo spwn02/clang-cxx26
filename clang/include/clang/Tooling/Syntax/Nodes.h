@@ -104,7 +104,15 @@ enum class NodeRole : uint8_t {
   Member,
   Callee,
   Arguments,
-  Declarators
+  Declarators,
+  /// Roles of the C++29 pattern matching nodes (P2688).
+  Wildcard,
+  Pattern,
+  Alternatives,
+  Elements,
+  Guard,
+  Subject,
+  Case
 };
 /// For debugging purposes.
 raw_ostream &operator<<(raw_ostream &OS, NodeRole R);
@@ -327,6 +335,118 @@ public:
   static bool classof(const Node *N);
   Leaf *getDoReturnKeyword();
   Expression *getReturnValue();
+};
+
+/// A pattern that has no node of its own, e.g. the bare `...` of a
+/// decomposition pattern. Its tokens are leaves. (P2688, C++29)
+class UnknownPattern final : public Pattern {
+public:
+  UnknownPattern() : Pattern(NodeKind::UnknownPattern) {}
+  static bool classof(const Node *N);
+};
+
+/// A type pattern. e.g. the `int` of `case int =>` (P2688, C++29)
+/// The type is not modelled: its tokens are leaves.
+class TypePattern final : public Pattern {
+public:
+  TypePattern() : Pattern(NodeKind::TypePattern) {}
+  static bool classof(const Node *N);
+};
+
+/// `{ pattern }`, `{ type : pattern }`, `{ .name : pattern }`, `{ .name }` or
+/// `{ }`: selects an alternative of the subject and matches its projection.
+/// (P2688, C++29)
+class AlternativePattern final : public Pattern {
+public:
+  AlternativePattern() : Pattern(NodeKind::AlternativePattern) {}
+  static bool classof(const Node *N);
+  Leaf *getOpenBrace();
+  /// The pattern for the projection, null for `{ }` and `{ .name }`.
+  Pattern *getPattern();
+  Leaf *getCloseBrace();
+};
+
+/// The alternatives of an or-pattern, separated by `||` or `or`.
+class PatternAlternatives final : public List {
+public:
+  PatternAlternatives() : List(NodeKind::PatternAlternatives) {}
+  static bool classof(const Node *N);
+  std::vector<Pattern *> getAlternatives();
+  std::vector<List::ElementAndDelimiter<Pattern>> getAlternativesAndOperators();
+};
+
+/// The comma separated elements of a decomposition pattern.
+class PatternElements final : public List {
+public:
+  PatternElements() : List(NodeKind::PatternElements) {}
+  static bool classof(const Node *N);
+  std::vector<Pattern *> getElements();
+  std::vector<List::ElementAndDelimiter<Pattern>> getElementsAndCommas();
+};
+
+/// The guard of a match case: `if (<init-statement>? <condition>)`.
+/// (P2688, C++29)
+class MatchGuard final : public Tree {
+public:
+  MatchGuard() : Tree(NodeKind::MatchGuard) {}
+  static bool classof(const Node *N);
+  Leaf *getIfKeyword();
+};
+
+/// case <pattern> <guard>? => <statement>   (P2688, C++29)
+/// The handler of a match selection expression is an expression statement.
+class MatchCase final : public Tree {
+public:
+  MatchCase() : Tree(NodeKind::MatchCase) {}
+  static bool classof(const Node *N);
+  Leaf *getCaseKeyword();
+  Pattern *getPattern();
+  MatchGuard *getGuard();
+  Leaf *getArrow();
+  Statement *getHandler();
+};
+
+/// match (<subjects>) <trailing-return-type>? { <preamble> <cases> }
+/// as an expression. (P2688, C++29)
+class MatchSelectionExpression final : public Expression {
+public:
+  MatchSelectionExpression() : Expression(NodeKind::MatchSelectionExpression) {}
+  static bool classof(const Node *N);
+  Leaf *getMatchKeyword();
+  std::vector<Expression *> getSubjects();
+  std::vector<MatchCase *> getCases();
+};
+
+/// match (<subjects>) { <preamble> <cases> } as a statement: the right hand
+/// side of each `=>` is a statement and no `;` follows the closing brace.
+/// (P2688, C++29)
+class MatchSelectionStatement final : public Statement {
+public:
+  MatchSelectionStatement() : Statement(NodeKind::MatchSelectionStatement) {}
+  static bool classof(const Node *N);
+  Leaf *getMatchKeyword();
+  std::vector<Expression *> getSubjects();
+  std::vector<MatchCase *> getCases();
+};
+
+/// match(<subjects>, case <pattern>)   (P2688, C++29)
+class MatchTestExpression final : public Expression {
+public:
+  MatchTestExpression() : Expression(NodeKind::MatchTestExpression) {}
+  static bool classof(const Node *N);
+  Leaf *getMatchKeyword();
+  std::vector<Expression *> getSubjects();
+  Pattern *getPattern();
+};
+
+/// case <pattern> = <subject>, a condition of if, while or for. (P2688, C++29)
+class PatternCondition final : public Expression {
+public:
+  PatternCondition() : Expression(NodeKind::PatternCondition) {}
+  static bool classof(const Node *N);
+  Leaf *getCaseKeyword();
+  Pattern *getPattern();
+  Expression *getSubject();
 };
 
 /// for (<decl> : <init>) <body>

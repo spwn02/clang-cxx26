@@ -100,6 +100,20 @@ raw_ostream &syntax::operator<<(raw_ostream &OS, NodeRole R) {
     return OS << "Arguments";
   case syntax::NodeRole::Declarators:
     return OS << "Declarators";
+  case syntax::NodeRole::Wildcard:
+    return OS << "Wildcard";
+  case syntax::NodeRole::Pattern:
+    return OS << "Pattern";
+  case syntax::NodeRole::Alternatives:
+    return OS << "Alternatives";
+  case syntax::NodeRole::Elements:
+    return OS << "Elements";
+  case syntax::NodeRole::Guard:
+    return OS << "Guard";
+  case syntax::NodeRole::Subject:
+    return OS << "Subject";
+  case syntax::NodeRole::Case:
+    return OS << "Case";
   }
   llvm_unreachable("invalid role");
 }
@@ -320,6 +334,146 @@ syntax::Leaf *syntax::DoReturnStatement::getDoReturnKeyword() {
 syntax::Expression *syntax::DoReturnStatement::getReturnValue() {
   return cast_or_null<syntax::Expression>(
       findChild(syntax::NodeRole::ReturnValue));
+}
+
+std::vector<syntax::Pattern *> syntax::PatternAlternatives::getAlternatives() {
+  std::vector<syntax::Pattern *> Children;
+  for (Node *N : getElementsAsNodes())
+    Children.push_back(llvm::cast<syntax::Pattern>(N));
+  return Children;
+}
+
+std::vector<syntax::List::ElementAndDelimiter<syntax::Pattern>>
+syntax::PatternAlternatives::getAlternativesAndOperators() {
+  std::vector<syntax::List::ElementAndDelimiter<syntax::Pattern>> Children;
+  for (const auto &E : getElementsAsNodesAndDelimiters())
+    Children.push_back({llvm::cast<syntax::Pattern>(E.element), E.delimiter});
+  return Children;
+}
+
+std::vector<syntax::Pattern *> syntax::PatternElements::getElements() {
+  std::vector<syntax::Pattern *> Children;
+  for (Node *N : getElementsAsNodes())
+    Children.push_back(llvm::cast<syntax::Pattern>(N));
+  return Children;
+}
+
+std::vector<syntax::List::ElementAndDelimiter<syntax::Pattern>>
+syntax::PatternElements::getElementsAndCommas() {
+  std::vector<syntax::List::ElementAndDelimiter<syntax::Pattern>> Children;
+  for (const auto &E : getElementsAsNodesAndDelimiters())
+    Children.push_back({llvm::cast<syntax::Pattern>(E.element), E.delimiter});
+  return Children;
+}
+
+syntax::Leaf *syntax::AlternativePattern::getOpenBrace() {
+  return cast_or_null<syntax::Leaf>(findChild(syntax::NodeRole::OpenParen));
+}
+
+syntax::Pattern *syntax::AlternativePattern::getPattern() {
+  return cast_or_null<syntax::Pattern>(findChild(syntax::NodeRole::Pattern));
+}
+
+syntax::Leaf *syntax::AlternativePattern::getCloseBrace() {
+  return cast_or_null<syntax::Leaf>(findChild(syntax::NodeRole::CloseParen));
+}
+
+syntax::Leaf *syntax::MatchGuard::getIfKeyword() {
+  return cast_or_null<syntax::Leaf>(
+      findChild(syntax::NodeRole::IntroducerKeyword));
+}
+
+syntax::Leaf *syntax::MatchCase::getCaseKeyword() {
+  return cast_or_null<syntax::Leaf>(
+      findChild(syntax::NodeRole::IntroducerKeyword));
+}
+
+syntax::Pattern *syntax::MatchCase::getPattern() {
+  return cast_or_null<syntax::Pattern>(findChild(syntax::NodeRole::Pattern));
+}
+
+syntax::MatchGuard *syntax::MatchCase::getGuard() {
+  return cast_or_null<syntax::MatchGuard>(findChild(syntax::NodeRole::Guard));
+}
+
+syntax::Leaf *syntax::MatchCase::getArrow() {
+  return cast_or_null<syntax::Leaf>(findChild(syntax::NodeRole::ArrowToken));
+}
+
+syntax::Statement *syntax::MatchCase::getHandler() {
+  return cast_or_null<syntax::Statement>(
+      findChild(syntax::NodeRole::Statement));
+}
+
+static std::vector<syntax::Expression *> matchSubjects(syntax::Tree *T) {
+  std::vector<syntax::Expression *> Subjects;
+  for (syntax::Node &C : T->getChildren())
+    if (C.getRole() == syntax::NodeRole::Subject)
+      Subjects.push_back(llvm::cast<syntax::Expression>(&C));
+  return Subjects;
+}
+
+static std::vector<syntax::MatchCase *> matchCases(syntax::Tree *T) {
+  std::vector<syntax::MatchCase *> Cases;
+  for (syntax::Node &C : T->getChildren())
+    if (C.getRole() == syntax::NodeRole::Case)
+      Cases.push_back(llvm::cast<syntax::MatchCase>(&C));
+  return Cases;
+}
+
+syntax::Leaf *syntax::MatchSelectionExpression::getMatchKeyword() {
+  return cast_or_null<syntax::Leaf>(
+      findChild(syntax::NodeRole::IntroducerKeyword));
+}
+
+std::vector<syntax::Expression *>
+syntax::MatchSelectionExpression::getSubjects() {
+  return matchSubjects(this);
+}
+
+std::vector<syntax::MatchCase *> syntax::MatchSelectionExpression::getCases() {
+  return matchCases(this);
+}
+
+syntax::Leaf *syntax::MatchSelectionStatement::getMatchKeyword() {
+  return cast_or_null<syntax::Leaf>(
+      findChild(syntax::NodeRole::IntroducerKeyword));
+}
+
+std::vector<syntax::Expression *>
+syntax::MatchSelectionStatement::getSubjects() {
+  return matchSubjects(this);
+}
+
+std::vector<syntax::MatchCase *> syntax::MatchSelectionStatement::getCases() {
+  return matchCases(this);
+}
+
+syntax::Leaf *syntax::MatchTestExpression::getMatchKeyword() {
+  return cast_or_null<syntax::Leaf>(
+      findChild(syntax::NodeRole::IntroducerKeyword));
+}
+
+std::vector<syntax::Expression *> syntax::MatchTestExpression::getSubjects() {
+  return matchSubjects(this);
+}
+
+syntax::Pattern *syntax::MatchTestExpression::getPattern() {
+  return cast_or_null<syntax::Pattern>(findChild(syntax::NodeRole::Pattern));
+}
+
+syntax::Leaf *syntax::PatternCondition::getCaseKeyword() {
+  return cast_or_null<syntax::Leaf>(
+      findChild(syntax::NodeRole::IntroducerKeyword));
+}
+
+syntax::Pattern *syntax::PatternCondition::getPattern() {
+  return cast_or_null<syntax::Pattern>(findChild(syntax::NodeRole::Pattern));
+}
+
+syntax::Expression *syntax::PatternCondition::getSubject() {
+  return cast_or_null<syntax::Expression>(
+      findChild(syntax::NodeRole::Subject));
 }
 
 syntax::Leaf *syntax::RangeBasedForStatement::getForKeyword() {

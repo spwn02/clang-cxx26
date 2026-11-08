@@ -312,3 +312,92 @@ def SimpleTemplateNameSpecifier : Unconstrained<NameSpecifier> {
     `std::vector<int>::size`.
   }];
 }
+
+// C++29 pattern matching (P2688R6).
+//
+// Patterns are not expressions: they have their own family of nodes.
+def Pattern : Alternatives {
+  let documentation = [{
+    A pattern of a match case or a pattern condition (P2688, C++29). Patterns
+    are not expressions.
+  }];
+}
+def UnknownPattern : External<Pattern> {}
+def TypePattern : External<Pattern> {}
+def AlternativePattern : External<Pattern> {}
+def PatternAlternatives : External<List> {}
+def PatternElements : External<List> {}
+
+def WildcardPattern : Sequence<Pattern> {
+  let documentation = [{
+    The wildcard pattern, which matches any subject. e.g. `_`
+  }];
+  let children = [
+    Role<"Wildcard", Token<"identifier">>,
+  ];
+}
+
+def ExpressionPattern : Sequence<Pattern> {
+  let documentation = [{
+    A value or predicate pattern, an expression naming a constant.
+    e.g. `0`, `Color::red`, `is_even`
+  }];
+  let children = [
+    Role<"Expression", Expression>,
+  ];
+}
+
+def DeclarationPattern : Sequence<Pattern> {
+  let documentation = [{
+    A declaration pattern, which initializes a variable from the subject.
+    e.g. `int value`, `const Widget &w`, `auto &&[first, second]`
+  }];
+  let children = [
+    Role<"Declaration", Declaration>,
+  ];
+}
+
+def ParenPattern : Sequence<Pattern> {
+  let documentation = [{
+    A parenthesized pattern. e.g. `(north or south)`
+  }];
+  let children = [
+    Role<"OpenParen", Token<"l_paren">>,
+    Role<"Pattern", Pattern>,
+    Role<"CloseParen", Token<"r_paren">>,
+  ];
+}
+
+def OrPattern : Sequence<Pattern> {
+  let documentation = [{
+    A pattern that matches when one of its alternatives does.
+    e.g. `1 or 2`, `a || b`
+  }];
+  let children = [
+    Role<"Alternatives", PatternAlternatives>,
+  ];
+}
+
+def DecompositionPattern : Sequence<Pattern> {
+  let documentation = [{
+    A decomposition pattern, which matches the elements of a product.
+    e.g. `[0, int y]`, `[auto &&first, ...]`
+  }];
+  let children = [
+    Role<"OpenParen", Token<"l_square">>,
+    Role<"Elements", PatternElements>,
+    Role<"CloseParen", Token<"r_square">>,
+  ];
+}
+
+// A match case: `case pattern guard? => statement`.
+def MatchCase : External<Tree> {}
+// The guard of a match case: `if (init-statement? condition)`.
+def MatchGuard : External<Tree> {}
+// `match (subjects) trailing-return-type? { preamble? cases }`
+def MatchSelectionExpression : External<Expression> {}
+def MatchSelectionStatement : External<Statement> {}
+// `match(subjects, case pattern)`
+def MatchTestExpression : External<Expression> {}
+// `case pattern = subject`, as a condition.
+def PatternCondition : External<Expression> {}
