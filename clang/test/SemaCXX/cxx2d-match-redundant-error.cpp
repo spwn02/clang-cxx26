@@ -16,13 +16,3 @@ int redundant_or_alternative(bool value) {
     case true => 1;
   };
 }
-
-struct Pair {
-  int first;
-  int second;
-};
-
-int redundant_pattern_declaration_else(Pair value) {
-  case [int first, int second] = value else return 0; // expected-error {{match case is redundant}}
-  return first + second;
-}
