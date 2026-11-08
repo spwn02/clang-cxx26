@@ -10673,7 +10673,7 @@ void SemaCodeCompletion::CodeCompletePreprocessorMacroArgument(
 // resource of a #embed directive or a __has_embed expression, with the
 // argument in parentheses as a placeholder. C++26 specifies limit, prefix,
 // suffix and if_empty (without the underscored spellings of C23). The offset
-// parameter is C++29 (P3540R3) and is not offered.
+// parameter is C++29 (P3540R3) and is offered only there.
 void SemaCodeCompletion::CodeCompleteEmbedParameter(
     llvm::StringRef Scope, llvm::ArrayRef<llvm::StringRef> Present) {
   ResultBuilder Results(SemaRef, CodeCompleter->getAllocator(),
@@ -10705,6 +10705,9 @@ void SemaCodeCompletion::CodeCompleteEmbedParameter(
       if (Underscored)
         Add(Name, ("__" + Name + "__").str(), Argument);
     }
+    // P3540R3: 'offset' is a standard embed parameter in C++29.
+    if (getLangOpts().CPlusPlus29)
+      Add("offset", "offset", "count");
   }
   Results.ExitScope();
   HandleCodeCompleteResults(&SemaRef, CodeCompleter,

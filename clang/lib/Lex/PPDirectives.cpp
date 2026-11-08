@@ -3738,7 +3738,8 @@ Preprocessor::LexEmbedParameters(Token &CurTok, bool ForHasEmbed) {
       if (Result.MaybeLimitParam)
         Present.push_back("limit");
       if (Result.MaybeOffsetParam)
-        Present.push_back("clang::offset");
+        Present.push_back(getLangOpts().CPlusPlus29 ? "offset"
+                                                    : "clang::offset");
       if (Result.MaybePrefixParam)
         Present.push_back("prefix");
       if (Result.MaybeSuffixParam)
@@ -3950,7 +3951,9 @@ Preprocessor::LexEmbedParameters(Token &CurTok, bool ForHasEmbed) {
         return std::nullopt;
       Result.MaybeLimitParam =
           PPEmbedParameterLimit{*Limit, {ParamStartLoc, CurTok.getLocation()}};
-    } else if (Parameter == "clang::offset") {
+    } else if (Parameter == "clang::offset" ||
+               // P3540R3: 'offset' is a standard embed parameter in C++29.
+               (Parameter == "offset" && getLangOpts().CPlusPlus29)) {
       if (Result.MaybeOffsetParam)
         Diag(CurTok, diag::err_pp_embed_dup_params) << Parameter;
 

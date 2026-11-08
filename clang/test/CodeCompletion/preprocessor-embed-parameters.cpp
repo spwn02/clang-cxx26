@@ -48,3 +48,10 @@ unsigned char a[] = {
 // RUN: %clang_cc1 -x c -std=c23 -fsyntax-only -DCASE_ALL -code-completion-at=%s:6:44 %s | FileCheck -check-prefix=CHECK-C23 %s
 // CHECK-C23: COMPLETION: Pattern : __limit__(<#count#>)
 // CHECK-C23: COMPLETION: Pattern : limit(<#count#>)
+// P3540R3: offset is a standard parameter in C++29, offered like the others and
+// not again once it is given.
+// RUN: %clang_cc1 -std=c++2d -fsyntax-only -DCASE_ALL -code-completion-at=%s:6:44 %s | FileCheck -check-prefix=CHECK-ALL29 %s
+// CHECK-ALL29: COMPLETION: Pattern : if_empty(<#tokens#>)
+// CHECK-ALL29: COMPLETION: Pattern : limit(<#count#>)
+// CHECK-ALL29: COMPLETION: Pattern : offset(<#count#>)
+// CHECK-ALL29: COMPLETION: Pattern : prefix(<#tokens#>)

@@ -299,6 +299,10 @@ C++2d (C++29) Feature Support
   throwing exception specification (``noexcept(false)``) is ill-formed, also in a class whose exception specification
   is parsed after the class is complete.
 
+- Implemented `P3540R3 <https://wg21.link/P3540R3>`_ under ``-std=c++29``: ``offset`` is a standard ``#embed`` and
+  ``__has_embed`` parameter (the existing ``clang::offset`` spelling is kept). ``__cpp_pp_embed`` keeps its value
+  because the paper leaves the new value to the editors.
+
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
