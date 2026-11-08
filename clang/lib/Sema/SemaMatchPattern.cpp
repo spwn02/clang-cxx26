@@ -3154,26 +3154,27 @@ bool Sema::CheckCompleteMatchPatternImpl(
     std::optional<ExpressionPatternConditionKind> Kind;
     bool HasStructuralOperands =
         hasStructuralValuePatternOperands(Subject, PatternValue);
-    if (HasStructuralOperands) {
-      if (isViableExpressionPatternCondition(
-              *this, S, Loc, Subject, PatternValue,
-              ExpressionPatternConditionKind::StructuralEquality))
-        Kind = ExpressionPatternConditionKind::StructuralEquality;
-    } else {
-      if (isViableExpressionPatternCondition(
-              *this, S, Loc, Subject, PatternValue,
-              ExpressionPatternConditionKind::Equality))
-        Kind = ExpressionPatternConditionKind::Equality;
-      else if (isViableExpressionPatternCondition(
-                   *this, S, Loc, Subject, PatternValue,
-                   ExpressionPatternConditionKind::Invocation))
-        Kind = ExpressionPatternConditionKind::Invocation;
-    }
+    // P2688R6 6.2: a value pattern is viable when 'bool(subject == E)' is
+    // well-formed, otherwise when 'bool(E(subject))' is. Integral operands
+    // that compare as a three-way comparison would are lowered through the
+    // structural form (their value is known to coverage); any other
+    // well-formed equality uses the ordinary operator.
+    if (HasStructuralOperands &&
+        isViableExpressionPatternCondition(
+            *this, S, Loc, Subject, PatternValue,
+            ExpressionPatternConditionKind::StructuralEquality))
+      Kind = ExpressionPatternConditionKind::StructuralEquality;
+    else if (isViableExpressionPatternCondition(
+                 *this, S, Loc, Subject, PatternValue,
+                 ExpressionPatternConditionKind::Equality))
+      Kind = ExpressionPatternConditionKind::Equality;
+    else if (isViableExpressionPatternCondition(
+                 *this, S, Loc, Subject, PatternValue,
+                 ExpressionPatternConditionKind::Invocation))
+      Kind = ExpressionPatternConditionKind::Invocation;
 
     if (!Kind) {
-      Diag(Loc, HasStructuralOperands
-                    ? diag::err_expression_pattern_incompatible_builtin_operands
-                    : diag::err_expression_pattern_not_testable)
+      Diag(Loc, diag::err_expression_pattern_not_testable)
           << P->getExpr()->getType() << Subject->getType()
           << P->getExpr()->getSourceRange();
       return true;

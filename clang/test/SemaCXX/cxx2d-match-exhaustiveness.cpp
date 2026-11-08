@@ -112,8 +112,8 @@ int impossible_promoted_integer_value(unsigned char value) {
 
 int converted_unsigned_integer_value(unsigned value) {
   return match (value) {
-    case -1 => 0; // expected-error {{expression pattern of type 'int' is not compatible with a subject of type 'unsigned int' under built-in value-pattern comparison}}
-    case ~0u => 1;
+    case -1 => 0; // 'value == -1' converts -1 to ~0u
+    case ~0u => 1; // expected-error {{match case is redundant}}
     case _ => 2;
   };
 }
@@ -168,7 +168,7 @@ int exhaustive_signed_small_integer(S2 value) {
 
 int impossible_bool_value(bool value) {
   return match (value) {
-    case 2 => 0; // expected-error {{expression pattern of type 'int' is not compatible with a subject of type 'bool' under built-in value-pattern comparison}}
+    case 2 => 0; // expected-error {{match case can never match a subject of type 'bool'}}
     case _ => 1;
   };
 }

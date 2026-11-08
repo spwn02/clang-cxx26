@@ -1317,9 +1317,10 @@ int boolean_conversion_is_not_applicable(int value) {
   };
 }
 
-int boolean_value_pattern_is_not_applicable(int value) {
+// P2688R6 6.2: 'value == true' is well-formed, so the value pattern is viable.
+int boolean_value_pattern_compares_by_equality(int value) {
   return match (value) {
-    case true => 1; // expected-error {{expression pattern of type 'bool' is not compatible with a subject of type 'int' under built-in value-pattern comparison}}
+    case true => 1;
     case int exact => exact;
   };
 }
