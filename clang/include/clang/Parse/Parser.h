@@ -3485,8 +3485,12 @@ private:
   ///
   /// Prior to C++0x, the assignment-expression in an initializer-clause must
   /// be a constant-expression.
+  ///
+  /// With \p AddInitializerToDecl the initializer is also added to \p D (a
+  /// static data member) before its evaluation context is left.
   ExprResult ParseCXXMemberInitializer(Decl *D, bool IsFunction,
-                                       SourceLocation &EqualLoc);
+                                       SourceLocation &EqualLoc,
+                                       bool AddInitializerToDecl = false);
 
   /// Parse a C++ member-declarator up to, but not including, the optional
   /// brace-or-equal-initializer or pure-specifier.

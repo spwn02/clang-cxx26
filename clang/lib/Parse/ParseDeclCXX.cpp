@@ -3411,16 +3411,17 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclaration(
         ParseCXXNonStaticMemberInitializer(ThisDecl);
     } else if (HasStaticInitializer) {
       // Normal initializer.
+      // The initializer is added to the declaration inside the
+      // expression-evaluation context it was parsed in.
       ExprResult Init = ParseCXXMemberInitializer(
-          ThisDecl, DeclaratorInfo.isDeclarationOfFunction(), EqualLoc);
+          ThisDecl, DeclaratorInfo.isDeclarationOfFunction(), EqualLoc,
+          /*AddInitializerToDecl=*/true);
 
       if (Init.isInvalid()) {
         if (ThisDecl)
           Actions.ActOnUninitializedDecl(ThisDecl);
         SkipUntil(tok::comma, StopAtSemi | StopBeforeMatch);
-      } else if (ThisDecl)
-        Actions.AddInitializerToDecl(ThisDecl, Init.get(),
-                                     EqualLoc.isInvalid());
+      }
     } else if (ThisDecl && DeclaratorInfo.isStaticMember())
       // No initializer.
       Actions.ActOnUninitializedDecl(ThisDecl);
@@ -3505,7 +3506,8 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclaration(
 }
 
 ExprResult Parser::ParseCXXMemberInitializer(Decl *D, bool IsFunction,
-                                             SourceLocation &EqualLoc) {
+                                             SourceLocation &EqualLoc,
+                                             bool AddInitializerToDecl) {
   assert(Tok.isOneOf(tok::equal, tok::l_brace) &&
          "Data member initializer not starting with '=' or '{'");
 
@@ -3564,7 +3566,13 @@ ExprResult Parser::ParseCXXMemberInitializer(Decl *D, bool IsFunction,
     Diag(Tok, diag::err_ms_property_initializer) << PD;
     return ExprError();
   }
-  return ParseInitializer(D);
+  ExprResult Init = ParseInitializer(D);
+  // Converting the initializer to the declared type is part of its evaluation
+  // context: an implicit conversion through a consteval constructor is an
+  // immediate invocation recorded in the current context record.
+  if (AddInitializerToDecl && D && !Init.isInvalid())
+    Actions.AddInitializerToDecl(D, Init.get(), EqualLoc.isInvalid());
+  return Init;
 }
 
 void Parser::SkipCXXMemberSpecification(SourceLocation RecordLoc,
