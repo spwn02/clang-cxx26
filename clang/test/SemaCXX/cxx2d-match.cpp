@@ -1343,7 +1343,7 @@ int bad_promotion(char value) {
 
 int bad_storage(int value) {
   return match (value) {
-    case static int copy => copy; // expected-error {{loop variable 'copy' may not be declared 'static'}}
+    case static int copy => copy; // expected-error {{pattern variable 'copy' may not be declared 'static'}}
     case _ => 0;
   };
 }

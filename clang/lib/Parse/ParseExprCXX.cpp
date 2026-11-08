@@ -5447,7 +5447,7 @@ Parser::ParseDeclarationPattern(bool AllowPackExpansion) {
 
   Decl *ThisDecl =
       Actions.ActOnDeclarator(getCurScope(), D, /*IsPatternDecl=*/true);
-  Actions.ActOnCXXForRangeDecl(ThisDecl);
+  Actions.ActOnCXXForRangeDecl(ThisDecl, /*IsPattern=*/true);
   D.complete(ThisDecl);
   DeclGroupPtrTy Group =
       Actions.FinalizeDeclaratorGroup(getCurScope(), DS, ThisDecl);
@@ -5456,7 +5456,7 @@ Parser::ParseDeclarationPattern(bool AllowPackExpansion) {
 
   DeclGroupRef Decls = Group.get();
   if (!Decls.isSingleDecl()) {
-    Diag(D.getEndLoc(), diag::err_for_range_decl_must_be_var) << false;
+    Diag(D.getEndLoc(), diag::err_pattern_decl_must_be_var);
     return true;
   }
 

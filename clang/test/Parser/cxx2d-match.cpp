@@ -539,7 +539,7 @@ void test_parenthesized_declarator_suffix_disambiguation(int value) {
   match (value) {
     // expected-warning@+3 {{empty parentheses interpreted as a function declaration}}
     // expected-note@+2 {{replace parentheses with an initializer to declare a variable}}
-    // expected-error@+1 {{for range declaration must declare a variable}}
+    // expected-error@+1 {{declaration pattern must declare a variable}}
     case int(function)() => 0;
     case _ => 0;
   }
