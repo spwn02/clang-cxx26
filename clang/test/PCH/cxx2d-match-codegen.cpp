@@ -26,8 +26,6 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -std=c++2d -O0 -include-pch %t.8.pch -x c++ /dev/null -emit-llvm -o - | FileCheck %S/../CodeGenCXX/PatternMatching/match-expr-pat-type.cpp
 // RUN: %clang_cc1 -std=c++2d -triple x86_64-unknown-unknown -O1 -emit-pch -o %t.9.pch %S/../CodeGenCXX/PatternMatching/match-or-pattern.cpp
 // RUN: %clang_cc1 -std=c++2d -triple x86_64-unknown-unknown -O1 -include-pch %t.9.pch -x c++ /dev/null -emit-llvm -o - | FileCheck %S/../CodeGenCXX/PatternMatching/match-or-pattern.cpp
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown -std=c++2d -O0 -emit-pch -o %t.10.pch %S/../CodeGenCXX/PatternMatching/match-pattern-declaration.cpp
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown -std=c++2d -O0 -include-pch %t.10.pch -x c++ /dev/null -emit-llvm -o - | FileCheck %S/../CodeGenCXX/PatternMatching/match-pattern-declaration.cpp
 // RUN: %clang_cc1 -std=c++2d -triple x86_64-unknown-unknown -O0 -emit-pch -o %t.11.pch %S/../CodeGenCXX/PatternMatching/match-select-expr.cpp
 // RUN: %clang_cc1 -std=c++2d -triple x86_64-unknown-unknown -O0 -include-pch %t.11.pch -x c++ /dev/null -emit-llvm -o - | FileCheck %S/../CodeGenCXX/PatternMatching/match-select-expr.cpp
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -std=c++2d -Werror=unused-value -O0 -emit-pch -o %t.12.pch %S/../CodeGenCXX/PatternMatching/match-test-condition-instantiation.cpp

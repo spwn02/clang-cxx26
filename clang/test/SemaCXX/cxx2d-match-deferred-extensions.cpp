@@ -10,3 +10,11 @@ void deferred(int x) {
   match (x) { case < 0 => ; case _ => ; }         // expected-error {{expected expression}}
   match (x) { case 1..10 => ; case _ => ; }       // expected-error {{invalid suffix '.10' on floating constant}}
 }
+
+// A pattern is only introduced by `case` inside a match selection or as a
+// pattern condition (5.1). There is no block-scope pattern declaration.
+struct Pair { int a, b; };
+int block_scope_declaration(Pair value) {
+  case [int x, int y] = value else return 0; // expected-error {{expected}}
+  return 0;
+}

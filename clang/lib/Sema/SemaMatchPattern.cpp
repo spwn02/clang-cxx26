@@ -1602,11 +1602,11 @@ ExprResult Sema::ActOnCaseConditionExpr(
     MatchPattern *Pattern, MatchPatternInstantiation *Instantiation,
     bool PatternIsIrrefutable, bool NeedsCaseInstantiation,
     ArrayRef<MatchTestInstantiation> Instantiations,
-    bool HasSemanticInstantiations, bool IsPatternDeclaration) {
+    bool HasSemanticInstantiations) {
   return new (Context) CaseConditionExpr(
       Context, HoldingVar, Subject, CaseLoc, Pattern, Instantiation,
       PatternIsIrrefutable, NeedsCaseInstantiation, Instantiations,
-      HasSemanticInstantiations, IsPatternDeclaration);
+      HasSemanticInstantiations);
 }
 
 ExprResult Sema::BuildCaseConditionAnd(SourceLocation AndLoc, Expr *LHS,
@@ -1644,140 +1644,7 @@ ExprResult Sema::AttachMatchTestCondition(CaseConditionExpr *E, Stmt *Handler,
       E->getHoldingVar(), E->getSubject(), E->getMatchLoc(), E->getPattern(),
       E->getPatternInstantiation(), E->isPatternIrrefutable(),
       /*NeedsCaseInstantiation=*/false, ArrayRef(Instantiation),
-      /*HasSemanticInstantiations=*/true, E->isPatternDeclaration());
-}
-
-bool Sema::CheckPatternDeclarationScope(Scope *S,
-                                        ArrayRef<Decl *> Declarations) {
-  bool Invalid = false;
-  SmallVector<NamedDecl *, 4> PriorDeclarations;
-  for (Decl *D : Declarations) {
-    auto *New = dyn_cast<NamedDecl>(D);
-    if (!New || !New->getDeclName())
-      continue;
-
-    LookupResult Previous(*this, New->getDeclName(), New->getLocation(),
-                          LookupOrdinaryName, forRedeclarationInCurContext());
-    LookupName(Previous, S);
-    FilterLookupForScope(Previous, CurContext, S,
-                         /*ConsiderLinkage=*/false,
-                         /*AllowInlineNamespace=*/false);
-    if (Previous.isSingleTagDecl())
-      Previous.clear();
-
-    // C++ placeholder variables can be repeated in the same scope, but a
-    // function parameter named `_` is not a placeholder variable.
-    if (New->isPlaceholderVar(LangOpts) &&
-        llvm::none_of(Previous,
-                      [](NamedDecl *D) { return isa<ParmVarDecl>(D); })) {
-      PriorDeclarations.push_back(New);
-      continue;
-    }
-
-    NamedDecl *Old =
-        Previous.empty() ? nullptr : Previous.getRepresentativeDecl();
-    if (!Old) {
-      auto I = llvm::find_if(PriorDeclarations, [&](NamedDecl *D) {
-        return D->getDeclName() == New->getDeclName();
-      });
-      if (I != PriorDeclarations.end())
-        Old = *I;
-    }
-    if (!Old) {
-      PriorDeclarations.push_back(New);
-      continue;
-    }
-    Diag(New->getLocation(), diag::err_redefinition) << New->getDeclName();
-    Diag(Old->getLocation(), diag::note_previous_definition);
-    New->setInvalidDecl();
-    Invalid = true;
-    PriorDeclarations.push_back(New);
-  }
-  return Invalid;
-}
-
-bool Sema::CheckPatternDeclarationElse(Stmt *Else, SourceLocation ElseLoc) {
-  CFG::BuildOptions Options;
-  Options.DoExpressionBody = true;
-  Options.PruneTriviallyFalseEdges = true;
-  Options.AddEHEdges = false;
-
-  std::unique_ptr<CFG> Cfg =
-      CFG::buildCFG(/*D=*/nullptr, Else, &Context, Options);
-  if (!Cfg) {
-    Diag(ElseLoc, diag::err_pattern_declaration_else_fallthrough);
-    return true;
-  }
-
-  llvm::BitVector Live(Cfg->getNumBlockIDs());
-  reachable_code::ScanReachableFromBlock(&Cfg->getEntry(), Live);
-
-  CFGBlock::FilterOptions Filter;
-  Filter.IgnoreDefaultsWithCoveredEnums = 1;
-  for (CFGBlock::filtered_pred_iterator I =
-           Cfg->getExit().filtered_pred_start_end(Filter);
-       I.hasMore(); ++I) {
-    const CFGBlock &Block = **I;
-    if (!Live[Block.getBlockID()] || Block.hasNoReturnElement())
-      continue;
-
-    if (const Stmt *Terminator = Block.getTerminatorStmt())
-      if (isa<CXXTryStmt>(Terminator))
-        continue;
-
-    CFGBlock::const_reverse_iterator RI = Block.rbegin(), RE = Block.rend();
-    for (; RI != RE; ++RI)
-      if (RI->getAs<CFGStmt>())
-        break;
-
-    if (RI != RE) {
-      const Stmt *Last = RI->castAs<CFGStmt>().getStmt();
-      if (isa<ReturnStmt, CoreturnStmt, CXXThrowExpr>(Last))
-        continue;
-    }
-
-    if (!llvm::is_contained(Block.succs(), &Cfg->getExit()))
-      continue;
-    Diag(ElseLoc, diag::err_pattern_declaration_else_fallthrough);
-    return true;
-  }
-  return false;
-}
-
-std::optional<Sema::MatchExhaustivenessResult>
-Sema::GetPatternDeclarationExhaustiveness(CaseConditionExpr *Condition) {
-  MatchCase SourceCase{Condition->getPattern(),
-                       /*IfLoc=*/{},
-                       /*Guard=*/{},
-                       /*Handler=*/nullptr,
-                       /*MaybeUseful=*/false,
-                       Condition->getPatternInstantiation(),
-                       /*Attributes=*/{},
-                       /*NotReturnLoc=*/{}};
-  SmallVector<MatchCaseInstantiation, 4> Instantiations;
-  if (Condition->getInstantiations().empty()) {
-    Instantiations.push_back({Condition->getPattern(),
-                              /*IfLoc=*/{},
-                              /*Guard=*/{},
-                              /*Handler=*/nullptr,
-                              /*CaseIndex=*/0,
-                              Condition->getPatternInstantiation(),
-                              /*Attributes=*/{},
-                              /*NotReturnLoc=*/{}});
-  } else {
-    for (const MatchTestInstantiation &Instantiation :
-         Condition->getInstantiations())
-      Instantiations.push_back(
-          {Instantiation.Pattern, Instantiation.IfLoc, Instantiation.Guard,
-           /*Handler=*/nullptr,
-           /*CaseIndex=*/0, Instantiation.PatternInstantiation,
-           /*Attributes=*/{},
-           /*NotReturnLoc=*/{}});
-  }
-  return CheckMatchExhaustiveness(
-      Condition->getSubject(), ArrayRef(SourceCase), Instantiations,
-      /*DiagnoseExhaustiveness=*/false,
-      /*UseResolvedInstantiationDependentPatterns=*/true);
+      /*HasSemanticInstantiations=*/true);
 }
 
 ExprResult Sema::ActOnMatchSelectExpr(

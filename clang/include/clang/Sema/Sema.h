@@ -11757,19 +11757,14 @@ public:
       MatchPattern *Pattern, MatchPatternInstantiation *PatternInstantiation,
       bool PatternIsIrrefutable, bool NeedsCaseInstantiation,
       ArrayRef<MatchTestInstantiation> Instantiations = {},
-      bool HasSemanticInstantiations = false,
-      bool IsPatternDeclaration = false);
+      bool HasSemanticInstantiations = false);
   ExprResult BuildCaseConditionAnd(SourceLocation AndLoc, Expr *LHS, Expr *RHS);
   ExprResult AttachMatchTestCondition(CaseConditionExpr *E, Stmt *Handler,
                                       Expr *Increment = nullptr);
-  bool CheckPatternDeclarationScope(Scope *S, ArrayRef<Decl *> Declarations);
-  bool CheckPatternDeclarationElse(Stmt *Else, SourceLocation ElseLoc);
   struct MatchExhaustivenessResult {
     bool IsExhaustive;
     bool IsFullyCovered;
   };
-  std::optional<MatchExhaustivenessResult>
-  GetPatternDeclarationExhaustiveness(CaseConditionExpr *Condition);
   ExprResult ExpandDeferredMatchTestExpr(MatchTestExpr *E);
   bool ExpandMatchCondition(ConditionResult &Condition, SourceLocation Loc,
                             Stmt *&Handler, Expr *&Increment,

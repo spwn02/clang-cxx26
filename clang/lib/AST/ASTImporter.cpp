@@ -8753,9 +8753,7 @@ ExpectedStmt ASTNodeImporter::VisitMatchTestExpr(MatchTestExpr *E) {
         Ctx, ToHoldingVar, ToSubject, ToMatchLoc, *ToPattern,
         *ToPatternInstantiation, CC->isPatternIrrefutable(),
         CC->needsCaseInstantiation(), ToInstantiations,
-        CC->hasSemanticInstantiations(), CC->isPatternDeclaration());
-    if (CC->isFailureUnreachable())
-      ToCC->setFailureUnreachable();
+        CC->hasSemanticInstantiations());
     ToE = ToCC;
   } else {
     ToE = new (Ctx) MatchTestExpr(

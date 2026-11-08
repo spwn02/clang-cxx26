@@ -3330,8 +3330,6 @@ void TextNodeDumper::VisitMatchTestExpr(const MatchTestExpr *Node) {
 
 void TextNodeDumper::VisitCaseConditionExpr(const CaseConditionExpr *Node) {
   VisitMatchTestExpr(Node);
-  if (Node->isPatternDeclaration())
-    OS << " pattern_declaration";
 }
 
 void TextNodeDumper::VisitMatchSelectExpr(const MatchSelectExpr *Node) {

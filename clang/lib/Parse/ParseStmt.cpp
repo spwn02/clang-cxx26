@@ -357,8 +357,6 @@ Retry:
   }
 
   case tok::kw_case:                // C99 6.8.1: labeled-statement
-    if (getLangOpts().PatternMatching && isPatternDeclaration())
-      return ParsePatternDeclaration(StmtCtx);
     return ParseCaseStatement(StmtCtx);
 
   case tok::kw_default:             // C99 6.8.1: labeled-statement
@@ -681,127 +679,6 @@ StmtResult Parser::ParseMatchStatement(bool MissingSubjectParens) {
   if (Expr.isInvalid())
     return Actions.ActOnExprStmtError();
   return Actions.ActOnExprStmt(Expr, /*DiscardedValue=*/true);
-}
-
-bool Parser::isPatternDeclaration() {
-  assert(Tok.is(tok::kw_case) && "not at a case introducer");
-  if (!NextToken().isOneOf(tok::l_square, tok::l_brace))
-    return false;
-
-  TentativeParsingAction TPA(*this);
-  ConsumeToken();
-  tok::TokenKind Open = Tok.getKind();
-  BalancedDelimiterTracker Delimiter(*this, Open);
-  if (Delimiter.consumeOpen()) {
-    TPA.Revert();
-    return false;
-  }
-  Delimiter.skipToEnd();
-  bool Result = Tok.is(tok::equal);
-  TPA.Revert();
-  return Result;
-}
-
-StmtResult Parser::ParsePatternDeclaration(ParsedStmtContext StmtCtx) {
-  assert(Tok.is(tok::kw_case) && "not at a pattern declaration");
-  SourceLocation CaseLoc = Tok.getLocation();
-  bool IsNestedPatternDeclaration = ParsingPatternDeclarationContinuation;
-
-  if ((StmtCtx & ParsedStmtContext::AllowDeclarationsInC) ==
-      ParsedStmtContext()) {
-    Diag(CaseLoc, diag::err_pattern_declaration_requires_compound_scope);
-    return StmtError();
-  }
-
-  InjectedDeclSet PatternDecls;
-  Sema::ConditionResult Condition = ParseCaseCondition(
-      /*InitStmt=*/nullptr, CaseLoc, Sema::ConditionKind::Boolean,
-      /*MissingOK=*/false, &PatternDecls);
-  if (Condition.isInvalid())
-    return StmtError();
-  SmallVector<Decl *, 4> PatternDeclList(PatternDecls.begin(),
-                                         PatternDecls.end());
-  llvm::sort(PatternDeclList, [&](Decl *LHS, Decl *RHS) {
-    return PP.getSourceManager().isBeforeInTranslationUnit(LHS->getLocation(),
-                                                           RHS->getLocation());
-  });
-  bool InvalidScope =
-      Actions.CheckPatternDeclarationScope(getCurScope(), PatternDeclList);
-
-  auto *Match = dyn_cast_or_null<CaseConditionExpr>(
-      MatchTestExpr::findInCondition(Condition.get().second));
-  if (!Match)
-    return StmtError();
-
-  MatchPattern *Pattern = Match->getPattern()->IgnoreParens();
-  if (!isa<DecompositionPattern, AlternativePattern>(Pattern)) {
-    Diag(Pattern->getBeginLoc(), diag::err_pattern_declaration_top_level);
-    return StmtError();
-  }
-
-  SourceLocation ElseLoc;
-  StmtResult Failure;
-  if (TryConsumeToken(tok::kw_else, ElseLoc)) {
-    Failure = ParseStatement();
-    if (Failure.isInvalid())
-      return StmtError();
-  } else {
-    if (ExpectAndConsumeSemi(diag::err_expected_semi_after_expr))
-      return StmtError();
-  }
-
-  // A pattern declaration governs the remainder of its compound statement.
-  // Parse that continuation with the introduced names in scope so deferred
-  // alternative candidates can instantiate it as their handler.
-  for (Decl *D : PatternDecls)
-    if (auto *ND = dyn_cast<NamedDecl>(D);
-        ND && ND->getDeclName() && !ND->isInvalidDecl())
-      Actions.PushOnScopeChains(ND, getCurScope(), /*AddToContext=*/false);
-
-  SourceLocation ContinuationBegin = Tok.getLocation();
-  StmtVector ContinuationStmts;
-  bool LastIsError = false;
-  {
-    SaveAndRestore ParsingContinuation(ParsingPatternDeclarationContinuation,
-                                       true);
-    ParseCompoundStatementSequence(ContinuationStmts, StmtCtx, LastIsError);
-  }
-  StmtResult Continuation = Actions.ActOnCompoundStmt(
-      ContinuationBegin, Tok.getLocation(), ContinuationStmts,
-      /*isStmtExpr=*/false);
-  if (Continuation.isInvalid())
-    return StmtError();
-
-  if (Failure.isUsable() &&
-      Actions.CheckPatternDeclarationElse(Failure.get(), ElseLoc))
-    return StmtError();
-  if (InvalidScope)
-    return StmtError();
-
-  Match->setIsPatternDeclaration();
-  Stmt *Handler = Continuation.get();
-  Expr *Increment = nullptr;
-  if (PrepareCaseCondition(Condition, CaseLoc, Handler, Increment,
-                           Sema::ConditionKind::Boolean,
-                           /*ExpandImmediately=*/!IsNestedPatternDeclaration) ==
-      CaseConditionPreparation::Invalid)
-    return StmtError();
-  assert(!Increment && "pattern declaration acquired an increment");
-  if (!Handler)
-    Handler = new (Actions.Context) CompoundStmt(
-        Continuation.get()->getBeginLoc(), Continuation.get()->getEndLoc());
-
-  StmtResult Result =
-      Actions.ActOnIfStmt(CaseLoc, IfStatementKind::Ordinary,
-                          /*LParenLoc=*/{}, /*InitStmt=*/nullptr, Condition,
-                          /*RParenLoc=*/{}, Handler, ElseLoc, Failure.get());
-  if (Result.isUsable() && Failure.isUsable()) {
-    auto *PreparedMatch = cast<CaseConditionExpr>(
-        MatchTestExpr::findInCondition(Condition.get().second));
-    if (PreparedMatch->isFailureUnreachable())
-      Diag(ElseLoc, diag::err_match_case_redundant);
-  }
-  return Result;
 }
 
 StmtResult Parser::ParseSEHTryBlock() {
@@ -1700,10 +1577,7 @@ Parser::CaseConditionPreparation Parser::PrepareCaseCondition(
   if (Actions.CurContext->isDependentContext())
     return CaseConditionPreparation::Ready;
 
-  const bool ExpandPatternDeclaration =
-      ExpandImmediately && Match && Match->isPatternDeclaration();
-  if (Match && !Match->needsCaseInstantiation() &&
-      !ExpandPatternDeclaration) {
+  if (Match && !Match->needsCaseInstantiation()) {
     ExprResult Attached =
         Actions.AttachMatchTestCondition(Match, Handler, Increment);
     if (Attached.isInvalid())
@@ -1723,10 +1597,6 @@ Parser::CaseConditionPreparation Parser::PrepareCaseCondition(
           ? Match
           : MatchTestExpr::findCaseConditionRequiringInstantiation(
                 ConditionExpr);
-  // An outer pattern declaration owns its whole continuation, which may
-  // contain nested deferred declarations even when this pattern is concrete.
-  if (!MatchToExpand && ExpandPatternDeclaration)
-    MatchToExpand = Match;
   if (!MatchToExpand)
     return CaseConditionPreparation::Ready;
 

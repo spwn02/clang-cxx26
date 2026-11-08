@@ -3196,8 +3196,7 @@ std::pair<CFGBlock *, CFGBlock *> CFGBuilder::VisitCaseConditionChain(
   }
 
   if (auto *Match = dyn_cast<CaseConditionExpr>(Condition)) {
-    CFGBlock *MatchFalseBlock =
-        Match->isFailureUnreachable() ? nullptr : FalseBlock;
+    CFGBlock *MatchFalseBlock = FalseBlock;
     if (!Match->getInstantiations().empty()) {
       if (SelectConstexprInstantiation && Match->hasSemanticInstantiations()) {
         for (unsigned I = 0; I != Match->getInstantiations().size(); ++I) {

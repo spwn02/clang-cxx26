@@ -2984,8 +2984,6 @@ void ASTStmtWriter::VisitMatchTestExpr(MatchTestExpr *E) {
 
 void ASTStmtWriter::VisitCaseConditionExpr(CaseConditionExpr *E) {
   VisitMatchTestExpr(E);
-  Record.push_back(E->isPatternDeclaration());
-  Record.push_back(E->isFailureUnreachable());
   Code = serialization::EXPR_CASE_CONDITION;
 }
 

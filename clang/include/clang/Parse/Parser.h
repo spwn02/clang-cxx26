@@ -613,7 +613,6 @@ private:
   IdentifierInfo *getSEHExceptKeyword();
   /// Whether a block-scope pattern declaration is parsing the continuation
   /// that will become its successful handler.
-  bool ParsingPatternDeclarationContinuation = false;
 
 
   /// Whether to skip parsing of function bodies.
@@ -7524,8 +7523,6 @@ public:
   StmtResult ParseExprStatement(ParsedStmtContext StmtCtx);
 
   StmtResult ParseMatchStatement(bool MissingSubjectParens = false);
-  bool isPatternDeclaration();
-  StmtResult ParsePatternDeclaration(ParsedStmtContext StmtCtx);
 
   void ParseCompoundStatementSequence(StmtVector &Stmts,
                                       ParsedStmtContext StmtCtx,

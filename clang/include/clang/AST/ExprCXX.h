@@ -5795,9 +5795,6 @@ class CaseConditionExpr final : public MatchTestExpr {
   friend class ASTStmtReader;
   friend class ASTStmtWriter;
 
-  bool IsPatternDeclaration = false;
-  bool FailureIsUnreachable = false;
-
 public:
   explicit CaseConditionExpr(
       const ASTContext &Ctx, VarDecl *HoldingVar, Expr *Subject,
@@ -5805,21 +5802,15 @@ public:
       MatchPatternInstantiation *PatternInstantiation,
       bool PatternIsIrrefutable, bool NeedsCaseInstantiation,
       ArrayRef<MatchTestInstantiation> Instantiations = {},
-      bool HasSemanticInstantiations = false, bool IsPatternDeclaration = false)
+      bool HasSemanticInstantiations = false)
       : MatchTestExpr(CaseConditionExprClass, Ctx, HoldingVar, Subject, CaseLoc,
                       Pattern, PatternInstantiation, /*IfLoc=*/{},
                       /*Guard=*/{}, PatternIsIrrefutable,
                       NeedsCaseInstantiation, Instantiations,
-                      HasSemanticInstantiations, /*HasSubjectProduct=*/false),
-        IsPatternDeclaration(IsPatternDeclaration) {}
+                      HasSemanticInstantiations, /*HasSubjectProduct=*/false) {}
 
   explicit CaseConditionExpr(EmptyShell Empty)
       : MatchTestExpr(CaseConditionExprClass, Empty) {}
-
-  bool isPatternDeclaration() const { return IsPatternDeclaration; }
-  void setIsPatternDeclaration() { IsPatternDeclaration = true; }
-  bool isFailureUnreachable() const { return FailureIsUnreachable; }
-  void setFailureUnreachable() { FailureIsUnreachable = true; }
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == CaseConditionExprClass;

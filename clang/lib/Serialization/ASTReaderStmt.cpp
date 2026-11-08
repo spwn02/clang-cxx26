@@ -3004,8 +3004,6 @@ void ASTStmtReader::VisitMatchTestExpr(MatchTestExpr *E) {
 
 void ASTStmtReader::VisitCaseConditionExpr(CaseConditionExpr *E) {
   VisitMatchTestExpr(E);
-  E->IsPatternDeclaration = Record.readInt();
-  E->FailureIsUnreachable = Record.readInt();
 }
 
 void ASTStmtReader::VisitMatchSelectExpr(MatchSelectExpr *E) {

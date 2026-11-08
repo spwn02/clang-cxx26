@@ -2836,7 +2836,6 @@ void StmtProfiler::VisitMatchTestExpr(const MatchTestExpr *S) {
 
 void StmtProfiler::VisitCaseConditionExpr(const CaseConditionExpr *S) {
   VisitMatchTestExpr(S);
-  ID.AddBoolean(S->isPatternDeclaration());
 }
 
 void StmtProfiler::VisitMatchSelectExpr(const MatchSelectExpr *S) {
