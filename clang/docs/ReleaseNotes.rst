@@ -287,6 +287,11 @@ C++2d (C++29) Feature Support
   Redundant cases are errors, as the paper requires. The syntax-tree library has nodes for
   match selections, cases, guards, tests, pattern conditions and every kind of pattern.
 
+- Implemented `P3668R4 <https://wg21.link/P3668R4>`_ Defaulting postfix increment and decrement operations
+  under ``-std=c++29``. A postfix ``operator++``/``operator--`` can be explicitly defaulted (as a member, a friend or a
+  non-member function); its definition is ``C tmp(c); ++c; return tmp;`` and it is defined as deleted when that is
+  ill-formed. Earlier modes, C++26 included, keep rejecting it.
+
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 
