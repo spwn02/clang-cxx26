@@ -90,3 +90,34 @@ void selectors(Alt alt) {
 // CHECK:      | | |-AlternativePattern Pattern
 // CHECK:      | | | |-DeclarationPattern Pattern
 // CHECK:      | | | | `-SimpleDeclaration Declaration
+
+// A selector that is a type constraint.
+template <class T> concept Integral = __is_integral(T);
+void constrained_selector(Alt alt) {
+  match (alt) {
+    case { Integral: auto &x } => use(x);
+    case { double d } => use(d);
+  }
+}
+// CHECK:      MatchSelectionStatement Statement
+// CHECK:      | |-MatchCase Case
+// CHECK:      | | |-AlternativePattern Pattern
+// CHECK:      | | | |-'{' OpenParen
+// CHECK:      | | | |-DeclarationPattern Pattern
+// CHECK-NEXT: | | | | `-SimpleDeclaration Declaration
+// CHECK:      | | | `-'}' CloseParen
+// CHECK:      | |-MatchCase Case
+
+// The elements that a type pack expands to.
+template <typename... Types>
+void type_pack(const auto &tuple) {
+  match (tuple) { case [Types...] => use(1); case _ => use(0); }
+}
+// CHECK:      MatchSelectionStatement Statement
+// CHECK:      | |-MatchCase Case
+// CHECK:      | | |-DecompositionPattern Pattern
+// CHECK-NEXT: | | | |-'[' OpenParen
+// CHECK-NEXT: | | | |-PatternElements Elements
+// CHECK:      | | | `-']' CloseParen
+// CHECK:      | |-MatchCase Case
+// CHECK:      | | |-WildcardPattern Pattern
