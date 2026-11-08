@@ -5983,6 +5983,20 @@ FunctionTemplateDecl *Sema::getMoreSpecializedTemplate(
     TemplatePartialOrderingContext TPOC, unsigned NumCallArguments1,
     QualType RawObj1Ty, QualType RawObj2Ty, bool Reversed,
     bool PartialOverloading) {
+  // Deduction here treats the parameters of a function template as the
+  // outermost level (depth 0). A member template of a class template that is
+  // still dependent (not instantiated), for example the candidates of signature
+  // help for the injected class name inside the class's own member function,
+  // has its own parameters at a deeper level, and the enclosing template's
+  // parameters would be deduced against an argument vector sized for the
+  // member's own parameters. Such templates have no partial order here (#494).
+  auto HasOuterTemplateLevel = [](const FunctionTemplateDecl *FT) {
+    const TemplateParameterList *TPL = FT->getTemplateParameters();
+    return TPL->size() != 0 && TPL->getDepth() != 0;
+  };
+  if (HasOuterTemplateLevel(FT1) || HasOuterTemplateLevel(FT2))
+    return nullptr;
+
   SmallVector<QualType> Args1;
   SmallVector<QualType> Args2;
   const FunctionDecl *FD1 = FT1->getTemplatedDecl();
