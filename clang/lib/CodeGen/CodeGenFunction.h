@@ -5307,35 +5307,24 @@ public:
   RValue EmitMatchSelectExpr(const MatchSelectExpr &S);
   RValue EmitMatchSelectExpr(const MatchSelectExpr &S, AggValueSlot Dest);
   LValue EmitMatchSelectExprLValue(const MatchSelectExpr *E);
-  struct StagedPatternDeclarations {
-    SmallVector<std::unique_ptr<RunCleanupsScope>, 2> Scopes;
-    SmallVector<RawAddress, 2> ActiveFlags;
-
-    void begin(CodeGenFunction &CGF);
-    void markInitialized(CodeGenFunction &CGF);
-    void emitCleanups(CodeGenFunction &CGF);
-  };
   enum class MatchCandidateKind { Test, Condition, Selection };
   void EmitMatchCandidate(
       const MatchPattern *Pattern,
       const MatchPatternInstantiation *Instantiation, const MatchGuard &Guard,
       llvm::BasicBlock *PatternFailure, llvm::BasicBlock *GuardFailure,
       llvm::BasicBlock *Success,
-      llvm::function_ref<void(llvm::BasicBlock *, llvm::BasicBlock *,
-                              StagedPatternDeclarations *)>
+      llvm::function_ref<void(llvm::BasicBlock *, llvm::BasicBlock *)>
           EmitPattern,
       llvm::function_ref<void()> EmitAction, Stmt::Likelihood GuardLikelihood,
       MatchCandidateKind Kind);
   RValue
   EmitMatchPattern(const MatchPattern *Pattern,
                    const MatchPatternInstantiation *Instantiation,
-                   const Expr *Subject,
-                   StagedPatternDeclarations *StagedDeclarations = nullptr);
+                   const Expr *Subject);
   void EmitMatchPatternBranch(
       const MatchPattern *Pattern,
       const MatchPatternInstantiation *Instantiation, const Expr *Subject,
       llvm::BasicBlock *Success, llvm::BasicBlock *Failure,
-      StagedPatternDeclarations *StagedDeclarations = nullptr,
       ArrayRef<const MatchPattern *> KnownTestPatterns = {},
       ArrayRef<const MatchPattern *> CompletedPatterns = {});
   void EmitMatchDiscriminator(const MatchProjection &Projection);

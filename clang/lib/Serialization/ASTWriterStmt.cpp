@@ -2819,14 +2819,6 @@ public:
     case MatchPattern::TypePatternClass:
       R.AddTypeSourceInfo(cast<TypePattern>(P)->getTypeSourceInfo());
       break;
-    case MatchPattern::AndPatternClass: {
-      auto *A = cast<AndPattern>(P);
-      patternList(A->conjuncts());
-      R.push_back(A->andLocations().size());
-      for (SourceLocation Loc : A->andLocations())
-        R.AddSourceLocation(Loc);
-      break;
-    }
     case MatchPattern::OrPatternClass: {
       auto *O = cast<OrPattern>(P);
       patternList(O->alternatives());

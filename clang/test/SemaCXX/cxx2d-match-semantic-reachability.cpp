@@ -225,7 +225,7 @@ constexpr int skip_covered_constrained_declaration_candidate(
   return match (choice) {
     case { true } => 1;
     case { false } => 0;
-    case { (UsefulCandidate auto const& other) and _ } => other.size();
+    case { (UsefulCandidate auto const& other) } => other.size();
   };
 }
 

@@ -6,8 +6,8 @@
 //
 // REQUIRES: x86-registered-target
 
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown -std=c++2d -fcxx-exceptions -O0 -emit-pch -o %t.1.pch %S/../CodeGenCXX/PatternMatching/match-and-pattern.cpp
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown -std=c++2d -fcxx-exceptions -O0 -include-pch %t.1.pch -x c++ /dev/null -emit-llvm -o - | FileCheck %S/../CodeGenCXX/PatternMatching/match-and-pattern.cpp
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -std=c++2d -O1 -emit-pch -o %t.1.pch %S/../CodeGenCXX/PatternMatching/match-or-pattern.cpp
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -std=c++2d -O1 -include-pch %t.1.pch -x c++ /dev/null -emit-llvm -o - | FileCheck %S/../CodeGenCXX/PatternMatching/match-or-pattern.cpp
 // RUN: %clang_cc1 -std=c++2d -O1 -disable-llvm-passes -emit-pch -o %t.2.pch %S/../CodeGenCXX/PatternMatching/match-case-attributes.cpp
 // RUN: %clang_cc1 -std=c++2d -O1 -disable-llvm-passes -include-pch %t.2.pch -x c++ /dev/null -emit-llvm -o - | FileCheck %S/../CodeGenCXX/PatternMatching/match-case-attributes.cpp
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -std=c++2d -O0 -emit-pch -o %t.3.pch %S/../CodeGenCXX/PatternMatching/match-empty-decomposition.cpp

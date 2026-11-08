@@ -3302,7 +3302,6 @@ static void collectMatchPattern(const MatchPattern *P,
     return;
   }
   case MatchPattern::ParenPatternClass:
-  case MatchPattern::AndPatternClass:
   case MatchPattern::OrPatternClass:
   case MatchPattern::DecompositionPatternClass:
     for (const MatchPattern *Child : P->children())

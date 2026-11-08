@@ -92,18 +92,6 @@ constexpr int substituted_pattern(Pair pair) {
 static_assert(substituted_pattern({0, 4}) == 4);
 static_assert(substituted_pattern({1, 4}) == -1);
 
-constexpr bool logical_and_pattern(bool value) {
-  if (match(value, case true and true))
-    return true;
-  match (value) {
-    case false and false => return false;
-    case _ => return true;
-  }
-}
-
-static_assert(logical_and_pattern(true));
-static_assert(!logical_and_pattern(false));
-
 constexpr bool logical_and_expression(bool value) {
   constexpr bool first = true;
   constexpr bool second = false;

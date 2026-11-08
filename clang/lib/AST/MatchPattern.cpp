@@ -141,8 +141,6 @@ const char *MatchPattern::getMatchPatternClassName() const {
     return "DeclarationPattern";
   case TypePatternClass:
     return "TypePattern";
-  case AndPatternClass:
-    return "AndPattern";
   case OrPatternClass:
     return "OrPattern";
   case AlternativePatternClass:
@@ -165,8 +163,6 @@ SourceLocation MatchPattern::getBeginLoc() const {
     return static_cast<const DeclarationPattern *>(this)->getBeginLoc();
   case TypePatternClass:
     return static_cast<const TypePattern *>(this)->getBeginLoc();
-  case AndPatternClass:
-    return static_cast<const AndPattern *>(this)->getBeginLoc();
   case OrPatternClass:
     return static_cast<const OrPattern *>(this)->getBeginLoc();
   case AlternativePatternClass:
@@ -189,8 +185,6 @@ SourceLocation MatchPattern::getEndLoc() const {
     return static_cast<const DeclarationPattern *>(this)->getEndLoc();
   case TypePatternClass:
     return static_cast<const TypePattern *>(this)->getEndLoc();
-  case AndPatternClass:
-    return static_cast<const AndPattern *>(this)->getEndLoc();
   case OrPatternClass:
     return static_cast<const OrPattern *>(this)->getEndLoc();
   case AlternativePatternClass:
@@ -213,8 +207,6 @@ llvm::iterator_range<MatchPattern **> MatchPattern::children() {
     return static_cast<DeclarationPattern *>(this)->children();
   case TypePatternClass:
     return static_cast<TypePattern *>(this)->children();
-  case AndPatternClass:
-    return static_cast<AndPattern *>(this)->children();
   case OrPatternClass:
     return static_cast<OrPattern *>(this)->children();
   case AlternativePatternClass:

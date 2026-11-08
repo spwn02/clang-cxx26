@@ -22693,29 +22693,6 @@ EvaluateMatchPattern(const MatchPattern *Pattern,
     return EvaluateMatchPattern(P->getSubPattern(), Instantiation, Result, Info,
                                 ProjectionCache, DeclarationScope);
   }
-  case MatchPattern::AndPatternClass: {
-    const auto *P = static_cast<const AndPattern *>(Pattern);
-    assert(ProjectionCache && "and-pattern evaluation requires a cache");
-    Result = true;
-    for (auto [I, Conjunct] : llvm::enumerate(P->conjuncts())) {
-      if (!EvaluateMatchPattern(Conjunct, Instantiation, Result, Info,
-                                ProjectionCache, DeclarationScope))
-        return false;
-      if (!Result)
-        return true;
-      if (I + 1 != P->conjuncts().size()) {
-        if (DeclarationScope && !DeclarationScope->has_value() &&
-            hasMatchPatternDeclarations(Conjunct, Instantiation))
-          DeclarationScope->emplace(Info);
-        if (!EvaluateSharedDeclarationProjections(Conjunct, Instantiation, Info,
-                                                  *ProjectionCache) ||
-            !EvaluatePatternDeclarations(Conjunct, Instantiation, Info,
-                                         *ProjectionCache))
-          return false;
-      }
-    }
-    return true;
-  }
   case MatchPattern::OrPatternClass: {
     const auto *P = static_cast<const OrPattern *>(Pattern);
     Result = false;

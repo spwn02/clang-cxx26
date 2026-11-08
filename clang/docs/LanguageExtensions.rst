@@ -1879,7 +1879,7 @@ Pattern Matching (P2688)
   bool two(int x) { return match(x, case 1 || 2); }   // a match test
 
 The patterns are the wildcard ``_``, value patterns (an expression), declaration
-patterns (``auto y``, ``const T &r``, ``T``), type patterns, ``||`` and ``&&``
+patterns (``auto y``, ``const T &r``, ``T``), type patterns, ``||`` (or ``or``)
 combinations, parenthesized patterns, decomposition patterns ``[p, q, ...]``
 (also nested; empty and unnamed-pack bindings are part of the feature) and
 alternative patterns ``{p}``, ``{T: p}``, ``{.name: p}``, ``{.index<I>: p}``.

@@ -282,13 +282,6 @@ void StmtProfiler::VisitMatchPattern(const MatchPattern *P) {
   case MatchPattern::TypePatternClass:
     VisitType(static_cast<const TypePattern *>(P)->getType());
     return;
-  case MatchPattern::AndPatternClass: {
-    const auto *AP = static_cast<const AndPattern *>(P);
-    ID.AddInteger(AP->conjuncts().size());
-    for (const MatchPattern *Conjunct : AP->conjuncts())
-      VisitMatchPattern(Conjunct);
-    return;
-  }
   case MatchPattern::OrPatternClass: {
     const auto *OP = static_cast<const OrPattern *>(P);
     ID.AddInteger(OP->alternatives().size());

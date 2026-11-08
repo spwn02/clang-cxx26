@@ -49,9 +49,6 @@ struct MatchRow {
   SmallVector<const MatchPattern *, 2> KnownTests;
   SmallVector<const MatchPattern *, 2> CompletedPatterns;
   SmallVector<const MatchPattern *, 2> CompletedWhenExhausted;
-  const MatchPattern *SequencePattern = nullptr;
-  const MatchPattern *ActiveConjunct = nullptr;
-  SmallVector<const MatchPattern *, 2> RemainingConjuncts;
   bool AllowResidualTests = true;
   bool NeedsSharedAction = false;
 };
@@ -212,17 +209,6 @@ hasPatternDeclarationsImpl(const MatchPattern *Pattern,
   });
 }
 
-static void
-collectAndConjuncts(const MatchPattern *Pattern,
-                    SmallVectorImpl<const MatchPattern *> &Conjuncts) {
-  if (const auto *And = dyn_cast<AndPattern>(Pattern->IgnoreParens())) {
-    for (const MatchPattern *Conjunct : And->conjuncts())
-      collectAndConjuncts(Conjunct, Conjuncts);
-    return;
-  }
-  Conjuncts.push_back(Pattern);
-}
-
 static bool
 isFullyPlannablePattern(const MatchPattern *Pattern,
                         const MatchPatternInstantiation *Instantiation) {
@@ -236,7 +222,7 @@ isFullyPlannablePattern(const MatchPattern *Pattern,
                                                        Alternative.index()) ||
                  isFullyPlannablePattern(Alternative.value(), Instantiation);
         });
-  if (isa<AndPattern, DeclarationPattern>(Pattern))
+  if (isa<DeclarationPattern>(Pattern))
     return false;
   if (const auto *Decomposition = dyn_cast<DecompositionPattern>(Pattern))
     return llvm::all_of(Instantiation->getDecompositionPatterns(Decomposition),
@@ -327,10 +313,6 @@ expandPatternRows(MatchRow Row, const MatchPattern *Pattern,
     }
     return Result;
   }
-
-  if (const auto *And = dyn_cast<AndPattern>(Pattern))
-    return expandPatternRows(std::move(Row), And->conjuncts().front(),
-                             Instantiation, SubjectPath, Context);
 
   if (isa<WildcardPattern>(Pattern)) {
     return singleRow(std::move(Row));
@@ -429,48 +411,6 @@ static MatchRow specializeResidualTest(const MatchRow &Source,
   return Row;
 }
 
-static bool canNormalizeRow(const MatchRow &Row) {
-  return Row.ActiveConjunct && Row.Columns.empty();
-}
-
-static SmallVector<MatchRow, 4> normalizeRow(MatchRow Row,
-                                             const ASTContext &Context) {
-  if (!canNormalizeRow(Row)) {
-    return singleRow(std::move(Row));
-  }
-
-  for (const MatchPattern *Pattern : Row.CompletedWhenExhausted)
-    if (!llvm::is_contained(Row.CompletedPatterns, Pattern))
-      Row.CompletedPatterns.push_back(Pattern);
-  Row.CompletedWhenExhausted.clear();
-  if (!llvm::is_contained(Row.CompletedPatterns, Row.ActiveConjunct))
-    Row.CompletedPatterns.push_back(Row.ActiveConjunct);
-  Row.ActiveConjunct = nullptr;
-
-  if (Row.RemainingConjuncts.empty()) {
-    Row.CompletedPatterns.push_back(Row.SequencePattern);
-    Row.SequencePattern = nullptr;
-    return singleRow(std::move(Row));
-  }
-
-  const MatchPattern *Next = Row.RemainingConjuncts.front();
-  Row.RemainingConjuncts.erase(Row.RemainingConjuncts.begin());
-  Row.ActiveConjunct = Next;
-  Row.AllowResidualTests = true;
-  const MatchPatternInstantiation *Instantiation =
-      Row.Case->PatternInstantiation;
-  SmallVector<MatchRow, 4> Expanded =
-      expandPatternRows(std::move(Row), Next, Instantiation, {}, Context);
-  SmallVector<MatchRow, 4> Result;
-  for (MatchRow &ExpandedRow : Expanded) {
-    SmallVector<MatchRow, 4> Normalized =
-        normalizeRow(std::move(ExpandedRow), Context);
-    Result.append(std::make_move_iterator(Normalized.begin()),
-                  std::make_move_iterator(Normalized.end()));
-  }
-  return Result;
-}
-
 static ArrayRef<MatchRow> dropCaseInstantiationRows(ArrayRef<MatchRow> Rows) {
   const MatchCaseInstantiation *Case = Rows.front().Case;
   auto FirstDifferent = llvm::find_if_not(
@@ -491,16 +431,6 @@ buildDecisionTree(ArrayRef<MatchRow> Rows, const ASTContext &Context) {
   using Node = MatchDecisionTree::Node;
   if (Rows.empty())
     return std::make_unique<Node>(Node::NK_Failure);
-
-  if (llvm::any_of(Rows, canNormalizeRow)) {
-    SmallVector<MatchRow, 8> NormalizedRows;
-    for (const MatchRow &Row : Rows) {
-      SmallVector<MatchRow, 4> Normalized = normalizeRow(Row, Context);
-      NormalizedRows.append(std::make_move_iterator(Normalized.begin()),
-                            std::make_move_iterator(Normalized.end()));
-    }
-    return buildDecisionTree(NormalizedRows, Context);
-  }
 
   const MatchRow &First = Rows.front();
   auto BuildCandidate = [&] {
@@ -638,21 +568,6 @@ MatchDecisionTree::build(ArrayRef<MatchCaseInstantiation> Cases,
     MatchRow Row;
     Row.Case = &Case;
     const MatchPattern *Pattern = Case.Pattern;
-    SmallVector<const MatchPattern *, 4> Conjuncts;
-    collectAndConjuncts(Pattern, Conjuncts);
-    ArrayRef<const MatchPattern *> ConjunctList = Conjuncts;
-    if (ConjunctList.size() > 1 &&
-        llvm::none_of(ConjunctList.drop_back(),
-                      [&](const MatchPattern *Conjunct) {
-                        return hasMatchPatternDeclarations(
-                            Conjunct, Case.PatternInstantiation);
-                      })) {
-      Row.SequencePattern = Case.Pattern;
-      Row.ActiveConjunct = ConjunctList.front();
-      Row.RemainingConjuncts.append(ConjunctList.drop_front().begin(),
-                                    ConjunctList.drop_front().end());
-      Pattern = Row.ActiveConjunct;
-    }
     SmallVector<MatchRow, 4> Expanded = expandPatternRows(
         std::move(Row), Pattern, Case.PatternInstantiation, {}, Context);
     Rows.append(std::make_move_iterator(Expanded.begin()),

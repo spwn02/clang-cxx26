@@ -2843,13 +2843,6 @@ struct ASTStmtReader::MatchReader {
       P = TP;
       break;
     }
-    case MatchPattern::AndPatternClass: {
-      auto *A = new (Ctx) AndPattern(T);
-      A->Conjuncts = patternList();
-      A->AndLocs = copy(ArrayRef<SourceLocation>(locations()));
-      P = A;
-      break;
-    }
     case MatchPattern::OrPatternClass: {
       auto *O = new (Ctx) OrPattern(T);
       O->Alternatives = patternList();

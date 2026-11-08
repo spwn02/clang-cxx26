@@ -8481,21 +8481,6 @@ struct MatchImporter {
       To = new (Ctx) TypePattern(*TInfo);
       break;
     }
-    case MatchPattern::AndPatternClass: {
-      auto *A = cast<AndPattern>(From);
-      auto Children = patterns(A->conjuncts());
-      auto Locs = locations(A->andLocations());
-      if (!Children)
-        return Children.takeError();
-      if (!Locs)
-        return Locs.takeError();
-      MatchPattern **Storage = Ctx.Allocate<MatchPattern *>(Children->size());
-      std::uninitialized_copy(Children->begin(), Children->end(), Storage);
-      To = new (Ctx) AndPattern(
-          MutableArrayRef<MatchPattern *>(Storage, Children->size()),
-          copy(ArrayRef<SourceLocation>(*Locs)));
-      break;
-    }
     case MatchPattern::OrPatternClass: {
       auto *O = cast<OrPattern>(From);
       auto Children = patterns(O->alternatives());

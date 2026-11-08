@@ -406,19 +406,7 @@ void match_guarded_then_shared_base(HierarchyChoice& value) {
 // CHECK: ret void
 void match_residual_shared_base(HierarchyChoice& value) {
   match (value) {
-    case _ and { const ChoiceBase& base } => consume_base(base);
-  }
-}
-
-// A declaration in a non-final conjunct is initialized before the following
-// conjunct, so it remains an ordered residual pattern.
-// CHECK-LABEL: define{{.*}} void @{{.*}}match_sequenced_and
-// CHECK-NOT: switch
-// CHECK: ret void
-void match_sequenced_and(HierarchyChoice& value) {
-  match (value) {
-    case HierarchyChoice& whole and { const ChoiceBase& base } =>
-      consume_base(base);
+    case { const ChoiceBase& base } => consume_base(base);
   }
 }
 

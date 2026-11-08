@@ -75,17 +75,6 @@ inline constexpr Tag first_tag;
 inline constexpr Tag second_tag;
 bool operator==(const Base&, Tag);
 
-// Completing an or-pattern conjunct does not complete a following test.
-// OR-TREE-LABEL: define{{.*}} i32 @_Z22planned_or_before_castR4Base
-// OR-TREE-COUNT-2: call{{.*}} i1 @_ZeqRK4Base3Tag
-// OR-TREE: call ptr @__dynamic_cast
-int planned_or_before_cast(Base& value) {
-  return match (value) {
-    case (first_tag or second_tag) and Derived& => 1;
-    case _ => 0;
-  };
-}
-
 // OR-TREE-LABEL: define{{.*}} i32 @_Z15planned_type_orR4Base
 // OR-TREE-COUNT-2: call ptr @__dynamic_cast
 // OR-TREE: match.select.shared_action:
@@ -222,20 +211,6 @@ int grouped_alternatives(const Choice& choice) {
     case { const C & } => 2;
     case { const E & } => 3;
     case { const F & } => 4;
-  };
-}
-
-// Declaration-free left conjuncts can be normalized before a final binding.
-// OR-TREE-LABEL: define{{.*}} i32 @_Z19grouped_and_bindingRK6Choice
-// OR-TREE-COUNT-1: call{{.*}} @_ZNSt18alternative_traitsI6ChoiceE5indexERKS0_
-// OR-TREE: switch i32 %{{.*}}, label %{{.*}} [
-// OR-TREE-DAG: i32 0, label %{{.*}}
-// OR-TREE-DAG: i32 3, label %{{.*}}
-int grouped_and_binding(const Choice& choice) {
-  return match (choice) {
-    case ({ .a: _ } or { .d: _ }) and const Choice& whole =>
-      static_cast<int>(whole.active);
-    case _ => -1;
   };
 }
 
