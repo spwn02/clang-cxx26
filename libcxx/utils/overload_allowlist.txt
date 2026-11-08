@@ -5,3 +5,4 @@ id::id noexcept  # --noexcept: locale::id's constructor is not noexcept in the d
 mdspan::is_exhaustive noexcept  # --noexcept: the draft's mdspan::is_exhaustive has no noexcept; the synopsis markup hides the class from the parser
 formatter::format constexpr  # --constexpr: only the formatters the draft marks constexpr are (float16_t.. and stacktrace formatters are not); the pooled name matches them all
 basic_string_view::operator= constexpr  # --constexpr: defaulted copy assignment, implicitly constexpr
+unordered_map::lookup constexpr  # --constexpr: P3091R6 (C++29, after N5054) adds lookup to the associative containers; the draft in the audit does not have it yet
