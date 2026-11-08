@@ -212,6 +212,34 @@ SimpleDeclaration Detached synthesized
   )txt"));
 }
 
+// A tree with the nodes of C++29 (do expressions, pattern matching) can be
+// copied: every node kind can be allocated.
+TEST_P(SynthesisTest, DeepCopy_PatternMatching) {
+  if (GetParam().Language != Lang_CXX26)
+    GTEST_SKIP() << "C++29 constructs";
+  ExtraArgs = {"-std=c++2d"};
+  auto *OriginalTree = buildTree(R"cpp(
+int use(int);
+void f(int a, int b) {
+  match (a, b) { case [0 or 1, int v] if (v > 1) => use(v); case _ => use(0); }
+  if (case int x = a) use(x);
+  auto d = do { do_return 1; };
+}
+)cpp",
+                                 GetParam());
+  ASSERT_TRUE(OriginalTree);
+
+  auto *Copy = deepCopyExpandingMacros(*Arena, *TM, OriginalTree);
+  // The copy has the same nodes and tokens (it is synthesized).
+  std::string Original = OriginalTree->dump(*TM);
+  std::string Copied = Copy->dump(*TM);
+  EXPECT_EQ(std::count(Original.begin(), Original.end(), '\n'),
+            std::count(Copied.begin(), Copied.end(), '\n'));
+  EXPECT_NE(Copied.find("MatchSelectionStatement"), std::string::npos);
+  EXPECT_NE(Copied.find("PatternCondition"), std::string::npos);
+  EXPECT_NE(Copied.find("DoExpression"), std::string::npos);
+}
+
 TEST_P(SynthesisTest, DeepCopy_Macro) {
   auto *OriginalTree = buildTree(R"cpp(
 #define HALF_IF if (1+

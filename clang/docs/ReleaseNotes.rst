@@ -284,6 +284,8 @@ C++2d (C++29) Feature Support
   exhaustiveness and redundancy checking, ``std::alternative_traits`` and the library
   specializations, and ``__dynamic_cast_first`` in libc++abi for batched type patterns. See
   :ref:`pattern matching <pattern_matching>`.
+  Redundant cases are errors, as the paper requires. The syntax-tree library has nodes for
+  match selections, cases, guards, tests, pattern conditions and every kind of pattern.
 
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^

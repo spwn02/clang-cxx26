@@ -526,6 +526,11 @@ public:
     assert((isa<DeclaratorDecl, TypedefNameDecl>(D)) &&
            "only DeclaratorDecl and TypedefNameDecl are supported.");
 
+    // A variable a pattern declares is declared by its pattern alone (the next
+    // declaration of its context belongs to another pattern).
+    if (const auto *VD = dyn_cast<VarDecl>(D); VD && VD->isPatternVariable())
+      return true;
+
     const Decl *Next = D->getNextDeclInContext();
 
     // There's no next sibling, this one is responsible.
@@ -2087,8 +2092,15 @@ public:
   bool TraverseMatchPattern(MatchPattern *P) {
     if (!P)
       return true;
-    if (!RecursiveASTVisitor::TraverseMatchPattern(P))
+    if (P->getMatchPatternClass() == MatchPattern::OrPatternClass) {
+      // (The variables an or-pattern introduces for its alternatives are
+      // made by the compiler: only the alternatives are written.)
+      for (MatchPattern *Alternative : P->children())
+        if (!TraverseMatchPattern(Alternative))
+          return false;
+    } else if (!RecursiveASTVisitor::TraverseMatchPattern(P)) {
       return false;
+    }
     buildPattern(P);
     return true;
   }
@@ -2293,8 +2305,10 @@ public:
       return true;
     if (!TraverseStmt(Guard.Init))
       return false;
-    if (Guard.ConditionVariable && !TraverseDecl(Guard.ConditionVariable))
-      return false;
+    // A condition variable is the condition: the expression is the compiler's
+    // reference to it, located at its name.
+    if (Guard.ConditionVariable)
+      return TraverseDecl(Guard.ConditionVariable);
     return TraverseStmt(Guard.Condition);
   }
 

@@ -196,6 +196,44 @@ syntax::Tree *allocateTree(syntax::Arena &A, syntax::NodeKind Kind) {
     return new (A.getAllocator()) syntax::ParameterDeclarationList;
   case syntax::NodeKind::DeclaratorList:
     return new (A.getAllocator()) syntax::DeclaratorList;
+  case syntax::NodeKind::DoReturnStatement:
+    return new (A.getAllocator()) syntax::DoReturnStatement;
+  case syntax::NodeKind::DoExpression:
+    return new (A.getAllocator()) syntax::DoExpression;
+  case syntax::NodeKind::UnknownPattern:
+    return new (A.getAllocator()) syntax::UnknownPattern;
+  case syntax::NodeKind::TypePattern:
+    return new (A.getAllocator()) syntax::TypePattern;
+  case syntax::NodeKind::AlternativePattern:
+    return new (A.getAllocator()) syntax::AlternativePattern;
+  case syntax::NodeKind::PatternAlternatives:
+    return new (A.getAllocator()) syntax::PatternAlternatives;
+  case syntax::NodeKind::PatternElements:
+    return new (A.getAllocator()) syntax::PatternElements;
+  case syntax::NodeKind::WildcardPattern:
+    return new (A.getAllocator()) syntax::WildcardPattern;
+  case syntax::NodeKind::ExpressionPattern:
+    return new (A.getAllocator()) syntax::ExpressionPattern;
+  case syntax::NodeKind::DeclarationPattern:
+    return new (A.getAllocator()) syntax::DeclarationPattern;
+  case syntax::NodeKind::ParenPattern:
+    return new (A.getAllocator()) syntax::ParenPattern;
+  case syntax::NodeKind::OrPattern:
+    return new (A.getAllocator()) syntax::OrPattern;
+  case syntax::NodeKind::DecompositionPattern:
+    return new (A.getAllocator()) syntax::DecompositionPattern;
+  case syntax::NodeKind::MatchCase:
+    return new (A.getAllocator()) syntax::MatchCase;
+  case syntax::NodeKind::MatchGuard:
+    return new (A.getAllocator()) syntax::MatchGuard;
+  case syntax::NodeKind::MatchSelectionExpression:
+    return new (A.getAllocator()) syntax::MatchSelectionExpression;
+  case syntax::NodeKind::MatchSelectionStatement:
+    return new (A.getAllocator()) syntax::MatchSelectionStatement;
+  case syntax::NodeKind::MatchTestExpression:
+    return new (A.getAllocator()) syntax::MatchTestExpression;
+  case syntax::NodeKind::PatternCondition:
+    return new (A.getAllocator()) syntax::PatternCondition;
   }
   llvm_unreachable("unknown node kind");
 }
