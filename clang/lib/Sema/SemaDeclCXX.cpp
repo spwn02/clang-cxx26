@@ -8061,7 +8061,19 @@ bool Sema::CheckExplicitlyDefaultedSpecialMember(CXXMethodDecl *MD,
   // C++2a changes the second bullet to instead delete the function if it's
   // defaulted on its first declaration, unless it's "an assignment operator,
   // and its return type differs or its parameter type is not a reference".
-  bool DeleteOnTypeMismatch = getLangOpts().CPlusPlus20 && First;
+  //
+  // C++29 (P2953R5) makes the mismatches that are not about a reference to
+  // non-const / const copy parameter ill-formed again; only a copy operation
+  // whose parameter is "reference to const C" while the implicit one has
+  // "reference to C" is still deleted (on its first declaration).
+  bool DeleteOnTypeMismatch =
+      getLangOpts().CPlusPlus20 && !getLangOpts().CPlusPlus29 && First;
+  bool DeleteOnConstParamMismatch =
+      getLangOpts().CPlusPlus20 &&
+      (!getLangOpts().CPlusPlus29 ||
+       CSM == CXXSpecialMemberKind::CopyConstructor ||
+       CSM == CXXSpecialMemberKind::CopyAssignment) &&
+      First;
   bool ShouldDeleteForTypeMismatch = false;
   unsigned ExpectedParams = 1;
   if (CSM == CXXSpecialMemberKind::DefaultConstructor ||
@@ -8110,6 +8122,15 @@ bool Sema::CheckExplicitlyDefaultedSpecialMember(CXXMethodDecl *MD,
       Diag(MD->getLocation(), diag::err_defaulted_special_member_return_type)
           << (CSM == CXXSpecialMemberKind::MoveAssignment)
           << ExpectedReturnType;
+      HadError = true;
+    }
+
+    // C++29 [dcl.fct.def.default]p2 (P2953R5): an explicitly defaulted
+    // assignment operator may only have the '&' ref-qualifier.
+    if (getLangOpts().CPlusPlus29 && MD->getRefQualifier() == RQ_RValue) {
+      Diag(MD->getLocation(), diag::err_defaulted_special_member_rvalue_ref_qual)
+          << (CSM == CXXSpecialMemberKind::MoveAssignment)
+          << MD->getSourceRange();
       HadError = true;
     }
 
@@ -8172,7 +8193,7 @@ bool Sema::CheckExplicitlyDefaultedSpecialMember(CXXMethodDecl *MD,
     }
 
     if (HasConstParam && !CanHaveConstParam) {
-      if (DeleteOnTypeMismatch)
+      if (DeleteOnConstParamMismatch)
         ShouldDeleteForTypeMismatch = true;
       else if (CSM == CXXSpecialMemberKind::CopyConstructor ||
                CSM == CXXSpecialMemberKind::CopyAssignment) {
@@ -9976,6 +9997,21 @@ void Sema::CheckDelayedMemberExceptionSpecs() {
   // special members.
   for (auto &Check : Equivalent)
     CheckEquivalentExceptionSpec(Check.second, Check.first);
+
+  // P3424R2: a deallocation function shall not have a potentially throwing
+  // exception specification.
+  decltype(DelayedDeallocationExceptionSpecChecks) Deallocation;
+  std::swap(Deallocation, DelayedDeallocationExceptionSpecChecks);
+  for (FunctionDecl *FD : Deallocation) {
+    const auto *Proto = FD->getType()->getAs<FunctionProtoType>();
+    if (Proto && !isUnresolvedExceptionSpec(Proto->getExceptionSpecType()) &&
+        Proto->canThrow() == CT_Can) {
+      Diag(FD->getLocation(),
+           diag::err_deallocation_function_potentially_throwing)
+          << FD << FD->getExceptionSpecSourceRange();
+      FD->setInvalidDecl();
+    }
+  }
 }
 
 namespace {
@@ -17676,6 +17712,24 @@ CheckOperatorDeleteDeclaration(Sema &SemaRef, FunctionDecl *FnDecl) {
   //   scope.
   if (CheckOperatorNewDeleteDeclarationScope(SemaRef, FnDecl))
     return true;
+
+  // C++29 [basic.stc.dynamic.deallocation]p1 (P3424R2): a deallocation
+  // function shall not have a potentially throwing exception specification.
+  // (A deallocation function without an exception specification is
+  // implicitly noexcept(true).)
+  if (SemaRef.getLangOpts().CPlusPlus29) {
+    if (const auto *Proto = FnDecl->getType()->getAs<FunctionProtoType>()) {
+      if (Proto->getExceptionSpecType() == EST_Unparsed)
+        SemaRef.DelayedDeallocationExceptionSpecChecks.push_back(FnDecl);
+      else if (!isUnresolvedExceptionSpec(Proto->getExceptionSpecType()) &&
+               Proto->canThrow() == CT_Can) {
+        SemaRef.Diag(FnDecl->getLocation(),
+                     diag::err_deallocation_function_potentially_throwing)
+            << FnDecl << FnDecl->getExceptionSpecSourceRange();
+        return true;
+      }
+    }
+  }
 
   auto *MD = dyn_cast<CXXMethodDecl>(FnDecl);
   auto ConstructDestroyingDeleteAddressType = [&]() {

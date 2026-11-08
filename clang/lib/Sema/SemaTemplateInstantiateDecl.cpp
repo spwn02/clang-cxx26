@@ -6093,6 +6093,19 @@ void Sema::InstantiateExceptionSpec(SourceLocation PointOfInstantiation,
 
   SubstExceptionSpec(Decl, Template->getType()->castAs<FunctionProtoType>(),
                      TemplateArgs);
+
+  // C++29 [basic.stc.dynamic.deallocation]p1 (P3424R2): a deallocation
+  // function shall not have a potentially throwing exception specification.
+  if (getLangOpts().CPlusPlus29) {
+    OverloadedOperatorKind Op = Decl->getDeclName().getCXXOverloadedOperator();
+    const auto *Instantiated = Decl->getType()->getAs<FunctionProtoType>();
+    if ((Op == OO_Delete || Op == OO_Array_Delete) && Instantiated &&
+        !isUnresolvedExceptionSpec(Instantiated->getExceptionSpecType()) &&
+        Instantiated->canThrow() == CT_Can)
+      Diag(Decl->getLocation(),
+           diag::err_deallocation_function_potentially_throwing)
+          << Decl << Decl->getExceptionSpecSourceRange();
+  }
 }
 
 /// Initializes the common fields of an instantiation function

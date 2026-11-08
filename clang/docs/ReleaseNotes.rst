@@ -292,6 +292,13 @@ C++2d (C++29) Feature Support
   non-member function); its definition is ``C tmp(c); ++c; return tmp;`` and it is defined as deleted when that is
   ill-formed. Earlier modes, C++26 included, keep rejecting it.
 
+- Implemented `P2953R5 <https://wg21.link/P2953R5>`_ under ``-std=c++29``: an explicitly defaulted assignment operator
+  may not have the ``&&`` ref-qualifier, and a type mismatch of a defaulted special member is ill-formed instead of
+  deleting it (only a copy operation declared with ``const C&`` where the implicit one has ``C&`` is still deleted).
+- Implemented `P3424R2 <https://wg21.link/P3424R2>`_ under ``-std=c++29``: a deallocation function with a potentially
+  throwing exception specification (``noexcept(false)``) is ill-formed, also in a class whose exception specification
+  is parsed after the class is complete.
+
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 

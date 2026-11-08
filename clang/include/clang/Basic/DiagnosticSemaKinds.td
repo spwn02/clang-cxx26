@@ -10459,6 +10459,9 @@ def err_operator_new_default_arg: Error<
 def err_operator_delete_dependent_param_type : Error<
   "%select{|type aware }0%select{|destroying }1%2 cannot take a dependent type as its %ordinal3 parameter; "
   "use %4 instead">;
+def err_deallocation_function_potentially_throwing : Error<
+  "deallocation function %0 must not have a potentially throwing exception "
+  "specification">;
 def err_operator_delete_param_type : Error<
   "%ordinal3 parameter of%select{| type aware}0%select{| destroying}1 %2 must have type %4">;
 def err_destroying_operator_delete_not_usual : Error<
@@ -10570,6 +10573,9 @@ def err_defaulted_special_member_return_type : Error<
 def err_defaulted_special_member_quals : Error<
   "an explicitly-defaulted %select{copy|move}0 assignment operator may not "
   "have 'const'%select{, 'constexpr'|}1 or 'volatile' qualifiers">;
+def err_defaulted_special_member_rvalue_ref_qual : Error<
+  "an explicitly-defaulted %select{copy|move}0 assignment operator may not "
+  "have the '&&' ref-qualifier">;
 def err_defaulted_special_member_explicit_object_mismatch : Error<
   "the type of the explicit object parameter of an explicitly-defaulted "
   "%select{copy|move}0 assignment operator should be reference to %1">;
