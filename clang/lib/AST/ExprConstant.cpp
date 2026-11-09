@@ -10620,6 +10620,13 @@ public:
     LValue *This = nullptr, ObjectArg;
     auto Args = ArrayRef(E->getArgs(), E->getNumArgs());
     bool HasQualifier = false;
+    // P3097R3 ([expr.call]): the call names its function by a class member
+    // access (not '.*' or '->*').
+    bool IsClassMemberAccess = false;
+    // The statically chosen function of a virtual call, when its assertions
+    // surround those of the final overrider, and the object it is called on.
+    const CXXMethodDecl *StaticContractMD = nullptr;
+    LValue StaticThis;
 
     CallRef Call;
 
@@ -10641,6 +10648,7 @@ public:
           return Error(Callee);
         This = &ObjectArg;
         HasQualifier = ME->hasQualifier();
+        IsClassMemberAccess = true;
       } else if (const BinaryOperator *BE = dyn_cast<BinaryOperator>(Callee)) {
         // Indirect bound member calls ('.*' or '->*').
         const ValueDecl *D =
@@ -10909,10 +10917,25 @@ public:
       auto *NamedMember = dyn_cast<CXXMethodDecl>(FD);
       if (NamedMember && NamedMember->isVirtual() && !HasQualifier) {
         // Perform virtual dispatch, if necessary.
+        LValue ThisBeforeDispatch = *This;
         FD = HandleVirtualDispatch(Info, E, *This, NamedMember,
                                    CovariantAdjustmentPath);
         if (!FD)
           return false;
+        // P3097R3: the assertions of the statically chosen function precede
+        // and follow those of the function actually called. (The operator
+        // notation is a call of the member function, [over.match.oper].)
+        if (IsClassMemberAccess || isa<CXXOperatorCallExpr>(E)) {
+          const CXXMethodDecl *Static = NamedMember;
+          if (!Static->hasContracts())
+            Static = cast<CXXMethodDecl>(Static->getFirstDecl());
+          if (Static->hasContracts() &&
+              FD->getCanonicalDecl() != NamedMember->getCanonicalDecl() &&
+              !isa<CXXDestructorDecl>(FD)) {
+            StaticContractMD = Static;
+            StaticThis = ThisBeforeDispatch;
+          }
+        }
       } else if (NamedMember && NamedMember->isImplicitObjectMemberFunction()) {
         // Check that the 'this' pointer points to an object of the right type.
         // FIXME: If this is an assignment operator call, we may need to change
@@ -10939,6 +10962,15 @@ public:
     if (FD->hasCXXExplicitFunctionObjectParameter())
       This = &ObjectArg;
 
+    // The assertions of the statically chosen function see the parameters of
+    // this call and the object as the static type.
+    if (StaticContractMD) {
+      CallStackFrame StaticFrame(Info, E->getSourceRange(), StaticContractMD,
+                                 &StaticThis, E, Call);
+      if (!EvaluatePreContracts(Info, StaticContractMD, &StaticFrame))
+        return false;
+    }
+
     if (!CheckConstexprFunction(Info, Loc, FD, Definition, Body) ||
         !HandleFunctionCall(Loc, Definition, This, E, Args, Call, Body, Info,
                             Result, ResultSlot))
@@ -10948,6 +10980,13 @@ public:
         !HandleCovariantReturnAdjustment(Info, E, Result,
                                          CovariantAdjustmentPath))
       return false;
+
+    if (StaticContractMD) {
+      CallStackFrame StaticFrame(Info, E->getSourceRange(), StaticContractMD,
+                                 &StaticThis, E, Call);
+      if (!EvaluatePostContracts(Info, StaticContractMD, Result, ResultSlot))
+        return false;
+    }
 
     return CallScope.destroy();
   }

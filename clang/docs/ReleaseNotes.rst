@@ -303,6 +303,19 @@ C++2d (C++29) Feature Support
   ``__has_embed`` parameter (the existing ``clang::offset`` spelling is kept). ``__cpp_pp_embed`` is 202606L in C++29
   mode (the value of the draft N5054) and 202502L in C++26.
 
+- Implemented `P3097R3 <https://wg21.link/P3097R3>`_ under ``-std=c++29``: a virtual function may have ``pre`` and
+  ``post`` assertions. A virtual call through a class member access evaluates the preconditions of the statically
+  chosen function and then those of the final overrider, and the postconditions of the final overrider and then those
+  of the statically chosen function, also in constant evaluation (assertions are not inherited by overriders;
+  qualified calls and calls through a pointer to member name one function). ``__cpp_contracts`` is 202606L in C++29
+  mode (the value of the draft N5054). C++26 keeps rejecting contract specifiers on virtual functions.
+
+- Implemented `P3549R1 <https://wg21.link/P3549R1>`_ (exploratory, EWG) under ``-std=c++29``: diverging expressions
+  and the bottom type ``std::noreturn_t`` (``decltype(throw 0)``): a function or lambda that only diverges deduces
+  ``noreturn_t``, an operand of that type absorbs the expression, and a diverging ``match`` arm takes no part in the
+  deduction of the type of a match expression. ``__cpp_diverging_expressions`` is defined in C++29 mode. libc++ has
+  ``std::noreturn_t`` and ``std::is_noreturn``; ``std::terminate`` and ``std::unreachable`` return ``noreturn_t``.
+
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 

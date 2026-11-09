@@ -766,9 +766,11 @@ void Sema::CheckFunctionContracts(FunctionDecl *FD, bool IsDefinition, bool IsIn
   // [dcl.contract.func]: a virtual function, a deleted function or a function
   // defaulted on its first declaration shall not have a
   // function-contract-specifier-seq (the prohibition of virtual functions is
-  // removed by P3097R3 for C++29).
+  // removed by P3097R3 in C++29: a virtual call evaluates the assertions of
+  // the statically chosen function and of the final overrider, [expr.call]).
   const auto *Method = dyn_cast<CXXMethodDecl>(FD);
-  bool IsVirtual = Method && Method->isVirtual();
+  bool IsVirtual =
+      Method && Method->isVirtual() && !getLangOpts().CPlusPlus29;
   if (!FD->isInvalidDecl() &&
       (FD->isDeletedAsWritten() ||
        (FD->isExplicitlyDefaulted() && !FD->getPreviousDecl()) || IsVirtual)) {

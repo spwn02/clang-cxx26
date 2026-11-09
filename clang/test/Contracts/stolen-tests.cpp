@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected %s
+// RUN: %clang_cc1 -std=c++26 -fsyntax-only -verify=expected,cxx26 %s
+// RUN: %clang_cc1 -std=c++2d -fsyntax-only -verify=expected %s
 
 namespace parsing_basic_test {
   int f(const int x)
@@ -22,21 +23,21 @@ namespace parsing_trailing_return_type_test {
 }
 
 namespace parsing_virtual_test {
-  // [dcl.contract.func]: "A virtual function ... shall not have a
-  // function-contract-specifier-seq." (P3097R3 removes this for C++29.)
+  // [dcl.contract.func] (N5050): "A virtual function ... shall not have a
+  // function-contract-specifier-seq." P3097R3 removes this in C++29.
   struct A {
     virtual void f(int i)
-      pre(i >= 0); // expected-error {{a virtual function cannot have a function-contract-specifier-seq}}
+      pre(i >= 0); // cxx26-error {{a virtual function cannot have a function-contract-specifier-seq}}
   };
 
   struct B : A {
     void f(int i) override final
-      pre(i >= 0); // expected-error {{a virtual function cannot have a function-contract-specifier-seq}}
+      pre(i >= 0); // cxx26-error {{a virtual function cannot have a function-contract-specifier-seq}}
   };
 
   struct C : A {
     void f(int i) override
-      pre(i >= 0) = 0; // expected-error {{a virtual function cannot have a function-contract-specifier-seq}}
+      pre(i >= 0) = 0; // cxx26-error {{a virtual function cannot have a function-contract-specifier-seq}}
   };
 
   struct D {
@@ -44,7 +45,7 @@ namespace parsing_virtual_test {
     void g() pre(true); // a non-virtual function is fine
   };
   struct E : D {
-    ~E() pre(true); // expected-error {{a virtual function cannot have a function-contract-specifier-seq}}
+    ~E() pre(true); // cxx26-error {{a virtual function cannot have a function-contract-specifier-seq}}
   };
 }
 
@@ -56,7 +57,7 @@ namespace parsing_default_delete_pure_test {
     // first declaration shall not have a function-contract-specifier-seq."
     X() pre(a) = default; // expected-error {{function defaulted on its first declaration cannot have a function-contract-specifier-seq}}
     X(const X&) pre(b) = delete; // expected-error {{a deleted function cannot have a function-contract-specifier-seq}}
-    virtual void f() pre(c) = 0; // expected-error {{a virtual function cannot have a function-contract-specifier-seq}}
+    virtual void f() pre(c) = 0; // cxx26-error {{a virtual function cannot have a function-contract-specifier-seq}}
   };
 }
 
