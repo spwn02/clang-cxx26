@@ -1122,6 +1122,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::MetaInfo:
   case BuiltinType::TokenSequence:
   case BuiltinType::MetaToken:
+  case BuiltinType::NoReturn:
     Encoding = llvm::dwarf::DW_ATE_unsigned;
     break;
   case BuiltinType::Short:

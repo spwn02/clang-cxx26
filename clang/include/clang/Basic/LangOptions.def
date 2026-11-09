@@ -285,6 +285,7 @@ LANGOPT(AnnotationAttributes, 1, 0, NotCompatible,
 LANGOPT(DoExpressions       , 1, 0, NotCompatible,
         "C++29 do-expressions (block expressions yielding values via 'do_return')")
 LANGOPT(PatternMatching , 1, 0, NotCompatible, "C++29 pattern matching (P2688)")
+LANGOPT(DivergingExpressions, 1, 0, NotCompatible, "C++29 diverging expressions and the bottom type std::noreturn_t (P3549)")
 LANGOPT(MSVCEnableStdcMacro , 1, 0, NotCompatible, "Define __STDC__ with '-fms-compatibility'")
 LANGOPT(SizedDeallocation , 1, 0, NotCompatible, "sized deallocation")
 LANGOPT(AlignedAllocation , 1, 0, NotCompatible, "aligned allocation")

@@ -341,6 +341,7 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
   case BuiltinType::MetaInfo:
   case BuiltinType::TokenSequence:
   case BuiltinType::MetaToken:
+  case BuiltinType::NoReturn:
   case BuiltinType::UChar:
   case BuiltinType::UShort:
   case BuiltinType::UInt:

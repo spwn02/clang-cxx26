@@ -114,6 +114,8 @@ TEST(StdlibTest, Cxx26Facilities) {
       {"std::", "hazard_pointer", "<hazard_pointer>"},
       {"std::", "bit_reverse", "<bit>"},
       {"std::simd::", "iota", "<simd>"},
+      {"std::", "noreturn_t", "<cstddef>"},
+      {"std::", "is_noreturn", "<type_traits>"},
       {"std::", "alternative_traits", "<type_traits>"},
       {"std::", "constant_wrapper", "<utility>"},
       {"std::", "shl", "<bit>"},

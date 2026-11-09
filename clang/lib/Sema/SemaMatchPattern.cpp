@@ -1537,7 +1537,11 @@ StmtResult Sema::ActOnMatchExprHandler(TypeLoc OrigResultType, QualType &RetTy,
       RetTy = Context.DependentTy;
     return E;
   }
-  if (isa<CXXThrowExpr>(E->IgnoreParenImpCasts())) {
+  // A throw-expression, and with P3549 any other diverging handler (a call
+  // of a [[noreturn]] function, a diverging do expression, a std::noreturn_t
+  // value), never produces a value and takes no part in the deduction.
+  if (isa<CXXThrowExpr>(E->IgnoreParenImpCasts()) ||
+      (getLangOpts().DivergingExpressions && E->isDiverging())) {
     if (ER.isInvalid())
       return StmtError();
     return ER.get();

@@ -779,6 +779,9 @@ bool Compiler<Emitter>::VisitCastExpr(const CastExpr *CE) {
   case CK_SequenceToTokenArray:
     // Token sequences are the tree evaluator's (P4380).
     return this->emitInvalid(CE);
+  case CK_NoReturnToAny:
+    // The operand diverges (P3549); there is never a value.
+    return this->emitInvalid(CE);
 
   case CK_Dynamic:
     // This initially goes through VisitCXXDynamicCastExpr, where we emit

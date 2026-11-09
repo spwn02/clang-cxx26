@@ -752,6 +752,8 @@ void USRGenerator::VisitType(QualType T) {
           Out << 'm'; break;
         case BuiltinType::TokenSequence:
           Out << 't'; break;
+        case BuiltinType::NoReturn:
+          Out << "@BT@noreturn_t"; break;
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
         case BuiltinType::Id: \
           Out << "@BT@" << #Suffix << "_" << #ImgType; break;

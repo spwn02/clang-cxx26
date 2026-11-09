@@ -26,6 +26,10 @@ module std_core [system] {
       header "__cstddef/max_align_t.h"
       export *
     }
+    module noreturn_t {
+      header "__cstddef/noreturn_t.h"
+      export *
+    }
     module nullptr_t {
       header "__cstddef/nullptr_t.h"
       export *
@@ -417,6 +421,10 @@ module std_core [system] {
     module is_member_pointer {
       header "__type_traits/is_member_pointer.h"
       export *
+    }
+    module is_noreturn {
+      header "__type_traits/is_noreturn.h"
+      export std_core.type_traits.integral_constant
     }
     module is_nothrow_assignable {
       header "__type_traits/is_nothrow_assignable.h"

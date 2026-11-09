@@ -12,6 +12,7 @@
 // UB, but we can make sure that it doesn't cause a linker error or something like that.
 
 #include <cassert>
+#include <cstddef>
 #include <type_traits>
 #include <utility>
 
@@ -21,7 +22,12 @@ int main(int argc, char**) {
         std::unreachable();
     }
 
+#if defined(__cpp_diverging_expressions)
+    // P3549: a function that cannot return returns the bottom type.
+    static_assert(std::is_same_v<decltype(std::unreachable()), std::noreturn_t>);
+#else
     static_assert(std::is_same_v<decltype(std::unreachable()), void>);
+#endif
 
     return 0;
 }

@@ -1016,6 +1016,11 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
       CGF.EmitNullInitialization(Dest.getAddress(), E->getType());
     break;
 
+  case CK_NoReturnToAny:
+    // The operand diverges; there is never a value to put in the slot.
+    CGF.EmitDivergingExpr(E->getSubExpr());
+    break;
+
   case CK_LValueBitCast:
     llvm_unreachable("should not be emitting lvalue bitcast as rvalue");
 
@@ -1616,6 +1621,8 @@ static bool castPreservesZero(const CastExpr *CE) {
 
   case CK_TokenArrayToSequence:
   case CK_SequenceToTokenArray:
+  case CK_NoReturnToAny:
+    // There is no value at all.
     return false;
 
   case CK_FixedPointCast:

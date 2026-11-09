@@ -452,7 +452,35 @@ public:
 
   Value *Visit(Expr *E) {
     ApplyDebugLocation DL(CGF, E);
+    if (E->getType()->isNoReturnType() &&
+        isa<BinaryOperator, UnaryOperator, ArraySubscriptExpr>(E))
+      return EmitAbsorbedDivergence(E);
     return StmtVisitor<ScalarExprEmitter, Value*>::Visit(E);
+  }
+
+  /// An operator expression with an operand of type std::noreturn_t (P3549)
+  /// has that type itself, without any operator having been chosen: evaluate
+  /// the operands that are evaluated unconditionally, in their order, and
+  /// then mark the point unreachable. (One of them diverges.)
+  Value *EmitAbsorbedDivergence(Expr *E) {
+    SmallVector<Expr *, 2> Ops;
+    if (auto *BO = dyn_cast<BinaryOperator>(E)) {
+      if (BO->isLogicalOp())
+        Ops = {BO->getLHS()}; // the right operand may not be evaluated
+      else if (BO->isAssignmentOp())
+        Ops = {BO->getRHS(), BO->getLHS()}; // C++17 [expr.ass]p1
+      else
+        Ops = {BO->getLHS(), BO->getRHS()};
+    } else if (auto *UO = dyn_cast<UnaryOperator>(E)) {
+      Ops = {UO->getSubExpr()};
+    } else {
+      auto *ASE = cast<ArraySubscriptExpr>(E);
+      Ops = {ASE->getLHS(), ASE->getRHS()};
+    }
+    for (Expr *Op : Ops)
+      CGF.EmitIgnoredExpr(Op);
+    CGF.EmitDivergencePoint();
+    return llvm::PoisonValue::get(ConvertType(E->getType()));
   }
 
   Value *VisitStmt(Stmt *S) {
@@ -786,7 +814,11 @@ public:
 
   Value *VisitCXXThrowExpr(const CXXThrowExpr *E) {
     CGF.EmitCXXThrowExpr(E);
-    return nullptr;
+    // Under P3549 a throw-expression has type std::noreturn_t rather than
+    // void; there is still no value.
+    if (E->getType()->isVoidType())
+      return nullptr;
+    return llvm::PoisonValue::get(ConvertType(E->getType()));
   }
 
   Value *VisitCXXNoexceptExpr(const CXXNoexceptExpr *E) {
@@ -2885,6 +2917,13 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     return llvm::Constant::getNullValue(ConvertType(DestTy));
   case CK_TokenArrayToSequence:
     llvm_unreachable("a token_sequence is not a scalar");
+  case CK_NoReturnToAny: {
+    // The operand diverges, so no value is ever produced.
+    CGF.EmitDivergingExpr(E);
+    if (DestTy->isVoidType())
+      return nullptr;
+    return llvm::PoisonValue::get(ConvertType(DestTy));
+  }
   case CK_MatrixCast: {
     return EmitScalarConversion(Visit(E), E->getType(), DestTy,
                                 CE->getExprLoc());

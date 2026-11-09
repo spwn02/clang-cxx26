@@ -3359,7 +3359,8 @@ RValue CodeGenFunction::EmitMatchSelectExpr(const MatchSelectExpr &S,
   }
 
   auto EmitHandler = [&](const Expr *E) {
-    if (E->getType()->isVoidType()) {
+    // A diverging handler (std::noreturn_t, P3549) has no value to store.
+    if (E->getType()->isVoidType() || E->getType()->isNoReturnType()) {
       EmitAnyExpr(E);
       return;
     }

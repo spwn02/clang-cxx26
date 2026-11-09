@@ -1305,6 +1305,7 @@ public:
     case CK_ToVoid:
     case CK_TokenArrayToSequence:
     case CK_SequenceToTokenArray:
+    case CK_NoReturnToAny:
     case CK_Dynamic:
     case CK_LValueBitCast:
     case CK_LValueToRValueBitCast:

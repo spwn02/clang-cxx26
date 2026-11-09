@@ -3427,6 +3427,10 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
     // names of compile-time entities).
     Out << "u5token";
     break;
+  case BuiltinType::NoReturn:
+    // A vendor extended type until the ABI assigns one.
+    Out << "u10noreturn_t";
+    break;
 
 #define BUILTIN_TYPE(Id, SingletonId)
 #define PLACEHOLDER_TYPE(Id, SingletonId) \

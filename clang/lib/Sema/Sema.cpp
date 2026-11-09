@@ -774,6 +774,7 @@ ExprResult Sema::ImpCastExprToType(Expr *E, QualType Ty,
     case CK_ToVoid:
     case CK_TokenArrayToSequence:
     case CK_SequenceToTokenArray:
+    case CK_NoReturnToAny:
     case CK_NonAtomicToAtomic:
     case CK_HLSLArrayRValue:
     case CK_HLSLAggregateSplatCast:

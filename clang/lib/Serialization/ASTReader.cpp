@@ -7917,6 +7917,9 @@ QualType ASTReader::GetType(TypeID ID) {
     case PREDEF_TYPE_META_TOKEN_ID:
       T = Context.MetaTokenTy;
       break;
+    case PREDEF_TYPE_NORETURN_ID:
+      T = Context.NoReturnTy;
+      break;
     case PREDEF_TYPE_OBJC_ID:
       T = Context.ObjCBuiltinIdTy;
       break;

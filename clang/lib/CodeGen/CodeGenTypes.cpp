@@ -505,6 +505,11 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
       ResultType = llvm::PointerType::getUnqual(getLLVMContext());
       break;
 
+    case BuiltinType::NoReturn:
+      // std::noreturn_t has no values; its one byte of storage is never read.
+      ResultType = llvm::Type::getInt8Ty(getLLVMContext());
+      break;
+
     case BuiltinType::MetaInfo:
     case BuiltinType::TokenSequence:
     case BuiltinType::MetaToken:

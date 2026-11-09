@@ -9,6 +9,9 @@
 
 export namespace std {
   using std::max_align_t _LIBCPP_USING_IF_EXISTS;
+#if defined(__cpp_diverging_expressions)
+  using std::noreturn_t;
+#endif
   using std::nullptr_t;
   using std::ptrdiff_t _LIBCPP_USING_IF_EXISTS;
   using std::size_t _LIBCPP_USING_IF_EXISTS;

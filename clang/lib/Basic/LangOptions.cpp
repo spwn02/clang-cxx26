@@ -133,6 +133,7 @@ void LangOptions::setLangDefaults(LangOptions &Opts, Language Lang,
   // earlier mode, not even as an extension.
   Opts.DoExpressions = Std.isCPlusPlus29();
   Opts.PatternMatching = Std.isCPlusPlus29();
+  Opts.DivergingExpressions = Std.isCPlusPlus29();
   Opts.GNUMode = Std.isGNUMode();
   Opts.GNUCVersion = 0;
   Opts.HexFloats = Std.hasHexFloats();

@@ -1325,6 +1325,7 @@ public:
   CanQualType Float32Ty, Float64Ty; // C++23 std::float32_t/std::float64_t
   CanQualType VoidPtrTy, NullPtrTy;
   CanQualType MetaInfoTy, TokenSequenceTy, MetaTokenTy;
+  CanQualType NoReturnTy; // std::noreturn_t (P3549)
   CanQualType DependentTy, OverloadTy, BoundMemberTy, UnresolvedTemplateTy,
       UnknownAnyTy;
   CanQualType BuiltinFnTy;

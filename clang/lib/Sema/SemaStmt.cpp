@@ -410,6 +410,11 @@ void Sema::DiagnoseUnusedExprResult(const Stmt *S, unsigned DiagID) {
   if (!E)
     return;
 
+  // A diverging expression (P3549) is evaluated for its divergence; there is
+  // no result to have been left unused.
+  if (E->getType()->isNoReturnType())
+    return;
+
   DiagnoseUnused(*this, E, DiagID);
 }
 
@@ -3639,7 +3644,18 @@ StmtResult Sema::ActOnCapScopeReturnStmt(SourceLocation ReturnLoc,
 
     AutoType *AT = CurCap->ReturnType->getContainedAutoType();
     assert(AT && "lost auto type from lambda return type");
-    if (DeduceFunctionTypeFromReturnExpr(FD, ReturnLoc, RetValExp, AT)) {
+    // P3549: a diverging operand takes no part in the deduction.
+    if (!FD->isDependentContext() && deferDivergingReturn(RetValExp, AT)) {
+      if (!AT->isDeduced()) {
+        ExprResult ER = ActOnFinishFullExpr(RetValExp, ReturnLoc,
+                                            /*DiscardedValue=*/false);
+        if (ER.isInvalid())
+          return StmtError();
+        return ReturnStmt::Create(Context, ReturnLoc, ER.get(),
+                                  /*NRVOCandidate=*/nullptr);
+      }
+      // Already deduced: the operand converts to it below.
+    } else if (DeduceFunctionTypeFromReturnExpr(FD, ReturnLoc, RetValExp, AT)) {
       FD->setInvalidDecl();
       // FIXME: preserve the ill-formed return expression.
       return StmtError();
@@ -3710,6 +3726,12 @@ StmtResult Sema::ActOnCapScopeReturnStmt(SourceLocation ReturnLoc,
     // Delay processing for now.  TODO: there are lots of dependent
     // types we can conclusively prove aren't void.
   } else if (FnRetType->isVoidType()) {
+    // P3549: see BuildReturnStmt.
+    if (getLangOpts().DivergingExpressions && RetValExp &&
+        !isa<InitListExpr>(RetValExp) && !RetValExp->isTypeDependent() &&
+        !RetValExp->getType()->isVoidType() && RetValExp->isDiverging())
+      RetValExp =
+          ImpCastExprToType(RetValExp, Context.VoidTy, CK_ToVoid).get();
     if (RetValExp && !isa<InitListExpr>(RetValExp) &&
         !(getLangOpts().CPlusPlus &&
           (RetValExp->isTypeDependent() ||
@@ -3812,6 +3834,22 @@ TypeLoc Sema::getReturnTypeLoc(FunctionDecl *FD) const {
       ->getTypeLoc()
       .getAsAdjusted<FunctionProtoTypeLoc>()
       .getReturnLoc();
+}
+
+bool Sema::deferDivergingReturn(Expr *&RetValExp, const AutoType *AT) {
+  if (!getLangOpts().DivergingExpressions || !RetValExp ||
+      RetValExp->isTypeDependent() || !RetValExp->isDiverging() ||
+      isa<InitListExpr>(RetValExp))
+    return false;
+  // A [[noreturn]] call converts to the deduced type like a std::noreturn_t
+  // (except to void, which it already is).
+  if (!RetValExp->getType()->isNoReturnType() &&
+      !(AT->isDeduced() && AT->getDeducedType()->isVoidType()))
+    RetValExp =
+        BuildNoReturnConversion(RetValExp, Context.NoReturnTy, VK_PRValue);
+  if (!AT->isDeduced())
+    getCurFunction()->HasDivergingReturn = true;
+  return true;
 }
 
 bool Sema::DeduceAutoTypeFromExpr(TypeLoc OrigResultType,
@@ -4049,7 +4087,10 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp,
     FnRetType = FD->getReturnType();
     if (FD->hasAttrs())
       Attrs = &FD->getAttrs();
-    if (FD->isNoReturn() && !getCurFunction()->isCoroutine())
+    // Returning a diverging expression (P3549) never returns.
+    if (FD->isNoReturn() && !getCurFunction()->isCoroutine() &&
+        !(RetValExp && !RetValExp->isTypeDependent() &&
+          RetValExp->isDiverging()))
       Diag(ReturnLoc, diag::warn_noreturn_function_has_return_expr) << FD;
     if (FD->isMain() && RetValExp)
       if (isa<CXXBoolLiteralExpr>(RetValExp))
@@ -4109,7 +4150,20 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp,
       // we saw a `return` whose expression had an error, don't keep
       // trying to deduce its return type.
       // (Some return values may be needlessly wrapped in RecoveryExpr).
-      if (FD->isInvalidDecl() ||
+      // P3549: a diverging operand takes no part in the deduction.
+      if (!FD->isInvalidDecl() && !FD->isDependentContext() &&
+          deferDivergingReturn(RetValExp, AT)) {
+        if (!AT->isDeduced()) {
+          ExprResult ER = ActOnFinishFullExpr(RetValExp, ReturnLoc,
+                                              /*DiscardedValue=*/false);
+          if (ER.isInvalid())
+            return StmtError();
+          return ReturnStmt::Create(Context, ReturnLoc, ER.get(),
+                                    /*NRVOCandidate=*/nullptr);
+        }
+        // Already deduced: the operand converts to it below.
+        FnRetType = FD->getReturnType();
+      } else if (FD->isInvalidDecl() ||
           DeduceFunctionTypeFromReturnExpr(FD, ReturnLoc, RetValExp, AT)) {
         FD->setInvalidDecl();
         if (!AllowRecovery)
@@ -4135,6 +4189,13 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp,
   const VarDecl *NRVOCandidate = getCopyElisionCandidate(NRInfo, FnRetType);
 
   bool HasDependentReturnType = FnRetType->isDependentType();
+
+  // P3549: a diverging operand of a 'void' function's return is just
+  // evaluated, like a 'void' one.
+  if (FnRetType->isVoidType() && getLangOpts().DivergingExpressions &&
+      RetValExp && !RetValExp->isTypeDependent() &&
+      !RetValExp->getType()->isVoidType() && RetValExp->isDiverging())
+    RetValExp = ImpCastExprToType(RetValExp, Context.VoidTy, CK_ToVoid).get();
 
   ReturnStmt *Result = nullptr;
   if (FnRetType->isVoidType()) {
@@ -4546,6 +4607,11 @@ void Sema::DiagnoseExceptionUse(SourceLocation Loc, bool IsTry) {
   // target region compiled for a GPU architecture.
   if (IsOpenMPGPUTarget || getLangOpts().CUDA)
     // Delay error emission for the OpenMP device code.
+    return;
+
+  // P3549: 'decltype(throw 0)' is how std::noreturn_t is named; a throw-expression in an unevaluated operand throws
+  // nothing, so -fno-exceptions does not apply to it (C++29 only).
+  if (!IsTry && getLangOpts().DivergingExpressions && isUnevaluatedContext())
     return;
 
   // A throw-expression and a try-block are part of constant evaluation in C++26 ([expr.const], P3068R6): a constexpr

@@ -350,6 +350,7 @@ set(files
   __coroutine/trivial_awaitables.h
   __cstddef/byte.h
   __cstddef/max_align_t.h
+  __cstddef/noreturn_t.h
   __cstddef/nullptr_t.h
   __cstddef/ptrdiff_t.h
   __cstddef/size_t.h
@@ -994,6 +995,7 @@ set(files
   __type_traits/is_layout_compatible.h
   __type_traits/is_literal_type.h
   __type_traits/is_member_pointer.h
+  __type_traits/is_noreturn.h
   __type_traits/is_nothrow_assignable.h
   __type_traits/is_nothrow_constructible.h
   __type_traits/is_nothrow_destructible.h
