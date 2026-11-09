@@ -761,7 +761,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_trivial_union", "202603L");
     Builder.defineMacro("__cpp_constexpr_virtual_inheritance", "202506L");
     Builder.defineMacro("__cpp_constexpr_exceptions", "202411L");
-    Builder.defineMacro("__cpp_pp_embed", "202502L");
+    Builder.defineMacro("__cpp_pp_embed", LangOpts.CPlusPlus29 ? "202606L" : "202502L");
   }
 
   if (LangOpts.ExpansionStatements)

@@ -300,8 +300,8 @@ C++2d (C++29) Feature Support
   is parsed after the class is complete.
 
 - Implemented `P3540R3 <https://wg21.link/P3540R3>`_ under ``-std=c++29``: ``offset`` is a standard ``#embed`` and
-  ``__has_embed`` parameter (the existing ``clang::offset`` spelling is kept). ``__cpp_pp_embed`` keeps its value
-  because the paper leaves the new value to the editors.
+  ``__has_embed`` parameter (the existing ``clang::offset`` spelling is kept). ``__cpp_pp_embed`` is 202606L in C++29
+  mode (the value of the draft N5054) and 202502L in C++26.
 
 C++2c Feature Support
 ^^^^^^^^^^^^^^^^^^^^^

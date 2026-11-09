@@ -69,3 +69,24 @@ struct Others {
   Others(Others&&) = default;
   ~Others() = default;
 };
+
+// [dcl.fct.def.default]/2 (N5054) covers every special member function, not only assignment operators: a defaulted
+// constructor whose type differs in a way the paragraph does not list is ill-formed, where it was defined as deleted.
+struct ConstMoveCtor {
+  ConstMoveCtor(const ConstMoveCtor&&) = default;
+  // cxx23-warning@-1 {{explicitly defaulted move constructor is implicitly deleted}}
+  // cxx23-note@-2 {{function is implicitly deleted because its declared type does not match the type of an implicit move constructor}}
+  // cxx29-error@-3 {{the parameter for an explicitly-defaulted move constructor may not be const}}
+};
+struct VolatileCopyCtor {
+  VolatileCopyCtor(volatile VolatileCopyCtor&) = default;
+  // cxx23-warning@-1 {{explicitly defaulted copy constructor is implicitly deleted}}
+  // cxx23-note@-2 {{function is implicitly deleted because its declared type does not match the type of an implicit copy constructor}}
+  // cxx29-error@-3 {{the parameter for an explicitly-defaulted copy constructor may not be volatile}}
+};
+// The two listed differences stay: 'C&' for 'const C&', and 'const C&' for 'C&' (deleted on the first declaration).
+struct NonConstCopyCtor { NonConstCopyCtor(NonConstCopyCtor&) = default; };
+struct ConstParamForNonConst {
+  int& r;
+  ConstParamForNonConst(const ConstParamForNonConst&) = default;
+};

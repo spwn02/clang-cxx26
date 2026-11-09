@@ -5994,7 +5994,7 @@ FunctionTemplateDecl *Sema::getMoreSpecializedTemplate(
     const TemplateParameterList *TPL = FT->getTemplateParameters();
     return TPL->size() != 0 && TPL->getDepth() != 0;
   };
-  if (HasOuterTemplateLevel(FT1) || HasOuterTemplateLevel(FT2))
+  if (PartialOverloading && (HasOuterTemplateLevel(FT1) || HasOuterTemplateLevel(FT2)))
     return nullptr;
 
   SmallVector<QualType> Args1;
