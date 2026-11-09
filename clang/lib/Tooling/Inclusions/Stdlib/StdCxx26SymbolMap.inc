@@ -8,6 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 SYMBOL(aligned_accessor, std::, <mdspan>)
+SYMBOL(alternative_info, std::, <type_traits>)
+SYMBOL(alternative_traits, std::, <type_traits>)
 SYMBOL(apply_result, std::, <type_traits>)
 SYMBOL(apply_result_t, std::, <type_traits>)
 SYMBOL(bfloat16_t, std::, <stdfloat>)
@@ -522,6 +524,7 @@ SYMBOL(hermite, std::simd::, <simd>)
 SYMBOL(hypot, std::simd::, <simd>)
 SYMBOL(ilogb, std::simd::, <simd>)
 SYMBOL(imag, std::simd::, <simd>)
+SYMBOL(iota, std::simd::, <simd>)
 SYMBOL(isfinite, std::simd::, <simd>)
 SYMBOL(isgreater, std::simd::, <simd>)
 SYMBOL(isgreaterequal, std::simd::, <simd>)

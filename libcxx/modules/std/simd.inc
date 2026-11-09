@@ -93,6 +93,9 @@ export namespace std::simd {
   using std::simd::hypot;
   using std::simd::ilogb;
   using std::simd::imag;
+#  if _LIBCPP_STD_VER >= 29
+  using std::simd::iota;
+#  endif
   using std::simd::isfinite;
   using std::simd::isgreater;
   using std::simd::isgreaterequal;

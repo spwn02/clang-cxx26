@@ -140,8 +140,8 @@
 #  ifndef __cpp_lib_simd
 #    error "__cpp_lib_simd should be defined in c++29"
 #  endif
-#  if __cpp_lib_simd != 202603L
-#    error "__cpp_lib_simd should have the value 202603L in c++29"
+#  if __cpp_lib_simd != 202606L
+#    error "__cpp_lib_simd should have the value 202606L in c++29"
 #  endif
 
 #  ifndef __cpp_lib_simd_bitops

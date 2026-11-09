@@ -113,6 +113,8 @@ TEST(StdlibTest, Cxx26Facilities) {
       {"std::linalg::", "matrix_product", "<linalg>"},
       {"std::", "hazard_pointer", "<hazard_pointer>"},
       {"std::", "bit_reverse", "<bit>"},
+      {"std::simd::", "iota", "<simd>"},
+      {"std::", "alternative_traits", "<type_traits>"},
       {"std::", "constant_wrapper", "<utility>"},
       {"std::", "shl", "<bit>"},
       {"std::", "apply_result", "<type_traits>"},
