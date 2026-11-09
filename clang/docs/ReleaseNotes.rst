@@ -310,6 +310,13 @@ C++2d (C++29) Feature Support
   qualified calls and calls through a pointer to member name one function). ``__cpp_contracts`` is 202606L in C++29
   mode (the value of the draft N5054). C++26 keeps rejecting contract specifiers on virtual functions.
 
+- Implemented `P3822R2 <https://wg21.link/P3822R2>`_ under ``-std=c++29``: a compound requirement can have a
+  conditional ``noexcept``, ``{ E } noexcept(condition)``. The condition is a contextually converted constant
+  expression of type ``bool`` (as for a function), substituted after ``E``; the expression must not be
+  potentially-throwing only if the condition is true, and a substitution failure in the condition makes the requirement
+  unsatisfied. Earlier modes diagnose it. The Itanium mangling of such a requirement is not defined yet and is reported
+  as unsupported.
+
 - Implemented `P2287R6 <https://wg21.link/P2287R6>`_ under ``-std=c++29``: a designator can name a non-static data
   member of an aggregate base class (``B{.a1 = 1, .b = 2}`` with ``struct B : A``). The identifier must be found in
   exactly one base class subobject (otherwise the designator is ambiguous), the base subobject is initialized from the

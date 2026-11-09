@@ -959,6 +959,9 @@ def err_requires_expr_explicit_object_parameter: Error<
   "a requires expression cannot have an explicit object parameter">;
 def err_expected_semi_requirement : Error<
   "expected ';' at end of requirement">;
+def err_requires_expr_noexcept_condition_cxx29 : Error<
+  "a condition for the 'noexcept' of a compound requirement is only available "
+  "in C++29">;
 def err_requires_expr_missing_arrow : Error<
   "expected '->' before expression type requirement">;
 def err_requires_expr_expected_type_constraint : Error<

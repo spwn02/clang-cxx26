@@ -3126,6 +3126,33 @@ TemplateInstantiator::TransformExprRequirement(concepts::ExprRequirement *Req) {
       TransExpr = TransExprRes.get();
   }
 
+  // P3822R2: substitution into the constant-expression of the
+  // noexcept-specifier follows that into the expression; a failure makes the
+  // requirement unsatisfied like one in the expression.
+  Expr *TransNoexceptCond = nullptr;
+  if (Expr *Cond = Req->getNoexceptCondition();
+      Cond && isa<Expr *>(TransExpr)) {
+    TemplateDeductionInfo Info(Cond->getBeginLoc());
+    Sema::SFINAETrap Trap(SemaRef, Info);
+    Sema::InstantiatingTemplate CondInst(SemaRef, Cond->getBeginLoc(), Req,
+                                         Cond->getSourceRange());
+    if (CondInst.isInvalid())
+      return nullptr;
+    EnterExpressionEvaluationContext ConstantContext(
+        SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+    ExprResult TransCond = TransformExpr(Cond);
+    if (!TransCond.isInvalid() && !Trap.hasErrorOccurred()) {
+      ExceptionSpecificationType EST;
+      TransCond = SemaRef.ActOnNoexceptSpec(TransCond.get(), EST);
+    }
+    if (TransCond.isInvalid() || Trap.hasErrorOccurred())
+      TransExpr = createSubstDiag(SemaRef, Info, [&](llvm::raw_ostream &OS) {
+        Cond->printPretty(OS, nullptr, SemaRef.getPrintingPolicy());
+      });
+    else
+      TransNoexceptCond = TransCond.get();
+  }
+
   std::optional<concepts::ExprRequirement::ReturnTypeRequirement> TransRetReq;
   const auto &RetReq = Req->getReturnTypeRequirement();
   if (RetReq.isEmpty())
@@ -3156,10 +3183,11 @@ TemplateInstantiator::TransformExprRequirement(concepts::ExprRequirement *Req) {
   assert(TransRetReq && "All code paths leading here must set TransRetReq");
   if (Expr *E = TransExpr.dyn_cast<Expr *>())
     return RebuildExprRequirement(E, Req->isSimple(), Req->getNoexceptLoc(),
-                                  std::move(*TransRetReq));
+                                  TransNoexceptCond, std::move(*TransRetReq));
   return RebuildExprRequirement(
       cast<concepts::Requirement::SubstitutionDiagnostic *>(TransExpr),
-      Req->isSimple(), Req->getNoexceptLoc(), std::move(*TransRetReq));
+      Req->isSimple(), Req->getNoexceptLoc(), Req->getNoexceptCondition(),
+      std::move(*TransRetReq));
 }
 
 concepts::NestedRequirement *

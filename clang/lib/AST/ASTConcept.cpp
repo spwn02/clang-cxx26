@@ -136,15 +136,18 @@ const StreamingDiagnostic &clang::operator<<(const StreamingDiagnostic &DB,
 }
 
 concepts::ExprRequirement::ExprRequirement(
-    Expr *E, bool IsSimple, SourceLocation NoexceptLoc,
+    Expr *E, bool IsSimple, SourceLocation NoexceptLoc, Expr *NoexceptCond,
     ReturnTypeRequirement Req, SatisfactionStatus Status,
     ConceptSpecializationExpr *SubstitutedConstraintExpr)
     : Requirement(IsSimple ? RK_Simple : RK_Compound, Status == SS_Dependent,
                   Status == SS_Dependent &&
                       (E->containsUnexpandedParameterPack() ||
+                       (NoexceptCond &&
+                        NoexceptCond->containsUnexpandedParameterPack()) ||
                        Req.containsUnexpandedParameterPack()),
                   Status == SS_Satisfied),
-      Value(E), NoexceptLoc(NoexceptLoc), TypeReq(Req),
+      Value(E), NoexceptLoc(NoexceptLoc), NoexceptCondition(NoexceptCond),
+      TypeReq(Req),
       SubstitutedConstraintExpr(SubstitutedConstraintExpr), Status(Status) {
   assert((!IsSimple || (Req.isEmpty() && NoexceptLoc.isInvalid())) &&
          "Simple requirement must not have a return type requirement or a "
@@ -155,10 +158,11 @@ concepts::ExprRequirement::ExprRequirement(
 
 concepts::ExprRequirement::ExprRequirement(
     SubstitutionDiagnostic *ExprSubstDiag, bool IsSimple,
-    SourceLocation NoexceptLoc, ReturnTypeRequirement Req)
+    SourceLocation NoexceptLoc, Expr *NoexceptCond, ReturnTypeRequirement Req)
     : Requirement(IsSimple ? RK_Simple : RK_Compound, Req.isDependent(),
                   Req.containsUnexpandedParameterPack(), /*IsSatisfied=*/false),
-      Value(ExprSubstDiag), NoexceptLoc(NoexceptLoc), TypeReq(Req),
+      Value(ExprSubstDiag), NoexceptLoc(NoexceptLoc),
+      NoexceptCondition(NoexceptCond), TypeReq(Req),
       Status(SS_ExprSubstitutionFailure) {
   assert((!IsSimple || (Req.isEmpty() && NoexceptLoc.isInvalid())) &&
          "Simple requirement must not have a return type requirement or a "

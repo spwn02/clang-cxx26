@@ -4948,7 +4948,15 @@ void CXXNameMangler::mangleRequirement(SourceLocation RequiresExprLoc,
     Out << 'X';
     mangleExpression(ER->getExpr());
 
-    if (ER->hasNoexceptRequirement())
+    if (ER->getNoexceptCondition()) {
+      // P3822R2: the Itanium ABI has no encoding for a conditional noexcept
+      // requirement.
+      DiagnosticsEngine &Diags = Context.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "cannot yet mangle a requirement with a conditional noexcept");
+      Diags.Report(DiagID);
+    } else if (ER->hasNoexceptRequirement())
       Out << 'N';
 
     if (!ER->getReturnTypeRequirement().isEmpty()) {

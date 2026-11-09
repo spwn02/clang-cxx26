@@ -1813,6 +1813,9 @@ void StmtProfiler::VisitRequiresExpr(const RequiresExpr *S) {
       //    expression. It is equivalent to the simple-requirement x++; [...]
       // We therefore do not profile isSimple() here.
       ID.AddBoolean(ExprReq->getNoexceptLoc().isValid());
+      ID.AddBoolean(ExprReq->getNoexceptCondition() != nullptr);
+      if (ExprReq->getNoexceptCondition())
+        Visit(ExprReq->getNoexceptCondition());
       const concepts::ExprRequirement::ReturnTypeRequirement &RetReq =
           ExprReq->getReturnTypeRequirement();
       if (RetReq.isEmpty()) {

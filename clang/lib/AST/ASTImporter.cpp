@@ -1202,19 +1202,28 @@ ASTNodeImporter::ImportExprRequirement(concepts::ExprRequirement *From) {
   if (!NoexceptLocOrErr)
     return NoexceptLocOrErr.takeError();
 
+  Expr *NoexceptCond = nullptr;
+  if (Expr *FromCond = From->getNoexceptCondition()) {
+    Expected<Expr *> CondOrErr = import(FromCond);
+    if (!CondOrErr)
+      return CondOrErr.takeError();
+    NoexceptCond = *CondOrErr;
+  }
+
   if (Status == ExprRequirement::SS_ExprSubstitutionFailure) {
     auto DiagOrErr = import(From->getExprSubstitutionDiagnostic());
     if (!DiagOrErr)
       return DiagOrErr.takeError();
     return new (Importer.getToContext()) ExprRequirement(
-        *DiagOrErr, IsRKSimple, *NoexceptLocOrErr, std::move(*Req));
+        *DiagOrErr, IsRKSimple, *NoexceptLocOrErr, NoexceptCond,
+        std::move(*Req));
   } else {
     Expected<Expr *> ExprOrErr = import(From->getExpr());
     if (!ExprOrErr)
       return ExprOrErr.takeError();
     return new (Importer.getToContext()) concepts::ExprRequirement(
-        *ExprOrErr, IsRKSimple, *NoexceptLocOrErr, std::move(*Req), Status,
-        SubstitutedConstraintExpr);
+        *ExprOrErr, IsRKSimple, *NoexceptLocOrErr, NoexceptCond,
+        std::move(*Req), Status, SubstitutedConstraintExpr);
   }
 }
 

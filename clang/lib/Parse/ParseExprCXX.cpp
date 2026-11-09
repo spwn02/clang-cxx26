@@ -3580,9 +3580,26 @@ ExprResult Parser::ParseRequiresExpression() {
 
         concepts::Requirement *Req = nullptr;
         SourceLocation NoexceptLoc;
+        ExprResult NoexceptCond;
         TryConsumeToken(tok::kw_noexcept, NoexceptLoc);
+        // P3822R2 (C++29): noexcept(constant-expression).
+        if (NoexceptLoc.isValid() && Tok.is(tok::l_paren)) {
+          if (!getLangOpts().CPlusPlus29)
+            Diag(Tok, diag::err_requires_expr_noexcept_condition_cxx29);
+          BalancedDelimiterTracker T(*this, tok::l_paren);
+          T.consumeOpen();
+          EnterExpressionEvaluationContext ConstantEvaluated(
+              Actions, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+          NoexceptCond = ParseConstantExpression();
+          T.consumeClose();
+          if (NoexceptCond.isInvalid()) {
+            SkipUntil(tok::semi, tok::r_brace, SkipUntilFlags::StopBeforeMatch);
+            break;
+          }
+        }
         if (Tok.is(tok::semi)) {
-          Req = Actions.ActOnCompoundRequirement(Expression.get(), NoexceptLoc);
+          Req = Actions.ActOnCompoundRequirement(Expression.get(), NoexceptLoc,
+                                                 NoexceptCond.get());
           if (Req)
             Requirements.push_back(Req);
           break;
@@ -3610,8 +3627,8 @@ ExprResult Parser::ParseRequiresExpression() {
         }
 
         Req = Actions.ActOnCompoundRequirement(
-            Expression.get(), NoexceptLoc, SS, takeTemplateIdAnnotation(Tok),
-            TemplateParameterDepth);
+            Expression.get(), NoexceptLoc, NoexceptCond.get(), SS,
+            takeTemplateIdAnnotation(Tok), TemplateParameterDepth);
         ConsumeAnnotationToken();
         if (Req)
           Requirements.push_back(Req);

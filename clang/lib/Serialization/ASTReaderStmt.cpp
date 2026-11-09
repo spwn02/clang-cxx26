@@ -1221,10 +1221,12 @@ void ASTStmtReader::VisitRequiresExpr(RequiresExpr *E) {
         std::optional<concepts::ExprRequirement::ReturnTypeRequirement> Req;
         ConceptSpecializationExpr *SubstitutedConstraintExpr = nullptr;
         SourceLocation NoexceptLoc;
+        Expr *NoexceptCond = nullptr;
         if (RK == concepts::Requirement::RK_Simple) {
           Req.emplace();
         } else {
           NoexceptLoc = Record.readSourceLocation();
+          NoexceptCond = Record.readExpr();
           switch (/* returnTypeRequirementKind */Record.readInt()) {
             case 0:
               // No return type requirement.
@@ -1248,11 +1250,12 @@ void ASTStmtReader::VisitRequiresExpr(RequiresExpr *E) {
         if (Expr *Ex = E.dyn_cast<Expr *>())
           R = new (Record.getContext()) concepts::ExprRequirement(
                   Ex, RK == concepts::Requirement::RK_Simple, NoexceptLoc,
-                  std::move(*Req), Status, SubstitutedConstraintExpr);
+                  NoexceptCond, std::move(*Req), Status,
+                  SubstitutedConstraintExpr);
         else
           R = new (Record.getContext()) concepts::ExprRequirement(
               cast<concepts::Requirement::SubstitutionDiagnostic *>(E),
-              RK == concepts::Requirement::RK_Simple, NoexceptLoc,
+              RK == concepts::Requirement::RK_Simple, NoexceptLoc, NoexceptCond,
               std::move(*Req));
       } break;
       case concepts::Requirement::RK_Nested: {

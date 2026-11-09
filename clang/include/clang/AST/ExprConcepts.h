@@ -355,6 +355,9 @@ public:
 private:
   llvm::PointerUnion<Expr *, SubstitutionDiagnostic *> Value;
   SourceLocation NoexceptLoc; // May be empty if noexcept wasn't specified.
+  /// P3822R2: the converted constant-expression of 'noexcept(...)'; null for a
+  /// plain 'noexcept' (or when there is no noexcept-specifier).
+  Expr *NoexceptCondition = nullptr;
   ReturnTypeRequirement TypeReq;
   ConceptSpecializationExpr *SubstitutedConstraintExpr;
   SatisfactionStatus Status;
@@ -367,10 +370,11 @@ public:
   /// \param IsSimple whether this was a simple requirement in source.
   /// \param NoexceptLoc the location of the noexcept keyword, if it was
   /// specified, otherwise an empty location.
+  /// \param NoexceptCond the condition of the noexcept-specifier, if any.
   /// \param Req the requirement for the type of the checked expression.
   /// \param Status the satisfaction status of this requirement.
   ExprRequirement(
-      Expr *E, bool IsSimple, SourceLocation NoexceptLoc,
+      Expr *E, bool IsSimple, SourceLocation NoexceptLoc, Expr *NoexceptCond,
       ReturnTypeRequirement Req, SatisfactionStatus Status,
       ConceptSpecializationExpr *SubstitutedConstraintExpr = nullptr);
 
@@ -384,13 +388,16 @@ public:
   /// \param Req the requirement for the type of the checked expression (omit
   /// if no requirement was specified).
   ExprRequirement(SubstitutionDiagnostic *E, bool IsSimple,
-                  SourceLocation NoexceptLoc, ReturnTypeRequirement Req = {});
+                  SourceLocation NoexceptLoc, Expr *NoexceptCond,
+                  ReturnTypeRequirement Req = {});
 
   bool isSimple() const { return getKind() == RK_Simple; }
   bool isCompound() const { return getKind() == RK_Compound; }
 
   bool hasNoexceptRequirement() const { return NoexceptLoc.isValid(); }
   SourceLocation getNoexceptLoc() const { return NoexceptLoc; }
+  /// The condition of 'noexcept(condition)', or null.
+  Expr *getNoexceptCondition() const { return NoexceptCondition; }
 
   SatisfactionStatus getSatisfactionStatus() const { return Status; }
 

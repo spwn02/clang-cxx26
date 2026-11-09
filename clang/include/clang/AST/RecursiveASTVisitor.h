@@ -601,6 +601,8 @@ bool RecursiveASTVisitor<Derived>::TraverseConceptExprRequirement(
     concepts::ExprRequirement *R) {
   if (!R->isExprSubstitutionFailure())
     TRY_TO(TraverseStmt(R->getExpr()));
+  if (R->getNoexceptCondition())
+    TRY_TO(TraverseStmt(R->getNoexceptCondition()));
   auto &RetReq = R->getReturnTypeRequirement();
   if (RetReq.isTypeConstraint()) {
     if (getDerived().shouldVisitImplicitCode()) {
