@@ -12588,9 +12588,12 @@ bool Sema::CheckDeductionGuideDeclarator(Declarator &D, QualType &R,
 
       const QualifiedTemplateName *Qualifiers =
           SpecifiedName.getAsQualifiedTemplateName();
-      assert(Qualifiers && "expected QualifiedTemplate");
-      bool SimplyWritten =
-          !Qualifiers->hasTemplateKeyword() && !Qualifiers->getQualifier();
+      // A pack-index-template-name (P3670R4) is not a qualified template name,
+      // and is never simply the name of the guided template.
+      assert((Qualifiers || SpecifiedName.getAsPackIndexingTemplate()) &&
+             "expected QualifiedTemplate");
+      bool SimplyWritten = Qualifiers && !Qualifiers->hasTemplateKeyword() &&
+                           !Qualifiers->getQualifier();
       if (SimplyWritten && TemplateMatches)
         AcceptableReturnType = true;
       else {

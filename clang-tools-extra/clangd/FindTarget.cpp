@@ -128,6 +128,7 @@ bool shouldSkipTypedef(const TypedefNameDecl *TD) {
 //      template<class X> using pvec = vector<x*>; pvec<int> x;
 //    There's no Decl `pvec<int>`, we must choose `pvec<X>` or `vector<int*>`
 //    and both are lossy. We must know upfront what the caller ultimately wants.
+
 struct TargetFinder {
   using RelSet = DeclRelationSet;
   using Rel = DeclRelation;

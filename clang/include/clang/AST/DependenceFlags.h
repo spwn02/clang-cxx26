@@ -277,6 +277,9 @@ inline ExprDependence toExprDependence(NestedNameSpecifierDependence D) {
 inline ExprDependence toExprDependence(SpliceSpecifierDependence D) {
   return Dependence(D).expr();
 }
+inline ExprDependence toExprDependence(TemplateNameDependence D) {
+  return Dependence(D).expr();
+}
 inline ExprDependence turnTypeToValueDependence(ExprDependence D) {
   // Type-dependent expressions are always be value-dependent, so we simply drop
   // type dependency.
@@ -345,6 +348,10 @@ toTemplateArgumentDependence(SpliceSpecifierDependence D) {
 
 inline TemplateNameDependence
 toTemplateNameDependence(NestedNameSpecifierDependence D) {
+  return Dependence(D).templateName();
+}
+
+inline TemplateNameDependence toTemplateNameDependence(ExprDependence D) {
   return Dependence(D).templateName();
 }
 

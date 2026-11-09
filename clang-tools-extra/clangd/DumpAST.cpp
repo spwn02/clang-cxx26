@@ -185,6 +185,7 @@ class DumpVisitor : public RecursiveASTVisitor<DumpVisitor> {
       TEMPLATE_KIND(SubstTemplateTemplateParmPack);
       TEMPLATE_KIND(UsingTemplate);
       TEMPLATE_KIND(DeducedTemplate);
+      TEMPLATE_KIND(PackIndexingTemplate);
 #undef TEMPLATE_KIND
     }
     llvm_unreachable("Unhandled NameKind enum");
@@ -346,9 +347,11 @@ public:
       Base::TraverseTypeLoc(TL, TraverseQualifier);
     });
   }
-  bool TraverseTemplateName(const TemplateName &TN) {
-    return traverseNode("template name", TN,
-                        [&] { Base::TraverseTemplateName(TN); });
+  bool TraverseTemplateName(const TemplateName &TN,
+                            bool TraverseQualifier = true) {
+    return traverseNode("template name", TN, [&] {
+      Base::TraverseTemplateName(TN, TraverseQualifier);
+    });
   }
   bool TraverseTemplateArgumentLoc(const TemplateArgumentLoc &TAL) {
     return traverseNode("template argument", TAL,

@@ -995,7 +995,7 @@ DeclarationFragmentsBuilder::getFragmentsForTemplateParameters(
 
     if (const auto *TemplateParam =
             dyn_cast<TemplateTypeParmDecl>(ParameterArray[i])) {
-      if (TemplateParam->hasTypeConstraint())
+      if (TemplateParam->getTypeConstraint())
         Fragments.append(TemplateParam->getTypeConstraint()
                              ->getNamedConcept()
                              ->getName()

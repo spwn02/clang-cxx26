@@ -334,12 +334,13 @@ struct DeeperTemplateParmRefFinder : DynamicRecursiveASTVisitor {
       return check(PD->getDepth());
     return true;
   }
-  bool TraverseTemplateName(TemplateName N) override {
+  bool TraverseTemplateName(TemplateName N, bool TraverseQualifier) override {
     if (auto *PD =
             dyn_cast_or_null<TemplateTemplateParmDecl>(N.getAsTemplateDecl()))
       if (!check(PD->getDepth()))
         return false;
-    return DynamicRecursiveASTVisitor::TraverseTemplateName(N);
+    return DynamicRecursiveASTVisitor::TraverseTemplateName(N,
+                                                            TraverseQualifier);
   }
   bool VisitSubstTemplateTypeParmType(SubstTemplateTypeParmType *T) override {
     return TraverseType(T->getReplacementType());
@@ -5148,14 +5149,22 @@ ExprResult Sema::SubstConceptTemplateArguments(
       TemplateTemplateParmDecl *TTP = E->getParameter();
       unsigned Depth = TTP->getDepth();
       unsigned Pos = TTP->getPosition();
-      ConceptDecl *ResolvedConcept = nullptr;
+      if (!MLTAL.hasTemplateArgument(Depth, Pos))
+        return E;
 
-      if (MLTAL.hasTemplateArgument(Depth, Pos)) {
-        TemplateArgument Arg = MLTAL(Depth, Pos);
-        assert(Arg.getKind() == TemplateArgument::Template);
-        ResolvedConcept =
-            dyn_cast<ConceptDecl>(Arg.getAsTemplate().getAsTemplateDecl());
+      TemplateArgument Arg = MLTAL(Depth, Pos);
+      if (PackIndexingTemplateStorage *PI =
+              E->getTemplateName().getAsPackIndexingTemplate()) {
+        UnsignedOrNone Index = PI->getSelectedIndex();
+        if (Arg.getKind() != TemplateArgument::Pack || !Index ||
+            *Index >= Arg.pack_size())
+          return E;
+        Arg = Arg.getPackAsArray()[*Index];
       }
+      if (Arg.getKind() != TemplateArgument::Template)
+        return E;
+      ConceptDecl *ResolvedConcept = dyn_cast_if_present<ConceptDecl>(
+          Arg.getAsTemplate().getAsTemplateDecl());
       if (!ResolvedConcept)
         return E;
 

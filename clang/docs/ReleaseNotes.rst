@@ -310,6 +310,12 @@ C++2d (C++29) Feature Support
   qualified calls and calls through a pointer to member name one function). ``__cpp_contracts`` is 202606L in C++29
   mode (the value of the draft N5054). C++26 keeps rejecting contract specifiers on virtual functions.
 
+- Implemented `P3670R4 <https://wg21.link/P3670R4>`_ (partially) under ``-std=c++29``: a pack of template template
+  parameters can be indexed, ``TT...[N]<args>`` (type, variable and alias templates), based on the upstream LLVM
+  implementation (llvm-project#218738). Earlier modes reject it. Not implemented yet: a pack-index-template-name as a
+  type-constraint (a pack of concepts) and the mangling of a dependent one, for which the Itanium ABI has no
+  encoding.
+
 - Implemented `P3549R1 <https://wg21.link/P3549R1>`_ (exploratory, EWG) under ``-std=c++29``: diverging expressions
   and the bottom type ``std::noreturn_t`` (``decltype(throw 0)``): a function or lambda that only diverges deduces
   ``noreturn_t``, an operand of that type absorbs the expression, and a diverging ``match`` arm takes no part in the

@@ -1336,8 +1336,14 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     llvm::SmallVector<TemplateArgument, 8> TemplateArgs;
     if (DS.isConstrainedAuto()) {
       if (TemplateIdAnnotation *TemplateId = DS.getRepAsTemplateId()) {
-        TypeConstraintConcept =
-            cast<TemplateDecl>(TemplateId->Template.get().getAsTemplateDecl());
+        TypeConstraintConcept = cast_if_present<TemplateDecl>(
+            TemplateId->Template.get().getAsTemplateDecl());
+        if (!TypeConstraintConcept) {
+          // A pack-index-template-name as a type-constraint: not implemented.
+          S.Diag(TemplateId->TemplateNameLoc,
+                 diag::err_pack_indexing_type_constraint_unsupported);
+          declarator.setInvalidType(true);
+        }
         TemplateArgumentListInfo TemplateArgsInfo;
         TemplateArgsInfo.setLAngleLoc(TemplateId->LAngleLoc);
         TemplateArgsInfo.setRAngleLoc(TemplateId->RAngleLoc);
@@ -3143,17 +3149,23 @@ InventTemplateParameter(TypeProcessingState &state, QualType T,
         }
       }
       if (!Invalid) {
-        UsingShadowDecl *USD =
-            TemplateId->Template.get().getAsUsingShadowDecl();
-        TemplateDecl *CD = TemplateId->Template.get().getAsTemplateDecl();
-        S.AttachTypeConstraint(
-            D.getDeclSpec().getTypeSpecScope().getWithLocInContext(S.Context),
-            DeclarationNameInfo(DeclarationName(TemplateId->Name),
-                                TemplateId->TemplateNameLoc),
-            CD,
-            /*FoundDecl=*/USD ? cast<NamedDecl>(USD) : CD,
-            TemplateId->LAngleLoc.isValid() ? &TemplateArgsInfo : nullptr,
-            InventedTemplateParam, D.getEllipsisLoc());
+        TemplateName TN = TemplateId->Template.get();
+        UsingShadowDecl *USD = TN.getAsUsingShadowDecl();
+        TemplateDecl *CD = TN.getAsTemplateDecl();
+        if (!CD) {
+          S.Diag(TemplateId->TemplateNameLoc,
+                 diag::err_pack_indexing_type_constraint_unsupported);
+          Invalid = true;
+        } else {
+          S.AttachTypeConstraint(
+              D.getDeclSpec().getTypeSpecScope().getWithLocInContext(S.Context),
+              DeclarationNameInfo(DeclarationName(TemplateId->Name),
+                                  TemplateId->TemplateNameLoc),
+              CD,
+              /*FoundDecl=*/USD ? cast<NamedDecl>(USD) : CD,
+              TemplateId->LAngleLoc.isValid() ? &TemplateArgsInfo : nullptr,
+              InventedTemplateParam, D.getEllipsisLoc());
+        }
       }
     }
   }
@@ -4394,7 +4406,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   // and at most one function declarator if this is a function declaration.
   // If T is a deduced class template specialization type, only parentheses
   // are allowed.
-  if (auto *DT = T->getAs<DeducedType>()) {
+  if (auto *DT = T->getAs<DeducedType>(); DT && !T->containsErrors()) {
     const AutoType *AT = T->getAs<AutoType>();
     bool IsClassTemplateDeduction = isa<DeducedTemplateSpecializationType>(DT);
     if ((AT && AT->isDecltypeAuto()) || IsClassTemplateDeduction) {

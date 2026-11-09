@@ -179,7 +179,13 @@ class CollectUnexpandedParameterPacksVisitor
     }
 
     /// Record occurrences of template template parameter packs.
-    bool TraverseTemplateName(TemplateName Template) override {
+    bool TraverseTemplateName(TemplateName Template,
+                              bool TraverseQualifier = true) override {
+
+      if (PackIndexingTemplateStorage *PI =
+              Template.getAsPackIndexingTemplate())
+        return DynamicRecursiveASTVisitor::TraverseStmt(PI->getIndexExpr());
+
       if (auto *TTP = dyn_cast_or_null<TemplateTemplateParmDecl>(
               Template.getAsTemplateDecl())) {
         if (TTP->isParameterPack())
@@ -191,7 +197,8 @@ class CollectUnexpandedParameterPacksVisitor
           (bool)Template.getAsSubstTemplateTemplateParmPack();
 #endif
 
-      return DynamicRecursiveASTVisitor::TraverseTemplateName(Template);
+      return DynamicRecursiveASTVisitor::TraverseTemplateName(
+          Template, TraverseQualifier);
     }
 
     bool
@@ -794,6 +801,13 @@ void Sema::collectUnexpandedParameterPacks(TemplateArgumentLoc Arg,
 void Sema::collectUnexpandedParameterPacks(QualType T,
                    SmallVectorImpl<UnexpandedParameterPack> &Unexpanded) {
   CollectUnexpandedParameterPacksVisitor(Unexpanded).TraverseType(T);
+}
+
+void Sema::collectUnexpandedParameterPacks(
+    TemplateName Template,
+    SmallVectorImpl<UnexpandedParameterPack> &Unexpanded) {
+  CollectUnexpandedParameterPacksVisitor(Unexpanded)
+      .TraverseTemplateName(Template);
 }
 
 void Sema::collectUnexpandedParameterPacks(TypeLoc TL,
@@ -1544,6 +1558,70 @@ ExprResult Sema::BuildPackIndexingExpr(Expr *PackExpression,
   return PackIndexingExpr::Create(getASTContext(), EllipsisLoc, RSquareLoc,
                                   PackExpression, IndexExpr, Index,
                                   ExpandedExprs, FullySubstituted);
+}
+
+TemplateName Sema::ActOnPackIndexingTemplateName(TemplateName Pattern,
+                                                 SourceLocation NameLoc,
+                                                 Expr *IndexExpr) {
+  assert(!Pattern.isNull() && IndexExpr);
+
+  // C++29 [temp.names]p3:
+  //   The simple-template-name P in a pack-index-template-name shall denote a
+  //   pack.
+  bool DenotesPack = Pattern.containsUnexpandedParameterPack();
+  if (!DenotesPack)
+    Diag(NameLoc, diag::err_expected_name_of_pack) << Pattern;
+
+  // P3670R4 is C++29 only: neither an extension nor a warning before it.
+  if (!getLangOpts().CPlusPlus29 && DenotesPack) {
+    Diag(NameLoc, diag::err_pack_indexing_template_cxx29);
+    return TemplateName();
+  }
+
+  return BuildPackIndexingTemplateName(Pattern, IndexExpr);
+}
+
+TemplateName
+Sema::BuildPackIndexingTemplateName(TemplateName Pattern, Expr *IndexExpr,
+                                    bool FullySubstituted,
+                                    ArrayRef<TemplateName> Expansions) {
+  if (!IndexExpr->isInstantiationDependent()) {
+    llvm::APSInt Value(Context.getIntWidth(Context.getSizeType()));
+    ExprResult Res = CheckConvertedConstantExpression(
+        IndexExpr, Context.getSizeType(), Value, CCEKind::ArrayBound);
+    if (!Res.isUsable() || !Value.isRepresentableByInt64())
+      return TemplateName();
+
+    IndexExpr = Res.get();
+    // The array-bound conversion lets a negative value through un-narrowed.
+    if (Value.isSigned() && Value.isNegative()) {
+      Diag(IndexExpr->getBeginLoc(), diag::err_pack_index_negative)
+          << toString(Value, 10) << Context.getSizeType();
+      return TemplateName();
+    }
+    uint64_t V = Value.getZExtValue();
+    if (FullySubstituted && V >= Expansions.size()) {
+      Diag(IndexExpr->getBeginLoc(), diag::err_pack_index_out_of_bound)
+          << V << Pattern << Expansions.size();
+      return TemplateName();
+    }
+  }
+
+  return Context.getPackIndexingTemplateName(Pattern, IndexExpr,
+                                             FullySubstituted, Expansions);
+}
+
+TypeResult Sema::ActOnPackIndexingDeducedTemplateSpecializationType(
+    TemplateName Name, SourceLocation NameLoc) {
+
+  QualType T = Context.getDeducedTemplateSpecializationType(
+      ElaboratedTypeKeyword::None, Name, QualType(), /*IsDependent=*/false);
+  TypeLocBuilder TLB;
+  auto TL = TLB.push<DeducedTemplateSpecializationTypeLoc>(T);
+  TL.setElaboratedKeywordLoc(SourceLocation());
+  TL.setQualifierLoc(NestedNameSpecifierLoc());
+  TL.setNameLoc(NameLoc);
+  return CreateParsedType(T, TLB.getTypeSourceInfo(Context, T));
 }
 
 TemplateArgumentLoc Sema::getTemplateArgumentPackExpansionPattern(

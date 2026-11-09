@@ -37,6 +37,12 @@
 namespace clang {
 namespace extractapi {
 
+inline std::string getTypeConstraintSpelling(const TypeConstraint *TC,
+                                             const ASTContext &Context) {
+  (void)Context;
+  return TC->getNamedConcept()->getName().str();
+}
+
 class Template {
   struct TemplateParameter {
     // "class", "typename", or concept name
@@ -70,7 +76,7 @@ public:
       if (!Param) // some params are null
         continue;
       std::string Type;
-      if (Param->hasTypeConstraint())
+      if (Param->getTypeConstraint())
         Type = Param->getTypeConstraint()->getNamedConcept()->getName().str();
       else if (Param->wasDeclaredWithTypename())
         Type = "typename";
@@ -88,7 +94,7 @@ public:
       if (!Param) // some params are null
         continue;
       std::string Type;
-      if (Param->hasTypeConstraint())
+      if (Param->getTypeConstraint())
         Type = Param->getTypeConstraint()->getNamedConcept()->getName().str();
       else if (Param->wasDeclaredWithTypename())
         Type = "typename";
@@ -106,7 +112,7 @@ public:
       if (!Param) // some params are null
         continue;
       std::string Type;
-      if (Param->hasTypeConstraint())
+      if (Param->getTypeConstraint())
         Type = Param->getTypeConstraint()->getNamedConcept()->getName().str();
       else if (Param->wasDeclaredWithTypename())
         Type = "typename";
