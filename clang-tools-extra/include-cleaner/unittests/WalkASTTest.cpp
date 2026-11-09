@@ -575,6 +575,22 @@ TEST(WalkAST, InitializerList) {
        auto sx = ^{s};)cpp");
 }
 
+TEST(WalkAST, ReflectionOperator) {
+  // ^^x has the type std::meta::info: using it relies on <meta>, even though
+  // no declaration of the header is named in the source.
+  testWalk(R"cpp(
+       namespace std { inline namespace __1 { namespace meta {
+         using $implicit^info = int;
+       } } })cpp",
+           "constexpr auto r = ^@@int;", "-std=c++26");
+  testWalk(R"cpp(
+       namespace std { namespace meta { using $implicit^info = int; } }
+       )cpp",
+           "struct S {}; constexpr auto r = ^@@S;", "-std=c++26");
+  // Without <meta> there is nothing to report.
+  testWalk("", "constexpr auto r = ^@@int;", "-std=c++26");
+}
+
 TEST(WalkAST, Concepts) {
   std::string Concept = "template<typename T> concept $explicit^Foo = true;";
   testWalk(Concept, "template<typename T>concept Bar = ^Foo<T> && true;");
