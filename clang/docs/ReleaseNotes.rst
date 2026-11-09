@@ -310,6 +310,14 @@ C++2d (C++29) Feature Support
   qualified calls and calls through a pointer to member name one function). ``__cpp_contracts`` is 202606L in C++29
   mode (the value of the draft N5054). C++26 keeps rejecting contract specifiers on virtual functions.
 
+- Implemented `P2287R6 <https://wg21.link/P2287R6>`_ under ``-std=c++29``: a designator can name a non-static data
+  member of an aggregate base class (``B{.a1 = 1, .b = 2}`` with ``struct B : A``). The identifier must be found in
+  exactly one base class subobject (otherwise the designator is ambiguous), the base subobject is initialized from the
+  designators that name its members, and positional initializers before the designators initialize base classes only
+  (``B{A{1, 2}, .b = 3}``); a base class initialized both ways, or a positional initializer for a non-static data member
+  in a list with designators, is an error, and designators naming members of bases must be in element order
+  (``-Wreorder-init-list``). Earlier modes keep rejecting a designator that names a member of a base class.
+
 - Implemented `P3670R4 <https://wg21.link/P3670R4>`_ (partially) under ``-std=c++29``: a pack of template template
   parameters can be indexed, ``TT...[N]<args>`` (type, variable and alias templates), based on the upstream LLVM
   implementation (llvm-project#218738). Earlier modes reject it. Not implemented yet: a pack-index-template-name as a

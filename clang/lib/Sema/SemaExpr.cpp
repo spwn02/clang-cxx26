@@ -9021,6 +9021,9 @@ Sema::ActOnInitList(SourceLocation LBraceLoc, MultiExprArg InitArgList,
   bool DiagnosedArrayDesignator = false;
   bool DiagnosedNestedDesignator = false;
   bool DiagnosedMixedDesignator = false;
+  // P2287R6 (C++29): positional initializers (of base classes) may precede the
+  // designated ones; one that follows a designated one is still an extension.
+  DesignatedInitExpr *FirstDIE = nullptr;
 
   // Check that any designated initializers are syntactically valid in the
   // current language mode.
@@ -9046,7 +9049,10 @@ Sema::ActOnInitList(SourceLocation LBraceLoc, MultiExprArg InitArgList,
         }
       }
 
-      if (!DiagnosedMixedDesignator &&
+      if (!FirstDIE)
+        FirstDIE = DIE;
+
+      if (!DiagnosedMixedDesignator && !getLangOpts().CPlusPlus29 &&
           !isa<DesignatedInitExpr>(InitArgList[0])) {
         DiagnosedMixedDesignator = true;
         Diag(DIE->getBeginLoc(), diag::ext_designated_init_mixed)
@@ -9054,6 +9060,13 @@ Sema::ActOnInitList(SourceLocation LBraceLoc, MultiExprArg InitArgList,
         Diag(InitArgList[0]->getBeginLoc(), diag::note_designated_init_mixed)
           << InitArgList[0]->getSourceRange();
       }
+    } else if (getLangOpts().CPlusPlus29 && FirstDIE &&
+               !DiagnosedMixedDesignator) {
+      DiagnosedMixedDesignator = true;
+      Diag(FirstDIE->getBeginLoc(), diag::ext_designated_init_mixed)
+        << FirstDIE->getSourceRange();
+      Diag(InitArgList[I]->getBeginLoc(), diag::note_designated_init_mixed)
+        << InitArgList[I]->getSourceRange();
     } else if (getLangOpts().CPlusPlus && !DiagnosedMixedDesignator &&
                isa<DesignatedInitExpr>(InitArgList[0])) {
       DiagnosedMixedDesignator = true;

@@ -32,6 +32,7 @@
 #include "clang/Sema/SemaObjC.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallString.h"
@@ -359,6 +360,12 @@ class InitListChecker {
   bool TreatUnavailableAsInvalid; // Used only in VerifyOnly mode.
   bool InOverloadResolution;
   InitListExpr *FullyStructuredList = nullptr;
+
+  /// P2287R6: the base class subobjects (by position in the list of bases of
+  /// the aggregate initialized by the syntactic list) that a positional
+  /// initializer-clause of a list with designators appertains to.
+  llvm::SmallDenseSet<std::pair<const InitListExpr *, unsigned>, 4>
+      PositionalBases;
   NoInitExpr *DummyExpr = nullptr;
   SmallVectorImpl<QualType> *AggrDeductionCandidateParamTypes = nullptr;
   EmbedExpr *CurEmbed = nullptr; // Save current embed we're processing.
@@ -437,7 +444,8 @@ class InitListChecker {
                                   InitListExpr *StructuredList,
                                   unsigned &StructuredIndex,
                                   bool FinishSubobjectInit,
-                                  bool TopLevelObject);
+                                  bool TopLevelObject,
+                                  bool EnteredBase = false);
   InitListExpr *getStructuredSubobjectInit(InitListExpr *IList, unsigned Index,
                                            QualType CurrentObjectType,
                                            InitListExpr *StructuredList,
@@ -2351,6 +2359,69 @@ static bool isInitializedStructuredList(const InitListExpr *StructuredList) {
   return StructuredList && StructuredList->getNumInits() == 1U;
 }
 
+/// P2287R6: the position of the non-static data member \p F among the elements
+/// of the aggregate \p RD (bases first, then fields), as the path of element
+/// positions that leads to it through the aggregate bases.
+static bool getDesignatedElementPath(const RecordDecl *RD, const FieldDecl *F,
+                                     SmallVectorImpl<unsigned> &Path) {
+  const auto *CXXRD = dyn_cast<CXXRecordDecl>(RD);
+  unsigned NumBases = CXXRD ? CXXRD->getNumBases() : 0;
+  if (declaresSameEntity(F->getParent(), RD)) {
+    Path.push_back(NumBases + F->getFieldIndex());
+    return true;
+  }
+  if (!CXXRD)
+    return false;
+  unsigned Index = 0;
+  for (const CXXBaseSpecifier &Base : CXXRD->bases()) {
+    if (const auto *BaseRD = Base.getType()->getAsCXXRecordDecl()) {
+      size_t Size = Path.size();
+      Path.push_back(Index);
+      if (getDesignatedElementPath(BaseRD, F, Path))
+        return true;
+      Path.resize(Size);
+    }
+    ++Index;
+  }
+  return false;
+}
+
+/// P2287R6: find the direct base class subobject of the aggregate \p RD whose
+/// type is an aggregate base, and that provides the non-static data member
+/// named by \p Name (itself or through its own aggregate bases). Ambiguous is
+/// set when several subobjects provide a member of that name.
+static const CXXBaseSpecifier *
+findDesignatedBase(Sema &S, CXXRecordDecl *RD, const IdentifierInfo *Name,
+                   unsigned &BaseIndex, bool &Ambiguous) {
+  const CXXBaseSpecifier *Found = nullptr;
+  unsigned Index = 0;
+  for (const CXXBaseSpecifier &Base : RD->bases()) {
+    unsigned ThisIndex = Index++;
+    auto *BaseRD = Base.getType()->getAsCXXRecordDecl();
+    if (!BaseRD || Base.isVirtual() || !BaseRD->isAggregate())
+      continue;
+    bool Provides = false;
+    if (!BaseRD->lookup(Name).empty()) {
+      // A member of that name hides those of its own bases; it must be a
+      // non-static data member.
+      Provides = S.tryLookupUnambiguousFieldDecl(BaseRD, Name) != nullptr;
+    } else {
+      unsigned Unused = 0;
+      Provides =
+          findDesignatedBase(S, BaseRD, Name, Unused, Ambiguous) != nullptr;
+    }
+    if (!Provides)
+      continue;
+    if (Found)
+      Ambiguous = true;
+    else {
+      Found = &Base;
+      BaseIndex = ThisIndex;
+    }
+  }
+  return Found;
+}
+
 void InitListChecker::CheckStructUnionTypes(
     const InitializedEntity &Entity, InitListExpr *IList, QualType DeclType,
     CXXRecordDecl::base_class_const_range Bases, RecordDecl::field_iterator Field,
@@ -2458,6 +2529,7 @@ void InitListChecker::CheckStructUnionTypes(
     InitializedEntity BaseEntity = InitializedEntity::InitializeBase(
         SemaRef.Context, &Base, false, &Entity);
     if (Init) {
+      PositionalBases.insert({IList, unsigned(&Base - Bases.begin())});
       CheckSubElementType(BaseEntity, IList, Base.getType(), Index,
                           StructuredList, StructuredIndex);
       InitializedSomething = true;
@@ -2483,6 +2555,17 @@ void InitListChecker::CheckStructUnionTypes(
   bool HasDesignatedInit = false;
 
   llvm::SmallPtrSet<FieldDecl *, 4> InitializedFields;
+
+  // P2287R6: the element positions of the members designated so far must not
+  // decrease; the check of the direct fields is in CheckDesignatedInitializer.
+  SmallVector<unsigned, 4> LastDesignatedPath;
+  const FieldDecl *LastDesignatedField = nullptr;
+
+  const bool ListHasDesignators =
+      SemaRef.getLangOpts().CPlusPlus29 &&
+      llvm::any_of(IList->inits(), [](const Expr *E) {
+        return isa_and_nonnull<DesignatedInitExpr>(E);
+      });
 
   while (Index < IList->getNumInits()) {
     Expr *Init = IList->getInit(Index);
@@ -2510,6 +2593,25 @@ void InitListChecker::CheckStructUnionTypes(
       if (!VerifyOnly && D->isFieldDesignator()) {
         FieldDecl *F = D->getFieldDecl();
         InitializedFields.insert(F);
+        if (!DesignatedInitFailed && SemaRef.getLangOpts().CPlusPlus29 &&
+            F) {
+          SmallVector<unsigned, 4> Path;
+          if (getDesignatedElementPath(RD, F, Path)) {
+            // (Both direct fields: diagnosed by CheckDesignatedInitializer.)
+            if (LastDesignatedField &&
+                Path.size() + LastDesignatedPath.size() > 2 &&
+                std::lexicographical_compare(Path.begin(), Path.end(),
+                                             LastDesignatedPath.begin(),
+                                             LastDesignatedPath.end()))
+              SemaRef.Diag(DIE->getInit()->getBeginLoc(),
+                           diag::ext_designated_init_reordered)
+                  << F << LastDesignatedField << DIE->getSourceRange();
+            else {
+              LastDesignatedPath = Path;
+              LastDesignatedField = F;
+            }
+          }
+        }
         if (!DesignatedInitFailed) {
           QualType ET = SemaRef.Context.getBaseElementType(F->getType());
           if (checkDestructorReference(ET, InitLoc, SemaRef)) {
@@ -2591,6 +2693,15 @@ void InitListChecker::CheckStructUnionTypes(
         hadError = true;
         return;
       }
+    }
+
+    // P2287R6 (C++29): in a list with designators, the initializer-clauses
+    // that precede them appertain to base class subobjects only.
+    if (ListHasDesignators && !isa<DesignatedInitExpr>(Init)) {
+      if (!VerifyOnly)
+        SemaRef.Diag(InitLoc, diag::err_positional_init_in_designated_list)
+            << Init->getSourceRange();
+      hadError = true;
     }
 
     InitializedEntity MemberEntity =
@@ -2807,7 +2918,8 @@ InitListChecker::CheckDesignatedInitializer(const InitializedEntity &Entity,
                                             InitListExpr *StructuredList,
                                             unsigned &StructuredIndex,
                                             bool FinishSubobjectInit,
-                                            bool TopLevelObject) {
+                                            bool TopLevelObject,
+                                            bool EnteredBase) {
   if (DesigIdx == DIE->size()) {
     // C++20 designated initialization can result in direct-list-initialization
     // of the designated subobject. This is the only way that we can end up
@@ -2860,7 +2972,9 @@ InitListChecker::CheckDesignatedInitializer(const InitializedEntity &Entity,
   }
 
   DesignatedInitExpr::Designator *D = DIE->getDesignator(DesigIdx);
-  bool IsFirstDesignator = (DesigIdx == 0);
+  // P2287R6: entering a base class subobject continues with the same
+  // designator, but is not the start of the designation.
+  bool IsFirstDesignator = (DesigIdx == 0 && !EnteredBase);
   if (IsFirstDesignator ? FullyStructuredList : StructuredList) {
     // Determine the structural initializer list that corresponds to the
     // current subobject.
@@ -2953,6 +3067,53 @@ InitListChecker::CheckDesignatedInitializer(const InitializedEntity &Entity,
         ExpandAnonymousFieldDesignator(SemaRef, DIE, DesigIdx, IFD);
         D = DIE->getDesignator(DesigIdx);
         KnownField = cast<FieldDecl>(*IFD->chain_begin());
+      }
+      // P2287R6 (C++29): a designator may name a non-static data member of an
+      // aggregate base class: [dcl.init.aggr] looks the identifier up in the
+      // class, and the member shall be found in exactly one subobject, of an
+      // aggregate base. The designated base subobject is initialized from the
+      // designated-initializer-clauses that name its members.
+      if (!KnownField && SemaRef.getLangOpts().CPlusPlus29 &&
+          RD->lookup(FieldName).empty()) {
+        if (auto *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+          bool Ambiguous = false;
+          unsigned BaseIndex = 0;
+          const CXXBaseSpecifier *Base =
+              findDesignatedBase(SemaRef, CXXRD, FieldName, BaseIndex,
+                                 Ambiguous);
+          if (Ambiguous) {
+            if (!VerifyOnly)
+              SemaRef.Diag(D->getFieldLoc(),
+                           diag::err_designator_ambiguous_base_member)
+                  << FieldName << CurrentObjectType;
+            ++Index;
+            return true;
+          }
+          if (Base) {
+            if (PositionalBases.contains({IList, BaseIndex})) {
+              if (!VerifyOnly)
+                SemaRef.Diag(D->getFieldLoc(),
+                             diag::err_designated_init_base_twice)
+                    << Base->getType();
+              ++Index;
+              return true;
+            }
+            InitializedEntity BaseEntity = InitializedEntity::InitializeBase(
+                SemaRef.Context, Base, /*IsInheritedVirtualBase=*/false,
+                &Entity);
+            QualType BaseType = Base->getType();
+            if (StructuredList && BaseIndex >= StructuredList->getNumInits())
+              StructuredList->resizeInits(SemaRef.Context, BaseIndex + 1);
+            unsigned NewStructuredIndex = BaseIndex;
+            bool Failed = CheckDesignatedInitializer(
+                BaseEntity, IList, DIE, DesigIdx, BaseType, nullptr, nullptr,
+                Index, StructuredList, NewStructuredIndex, FinishSubobjectInit,
+                /*TopLevelObject=*/false, /*EnteredBase=*/true);
+            if (IsFirstDesignator)
+              StructuredIndex = BaseIndex + 1;
+            return Failed;
+          }
+        }
       }
       if (!KnownField) {
         if (VerifyOnly) {

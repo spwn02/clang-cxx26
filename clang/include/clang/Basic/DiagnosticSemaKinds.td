@@ -289,6 +289,15 @@ def ext_cxx_designated_init : Extension<
 def warn_cxx17_compat_designated_init : Warning<
   "designated initializers are incompatible with C++ standards before C++20">,
   InGroup<CXXPre20CompatPedantic>, DefaultIgnore;
+def err_designator_ambiguous_base_member : Error<
+  "designator %0 is ambiguous: it names members of several base class "
+  "subobjects of %1">;
+def err_designated_init_base_twice : Error<
+  "base class %0 is initialized both by a positional initializer and by "
+  "designated initializers">;
+def err_positional_init_in_designated_list : Error<
+  "in an initializer list with designators, only the initializers of base "
+  "classes can be positional">;
 def ext_designated_init_mixed : ExtWarn<
   "mixture of designated and non-designated initializers in the same "
   "initializer list is a C99 extension">, InGroup<C99Designator>;
