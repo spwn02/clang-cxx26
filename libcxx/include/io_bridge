@@ -1,0 +1,67 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_IO_BRIDGE
+#define _LIBCPP_IO_BRIDGE
+
+/*
+    io_bridge synopsis
+
+    Paper 8 of the networking series: the std::execution bridges P4092R1 (await_sender) and P4093R1 (as_sender,
+    split_ec). Experimental: available in C++29 mode with -fexperimental-library (and threads) only; otherwise the
+    header is empty.
+
+namespace std::io {
+  // P4092R1: consume a sender from an IoAwaitable coroutine. The operation state is stored inline in the awaitable.
+  // The sender sees the stop token of the coroutine's io_env; the coroutine is resumed by posting it to its executor.
+  // If the sender can complete with set_error(error_code) the result is io_result<T> (stopped is error::canceled),
+  // otherwise T (exceptions are rethrown, stopped throws a system_error carrying error::canceled).
+  template<class Sender> class sender_awaitable;       // IoAwaitable
+  auto await_sender(Sender&& sndr);                    // requires at most one set_value shape
+
+  // P4093R1: wrap an IoAwaitable as a sender. The receiver's environment must answer get_io_executor.
+  struct get_io_executor_t;                            // forwarding query returning an Executor (e.g. executor_ref)
+  inline constexpr get_io_executor_t get_io_executor;
+  struct io_sender_env {                               // ready-made environment for connect/sync use
+    executor_ref io_executor;
+    stop_token stop_token;
+  };
+  template<class IoAwaitable> class awaitable_sender;  // void/T -> set_value; error_code/io_result<> -> set_value()/set_error(ec)
+  auto as_sender(IoAwaitable auto&& aw);               // static_assert on a result of the shape (error_code, more...)
+
+  inline constexpr unspecified split_ec;               // split_ec(sndr), sndr | split_ec()
+}
+
+*/
+
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
+
+#  include <version>
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
+
+#    include <__io_bridge/as_sender.h>
+#    include <__io_bridge/await_sender.h>
+#    include <__io_bridge/split_ec.h>
+#    include <execution>
+#    include <io>
+#    include <io_stream>
+
+#  endif // _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+
+#endif // _LIBCPP_IO_BRIDGE

@@ -76,6 +76,7 @@ module;
 #include <initializer_list>
 #include <inplace_vector>
 #include <io>
+#include <io_bridge>
 #include <io_buffer>
 #include <io_stream>
 #include <iomanip>

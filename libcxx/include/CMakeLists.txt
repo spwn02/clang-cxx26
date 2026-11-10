@@ -567,6 +567,9 @@ set(files
   __io/thread_pool.h
   __io/when_all.h
   __io/when_any.h
+  __io_bridge/as_sender.h
+  __io_bridge/await_sender.h
+  __io_bridge/split_ec.h
   __io_buffer/buffer.h
   __io_buffer/buffer_algorithms.h
   __io_buffer/buffer_pair.h
@@ -1216,6 +1219,7 @@ set(files
   inplace_vector
   inttypes.h
   io
+  io_bridge
   io_buffer
   io_stream
   iomanip
