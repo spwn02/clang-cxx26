@@ -60,7 +60,7 @@ struct __signal_op : __op_base {
     __cancel_ = &__cancel_cb;
   }
   _LIBCPP_HIDE_FROM_ABI __signal_op(__signal_op&& __o) noexcept
-      : __op_base(std::move(__o)), __svc_(__o.__svc_), __set_(__o.__set_) {
+      : __op_base(std::move(__o)), __svc_(__o.__svc_), __set_(__o.__set_) { // NOLINT(bugprone-use-after-move)
     __cancel_ = &__cancel_cb;
   }
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
@@ -68,11 +68,11 @@ struct __signal_op : __op_base {
 
 // The process-wide part of signal handling. Signal dispositions belong to the process, not to a context: the registry
 // counts, per signal, how many signal sets (of any context) have the signal registered, remembers the flags it was
-// installed with, and lists the services of all contexts so that a delivered signal reaches every set that registered it.
-// Lock order: registry mutex, then the mutex of a service.
+// installed with, and lists the services of all contexts so that a delivered signal reaches every set that registered
+// it. Lock order: registry mutex, then the mutex of a service.
 struct __signal_registry {
   mutex __m_;
-  size_t __count_[__posix_max_signal]  = {};
+  size_t __count_[__posix_max_signal]   = {};
   unsigned __flags_[__posix_max_signal] = {};
   bool __fixed_[__posix_max_signal]     = {}; // __flags_ was chosen by a registration that did not say dont_care
   vector<__signal_service*> __services_;
@@ -85,6 +85,8 @@ _LIBCPP_HIDE_FROM_ABI inline __signal_registry& __get_signal_registry() {
 }
 
 // Per-context: the signal sets of the context and their waits. It uses the reactor to watch the signal pipe.
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class __signal_service final : public execution_context::service {
   friend class signal_set;
   friend struct __signal_op;
@@ -104,7 +106,7 @@ public:
     __r.__services_.push_back(this);
   }
 
-  _LIBCPP_HIDE_FROM_ABI ~__signal_service() override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL ~__signal_service() override {
     {
       __signal_registry& __r = __get_signal_registry();
       lock_guard<mutex> __lk(__r.__m_);
@@ -120,7 +122,7 @@ public:
   }
 
   // Abandons the waits that are still pending (the coroutines are destroyed, not resumed).
-  _LIBCPP_HIDE_FROM_ABI void shutdown() override;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void shutdown() override;
 
   // The callback of the reactor when the signal pipe is readable: delivers the signals that arrived to all contexts.
   _LIBCPP_HIDE_FROM_ABI static void __pipe_ready() noexcept;
@@ -129,6 +131,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI bool __start_wait(__signal_op& __op);
   _LIBCPP_HIDE_FROM_ABI void __cancel_op(__signal_op* __op) noexcept;
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 // P4100R1 [8.8] (Paper 9); provisional specification: Corosio's signal_set. Waits from a coroutine for one of a set of
 // process signals (sigaction() plus a self-pipe underneath).
@@ -165,8 +168,12 @@ public:
   _LIBCPP_HIDE_FROM_ABI friend constexpr flags_t operator&(flags_t __a, flags_t __b) noexcept {
     return static_cast<flags_t>(static_cast<unsigned>(__a) & static_cast<unsigned>(__b));
   }
-  _LIBCPP_HIDE_FROM_ABI friend constexpr flags_t& operator|=(flags_t& __a, flags_t __b) noexcept { return __a = __a | __b; }
-  _LIBCPP_HIDE_FROM_ABI friend constexpr flags_t& operator&=(flags_t& __a, flags_t __b) noexcept { return __a = __a & __b; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr flags_t& operator|=(flags_t& __a, flags_t __b) noexcept {
+    return __a = __a | __b;
+  }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr flags_t& operator&=(flags_t& __a, flags_t __b) noexcept {
+    return __a = __a & __b;
+  }
   _LIBCPP_HIDE_FROM_ABI friend constexpr flags_t operator~(flags_t __a) noexcept {
     return static_cast<flags_t>(~static_cast<unsigned>(__a));
   }
@@ -175,9 +182,9 @@ private:
   friend class __signal_service;
 
   __signal_service* __svc_;
-  bool __reg_[__posix_max_signal]             = {};
-  size_t __undelivered_[__posix_max_signal]  = {};
-  __signal_op* __waiter_                      = nullptr;
+  bool __reg_[__posix_max_signal]           = {};
+  size_t __undelivered_[__posix_max_signal] = {};
+  __signal_op* __waiter_                    = nullptr;
 
   // Registers the signal of this set; precondition: the registry lock is held.
   _LIBCPP_HIDE_FROM_ABI error_code __ensure_pipe_locked() {
@@ -234,8 +241,7 @@ public:
     }
   };
 
-  _LIBCPP_HIDE_FROM_ABI explicit signal_set(execution_context& __ctx)
-      : __svc_(&__ctx.use_service<__signal_service>()) {
+  _LIBCPP_HIDE_FROM_ABI explicit signal_set(execution_context& __ctx) : __svc_(&__ctx.use_service<__signal_service>()) {
     lock_guard<mutex> __lk(__svc_->__m_);
     __svc_->__sets_.push_back(this);
   }
@@ -279,8 +285,8 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code add(int __sig, flags_t __flags = none) {
     if (__sig < 1 || __sig >= __posix_max_signal)
       return make_error_code(errc::invalid_argument);
-    unsigned __f      = static_cast<unsigned>(__flags);
-    bool __dont_care  = (__f & dont_care) != 0;
+    unsigned __f     = static_cast<unsigned>(__flags);
+    bool __dont_care = (__f & dont_care) != 0;
     if (__dont_care && __f != static_cast<unsigned>(dont_care))
       return make_error_code(errc::invalid_argument);
     if (!__dont_care) {

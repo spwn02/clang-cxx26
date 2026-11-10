@@ -15,6 +15,7 @@
 #include <__io/continuation.h>
 #include <__io/execution_context.h>
 #include <__io/executor.h>
+#include <__memory/addressof.h>
 #include <__type_traits/remove_cvref.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -54,7 +55,8 @@ public:
 
   template <Executor _Ex>
     requires(!same_as<remove_cvref_t<_Ex>, executor_ref>)
-  _LIBCPP_HIDE_FROM_ABI executor_ref(const _Ex& __e) noexcept : __ex_(&__e), __vt_(&__executor_vtable_for<_Ex>) {}
+  _LIBCPP_HIDE_FROM_ABI executor_ref(const _Ex& __e) noexcept
+      : __ex_(std::addressof(__e)), __vt_(std::addressof(__executor_vtable_for<_Ex>)) {}
 
   // Preconditions: this reference is not empty (it was not default-constructed).
   _LIBCPP_HIDE_FROM_ABI coroutine_handle<> dispatch(continuation& __c) const { return __vt_->__dispatch_(__ex_, __c); }

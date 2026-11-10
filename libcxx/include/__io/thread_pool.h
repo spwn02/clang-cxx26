@@ -95,7 +95,7 @@ private:
       __threads_.emplace_back([this] { __worker(); });
   }
 
-  _LIBCPP_HIDE_FROM_ABI void __post(continuation& __c) {
+  _LIBCPP_HIDE_FROM_ABI void __do_post(continuation& __c) {
     __c.next = nullptr;
     {
       unique_lock<mutex> __lk(__mtx_);
@@ -138,8 +138,9 @@ private:
 public:
   // Zero selects the hardware concurrency, or one when that is unknown.
   _LIBCPP_HIDE_FROM_ABI explicit thread_pool(size_t __num_threads = 0)
-      : __num_threads_(__num_threads != 0 ? __num_threads
-                                          : (thread::hardware_concurrency() != 0 ? thread::hardware_concurrency() : 1)) {}
+      : __num_threads_(__num_threads != 0
+                           ? __num_threads
+                           : (thread::hardware_concurrency() != 0 ? thread::hardware_concurrency() : 1)) {}
 
   thread_pool(const thread_pool&)            = delete;
   thread_pool& operator=(const thread_pool&) = delete;
@@ -209,10 +210,10 @@ public:
   _LIBCPP_HIDE_FROM_ABI coroutine_handle<> dispatch(continuation& __c) const {
     if (__current_thread_pool() == __pool_)
       return __c.h;
-    __pool_->__post(__c);
+    __pool_->__do_post(__c);
     return noop_coroutine();
   }
-  _LIBCPP_HIDE_FROM_ABI void post(continuation& __c) const { __pool_->__post(__c); }
+  _LIBCPP_HIDE_FROM_ABI void post(continuation& __c) const { __pool_->__do_post(__c); }
 };
 
 _LIBCPP_HIDE_FROM_ABI inline thread_pool::executor_type thread_pool::get_executor() const noexcept {

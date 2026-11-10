@@ -17,6 +17,7 @@
 #include <__io_stream/erased.h>
 #include <__io_stream/error.h>
 #include <__io_stream/stream_concepts.h>
+#include <__memory/addressof.h>
 #include <__utility/declval.h>
 #include <span>
 
@@ -35,7 +36,7 @@ namespace io {
 // read_some completes inline, without suspending, when the wrapped awaitable reports await_ready. A sequence of more
 // than 16 non-empty buffers is truncated to its first 16 (a partial operation may transfer less than asked).
 class any_read_stream {
-  using _Res = io_result<size_t>;
+  using _Res _LIBCPP_NODEBUG = io_result<size_t>;
 
   struct __vtable {
     const __erased_op_vtable<_Res>* (*__start_)(void*, void*, span<const mutable_buffer>);
@@ -46,12 +47,13 @@ class any_read_stream {
   template <class _Obj>
   static constexpr __vtable __vtable_for = [] {
     using _Aw = decltype(std::declval<_Obj&>().read_some(std::declval<span<const mutable_buffer>>()));
-    return __vtable{
-        [](void* __o, void* __mem, span<const mutable_buffer> __b) -> const __erased_op_vtable<_Res>* {
-          return io::__erased_construct<_Res, _Aw>(__mem, [&]() -> _Aw { return static_cast<_Obj*>(__o)->read_some(__b); });
-        },
-        sizeof(_Aw),
-        alignof(_Aw)};
+    return __vtable{[](void* __o, void* __mem, span<const mutable_buffer> __b) -> const __erased_op_vtable<_Res>* {
+                      return io::__erased_construct<_Res, _Aw>(__mem, [&]() -> _Aw {
+                        return static_cast<_Obj*>(__o)->read_some(__b);
+                      });
+                    },
+                    sizeof(_Aw),
+                    alignof(_Aw)};
   }();
 
   __erased_state<__vtable> __st_;
@@ -63,9 +65,9 @@ public:
   // of the wrapper, the operation storage, sized for the largest awaitable of the wrapped type.
   template <ReadStream _Obj>
     requires requires(_Obj& __o, span<const mutable_buffer> __b) { __o.read_some(__b); }
-  _LIBCPP_HIDE_FROM_ABI explicit any_read_stream(_Obj* __o) : __st_(__o, &__vtable_for<_Obj>) {}
-  any_read_stream(const any_read_stream&)            = delete;
-  any_read_stream& operator=(const any_read_stream&) = delete;
+  _LIBCPP_HIDE_FROM_ABI explicit any_read_stream(_Obj* __o) : __st_(__o, std::addressof(__vtable_for<_Obj>)) {}
+  any_read_stream(const any_read_stream&)                                      = delete;
+  any_read_stream& operator=(const any_read_stream&)                           = delete;
   _LIBCPP_HIDE_FROM_ABI any_read_stream(any_read_stream&&) noexcept            = default;
   _LIBCPP_HIDE_FROM_ABI any_read_stream& operator=(any_read_stream&&) noexcept = default;
 
@@ -77,10 +79,12 @@ public:
   template <MutableBufferSequence _Seq>
   _LIBCPP_HIDE_FROM_ABI __erased_awaitable<_Res> read_some(const _Seq& __buffers) {
     _LIBCPP_ASSERT_UNCATEGORIZED(has_value(), "operation on an empty type-erased stream");
-    _LIBCPP_ASSERT_UNCATEGORIZED(!__st_.__slot_.__active(), "an operation is already in flight on this type-erased stream");
+    _LIBCPP_ASSERT_UNCATEGORIZED(
+        !__st_.__slot_.__active(), "an operation is already in flight on this type-erased stream");
     size_t __n = io::__gather_buffers<mutable_buffer>(__buffers, 0, __bufs_);
     return io::__erased_begin<_Res>(
-        __st_.__slot_, __st_.__vt_->__start_(__st_.__obj_, __st_.__slot_.__memory(), span<const mutable_buffer>(__bufs_, __n)));
+        __st_.__slot_,
+        __st_.__vt_->__start_(__st_.__obj_, __st_.__slot_.__memory(), span<const mutable_buffer>(__bufs_, __n)));
   }
 };
 

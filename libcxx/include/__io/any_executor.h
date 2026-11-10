@@ -15,6 +15,7 @@
 #include <__io/continuation.h>
 #include <__io/execution_context.h>
 #include <__io/executor.h>
+#include <__memory/addressof.h>
 #include <__memory/shared_ptr.h>
 #include <__type_traits/decay.h>
 #include <__type_traits/remove_cvref.h>
@@ -37,17 +38,21 @@ namespace io {
 template <class _Tp>
 inline constexpr char __any_executor_tag = 0;
 
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 struct __any_executor_base {
-  virtual ~__any_executor_base()                                   = default;
-  virtual execution_context& __context() const noexcept            = 0;
-  virtual void __work_started() const noexcept                     = 0;
-  virtual void __work_finished() const noexcept                    = 0;
-  virtual coroutine_handle<> __dispatch(continuation&) const       = 0;
-  virtual void __post(continuation&) const                         = 0;
-  virtual bool __equals(const __any_executor_base*) const noexcept = 0;
-  virtual const char* __tag() const noexcept                       = 0;
-  virtual const void* __target() const noexcept                    = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual ~__any_executor_base()                                   = default;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual execution_context& __context() const noexcept            = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __work_started() const noexcept                     = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __work_finished() const noexcept                    = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual coroutine_handle<> __dispatch(continuation&) const       = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void __do_post(continuation&) const                      = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual bool __equals(const __any_executor_base*) const noexcept = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual const char* __tag() const noexcept                       = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual const void* __target() const noexcept                    = 0;
 };
+
+_LIBCPP_DIAGNOSTIC_POP
 
 template <class _Ex>
 struct __any_executor_impl final : __any_executor_base {
@@ -55,16 +60,20 @@ struct __any_executor_impl final : __any_executor_base {
   template <class _Ex2>
   _LIBCPP_HIDE_FROM_ABI explicit __any_executor_impl(_Ex2&& __e) : __ex_(std::forward<_Ex2>(__e)) {}
 
-  execution_context& __context() const noexcept override { return __ex_.context(); }
-  void __work_started() const noexcept override { __ex_.on_work_started(); }
-  void __work_finished() const noexcept override { __ex_.on_work_finished(); }
-  coroutine_handle<> __dispatch(continuation& __c) const override { return __ex_.dispatch(__c); }
-  void __post(continuation& __c) const override { __ex_.post(__c); }
-  bool __equals(const __any_executor_base* __o) const noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL execution_context& __context() const noexcept override { return __ex_.context(); }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __work_started() const noexcept override { __ex_.on_work_started(); }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __work_finished() const noexcept override { __ex_.on_work_finished(); }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL coroutine_handle<> __dispatch(continuation& __c) const override {
+    return __ex_.dispatch(__c);
+  }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void __do_post(continuation& __c) const override { __ex_.post(__c); }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL bool __equals(const __any_executor_base* __o) const noexcept override {
     return __tag() == __o->__tag() && __ex_ == static_cast<const __any_executor_impl*>(__o)->__ex_;
   }
-  const char* __tag() const noexcept override { return &__any_executor_tag<_Ex>; }
-  const void* __target() const noexcept override { return &__ex_; }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL const char* __tag() const noexcept override {
+    return std::addressof(__any_executor_tag<_Ex>);
+  }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL const void* __target() const noexcept override { return std::addressof(__ex_); }
 };
 
 // P4100R1 [8.7]: an owning, type-erased Executor. The wrapped executor is stored once and shared by all copies (so
@@ -94,7 +103,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI void on_work_started() const noexcept { __p_->__work_started(); }
   _LIBCPP_HIDE_FROM_ABI void on_work_finished() const noexcept { __p_->__work_finished(); }
   _LIBCPP_HIDE_FROM_ABI coroutine_handle<> dispatch(continuation& __c) const { return __p_->__dispatch(__c); }
-  _LIBCPP_HIDE_FROM_ABI void post(continuation& __c) const { __p_->__post(__c); }
+  _LIBCPP_HIDE_FROM_ABI void post(continuation& __c) const { __p_->__do_post(__c); }
 
   // Equal when both are empty, or both hold executors of the same type that compare equal. (A member rather than a
   // hidden friend: a friend would be found by ADL for any executor that has an any_executor as a template argument, and
@@ -109,7 +118,7 @@ public:
   // executor.
   template <class _Ex>
   _LIBCPP_HIDE_FROM_ABI const _Ex* target() const noexcept {
-    if (!__p_ || __p_->__tag() != &__any_executor_tag<_Ex>)
+    if (!__p_ || __p_->__tag() != std::addressof(__any_executor_tag<_Ex>))
       return nullptr;
     return static_cast<const _Ex*>(__p_->__target());
   }

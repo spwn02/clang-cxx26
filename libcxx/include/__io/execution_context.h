@@ -11,6 +11,7 @@
 
 #include <__config>
 #include <__cstddef/size_t.h>
+#include <__memory/addressof.h>
 #include <__memory/unique_ptr.h>
 #include <__memory_resource/memory_resource.h>
 #include <__mutex/lock_guard.h>
@@ -43,17 +44,20 @@ namespace io {
 // ~execution_context() calls them again, which is harmless because both are idempotent.
 class execution_context {
 public:
+  _LIBCPP_DIAGNOSTIC_PUSH
+  _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
   class service {
   public:
-    _LIBCPP_HIDE_FROM_ABI virtual ~service() = default;
+    _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual ~service() = default;
 
   protected:
-    _LIBCPP_HIDE_FROM_ABI service() = default;
-    virtual void shutdown()         = 0;
+    _LIBCPP_HIDE_FROM_ABI service()                       = default;
+    _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual void shutdown() = 0;
 
   private:
     friend class execution_context;
   };
+  _LIBCPP_DIAGNOSTIC_POP
 
   execution_context(const execution_context&)            = delete;
   execution_context& operator=(const execution_context&) = delete;
@@ -132,7 +136,7 @@ private:
   static inline char __id_tag_ = 0;
   template <class _Tp>
   _LIBCPP_HIDE_FROM_ABI static const void* __id() noexcept {
-    return &__id_tag_<_Tp>;
+    return std::addressof(__id_tag_<_Tp>);
   }
 
   _LIBCPP_HIDE_FROM_ABI service* __find(const void* __id) const {

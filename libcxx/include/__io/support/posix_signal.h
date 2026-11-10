@@ -92,7 +92,7 @@ _LIBCPP_HIDE_FROM_ABI inline __posix_signal_state& __posix_state() noexcept {
 }
 
 // C language linkage: the type of sigaction()'s handler member is a C function type.
-extern "C" inline void __libcpp_io_posix_signal_handler(int __sig) noexcept {
+extern "C" _LIBCPP_HIDE_FROM_ABI inline void __libcpp_io_posix_signal_handler(int __sig) noexcept {
   int __saved = errno;
   int __fd    = __posix_signal_write_fd.load(memory_order_relaxed);
   if (__fd >= 0) {
@@ -110,9 +110,9 @@ _LIBCPP_HIDE_FROM_ABI inline error_code __posix_signal_ensure_pipe(int& __fd) no
     int __p[2];
     if (::pipe(__p) != 0)
       return error_code(errno, generic_category());
-    for (int __i = 0; __i != 2; ++__i) {
-      ::fcntl(__p[__i], F_SETFD, FD_CLOEXEC);
-      ::fcntl(__p[__i], F_SETFL, ::fcntl(__p[__i], F_GETFL) | O_NONBLOCK);
+    for (int __pipe_fd : __p) {
+      ::fcntl(__pipe_fd, F_SETFD, FD_CLOEXEC);
+      ::fcntl(__pipe_fd, F_SETFL, ::fcntl(__pipe_fd, F_GETFL) | O_NONBLOCK);
     }
     __s.__read_fd_ = __p[0];
     __posix_signal_write_fd.store(__p[1], memory_order_relaxed);

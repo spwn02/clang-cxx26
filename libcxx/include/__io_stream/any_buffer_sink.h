@@ -17,6 +17,7 @@
 #include <__io_stream/erased.h>
 #include <__io_stream/error.h>
 #include <__io_stream/stream_concepts.h>
+#include <__memory/addressof.h>
 #include <__utility/declval.h>
 #include <span>
 
@@ -30,10 +31,10 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace io {
 
-// P4100R1 [8.6]: a non-owning, type-erased BufferSink. prepare is synchronous; commit, commit(n, eof) and commit_eof are
-// operations.
+// P4100R1 [8.6]: a non-owning, type-erased BufferSink. prepare is synchronous; commit, commit(n, eof) and commit_eof
+// are operations.
 class any_buffer_sink {
-  using _Res = io_result<>;
+  using _Res _LIBCPP_NODEBUG = io_result<>;
 
   struct __vtable {
     size_t (*__prepare_)(void*, mutable_buffer*, size_t);
@@ -52,13 +53,19 @@ class any_buffer_sink {
     return __vtable{
         [](void* __o, mutable_buffer* __a, size_t __n) -> size_t { return static_cast<_Obj*>(__o)->prepare(__a, __n); },
         [](void* __o, void* __mem, size_t __n) -> const __erased_op_vtable<_Res>* {
-          return io::__erased_construct<_Res, _A1>(__mem, [&]() -> _A1 { return static_cast<_Obj*>(__o)->commit(__n); });
+          return io::__erased_construct<_Res, _A1>(__mem, [&]() -> _A1 {
+            return static_cast<_Obj*>(__o)->commit(__n);
+          });
         },
         [](void* __o, void* __mem, size_t __n, bool __e) -> const __erased_op_vtable<_Res>* {
-          return io::__erased_construct<_Res, _A2>(__mem, [&]() -> _A2 { return static_cast<_Obj*>(__o)->commit(__n, __e); });
+          return io::__erased_construct<_Res, _A2>(__mem, [&]() -> _A2 {
+            return static_cast<_Obj*>(__o)->commit(__n, __e);
+          });
         },
         [](void* __o, void* __mem) -> const __erased_op_vtable<_Res>* {
-          return io::__erased_construct<_Res, _A3>(__mem, [&]() -> _A3 { return static_cast<_Obj*>(__o)->commit_eof(); });
+          return io::__erased_construct<_Res, _A3>(__mem, [&]() -> _A3 {
+            return static_cast<_Obj*>(__o)->commit_eof();
+          });
         },
         __max_sizeof<_A1, _A2, _A3>,
         __max_alignof<_A1, _A2, _A3>};
@@ -68,15 +75,16 @@ class any_buffer_sink {
 
   _LIBCPP_HIDE_FROM_ABI void __check() const noexcept {
     _LIBCPP_ASSERT_UNCATEGORIZED(has_value(), "operation on an empty type-erased sink");
-    _LIBCPP_ASSERT_UNCATEGORIZED(!__st_.__slot_.__active(), "an operation is already in flight on this type-erased sink");
+    _LIBCPP_ASSERT_UNCATEGORIZED(
+        !__st_.__slot_.__active(), "an operation is already in flight on this type-erased sink");
   }
 
 public:
   _LIBCPP_HIDE_FROM_ABI any_buffer_sink() noexcept = default;
   template <BufferSink _Obj>
-  _LIBCPP_HIDE_FROM_ABI explicit any_buffer_sink(_Obj* __o) : __st_(__o, &__vtable_for<_Obj>) {}
-  any_buffer_sink(const any_buffer_sink&)            = delete;
-  any_buffer_sink& operator=(const any_buffer_sink&) = delete;
+  _LIBCPP_HIDE_FROM_ABI explicit any_buffer_sink(_Obj* __o) : __st_(__o, std::addressof(__vtable_for<_Obj>)) {}
+  any_buffer_sink(const any_buffer_sink&)                                      = delete;
+  any_buffer_sink& operator=(const any_buffer_sink&)                           = delete;
   _LIBCPP_HIDE_FROM_ABI any_buffer_sink(any_buffer_sink&&) noexcept            = default;
   _LIBCPP_HIDE_FROM_ABI any_buffer_sink& operator=(any_buffer_sink&&) noexcept = default;
 

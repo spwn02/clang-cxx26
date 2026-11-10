@@ -60,10 +60,12 @@ struct __fd_op : __op_base {
       : __svc_(__s), __fd_(__fd), __want_(__want) {
     __cancel_ = &__cancel_cb;
   }
+  // NOLINTBEGIN(bugprone-use-after-move): only the __op_base subobject is moved from
   _LIBCPP_HIDE_FROM_ABI __fd_op(__fd_op&& __o) noexcept
       : __op_base(std::move(__o)), __svc_(__o.__svc_), __fd_(__o.__fd_), __want_(__o.__want_) {
     __cancel_ = &__cancel_cb;
   }
+  // NOLINTEND(bugprone-use-after-move)
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
 };
 
@@ -71,19 +73,20 @@ struct __fd_op : __op_base {
 struct __timer_op : __op_base {
   __reactor_service* __svc_;
   chrono::steady_clock::time_point __deadline_{};
-  size_t __seq_ = 0;
-  size_t __idx_ = 0;
+  size_t __seq_         = 0;
+  size_t __idx_         = 0;
   __op_list* __waiters_ = nullptr; // the waiters of the timer object, in order of arrival
 
   _LIBCPP_HIDE_FROM_ABI explicit __timer_op(__reactor_service* __s) noexcept : __svc_(__s) { __cancel_ = &__cancel_cb; }
-  _LIBCPP_HIDE_FROM_ABI __timer_op(__timer_op&& __o) noexcept : __op_base(std::move(__o)), __svc_(__o.__svc_) {
+  _LIBCPP_HIDE_FROM_ABI __timer_op(__timer_op&& __o) noexcept
+      : __op_base(std::move(__o)), __svc_(__o.__svc_) { // NOLINT(bugprone-use-after-move)
     __cancel_ = &__cancel_cb;
   }
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
 };
 
-// The reactor: the part of an io_context that talks to the operating system. It is an execution_context service, created
-// on first use (io_context creates it eagerly), and it owns
+// The reactor: the part of an io_context that talks to the operating system. It is an execution_context service,
+// created on first use (io_context creates it eagerly), and it owns
 //   - the poller (epoll on Linux), with the wake-up mechanism,
 //   - the file descriptor waits (one slot per descriptor with the list of its pending waits),
 //   - the timer queue (a binary heap of the pending timer waits),
@@ -91,20 +94,22 @@ struct __timer_op : __op_base {
 //
 // Timers are driven by the timeout argument of the poller's wait (epoll_wait here) instead of a timerfd: it is one
 // system call per loop iteration either way, it needs no file descriptor per context and no arming system call when the
-// earliest deadline changes, and every platform backend has such a timeout (kevent, GetQueuedCompletionStatus). The cost
-// is the resolution of that timeout, one millisecond on Linux: a deadline is rounded up to the next millisecond, so a
-// timer never fires early and fires up to a millisecond late.
+// earliest deadline changes, and every platform backend has such a timeout (kevent, GetQueuedCompletionStatus). The
+// cost is the resolution of that timeout, one millisecond on Linux: a deadline is rounded up to the next millisecond,
+// so a timer never fires early and fires up to a millisecond late.
 //
-// File descriptor waits are level-triggered and one-shot: a wait completes once when the descriptor is ready, so there is
-// no readiness to remember between the event and the wait that consumes it (an edge-triggered registration would lose an
-// edge that happened before the wait was started). A wait on a descriptor that was closed while waiting never completes
-// (the kernel forgets the registration); cancel it.
+// File descriptor waits are level-triggered and one-shot: a wait completes once when the descriptor is ready, so there
+// is no readiness to remember between the event and the wait that consumes it (an edge-triggered registration would
+// lose an edge that happened before the wait was started). A wait on a descriptor that was closed while waiting never
+// completes (the kernel forgets the registration); cancel it.
 //
 // Locking: one mutex protects every queue and slot. The mutex is never held while an operation is completed (completion
 // posts the continuation to the executor of the awaiting coroutine) or a source callback runs.
 //
 // Work counting: the number of pending operations is counted here, and io_context::run() does not return while it is
 // not zero (like on_work_started/on_work_finished of Asio and Corosio do for an operation in flight).
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class __reactor_service final : public execution_context::service {
   struct __fd_slot {
     __op_list __ops_;
@@ -161,8 +166,8 @@ class __reactor_service final : public execution_context::service {
     __sift_up(__heap_.size() - 1);
   }
   _LIBCPP_HIDE_FROM_ABI void __heap_erase(__timer_op* __op) noexcept {
-    size_t __i          = __op->__idx_;
-    __timer_op* __last  = __heap_.back();
+    size_t __i         = __op->__idx_;
+    __timer_op* __last = __heap_.back();
     __heap_.pop_back();
     if (__last != __op) {
       __heap_set(__i, __last);
@@ -211,7 +216,7 @@ public:
 
   // Abandons everything that is still pending: the coroutines that wait are destroyed, not resumed (like the queued
   // work of an io_context). Operations started afterwards complete with an error.
-  _LIBCPP_HIDE_FROM_ABI void shutdown() override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL void shutdown() override {
     vector<coroutine_handle<>> __handles;
     {
       lock_guard<mutex> __lk(__m_);
@@ -249,8 +254,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI void __op_started() noexcept { __pending_.fetch_add(1, memory_order_acq_rel); }
 
   // Completes a queued operation that its owner has already removed from its queue and moved to __done: posts the
-  // continuation to the executor of the awaiting coroutine, then uncounts it. May be called from any thread, with no lock
-  // held. The operation must not be touched afterwards.
+  // continuation to the executor of the awaiting coroutine, then uncounts it. May be called from any thread, with no
+  // lock held. The operation must not be touched afterwards.
   _LIBCPP_HIDE_FROM_ABI void __complete(__op_base* __op) noexcept {
     executor_ref __ex = __op->__ex_;
     continuation* __c = &__op->__cont_;
@@ -362,8 +367,8 @@ public:
     return __ops.size();
   }
 
-  // A persistent, level-triggered event source: __fn is called (from whichever thread polls, with no lock held) when the
-  // descriptor is readable. It does not keep run() alive.
+  // A persistent, level-triggered event source: __fn is called (from whichever thread polls, with no lock held) when
+  // the descriptor is readable. It does not keep run() alive.
   _LIBCPP_HIDE_FROM_ABI error_code __add_source(int __fd, void (*__fn)() noexcept) {
     lock_guard<mutex> __lk(__m_);
     auto __it = __slots_.try_emplace(__fd).first;
@@ -401,7 +406,8 @@ public:
       if (__heap_.empty()) {
         __timeout = -1;
       } else {
-        auto __ns = chrono::duration_cast<chrono::nanoseconds>(__heap_.front()->__deadline_ - chrono::steady_clock::now());
+        auto __ns =
+            chrono::duration_cast<chrono::nanoseconds>(__heap_.front()->__deadline_ - chrono::steady_clock::now());
         if (__ns.count() <= 0)
           __timeout = 0;
         else {
@@ -465,6 +471,7 @@ public:
       __complete(__op);
   }
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 inline void __fd_op::__cancel_cb(__op_base* __b) noexcept {
   __fd_op* __op = static_cast<__fd_op*>(__b);

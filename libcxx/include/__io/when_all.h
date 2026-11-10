@@ -17,6 +17,7 @@
 #include <__io/io_awaitable.h>
 #include <__io/io_env.h>
 #include <__io/join_support.h>
+#include <__memory/addressof.h>
 #include <__ranges/concepts.h>
 #include <__type_traits/conditional.h>
 #include <__type_traits/decay.h>
@@ -89,7 +90,11 @@ class [[nodiscard]] __when_all_awaitable {
 
   template <size_t... _Is>
   _LIBCPP_HIDE_FROM_ABI void __create(index_sequence<_Is...>) {
-    ((__conts_[_Is].h = io::__all_run(&__core_, &std::get<_Is>(__as_), &std::get<_Is>(__slots_)).release()), ...);
+    ((__conts_[_Is].h =
+          io::__all_run(
+              std::addressof(__core_), std::addressof(std::get<_Is>(__as_)), std::addressof(std::get<_Is>(__slots_)))
+              .release()),
+     ...);
   }
 
 public:
@@ -133,7 +138,7 @@ template <class... _As>
 // The awaitable of when_all(range).
 template <class _Aw>
 class [[nodiscard]] __when_all_range_awaitable {
-  using _Value = __await_result_t<_Aw>;
+  using _Value _LIBCPP_NODEBUG = __await_result_t<_Aw>;
 
   vector<_Aw> __as_;
   vector<__join_slot_t<_Aw>> __slots_;
@@ -153,7 +158,8 @@ public:
     {
       __join_frame_scope __scope(__env);
       for (size_t __i = 0; __i != __as_.size(); ++__i)
-        __conts_[__i].h = io::__all_run(&__core_, &__as_[__i], &__slots_[__i]).release();
+        __conts_[__i].h =
+            io::__all_run(std::addressof(__core_), std::addressof(__as_[__i]), std::addressof(__slots_[__i])).release();
     }
     io::__join_post_all(__conts_.data(), __conts_.size(), __env->executor);
   }

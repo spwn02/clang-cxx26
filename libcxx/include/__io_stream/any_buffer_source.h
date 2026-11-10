@@ -17,6 +17,7 @@
 #include <__io_stream/erased.h>
 #include <__io_stream/error.h>
 #include <__io_stream/stream_concepts.h>
+#include <__memory/addressof.h>
 #include <__utility/declval.h>
 #include <span>
 
@@ -33,7 +34,7 @@ namespace io {
 // P4100R1 [8.6]: a non-owning, type-erased BufferSource. pull fills the caller's array of const_buffer descriptors from
 // the source's own storage; consume is synchronous.
 class any_buffer_source {
-  using _Res = io_result<size_t>;
+  using _Res _LIBCPP_NODEBUG = io_result<size_t>;
 
   struct __vtable {
     const __erased_op_vtable<_Res>* (*__pull_)(void*, void*, const_buffer*, size_t);
@@ -47,7 +48,9 @@ class any_buffer_source {
     using _Aw = decltype(std::declval<_Obj&>().pull(std::declval<const_buffer*>(), size_t{}));
     return __vtable{
         [](void* __o, void* __mem, const_buffer* __a, size_t __n) -> const __erased_op_vtable<_Res>* {
-          return io::__erased_construct<_Res, _Aw>(__mem, [&]() -> _Aw { return static_cast<_Obj*>(__o)->pull(__a, __n); });
+          return io::__erased_construct<_Res, _Aw>(__mem, [&]() -> _Aw {
+            return static_cast<_Obj*>(__o)->pull(__a, __n);
+          });
         },
         [](void* __o, size_t __n) { static_cast<_Obj*>(__o)->consume(__n); },
         sizeof(_Aw),
@@ -59,9 +62,9 @@ class any_buffer_source {
 public:
   _LIBCPP_HIDE_FROM_ABI any_buffer_source() noexcept = default;
   template <BufferSource _Obj>
-  _LIBCPP_HIDE_FROM_ABI explicit any_buffer_source(_Obj* __o) : __st_(__o, &__vtable_for<_Obj>) {}
-  any_buffer_source(const any_buffer_source&)            = delete;
-  any_buffer_source& operator=(const any_buffer_source&) = delete;
+  _LIBCPP_HIDE_FROM_ABI explicit any_buffer_source(_Obj* __o) : __st_(__o, std::addressof(__vtable_for<_Obj>)) {}
+  any_buffer_source(const any_buffer_source&)                                      = delete;
+  any_buffer_source& operator=(const any_buffer_source&)                           = delete;
   _LIBCPP_HIDE_FROM_ABI any_buffer_source(any_buffer_source&&) noexcept            = default;
   _LIBCPP_HIDE_FROM_ABI any_buffer_source& operator=(any_buffer_source&&) noexcept = default;
 
@@ -70,7 +73,8 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI __erased_awaitable<_Res> pull(const_buffer* __arr, size_t __max_count) {
     _LIBCPP_ASSERT_UNCATEGORIZED(has_value(), "operation on an empty type-erased source");
-    _LIBCPP_ASSERT_UNCATEGORIZED(!__st_.__slot_.__active(), "an operation is already in flight on this type-erased source");
+    _LIBCPP_ASSERT_UNCATEGORIZED(
+        !__st_.__slot_.__active(), "an operation is already in flight on this type-erased source");
     return io::__erased_begin<_Res>(
         __st_.__slot_, __st_.__vt_->__pull_(__st_.__obj_, __st_.__slot_.__memory(), __arr, __max_count));
   }

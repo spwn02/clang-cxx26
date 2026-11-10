@@ -17,6 +17,7 @@
 #include <__io/io_awaitable.h>
 #include <__io/io_env.h>
 #include <__io/join_support.h>
+#include <__memory/addressof.h>
 #include <__ranges/concepts.h>
 #include <__type_traits/conditional.h>
 #include <__type_traits/decay.h>
@@ -74,8 +75,8 @@ _LIBCPP_HIDE_FROM_ABI __join_runner __any_run(__join_core* __c, _Aw* __a, _Res* 
 // The awaitable of when_any(awaitables...).
 template <class... _As>
 class [[nodiscard]] __when_any_awaitable {
-  static constexpr size_t __n_ = sizeof...(_As);
-  using _Result                = variant<__any_value_t<_As>...>;
+  static constexpr size_t __n_  = sizeof...(_As);
+  using _Result _LIBCPP_NODEBUG = variant<__any_value_t<_As>...>;
 
   tuple<_As...> __as_;
   optional<_Result> __result_;
@@ -84,7 +85,10 @@ class [[nodiscard]] __when_any_awaitable {
 
   template <size_t... _Is>
   _LIBCPP_HIDE_FROM_ABI void __create(index_sequence<_Is...>) {
-    ((__conts_[_Is].h = io::__any_run<_Is>(&__core_, &std::get<_Is>(__as_), &__result_).release()), ...);
+    ((__conts_[_Is].h =
+          io::__any_run<_Is>(std::addressof(__core_), std::addressof(std::get<_Is>(__as_)), std::addressof(__result_))
+              .release()),
+     ...);
   }
 
 public:
@@ -149,7 +153,7 @@ __any_run_range(__join_core* __c, _Aw* __a, size_t __idx, optional<__any_range_r
 // The awaitable of when_any(range).
 template <class _Aw>
 class [[nodiscard]] __when_any_range_awaitable {
-  using _Result = __any_range_result_t<_Aw>;
+  using _Result _LIBCPP_NODEBUG = __any_range_result_t<_Aw>;
 
   vector<_Aw> __as_;
   optional<_Result> __result_;
@@ -169,7 +173,10 @@ public:
     {
       __join_frame_scope __scope(__env);
       for (size_t __i = 0; __i != __as_.size(); ++__i)
-        __conts_[__i].h = io::__any_run_range<_Aw>(&__core_, &__as_[__i], __i, &__result_).release();
+        __conts_[__i].h =
+            io::__any_run_range<_Aw>(
+                std::addressof(__core_), std::addressof(__as_[__i]), __i, std::addressof(__result_))
+                .release();
     }
     io::__join_post_all(__conts_.data(), __conts_.size(), __env->executor);
   }

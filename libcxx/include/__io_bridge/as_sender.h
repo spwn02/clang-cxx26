@@ -28,6 +28,7 @@
 #include <__io/frame_allocator.h>
 #include <__io/io_awaitable.h>
 #include <__io/io_env.h>
+#include <__memory/addressof.h>
 #include <__memory_resource/memory_resource.h>
 #include <__stop_token/stop_callback.h>
 #include <__stop_token/stop_source.h>
@@ -87,7 +88,8 @@ struct io_sender_env {
 template <class _Tp, class = void>
 inline constexpr bool __has_tuple_protocol_v = false;
 template <class _Tp>
-inline constexpr bool __has_tuple_protocol_v<_Tp, void_t<typename tuple_size<_Tp>::type>> = (tuple_size<_Tp>::value > 0);
+inline constexpr bool __has_tuple_protocol_v<_Tp, void_t<typename tuple_size<_Tp>::type>> =
+    (tuple_size<_Tp>::value > 0);
 
 template <class _Tp, bool = __has_tuple_protocol_v<_Tp>>
 inline constexpr bool __is_ec_outcome_v = is_same_v<_Tp, error_code>;
@@ -189,7 +191,7 @@ struct __bridge_task {
   _LIBCPP_HIDE_FROM_ABI __bridge_task() noexcept = default;
   _LIBCPP_HIDE_FROM_ABI __bridge_task(__bridge_task&& __o) noexcept : __h_(std::exchange(__o.__h_, {})) {}
   _LIBCPP_HIDE_FROM_ABI __bridge_task& operator=(__bridge_task&& __o) noexcept {
-    if (this != &__o) {
+    if (this != std::addressof(__o)) {
       if (__h_)
         __h_.destroy();
       __h_ = std::exchange(__o.__h_, {});
@@ -209,10 +211,10 @@ private:
 // answer get_io_executor; get_stop_token is used when it answers it.
 template <class _IoAw>
 class awaitable_sender {
-  using __result_t _LIBCPP_NODEBUG = __bridge_await_result_t<_IoAw>;
-  using __value_t _LIBCPP_NODEBUG  = decay_t<__result_t>;
-  static constexpr bool __result_void  = is_void_v<__result_t>;
-  static constexpr bool __result_ec    = !__result_void && __is_ec_outcome_v<__value_t>;
+  using __result_t _LIBCPP_NODEBUG    = __bridge_await_result_t<_IoAw>;
+  using __value_t _LIBCPP_NODEBUG     = decay_t<__result_t>;
+  static constexpr bool __result_void = is_void_v<__result_t>;
+  static constexpr bool __result_ec   = !__result_void && __is_ec_outcome_v<__value_t>;
 
   _IoAw __aw_;
 
@@ -243,19 +245,17 @@ class awaitable_sender {
     using operation_state_concept = execution::operation_state_tag;
 
     _LIBCPP_HIDE_FROM_ABI __op_state(_IoAw __aw, _Rcvr __rcvr)
-        : __aw_(std::move(__aw)),
-          __rcvr_(std::move(__rcvr)),
-          __ex_(get_io_executor(execution::get_env(__rcvr_))) {}
+        : __aw_(std::move(__aw)), __rcvr_(std::move(__rcvr)), __ex_(get_io_executor(execution::get_env(__rcvr_))) {}
     __op_state(const __op_state&)            = delete;
     __op_state(__op_state&&)                 = delete;
     __op_state& operator=(const __op_state&) = delete;
     __op_state& operator=(__op_state&&)      = delete;
 
     _LIBCPP_HIDE_FROM_ABI void start() & noexcept {
-      __env_.executor        = executor_ref(__ex_);
-      __env_.stop_token      = __stop_.__attach(std::get_stop_token(execution::get_env(__rcvr_)));
-      __env_.frame_allocator = __env_.executor.context().get_frame_allocator();
-      __bridge_              = __run(this);
+      __env_.executor                 = executor_ref(__ex_);
+      __env_.stop_token               = __stop_.__attach(std::get_stop_token(execution::get_env(__rcvr_)));
+      __env_.frame_allocator          = __env_.executor.context().get_frame_allocator();
+      __bridge_                       = __run(this);
       __bridge_.__h_.promise().__op_  = this;
       __bridge_.__h_.promise().__env_ = &__env_;
       __start_.h                      = __bridge_.__h_;
@@ -298,7 +298,8 @@ class awaitable_sender {
     _LIBCPP_HIDE_FROM_ABI static __bridge_task<__op_state> __run(__op_state* __self) {
       if constexpr (__result_void) {
         co_await __self->__aw_;
-        __self->__kind_ = __self->__env_.stop_token.stop_requested() ? __as_sender_kind::__stopped : __as_sender_kind::__value;
+        __self->__kind_ =
+            __self->__env_.stop_token.stop_requested() ? __as_sender_kind::__stopped : __as_sender_kind::__value;
       } else {
         auto __result = co_await __self->__aw_;
         if (__self->__env_.stop_token.stop_requested()) {
@@ -318,11 +319,10 @@ class awaitable_sender {
   };
 
   template <class _Rcvr>
-  static constexpr bool __connectable_v =
-      execution::receiver<_Rcvr> && requires(const _Rcvr& __r) {
-        { get_io_executor(execution::get_env(__r)) };
-        requires(Executor<__executor_t<_Rcvr>> || is_same_v<__executor_t<_Rcvr>, executor_ref>);
-      };
+  static constexpr bool __connectable_v = execution::receiver<_Rcvr> && requires(const _Rcvr& __r) {
+    { get_io_executor(execution::get_env(__r)) };
+    requires(Executor<__executor_t<_Rcvr>> || is_same_v<__executor_t<_Rcvr>, executor_ref>);
+  };
 
 public:
   using sender_concept = execution::sender_tag;
@@ -332,21 +332,18 @@ public:
   template <class _Self, class... _Env>
   _LIBCPP_HIDE_FROM_ABI static consteval auto get_completion_signatures() {
     if constexpr (__result_void)
-      return execution::completion_signatures<
-          execution::set_value_t(),
-          execution::set_error_t(exception_ptr),
-          execution::set_stopped_t()>{};
+      return execution::completion_signatures< execution::set_value_t(),
+                                               execution::set_error_t(exception_ptr),
+                                               execution::set_stopped_t()>{};
     else if constexpr (__result_ec)
-      return execution::completion_signatures<
-          execution::set_value_t(),
-          execution::set_error_t(error_code),
-          execution::set_error_t(exception_ptr),
-          execution::set_stopped_t()>{};
+      return execution::completion_signatures< execution::set_value_t(),
+                                               execution::set_error_t(error_code),
+                                               execution::set_error_t(exception_ptr),
+                                               execution::set_stopped_t()>{};
     else
-      return execution::completion_signatures<
-          execution::set_value_t(__value_t),
-          execution::set_error_t(exception_ptr),
-          execution::set_stopped_t()>{};
+      return execution::completion_signatures< execution::set_value_t(__value_t),
+                                               execution::set_error_t(exception_ptr),
+                                               execution::set_stopped_t()>{};
   }
 
   template <class _Rcvr>

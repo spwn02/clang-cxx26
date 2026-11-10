@@ -42,7 +42,7 @@ using io_task = task<io_result<_Ts...>>;
 // is io::error::eof and n < buffer_size(buffers). The buffer sequence is held by reference: it must outlive the
 // operation (the task is lazy), so pass a named sequence or await the call in the same full-expression.
 template <ReadStream _Stream, MutableBufferSequence _Seq>
-io_task<size_t> read(_Stream& __stream, const _Seq& __buffers) {
+_LIBCPP_HIDE_FROM_ABI io_task<size_t> read(_Stream& __stream, const _Seq& __buffers) {
   const size_t __total = io::buffer_size(__buffers);
   size_t __done        = 0;
   while (__done < __total) {
@@ -58,7 +58,7 @@ io_task<size_t> read(_Stream& __stream, const _Seq& __buffers) {
 
 // Writes until the whole buffer sequence is consumed or an error occurs, by calling write_some repeatedly.
 template <WriteStream _Stream, ConstBufferSequence _Seq>
-io_task<size_t> write(_Stream& __stream, const _Seq& __buffers) {
+_LIBCPP_HIDE_FROM_ABI io_task<size_t> write(_Stream& __stream, const _Seq& __buffers) {
   const size_t __total = io::buffer_size(__buffers);
   size_t __done        = 0;
   while (__done < __total) {
@@ -76,7 +76,7 @@ io_task<size_t> write(_Stream& __stream, const _Seq& __buffers) {
 // everything). The buffer grows by 1.5x per round from `__initial` bytes. If the buffer is full (size() == max_size())
 // the result is errc::no_buffer_space. Returns the bytes appended.
 template <ReadStream _Stream, DynamicBuffer _Db>
-io_task<size_t> read(_Stream& __stream, _Db& __db, size_t __initial = 2048) {
+_LIBCPP_HIDE_FROM_ABI io_task<size_t> read(_Stream& __stream, _Db& __db, size_t __initial = 2048) {
   size_t __total = 0;
   size_t __chunk = __initial == 0 ? 1 : __initial;
   for (;;) {

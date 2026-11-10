@@ -59,7 +59,7 @@ void tag_invoke() = delete;
 
 template <class _Seq>
 concept __sliceable = ConstBufferSequence<_Seq> && requires(_Seq& __s, slice_how __h, size_t __n) {
-  { tag_invoke(slice_tag{}, __s, __h, __n) } noexcept;
+  { tag_invoke(slice_tag{}, __s, __h, __n) } noexcept; // NOLINT(libcpp-robust-against-adl)
 };
 } // namespace __slice_poison
 
@@ -68,13 +68,13 @@ concept __sliceable = ConstBufferSequence<_Seq> && requires(_Seq& __s, slice_how
 template <class _Seq>
   requires __slice_poison::__sliceable<_Seq>
 _LIBCPP_HIDE_FROM_ABI constexpr void keep_prefix(_Seq& __s, size_t __n) noexcept {
-  tag_invoke(slice_tag{}, __s, slice_how::keep_prefix, __n);
+  tag_invoke(slice_tag{}, __s, slice_how::keep_prefix, __n); // NOLINT(libcpp-robust-against-adl)
 }
 
 template <class _Seq>
   requires __slice_poison::__sliceable<_Seq>
 _LIBCPP_HIDE_FROM_ABI constexpr void remove_prefix(_Seq& __s, size_t __n) noexcept {
-  tag_invoke(slice_tag{}, __s, slice_how::remove_prefix, __n);
+  tag_invoke(slice_tag{}, __s, slice_how::remove_prefix, __n); // NOLINT(libcpp-robust-against-adl)
 }
 
 template <class _Seq>

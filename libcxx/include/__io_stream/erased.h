@@ -17,22 +17,26 @@
 #include <__io/io_env.h>
 #include <__io_buffer/buffer.h>
 #include <__io_buffer/buffer_sequence.h>
+#include <__memory/addressof.h>
+#include <__new/allocate.h>
+#include <__new/placement_new_delete.h>
+#include <__tuple/tuple_element.h>
+#include <__tuple/tuple_size.h>
 #include <__type_traits/is_same.h>
+#include <__type_traits/is_void.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/exchange.h>
 #include <__utility/integer_sequence.h>
 #include <__utility/move.h>
-#include <__new/allocate.h>
-#include <__new/placement_new_delete.h>
-#include <__type_traits/is_void.h>
-#include <__tuple/tuple_element.h>
-#include <__tuple/tuple_size.h>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
 #endif
 
 #if _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
+
+_LIBCPP_PUSH_MACROS
+#  include <__undef_macros>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -45,10 +49,10 @@ namespace io {
 // per operation.
 inline constexpr size_t __erased_max_buffers = 16;
 
-// Copies up to __erased_max_buffers non-empty buffers of the sequence into __out, after skipping __skip bytes. Returns the
-// number copied.
+// Copies up to __erased_max_buffers non-empty buffers of the sequence into __dst, after skipping __skip bytes. Returns
+// the number copied.
 template <class _Buf, class _Seq>
-_LIBCPP_HIDE_FROM_ABI size_t __gather_buffers(const _Seq& __seq, size_t __skip, _Buf* __out) noexcept {
+_LIBCPP_HIDE_FROM_ABI size_t __gather_buffers(const _Seq& __seq, size_t __skip, _Buf* __dst) noexcept {
   size_t __n  = 0;
   auto __it   = io::buffer_sequence_begin(__seq);
   auto __last = io::buffer_sequence_end(__seq);
@@ -60,7 +64,7 @@ _LIBCPP_HIDE_FROM_ABI size_t __gather_buffers(const _Seq& __seq, size_t __skip, 
       __skip -= __s;
     }
     if (__b.size() != 0)
-      __out[__n++] = __b;
+      __dst[__n++] = __b;
   }
   return __n;
 }
@@ -102,16 +106,16 @@ inline constexpr __erased_op_vtable<_Res> __erased_op_vtable_for = {
       auto&& __r = static_cast<_Aw*>(__p)->await_resume();
       return []<size_t... _Is>(auto&& __x, index_sequence<_Is...>) -> _Res {
         using std::get;
-        return _Res(get<_Is>(std::move(__x))...);
+        return _Res(get<_Is>(std::move(__x))...); // NOLINT(libcpp-robust-against-adl)
       }(std::move(__r), make_index_sequence<tuple_size_v<_Res>>{});
     },
     [](void* __p) noexcept { static_cast<_Aw*>(__p)->~_Aw(); }};
 
 // The preallocated storage for the one operation a wrapper may have in flight.
 class __erased_slot {
-  void* __mem_                          = nullptr;
-  size_t __size_                        = 0;
-  size_t __align_                       = 0;
+  void* __mem_                              = nullptr;
+  size_t __size_                            = 0;
+  size_t __align_                           = 0;
   void (*__destroy_active_)(void*) noexcept = nullptr; // non-null while an operation is alive
 
 public:
@@ -126,8 +130,8 @@ public:
         __align_(__o.__align_),
         __destroy_active_(std::exchange(__o.__destroy_active_, nullptr)) {}
   _LIBCPP_HIDE_FROM_ABI __erased_slot& operator=(__erased_slot&& __o) noexcept {
-    if (this != &__o) {
-      __release();
+    if (this != std::addressof(__o)) {
+      __release_slot();
       __mem_            = std::exchange(__o.__mem_, nullptr);
       __size_           = __o.__size_;
       __align_          = __o.__align_;
@@ -135,7 +139,7 @@ public:
     }
     return *this;
   }
-  _LIBCPP_HIDE_FROM_ABI ~__erased_slot() { __release(); }
+  _LIBCPP_HIDE_FROM_ABI ~__erased_slot() { __release_slot(); }
 
   _LIBCPP_HIDE_FROM_ABI void* __memory() const noexcept { return __mem_; }
   _LIBCPP_HIDE_FROM_ABI bool __active() const noexcept { return __destroy_active_ != nullptr; }
@@ -146,7 +150,7 @@ public:
   }
 
 private:
-  _LIBCPP_HIDE_FROM_ABI void __release() noexcept {
+  _LIBCPP_HIDE_FROM_ABI void __release_slot() noexcept {
     __end();
     if (__mem_) {
       std::__libcpp_deallocate<char>(static_cast<char*>(__mem_), __element_count(__size_), __align_);
@@ -186,11 +190,12 @@ public:
   }
 };
 
-// Constructs the operation _Aw (the result of calling the wrapped object) in the slot's memory, and returns its dispatch table.
+// Constructs the operation _Aw (the result of calling the wrapped object) in the slot's memory, and returns its
+// dispatch table.
 template <class _Res, class _Aw, class _Make>
 _LIBCPP_HIDE_FROM_ABI const __erased_op_vtable<_Res>* __erased_construct(void* __mem, _Make&& __make) {
   ::new (__mem) _Aw(__make());
-  return &__erased_op_vtable_for<_Res, _Aw>;
+  return std::addressof(__erased_op_vtable_for<_Res, _Aw>);
 }
 
 // Marks the operation just constructed as active and hands out the awaitable that drives it.
@@ -206,8 +211,8 @@ __erased_begin(__erased_slot& __slot, const __erased_op_vtable<_Res>* __op) noex
 template <class _Vt>
 class __erased_state {
 public:
-  void* __obj_       = nullptr;
-  const _Vt* __vt_   = nullptr;
+  void* __obj_     = nullptr;
+  const _Vt* __vt_ = nullptr;
   __erased_slot __slot_;
 
   _LIBCPP_HIDE_FROM_ABI __erased_state() noexcept = default;
@@ -222,7 +227,7 @@ public:
     _LIBCPP_ASSERT_UNCATEGORIZED(!__slot_.__active(), "moving a type-erased stream with an operation in flight");
   }
   _LIBCPP_HIDE_FROM_ABI __erased_state& operator=(__erased_state&& __o) noexcept {
-    if (this != &__o) {
+    if (this != std::addressof(__o)) {
       _LIBCPP_ASSERT_UNCATEGORIZED(!__o.__slot_.__active(), "moving a type-erased stream with an operation in flight");
       __obj_  = std::exchange(__o.__obj_, nullptr);
       __vt_   = std::exchange(__o.__vt_, nullptr);
@@ -246,6 +251,8 @@ inline constexpr size_t __max_alignof<_T0, _Ts...> =
 } // namespace io
 
 _LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
 
 #endif // _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
 

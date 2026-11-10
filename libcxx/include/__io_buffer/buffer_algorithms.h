@@ -37,7 +37,7 @@ void tag_invoke() = delete;
 
 template <class _Seq>
 concept __has_size_tag_invoke = requires(const _Seq& __s) {
-  { tag_invoke(size_tag{}, __s) } noexcept -> same_as<size_t>;
+  { tag_invoke(size_tag{}, __s) } noexcept -> same_as<size_t>; // NOLINT(libcpp-robust-against-adl)
 };
 } // namespace __tag_invoke_poison
 
@@ -47,7 +47,7 @@ struct __fn {
   template <ConstBufferSequence _Seq>
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr size_t operator()(const _Seq& __s) const noexcept {
     if constexpr (__tag_invoke_poison::__has_size_tag_invoke<_Seq>) {
-      return tag_invoke(size_tag{}, __s);
+      return tag_invoke(size_tag{}, __s); // NOLINT(libcpp-robust-against-adl)
     } else {
       size_t __total = 0;
       auto __first   = buffer_sequence_begin(__s);
@@ -103,8 +103,8 @@ struct __fn {
   // N4771 [buffer.copy]: copies min(buffer_size(dest), buffer_size(source), at_most) bytes, filling each destination
   // buffer completely before the next one, as if by memcpy per contiguous chunk. The regions must not overlap.
   template <MutableBufferSequence _Dest, ConstBufferSequence _Src>
-  _LIBCPP_HIDE_FROM_ABI size_t operator()(const _Dest& __dest, const _Src& __src, size_t __at_most = size_t(-1)) const
-      noexcept {
+  _LIBCPP_HIDE_FROM_ABI size_t
+  operator()(const _Dest& __dest, const _Src& __src, size_t __at_most = size_t(-1)) const noexcept {
     size_t __total = 0;
     size_t __off_s = 0;
     size_t __off_d = 0;

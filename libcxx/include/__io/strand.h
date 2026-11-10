@@ -54,7 +54,7 @@ struct __strand_impl {
   bool __busy_          = false;
   continuation __drain_cont_;
 
-  __strand_impl()                                = default;
+  _LIBCPP_HIDE_FROM_ABI __strand_impl()          = default;
   __strand_impl(const __strand_impl&)            = delete;
   __strand_impl& operator=(const __strand_impl&) = delete;
 

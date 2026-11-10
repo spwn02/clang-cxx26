@@ -43,17 +43,17 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 namespace io {
 
 // P4100R1 [8.8] (Paper 8); provisional specification: Corosio's timer. A timer has an expiry time on steady_clock and
-// any number of coroutines can wait for it. It belongs to an io_context (the constructors take the context or one of its
-// executors) and its waits are completed by the threads that run that context: the awaiting coroutine is resumed on its
-// own executor.
+// any number of coroutines can wait for it. It belongs to an io_context (the constructors take the context or one of
+// its executors) and its waits are completed by the threads that run that context: the awaiting coroutine is resumed on
+// its own executor.
 //
 // A wait that is cancelled (by cancel(), cancel_one(), by changing the expiry, by destroying the timer or by a stop
-// request on the stop token of the awaiting coroutine) completes with error::canceled; a wait on a timer whose expiry has
-// passed completes without suspending. The precision is that of the platform: see __reactor_service.
+// request on the stop token of the awaiting coroutine) completes with error::canceled; a wait on a timer whose expiry
+// has passed completes without suspending. The precision is that of the platform: see __reactor_service.
 //
 // Distinct timers can be used concurrently; the member functions of one timer must not be called concurrently, with the
-// exception that cancel() may be called while another thread awaits. The context must outlive the timer, and a timer must
-// not be destroyed while a coroutine is suspended on it except through cancel() (the destructor does that).
+// exception that cancel() may be called while another thread awaits. The context must outlive the timer, and a timer
+// must not be destroyed while a coroutine is suspended on it except through cancel() (the destructor does that).
 class timer {
 public:
   using clock_type = chrono::steady_clock;
@@ -77,7 +77,8 @@ public:
 
   public:
     _LIBCPP_HIDE_FROM_ABI explicit __wait_awaiter(timer& __t) noexcept : __timer_op(__t.__svc_), __t_(&__t) {}
-    _LIBCPP_HIDE_FROM_ABI __wait_awaiter(__wait_awaiter&& __o) noexcept : __timer_op(std::move(__o)), __t_(__o.__t_) {}
+    _LIBCPP_HIDE_FROM_ABI __wait_awaiter(__wait_awaiter&& __o) noexcept
+        : __timer_op(std::move(__o)), __t_(__o.__t_) {} // NOLINT(bugprone-use-after-move)
 
     _LIBCPP_HIDE_FROM_ABI bool await_ready() const noexcept { return false; }
 
@@ -102,8 +103,7 @@ public:
     }
   };
 
-  _LIBCPP_HIDE_FROM_ABI explicit timer(execution_context& __ctx)
-      : __svc_(&__ctx.use_service<__reactor_service>()) {}
+  _LIBCPP_HIDE_FROM_ABI explicit timer(execution_context& __ctx) : __svc_(&__ctx.use_service<__reactor_service>()) {}
   _LIBCPP_HIDE_FROM_ABI timer(execution_context& __ctx, time_point __t) : timer(__ctx) { __expiry_ = __t; }
   _LIBCPP_HIDE_FROM_ABI timer(execution_context& __ctx, duration __d) : timer(__ctx) {
     __expiry_ = __after(clock_type::now(), __d);
@@ -136,8 +136,8 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI time_point expiry() const noexcept { return __expiry_; }
 
-  // Cancels the pending waits (they complete with error::canceled), sets the expiry and returns the number of waits that
-  // were cancelled.
+  // Cancels the pending waits (they complete with error::canceled), sets the expiry and returns the number of waits
+  // that were cancelled.
   _LIBCPP_HIDE_FROM_ABI size_t expires_at(time_point __t) noexcept {
     size_t __n = cancel();
     __expiry_  = __t;

@@ -49,12 +49,13 @@ struct __split_sigs_list {};
 // Appends the signatures of _Rhs that _Lhs does not hold yet.
 template <class _Lhs, class... _Bs>
 struct __split_sigs_add {
-  using type = _Lhs;
+  using type _LIBCPP_NODEBUG = _Lhs;
 };
 template <class... _As, class _Rhs, class... _Bs>
 struct __split_sigs_add<__split_sigs_list<_As...>, _Rhs, _Bs...>
-    : __split_sigs_add<conditional_t<(is_same_v<_As, _Rhs> || ...), __split_sigs_list<_As...>, __split_sigs_list<_As..., _Rhs>>,
-                       _Bs...> {};
+    : __split_sigs_add<
+          conditional_t<(is_same_v<_As, _Rhs> || ...), __split_sigs_list<_As...>, __split_sigs_list<_As..., _Rhs>>,
+          _Bs...> {};
 
 template <class _Lhs, class _Rhs>
 struct __split_sigs_cat;
@@ -65,11 +66,11 @@ struct __split_sigs_cat<_Lhs, __split_sigs_list<_Bs...>> : __split_sigs_add<_Lhs
 // completion of any other shape cannot be split.
 template <class _Fn>
 struct __split_one {
-  using type = __split_sigs_list<_Fn>;
+  using type _LIBCPP_NODEBUG = __split_sigs_list<_Fn>;
 };
 template <>
 struct __split_one<execution::set_value_t(error_code)> {
-  using type = __split_sigs_list<execution::set_value_t(), execution::set_error_t(error_code)>;
+  using type _LIBCPP_NODEBUG = __split_sigs_list<execution::set_value_t(), execution::set_error_t(error_code)>;
 };
 template <>
 struct __split_one<execution::set_value_t(error_code&)> : __split_one<execution::set_value_t(error_code)> {};
@@ -79,9 +80,10 @@ template <>
 struct __split_one<execution::set_value_t(error_code&&)> : __split_one<execution::set_value_t(error_code)> {};
 template <class... _Args>
 struct __split_one<execution::set_value_t(_Args...)> {
-  static_assert(sizeof...(_Args) == 0, "split_ec requires every value completion of the sender to be set_value() or "
-                                       "set_value(std::error_code)");
-  using type = __split_sigs_list<execution::set_value_t()>;
+  static_assert(sizeof...(_Args) == 0,
+                "split_ec requires every value completion of the sender to be set_value() or "
+                "set_value(std::error_code)");
+  using type _LIBCPP_NODEBUG = __split_sigs_list<execution::set_value_t()>;
 };
 
 template <class _Sigs>
@@ -90,13 +92,14 @@ template <class... _Fns>
 struct __split_sigs<execution::completion_signatures<_Fns...>> {
   template <class _Acc, class... _Rest>
   struct __fold {
-    using type = _Acc;
+    using type _LIBCPP_NODEBUG = _Acc;
   };
   template <class _Acc, class _First, class... _Rest>
-  struct __fold<_Acc, _First, _Rest...> : __fold<typename __split_sigs_cat<_Acc, typename __split_one<_First>::type>::type, _Rest...> {};
+  struct __fold<_Acc, _First, _Rest...>
+      : __fold<typename __split_sigs_cat<_Acc, typename __split_one<_First>::type>::type, _Rest...> {};
   template <class... _Out>
   static execution::completion_signatures<_Out...> __to_sigs(__split_sigs_list<_Out...>);
-  using type = decltype(__to_sigs(std::declval<typename __fold<__split_sigs_list<>, _Fns...>::type>()));
+  using type _LIBCPP_NODEBUG = decltype(__to_sigs(std::declval<typename __fold<__split_sigs_list<>, _Fns...>::type>()));
 };
 
 template <class _Rcvr>
@@ -144,7 +147,8 @@ public:
   template <class _Rcvr>
     requires execution::receiver<_Rcvr> && execution::__sender_to<_Sndr, __split_ec_receiver<remove_cvref_t<_Rcvr>>>
   _LIBCPP_HIDE_FROM_ABI auto connect(_Rcvr&& __rcvr) && {
-    return execution::connect(std::move(__sndr_), __split_ec_receiver<remove_cvref_t<_Rcvr>>(std::forward<_Rcvr>(__rcvr)));
+    return execution::connect(
+        std::move(__sndr_), __split_ec_receiver<remove_cvref_t<_Rcvr>>(std::forward<_Rcvr>(__rcvr)));
   }
   template <class _Rcvr>
     requires execution::receiver<_Rcvr> && is_copy_constructible_v<_Sndr> &&
@@ -161,9 +165,9 @@ struct __split_ec_closure : execution::sender_adaptor_closure<__split_ec_closure
   }
 };
 
-// split_ec(sndr) and sndr | split_ec(): turns a sender that completes with set_value(error_code) into one that completes
-// with set_value() when the code is zero and with set_error(ec) otherwise, so that the error channel carries the failure
-// (upon_error reaches it, when_all cancels its siblings).
+// split_ec(sndr) and sndr | split_ec(): turns a sender that completes with set_value(error_code) into one that
+// completes with set_value() when the code is zero and with set_error(ec) otherwise, so that the error channel carries
+// the failure (upon_error reaches it, when_all cancels its siblings).
 struct split_ec_t {
   template <execution::sender _Sndr>
   _LIBCPP_HIDE_FROM_ABI auto operator()(_Sndr&& __sndr) const {

@@ -20,6 +20,7 @@
 #include <__io/frame_allocator.h>
 #include <__io/io_awaitable.h>
 #include <__io/io_env.h>
+#include <__memory/addressof.h>
 #include <__memory/construct_at.h>
 #include <__memory_resource/memory_resource.h>
 #include <__new/global_new_delete.h>
@@ -147,7 +148,9 @@ class __task_promise : public __task_result<_Tp> {
     _Aw& __a_;
     const io_env* __env_;
     _LIBCPP_HIDE_FROM_ABI bool await_ready() { return __a_.await_ready(); }
-    _LIBCPP_HIDE_FROM_ABI decltype(auto) await_suspend(coroutine_handle<> __h) { return __a_.await_suspend(__h, __env_); }
+    _LIBCPP_HIDE_FROM_ABI decltype(auto) await_suspend(coroutine_handle<> __h) {
+      return __a_.await_suspend(__h, __env_);
+    }
     _LIBCPP_HIDE_FROM_ABI decltype(auto) await_resume() {
       set_cached_frame_allocator(__env_->frame_allocator);
       return __a_.await_resume();
@@ -218,7 +221,7 @@ public:
   task& operator=(const task&)          = delete;
   _LIBCPP_HIDE_FROM_ABI task(task&& __o) noexcept : __h_(std::exchange(__o.__h_, {})) {}
   _LIBCPP_HIDE_FROM_ABI task& operator=(task&& __o) noexcept {
-    if (this != &__o) {
+    if (this != std::addressof(__o)) {
       if (__h_)
         __h_.destroy();
       __h_ = std::exchange(__o.__h_, {});

@@ -17,6 +17,7 @@
 #include <__io_stream/erased.h>
 #include <__io_stream/error.h>
 #include <__io_stream/stream_concepts.h>
+#include <__memory/addressof.h>
 #include <__utility/declval.h>
 #include <span>
 
@@ -32,7 +33,7 @@ namespace io {
 
 // P4100R1 [8.6]: a non-owning, type-erased WriteStream (see any_read_stream).
 class any_write_stream {
-  using _Res = io_result<size_t>;
+  using _Res _LIBCPP_NODEBUG = io_result<size_t>;
 
   struct __vtable {
     const __erased_op_vtable<_Res>* (*__start_)(void*, void*, span<const const_buffer>);
@@ -43,12 +44,13 @@ class any_write_stream {
   template <class _Obj>
   static constexpr __vtable __vtable_for = [] {
     using _Aw = decltype(std::declval<_Obj&>().write_some(std::declval<span<const const_buffer>>()));
-    return __vtable{
-        [](void* __o, void* __mem, span<const const_buffer> __b) -> const __erased_op_vtable<_Res>* {
-          return io::__erased_construct<_Res, _Aw>(__mem, [&]() -> _Aw { return static_cast<_Obj*>(__o)->write_some(__b); });
-        },
-        sizeof(_Aw),
-        alignof(_Aw)};
+    return __vtable{[](void* __o, void* __mem, span<const const_buffer> __b) -> const __erased_op_vtable<_Res>* {
+                      return io::__erased_construct<_Res, _Aw>(__mem, [&]() -> _Aw {
+                        return static_cast<_Obj*>(__o)->write_some(__b);
+                      });
+                    },
+                    sizeof(_Aw),
+                    alignof(_Aw)};
   }();
 
   __erased_state<__vtable> __st_;
@@ -60,9 +62,9 @@ public:
   // of the wrapper, the operation storage, sized for the largest awaitable of the wrapped type.
   template <WriteStream _Obj>
     requires requires(_Obj& __o, span<const const_buffer> __b) { __o.write_some(__b); }
-  _LIBCPP_HIDE_FROM_ABI explicit any_write_stream(_Obj* __o) : __st_(__o, &__vtable_for<_Obj>) {}
-  any_write_stream(const any_write_stream&)            = delete;
-  any_write_stream& operator=(const any_write_stream&) = delete;
+  _LIBCPP_HIDE_FROM_ABI explicit any_write_stream(_Obj* __o) : __st_(__o, std::addressof(__vtable_for<_Obj>)) {}
+  any_write_stream(const any_write_stream&)                                      = delete;
+  any_write_stream& operator=(const any_write_stream&)                           = delete;
   _LIBCPP_HIDE_FROM_ABI any_write_stream(any_write_stream&&) noexcept            = default;
   _LIBCPP_HIDE_FROM_ABI any_write_stream& operator=(any_write_stream&&) noexcept = default;
 
@@ -74,10 +76,12 @@ public:
   template <ConstBufferSequence _Seq>
   _LIBCPP_HIDE_FROM_ABI __erased_awaitable<_Res> write_some(const _Seq& __buffers) {
     _LIBCPP_ASSERT_UNCATEGORIZED(has_value(), "operation on an empty type-erased stream");
-    _LIBCPP_ASSERT_UNCATEGORIZED(!__st_.__slot_.__active(), "an operation is already in flight on this type-erased stream");
+    _LIBCPP_ASSERT_UNCATEGORIZED(
+        !__st_.__slot_.__active(), "an operation is already in flight on this type-erased stream");
     size_t __n = io::__gather_buffers<const_buffer>(__buffers, 0, __bufs_);
     return io::__erased_begin<_Res>(
-        __st_.__slot_, __st_.__vt_->__start_(__st_.__obj_, __st_.__slot_.__memory(), span<const const_buffer>(__bufs_, __n)));
+        __st_.__slot_,
+        __st_.__vt_->__start_(__st_.__obj_, __st_.__slot_.__memory(), span<const const_buffer>(__bufs_, __n)));
   }
 };
 

@@ -36,7 +36,7 @@ namespace io {
 //
 // Events are the neutral bits __poll_read, __poll_write, __poll_error of poller_types.h. A oneshot registration is
 // disarmed after it delivered an event until __modify arms it again. Conditions are level-triggered.
-using __poller = __epoll_poller;
+using __poller _LIBCPP_NODEBUG = __epoll_poller;
 
 } // namespace io
 

@@ -10,9 +10,9 @@
 #define _LIBCPP___IO_STREAM_ERROR_H
 
 #include <__config>
+#include <__system_error/errc.h>
 #include <__system_error/error_category.h>
 #include <__system_error/error_code.h>
-#include <__system_error/errc.h>
 #include <__system_error/error_condition.h>
 #include <__tuple/tuple_size.h>
 #include <string>
@@ -44,11 +44,13 @@ using io_result = tuple<error_code, _Ts...>;
 
 _LIBCPP_HIDE_FROM_ABI inline const error_category& io_category() noexcept;
 
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class __cond_category_t final : public error_category {
 public:
   _LIBCPP_HIDE_FROM_ABI __cond_category_t() noexcept = default;
-  _LIBCPP_HIDE_FROM_ABI const char* name() const noexcept override { return "std::io condition"; }
-  _LIBCPP_HIDE_FROM_ABI string message(int __ev) const override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL const char* name() const noexcept override { return "std::io condition"; }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL string message(int __ev) const override {
     switch (static_cast<cond>(__ev)) {
     case cond::eof:
       return "end of stream";
@@ -61,9 +63,10 @@ public:
     }
     return "unknown std::io condition";
   }
-  // Like Capy, the conditions also match the portable system conditions that mean the same thing, so that a stream built
-  // on a platform API (which reports operation_canceled or timed_out) compares equal to io::cond::canceled/timeout.
-  _LIBCPP_HIDE_FROM_ABI bool equivalent(const error_code& __ec, int __cond) const noexcept override {
+  // Like Capy, the conditions also match the portable system conditions that mean the same thing, so that a stream
+  // built on a platform API (which reports operation_canceled or timed_out) compares equal to
+  // io::cond::canceled/timeout.
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL bool equivalent(const error_code& __ec, int __cond) const noexcept override {
     if (__ec.category() == io_category_ref())
       return __ec.value() == __cond;
     switch (static_cast<cond>(__cond)) {
@@ -79,6 +82,7 @@ public:
 private:
   _LIBCPP_HIDE_FROM_ABI static const error_category& io_category_ref() noexcept;
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 _LIBCPP_HIDE_FROM_ABI inline const error_category& io_condition_category() noexcept {
   static const __cond_category_t __c;
@@ -89,11 +93,13 @@ _LIBCPP_HIDE_FROM_ABI inline const error_category& __cond_category_t::io_categor
   return io_category();
 }
 
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class __error_category_t final : public error_category {
 public:
   _LIBCPP_HIDE_FROM_ABI __error_category_t() noexcept = default;
-  _LIBCPP_HIDE_FROM_ABI const char* name() const noexcept override { return "std::io"; }
-  _LIBCPP_HIDE_FROM_ABI string message(int __ev) const override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL const char* name() const noexcept override { return "std::io"; }
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL string message(int __ev) const override {
     switch (static_cast<error>(__ev)) {
     case error::eof:
       return "end of stream";
@@ -106,10 +112,11 @@ public:
     }
     return "unknown std::io error";
   }
-  _LIBCPP_HIDE_FROM_ABI error_condition default_error_condition(int __ev) const noexcept override {
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL error_condition default_error_condition(int __ev) const noexcept override {
     return error_condition(__ev, io_condition_category());
   }
 };
+_LIBCPP_DIAGNOSTIC_POP
 
 _LIBCPP_HIDE_FROM_ABI inline const error_category& io_category() noexcept {
   static const __error_category_t __c;

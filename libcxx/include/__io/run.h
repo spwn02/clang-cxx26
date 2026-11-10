@@ -22,6 +22,7 @@
 #include <__io/io_awaitable.h>
 #include <__io/io_env.h>
 #include <__io/run_async.h>
+#include <__memory/addressof.h>
 #include <__memory_resource/memory_resource.h>
 #include <__stop_token/stop_token.h>
 #include <__type_traits/is_void.h>
@@ -50,8 +51,8 @@ struct __run_return {
     struct __final_awaiter {
       _LIBCPP_HIDE_FROM_ABI bool await_ready() const noexcept { return false; }
       _LIBCPP_HIDE_FROM_ABI coroutine_handle<> await_suspend(coroutine_handle<promise_type> __h) const noexcept {
-        executor_ref __ex     = __h.promise().__parent_executor_;
-        continuation* __cont  = __h.promise().__parent_cont_;
+        executor_ref __ex    = __h.promise().__parent_executor_;
+        continuation* __cont = __h.promise().__parent_cont_;
         __h.destroy();
         return __ex.dispatch(*__cont);
       }
@@ -108,9 +109,9 @@ public:
       __t_.handle().promise().set_environment(&__env_);
       return __t_.handle();
     } else {
-      __env_.executor = executor_ref(__ex_);
-      __parent_cont_.h = __h;
-      __run_return __tramp = io::__run_trampoline(&__t_, &__env_);
+      __env_.executor                           = executor_ref(__ex_);
+      __parent_cont_.h                          = __h;
+      __run_return __tramp                      = io::__run_trampoline(std::addressof(__t_), std::addressof(__env_));
       __tramp.__h_.promise().__parent_executor_ = __parent->executor;
       __tramp.__h_.promise().__parent_cont_     = &__parent_cont_;
       __start_cont_.h                           = __tramp.__h_;
