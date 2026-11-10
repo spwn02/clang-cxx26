@@ -70,6 +70,38 @@ land), and the flag is removed again once the networking work is complete and
 has no known gaps. Libc++ did not ship the Networking TS and still does not;
 this library is a different design.
 
+.. _libcxx-networking-library:
+
+The experimental networking library
+-----------------------------------
+
+All names are in ``std::io``. The headers and what they hold:
+
+``<io>``
+  ``continuation``, ``Executor``, ``executor_ref``, ``execution_context``, ``io_env``, ``IoAwaitable``, ``IoRunnable``,
+  ``task<T>``, ``run_async``, ``run``, ``thread_pool``, ``system_context()``, ``strand``, ``any_executor``, ``when_all``,
+  ``when_any``.
+``<io_buffer>``
+  ``const_buffer``, ``mutable_buffer``, buffer sequences, ``buffer_size``/``buffer_copy``, ``DynamicBuffer`` and four
+  implementations.
+``<io_stream>``
+  ``ReadStream``, ``WriteStream``, ``Stream``, ``ReadSource``, ``WriteSink``, ``BufferSource``, ``BufferSink``, the
+  ``any_*`` wrappers, ``io_result``, the ``io`` error category, composed ``read``/``write``.
+``<io_bridge>``
+  ``await_sender`` (a ``std::execution`` sender inside an ``io::task``) and ``as_sender`` (an I/O awaitable as a sender).
+``<io_context>``, ``<io_timer>``, ``<io_signal>``, ``<io_file>``
+  The event loop with its epoll reactor, ``timer``, ``signal_set``, ``random_access_file`` and ``stream_file``.
+``<net>``
+  Addresses, endpoints, ``tcp_socket``/``tcp_acceptor``, ``udp_socket``, Unix domain sockets, ``resolver``, ``connect``.
+``<net_tls>``
+  ``tls_context`` and ``tls_stream``. The engine is OpenSSL 3 loaded with ``dlopen`` at run time: nothing is linked and
+  no OpenSSL header is included. Peer certificates are verified by default.
+
+Only Linux (epoll) is supported for now; the platform specifics sit behind small internal interfaces
+(``__io/support/``, ``__net/support/``, ``__io_file/support/``, ``__net_tls/support/``). Coroutines that use this library
+are ``io::task`` coroutines: they cannot ``co_await`` a sender directly (use ``await_sender``) and a
+``std::execution::task`` cannot ``co_await`` an I/O awaitable (use ``as_sender``).
+
 
 .. _libcxx-configuration-macros:
 

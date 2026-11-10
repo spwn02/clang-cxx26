@@ -348,10 +348,15 @@ C++2c Feature Support
 - Reflection (P2996R13 and the companion papers), parameter reflection, annotations, expansion statements and
   contracts (P2900) are part of ``-std=c++26``: ``-freflection``, ``-freflection-latest``, ``-fcontracts``,
   ``-fcontract-group-*``, ``-fcontract-*`` (except ``-fcontract-evaluation-semantic=``, the implementation-defined way
-  to select the evaluation semantic), ``-fexperimental-library`` and ``-f[no-]erroneous-initialization`` were removed,
+  to select the evaluation semantic), ``-f[no-]erroneous-initialization`` and, until it came back for the networking library (below), ``-fexperimental-library`` were removed,
   and so were the ``__has_feature`` names ``reflection``, ``parameter_reflection``, ``expansion_statements``,
   ``annotation_attributes`` and ``experimental_library``; use ``__cpp_impl_reflection`` and ``__cplusplus``.
   Erroneous behavior for uninitialized reads (P2795R5) is the default in C++26.
+- ``-fexperimental-library`` (and ``__has_feature(experimental_library)``) came back for one purpose: it enables the
+  C++29 networking and I/O library of libc++ (``<io>``, ``<io_buffer>``, ``<io_stream>``, ``<io_bridge>``,
+  ``<io_context>``, ``<io_timer>``, ``<io_signal>``, ``<io_file>``, ``<net>`` and ``<net_tls>``, P4100 and its companion
+  papers) in ``-std=c++29`` while its design is not final. Nothing is linked for it. The flag is removed again when the
+  networking work is complete.
 
 - The contract extensions that the draft does not have were removed (``[[clang::contract_semantic]]``,
   ``[[clang::contract_message]]``, ``[[clang::contract_emission]]``).
