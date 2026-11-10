@@ -37,6 +37,14 @@
 // defined to XXYYZZ.
 #  define _LIBCPP_VERSION 220108
 
+// The C++29 networking and I/O library (P4100, P4003) is experimental until its design is complete and has no
+// known gaps: it is available in C++29 mode with -fexperimental-library only.
+#  if _LIBCPP_STD_VER >= 29 && __has_feature(experimental_library)
+#    define _LIBCPP_HAS_EXPERIMENTAL_NETWORKING 1
+#  else
+#    define _LIBCPP_HAS_EXPERIMENTAL_NETWORKING 0
+#  endif
+
 #  define _LIBCPP_CONCAT_IMPL(_X, _Y) _X##_Y
 #  define _LIBCPP_CONCAT(_X, _Y) _LIBCPP_CONCAT_IMPL(_X, _Y)
 #  define _LIBCPP_CONCAT3(X, Y, Z) _LIBCPP_CONCAT(X, _LIBCPP_CONCAT(Y, Z))

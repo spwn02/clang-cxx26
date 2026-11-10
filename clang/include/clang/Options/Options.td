@@ -1723,6 +1723,13 @@ def fstdcpp_float_macros : Flag<["-"], "fstdcpp-float-macros">,
   HelpText<"Predefine __STDCPP_FLOAT<N>_T__ and __STDCPP_BFLOAT16_T__ ([cpp.predefined]); the driver passes it for libc++">,
   MarshallingInfoFlag<LangOpts<"StdCppFloatMacros">>;
 
+defm experimental_library : BoolFOption<"experimental-library",
+  LangOpts<"ExperimentalLibrary">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption, CC1Option, CLOption],
+          "Enable the library facilities that are not stable yet: the C++29 networking and I/O library "
+          "(P4100) until its design is complete. Neither API nor ABI stability are guaranteed for them">,
+  NegFlag<SetFalse>>;
+
 def fembed_offload_object_EQ : Joined<["-"], "fembed-offload-object=">,
   Group<f_Group>, Flags<[NoXarchOption]>,
   Visibility<[ClangOption, CC1Option, FC1Option]>,
