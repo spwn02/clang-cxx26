@@ -1,0 +1,4 @@
+# P3670R4: TT...[0]<int> refers to the template template parameter pack TT.
+refs-pack  must-contain  2:40
+refs-pack  must-contain  3:13
+hover-pack must-contain  template-template-param `TT`

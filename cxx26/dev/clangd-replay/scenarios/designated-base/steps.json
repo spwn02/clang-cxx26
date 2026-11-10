@@ -1,0 +1,4 @@
+[
+ {"line":3,"col":6,"request":"textDocument/references","label":"refs-base-member","pre":2500,"wait":300},
+ {"line":3,"col":6,"request":"textDocument/hover","label":"hover-base-designator","pre":300,"wait":300}
+]

@@ -149,6 +149,14 @@ public:
                                            SourceLocation TemplNameLoc,
                                            CXXRecordDecl *ResolvedClass,
                                            bool IsTypeAlias) {
+    // P3670R4: what is written at TemplNameLoc in 'TT...[N]<args>' is the
+    // template template parameter pack, not the selected template.
+    if (const auto *PI = TemplName.getAsPackIndexingTemplate()) {
+      if (const TemplateDecl *D = PI->getPattern().getAsTemplateDecl())
+        IndexCtx.handleReference(D, TemplNameLoc, Parent, ParentDC,
+                                 SymbolRoleSet(), Relations);
+      return;
+    }
     // In presence of type aliases, the resolved class was never written in
     // the code so don't report it.
     if (!IsTypeAlias && ResolvedClass &&

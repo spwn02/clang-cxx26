@@ -1,0 +1,4 @@
+[
+ {"line":2,"col":44,"request":"textDocument/references","label":"refs-cond","pre":2500,"wait":300},
+ {"line":2,"col":44,"request":"textDocument/hover","label":"hover-cond","pre":300,"wait":300}
+]

@@ -1,0 +1,5 @@
+# P2287R6: a designator naming a member of a base is a reference to that member.
+refs-base-member      must-contain  1:16
+refs-base-member      must-contain  3:6
+hover-base-designator must-contain  field `x`
+hover-base-designator must-contain  In A
