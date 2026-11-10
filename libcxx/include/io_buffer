@@ -1,0 +1,126 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_IO_BUFFER
+#define _LIBCPP_IO_BUFFER
+
+/*
+    io_buffer synopsis
+
+    Papers 4 and 5 of P4100R1 (I/O buffer ranges, dynamic buffer). There is no WG21 paper text yet: the wording follows
+    the Networking TS (N4771, clause 16), B1004 and Boost.Capy. Experimental: the header is available in C++29 mode
+    with -fexperimental-library only; otherwise it is empty. No coroutines, executors or threads are involved.
+
+namespace std::io {
+  // buffers
+  class mutable_buffer {
+  public:
+    constexpr mutable_buffer() noexcept;
+    constexpr mutable_buffer(void* p, size_t n) noexcept;
+    constexpr void* data() const noexcept;
+    constexpr size_t size() const noexcept;
+    constexpr mutable_buffer& operator+=(size_t n) noexcept;      // skips min(n, size()) bytes
+  };
+
+  class const_buffer {
+  public:
+    constexpr const_buffer() noexcept;
+    constexpr const_buffer(const void* p, size_t n) noexcept;
+    constexpr const_buffer(const mutable_buffer& b) noexcept;
+    constexpr const void* data() const noexcept;
+    constexpr size_t size() const noexcept;
+    constexpr const_buffer& operator+=(size_t n) noexcept;
+  };
+
+  constexpr mutable_buffer operator+(const mutable_buffer& b, size_t n) noexcept;
+  constexpr mutable_buffer operator+(size_t n, const mutable_buffer& b) noexcept;
+  constexpr const_buffer   operator+(const const_buffer& b, size_t n) noexcept;
+  constexpr const_buffer   operator+(size_t n, const const_buffer& b) noexcept;
+
+  using const_buffer_pair   = array<const_buffer, 2>;
+  using mutable_buffer_pair = array<mutable_buffer, 2>;
+
+  // buffer sequences
+  template<class T> concept ConstBuffer           = convertible_to<const T&, const_buffer>;
+  template<class T> concept MutableBuffer         = ConstBuffer<T> && convertible_to<const T&, mutable_buffer>;
+  template<class T> concept ConstBufferSequence   = see below;
+  template<class T> concept MutableBufferSequence = see below;
+  template<class S> using buffer_type = conditional_t<MutableBufferSequence<S>, mutable_buffer, const_buffer>;
+
+  inline constexpr unspecified buffer_sequence_begin;   // a single buffer is a sequence of one
+  inline constexpr unspecified buffer_sequence_end;
+
+  // algorithms (customization point objects)
+  inline constexpr unspecified buffer_size;     // total bytes; honors tag_invoke(size_tag, seq)
+  inline constexpr unspecified buffer_empty;    // true if no buffer has any bytes
+  inline constexpr unspecified buffer_length;   // number of buffers
+  inline constexpr unspecified buffer_copy;     // buffer_copy(dest, src, at_most = size_t(-1)) -> bytes copied
+
+  // slicing at byte granularity
+  struct size_tag {};
+  struct slice_tag {};
+  enum class slice_how { remove_prefix, keep_prefix };
+  template<class S> void keep_prefix(S&, size_t) noexcept;
+  template<class S> void remove_prefix(S&, size_t) noexcept;
+  template<class S> void keep_suffix(S&, size_t) noexcept;
+  template<class S> void remove_suffix(S&, size_t) noexcept;
+  template<class S> S prefix(S, size_t) noexcept;
+  template<class S> S suffix(S, size_t) noexcept;
+  template<class S> S sans_prefix(S, size_t) noexcept;
+  template<class S> S sans_suffix(S, size_t) noexcept;
+
+  // creation
+  mutable_buffer make_buffer(void* p, size_t n [, size_t max]) noexcept;
+  const_buffer   make_buffer(const void* p, size_t n [, size_t max]) noexcept;
+  mutable_buffer make_buffer(const mutable_buffer& b [, size_t max]) noexcept;
+  const_buffer   make_buffer(const const_buffer& b [, size_t max]) noexcept;
+  mutable_buffer make_buffer(R&& r [, size_t max]) noexcept;        // contiguous, sized, trivially copyable elements
+  const_buffer   make_buffer(const R& r [, size_t max]) noexcept;
+
+  // dynamic buffers
+  template<class T> concept DynamicBuffer = see below;
+
+  class flat_dynamic_buffer;       // caller-owned storage, fixed capacity, contiguous
+  class circular_dynamic_buffer;   // caller-owned storage, fixed capacity, wraps (buffer pairs)
+  template<class T, class Alloc = allocator<T>> class vector_dynamic_buffer;                      // sizeof(T) == 1
+  template<class C, class Tr = char_traits<C>, class Alloc = allocator<C>> class string_dynamic_buffer; // sizeof(C) == 1
+}
+
+*/
+
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
+
+#  include <version>
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_NETWORKING
+
+#    include <__io_buffer/buffer.h>
+#    include <__io_buffer/buffer_algorithms.h>
+#    include <__io_buffer/buffer_pair.h>
+#    include <__io_buffer/buffer_sequence.h>
+#    include <__io_buffer/buffer_slice.h>
+#    include <__io_buffer/circular_dynamic_buffer.h>
+#    include <__io_buffer/dynamic_buffer.h>
+#    include <__io_buffer/flat_dynamic_buffer.h>
+#    include <__io_buffer/make_buffer.h>
+#    include <__io_buffer/string_dynamic_buffer.h>
+#    include <__io_buffer/vector_dynamic_buffer.h>
+
+#  endif // _LIBCPP_HAS_EXPERIMENTAL_NETWORKING
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+
+#endif // _LIBCPP_IO_BUFFER

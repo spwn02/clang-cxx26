@@ -558,6 +558,17 @@ set(files
   __io/frame_allocator.h
   __io/io_awaitable.h
   __io/io_env.h
+  __io_buffer/buffer.h
+  __io_buffer/buffer_algorithms.h
+  __io_buffer/buffer_pair.h
+  __io_buffer/buffer_sequence.h
+  __io_buffer/buffer_slice.h
+  __io_buffer/circular_dynamic_buffer.h
+  __io_buffer/dynamic_buffer.h
+  __io_buffer/flat_dynamic_buffer.h
+  __io_buffer/make_buffer.h
+  __io_buffer/string_dynamic_buffer.h
+  __io_buffer/vector_dynamic_buffer.h
   __ios/fpos.h
   __iterator/access.h
   __iterator/advance.h
@@ -1185,6 +1196,7 @@ set(files
   inplace_vector
   inttypes.h
   io
+  io_buffer
   iomanip
   ios
   iosfwd

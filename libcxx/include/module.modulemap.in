@@ -2965,6 +2965,56 @@ module std [system] {
     export *
   }
 
+  module io_buffer {
+    module buffer {
+      header "__io_buffer/buffer.h"
+      export *
+    }
+    module buffer_algorithms {
+      header "__io_buffer/buffer_algorithms.h"
+      export *
+    }
+    module buffer_pair {
+      header "__io_buffer/buffer_pair.h"
+      export *
+    }
+    module buffer_sequence {
+      header "__io_buffer/buffer_sequence.h"
+      export *
+    }
+    module buffer_slice {
+      header "__io_buffer/buffer_slice.h"
+      export *
+    }
+    module circular_dynamic_buffer {
+      header "__io_buffer/circular_dynamic_buffer.h"
+      export *
+    }
+    module dynamic_buffer {
+      header "__io_buffer/dynamic_buffer.h"
+      export *
+    }
+    module flat_dynamic_buffer {
+      header "__io_buffer/flat_dynamic_buffer.h"
+      export *
+    }
+    module make_buffer {
+      header "__io_buffer/make_buffer.h"
+      export *
+    }
+    module string_dynamic_buffer {
+      header "__io_buffer/string_dynamic_buffer.h"
+      export *
+    }
+    module vector_dynamic_buffer {
+      header "__io_buffer/vector_dynamic_buffer.h"
+      export *
+    }
+
+    header "io_buffer"
+    export *
+  }
+
   module iomanip {
     header "iomanip"
     export *
