@@ -1,3 +1,6 @@
 # P3822R2: the noexcept condition B is a reference to the template parameter.
 refs-cond must-contain  1:28
 refs-cond must-contain  2:44
+# The expression of the requirement still resolves (hover on a non-type template
+# parameter returns nothing in any context: released cxx26 clangd too).
+hover-expr must-contain  param `t`

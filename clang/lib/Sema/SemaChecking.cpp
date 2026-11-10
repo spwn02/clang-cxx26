@@ -4389,7 +4389,7 @@ void Sema::checkCall(NamedDecl *FDecl, const FunctionProtoType *Proto,
 
 void Sema::CheckConstrainedAuto(const AutoType *AutoT, SourceLocation Loc) {
   if (TemplateDecl *Decl =
-          AutoT->getTypeConstraintConcept().getAsTemplateDecl()) {
+          getWrittenConceptDecl(AutoT->getTypeConstraintConcept())) {
     DiagnoseUseOfDecl(Decl, Loc);
   }
 }

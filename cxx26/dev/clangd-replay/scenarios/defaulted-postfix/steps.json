@@ -1,0 +1,5 @@
+[
+ {"line":5,"col":33,"request":"textDocument/references","label":"refs-v","pre":2500,"wait":300},
+ {"line":5,"col":33,"request":"textDocument/hover","label":"hover-v","pre":300,"wait":300},
+ {"line":3,"col":5,"request":"textDocument/hover","label":"hover-ret","pre":300,"wait":300}
+]

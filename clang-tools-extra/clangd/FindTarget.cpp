@@ -526,11 +526,7 @@ public:
   }
 
   void add(const ConceptReference *CR, RelSet Flags) {
-    TemplateName TN = CR->getNamedConcept();
-    // P3670R4: a pack-index-template-name refers to the written pack.
-    if (const auto *PI = TN.getAsPackIndexingTemplate())
-      TN = PI->getPattern();
-    add(TN.getAsTemplateDecl(), Flags);
+    add(getWrittenConceptDecl(CR->getNamedConcept()), Flags);
   }
 };
 

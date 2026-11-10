@@ -249,7 +249,7 @@ void JSONNodeDumper::Visit(const APValue &Value, QualType Ty) {
 void JSONNodeDumper::Visit(const ConceptReference *CR) {
   JOS.attribute("kind", "ConceptReference");
   JOS.attribute("id", createPointerRepresentation(
-                          CR->getNamedConcept().getAsTemplateDecl()));
+                          getWrittenConceptDecl(CR->getNamedConcept())));
   if (const auto *Args = CR->getTemplateArgsAsWritten()) {
     JOS.attributeArray("templateArgsAsWritten", [Args, this] {
       for (const TemplateArgumentLoc &TAL : Args->arguments())

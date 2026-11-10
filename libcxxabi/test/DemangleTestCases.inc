@@ -30220,5 +30220,6 @@
 
 {"_ZN1CpmEi", "C::operator->*(int)"},
 {"_Z4condIiLb1EEv1SIXrQT__Xfp_NcT0_EEE", "void cond<int, true>(S<requires (int) { {fp} noexcept(true); }>)"},
-{"_Z1gIJ1A1BEEvNu10pack_indexT_Li1EIiEE", "void g<A, B>(A...[1]<int>)"},
+{"_Z1gIJ1A1BEEvNu10pack_indexT_Li1EIiEE", "void g<A, B>(B<int>)"},
+{"_ZN1SIJ3Any5IsIntEE1fITku10pack_indexT_Li0EiEEiT_", "int S<Any, IsInt>::f<int>(int)"},
     // clang-format on

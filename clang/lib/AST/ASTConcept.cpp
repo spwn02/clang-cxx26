@@ -112,7 +112,10 @@ SourceLocation ConceptReference::getBeginLoc() const {
 void ConceptReference::print(llvm::raw_ostream &OS,
                              const PrintingPolicy &Policy) const {
   NestedNameSpec.getNestedNameSpecifier().print(OS, Policy);
-  ConceptName.printName(OS, Policy);
+  if (NamedConcept.getAsPackIndexingTemplate())
+    NamedConcept.print(OS, Policy); // P3670R4: 'CC...[N]'
+  else
+    ConceptName.printName(OS, Policy);
   if (hasExplicitTemplateArgs()) {
     OS << "<";
     llvm::ListSeparator Sep(", ");

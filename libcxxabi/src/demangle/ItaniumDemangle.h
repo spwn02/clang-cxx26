@@ -2567,6 +2567,26 @@ public:
   template <typename Fn> void match(Fn F) const { F(Pattern, Index); }
 
   void printLeft(OutputBuffer &OB) const override {
+    // A literal index into a known pack names that element.
+    if (Pattern->getKind() == KParameterPack &&
+        Index->getKind() == KIntegerLiteral) {
+      std::string_view V = static_cast<const IntegerLiteral *>(Index)->value();
+      unsigned N = 0;
+      bool Ok = !V.empty();
+      for (char C : V) {
+        if (C < '0' || C > '9' || N > 100000) {
+          Ok = false;
+          break;
+        }
+        N = N * 10 + unsigned(C - '0');
+      }
+      if (Ok) {
+        ScopedOverride<unsigned> SaveMax(OB.CurrentPackMax, N + 1);
+        ScopedOverride<unsigned> SaveIdx(OB.CurrentPackIndex, N);
+        Pattern->print(OB);
+        return;
+      }
+    }
     Pattern->print(OB);
     OB += "...[";
     Index->print(OB);
@@ -3096,6 +3116,29 @@ Node *AbstractManglingParser<Derived, Alloc>::parseName(NameState *State) {
     return getDerived().parseNestedName(State);
   if (look() == 'Z')
     return getDerived().parseLocalName(State);
+
+  // PROVISIONAL: a pack-index-template-name outside a nested name (as the
+  // concept of a type-constraint): u10pack_index <template-param> <expression>
+  if (consumeIf("u10pack_index")) {
+    Node *Pattern = getDerived().parseTemplateParam();
+    if (Pattern == nullptr)
+      return nullptr;
+    Node *Index = getDerived().parseExpr();
+    if (Index == nullptr)
+      return nullptr;
+    Node *Name = make<PackIndexTemplateName>(Pattern, Index);
+    if (Name == nullptr)
+      return nullptr;
+    if (look() == 'I') {
+      Node *TA = getDerived().parseTemplateArgs(State != nullptr);
+      if (TA == nullptr)
+        return nullptr;
+      if (State)
+        State->EndsWithTemplateArgs = true;
+      return make<NameWithTemplateArgs>(Name, TA);
+    }
+    return Name;
+  }
 
   Node *Result = nullptr;
   bool IsSubst = false;

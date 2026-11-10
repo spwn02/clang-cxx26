@@ -1,0 +1,5 @@
+[
+ {"line":4,"col":13,"request":"textDocument/references","label":"refs-cc-param","pre":2500,"wait":300},
+ {"line":5,"col":10,"request":"textDocument/references","label":"refs-cc-auto","pre":300,"wait":300},
+ {"line":4,"col":13,"request":"textDocument/hover","label":"hover-cc","pre":300,"wait":300}
+]

@@ -1346,7 +1346,7 @@ bool CursorVisitor::VisitTypeConstraint(const TypeConstraint &TC) {
     if (VisitNestedNameSpecifierLoc(TC.getNestedNameSpecifierLoc()))
       return true;
   }
-  if (TemplateDecl *TD = TC.getNamedConcept().getAsTemplateDecl()) {
+  if (TemplateDecl *TD = getWrittenConceptDecl(TC.getNamedConcept())) {
     if (Visit(MakeCursorTemplateRef(TD, TC.getConceptNameLoc(), TU)))
       return true;
   }

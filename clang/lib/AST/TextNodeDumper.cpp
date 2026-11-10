@@ -954,11 +954,15 @@ void TextNodeDumper::dumpBareConcept(TemplateName TN) {
   }
 
   const TemplateDecl *TD = TN.getAsTemplateDecl();
-  dumpPointer(TD);
+  if (TD)
+    dumpPointer(TD);
 
   ColorScope Color(OS, ShowColors, DeclNameColor);
   OS << " '";
-  OS << TD->getDeclName();
+  if (TD)
+    OS << TD->getDeclName();
+  else // a pack-index-template-name (P3670R4)
+    TN.print(OS, PrintPolicy);
   OS << '\'';
 }
 

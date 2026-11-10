@@ -1,0 +1,6 @@
+# P3670R4: CC...[N] as a type-constraint refers to the pack CC.
+refs-cc-param must-contain  2:39
+refs-cc-param must-contain  4:13
+refs-cc-auto  must-contain  2:39
+refs-cc-auto  must-contain  5:10
+hover-cc      must-contain  template-template-param `CC`

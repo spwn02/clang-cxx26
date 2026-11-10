@@ -1,0 +1,6 @@
+# P3097R3: an override of a virtual function may have contract specifiers; the
+# parameter used in the precondition navigates to the override's parameter.
+refs-f  must-contain  5:7
+hover-x must-contain  param `x`
+refs-x  must-contain  5:13
+refs-x  must-contain  5:29

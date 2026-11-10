@@ -12,6 +12,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DeclVisitor.h"
+#include "clang/AST/StmtCXX.h"
 #include "clang/Index/IndexDataConsumer.h"
 #include "clang/Index/IndexSymbol.h"
 
@@ -292,6 +293,12 @@ public:
       for (const auto &Arg : TemplateArgInfo->arguments())
         handleTemplateArgumentLoc(Arg, D, D->getLexicalDeclContext());
     }
+
+    // The contract specifiers of this declaration: their predicates refer to
+    // the parameters (and members) like a body does.
+    if (const ContractSpecifierDecl *Contracts = D->getContracts())
+      for (const ContractStmt *CS : Contracts->contracts())
+        IndexCtx.indexBody(CS, D, D);
 
     if (D->isThisDeclarationADefinition()) {
       const Stmt *Body = D->getBody();
@@ -707,7 +714,7 @@ public:
           handleTemplateArgumentLoc(TTP->getDefaultArgument(), Parent,
                                     TP->getLexicalDeclContext());
         if (auto *C = TTP->getTypeConstraint())
-          IndexCtx.handleReference(C->getNamedConcept().getAsTemplateDecl(),
+          IndexCtx.handleReference(getWrittenConceptDecl(C->getNamedConcept()),
                                    C->getConceptNameLoc(), Parent,
                                    TTP->getLexicalDeclContext());
       } else if (const auto *NTTP = dyn_cast<NonTypeTemplateParmDecl>(TP)) {

@@ -357,7 +357,7 @@ LLVM_DUMP_METHOD void ConceptReference::dump() const {
 }
 
 LLVM_DUMP_METHOD void ConceptReference::dump(raw_ostream &OS) const {
-  auto &Ctx = getNamedConcept().getAsTemplateDecl()->getASTContext();
+  auto &Ctx = getWrittenConceptDecl(getNamedConcept())->getASTContext();
   ASTDumper P(OS, Ctx, Ctx.getDiagnostics().getShowColors());
   P.Visit(this);
 }

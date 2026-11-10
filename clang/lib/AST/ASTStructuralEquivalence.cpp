@@ -1312,8 +1312,8 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
     if (Auto1->isConstrained() != Auto2->isConstrained())
       return false;
     if (Auto1->isConstrained()) {
-      if (Auto1->getTypeConstraintConcept().getAsTemplateDecl() !=
-          Auto2->getTypeConstraintConcept().getAsTemplateDecl())
+      if (!IsStructurallyEquivalent(Context, Auto1->getTypeConstraintConcept(),
+                                    Auto2->getTypeConstraintConcept()))
         return false;
       if (!IsStructurallyEquivalent(Context,
                                     Auto1->getTypeConstraintArguments(),
