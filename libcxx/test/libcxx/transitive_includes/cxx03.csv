@@ -1001,6 +1001,7 @@ inplace_vector typeinfo
 inplace_vector utility
 inplace_vector variant
 inplace_vector version
+io version
 iomanip algorithm
 iomanip array
 iomanip atomic

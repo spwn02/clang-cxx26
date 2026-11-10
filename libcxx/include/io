@@ -1,0 +1,111 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_IO
+#define _LIBCPP_IO
+
+/*
+    io synopsis
+
+    P4003R3 "A Minimal Coroutine Execution Model" (IoAwaitable). Experimental: the header is available in C++29 mode
+    with -fexperimental-library only (and needs thread support); otherwise it is empty.
+
+namespace std::io {
+  // continuation
+  struct continuation {
+    coroutine_handle<> h;
+    continuation* next = nullptr;
+  };
+
+  // Executor and executor_ref
+  template<class E> concept Executor = see below;
+
+  class executor_ref {
+  public:
+    executor_ref() noexcept;
+    template<Executor E> executor_ref(const E& e) noexcept;
+
+    coroutine_handle<> dispatch(continuation& c) const;
+    void post(continuation& c) const;
+    execution_context& context() const noexcept;
+  };
+
+  // execution_context
+  class execution_context {
+  public:
+    class service {
+    public:
+      virtual ~service() = default;
+    protected:
+      service() = default;
+      virtual void shutdown() = 0;
+    };
+
+    execution_context(const execution_context&) = delete;
+    execution_context& operator=(const execution_context&) = delete;
+    ~execution_context();
+    execution_context();
+
+    template<class T> T& use_service();
+    template<class T, class... Args> T& make_service(Args&&... args);
+
+    pmr::memory_resource* get_frame_allocator() const noexcept;
+    void set_frame_allocator(pmr::memory_resource* mr) noexcept;
+
+  protected:
+    void shutdown() noexcept;
+    void destroy() noexcept;
+  };
+
+  template<class X> concept ExecutionContext = see below;
+
+  // io_env and the awaitable concepts
+  struct io_env {
+    executor_ref executor;
+    std::stop_token stop_token;
+    pmr::memory_resource* frame_allocator = nullptr;
+  };
+
+  template<class A> concept IoAwaitable = see below;
+  template<class T> concept IoRunnable = see below;
+
+  // frame allocator delivery
+  pmr::memory_resource* get_cached_frame_allocator() noexcept;
+  void set_cached_frame_allocator(pmr::memory_resource* mr) noexcept;
+  void safe_resume(coroutine_handle<> h) noexcept;
+}
+
+*/
+
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
+
+#  include <version>
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
+
+#    include <__io/continuation.h>
+#    include <__io/execution_context.h>
+#    include <__io/executor.h>
+#    include <__io/executor_ref.h>
+#    include <__io/frame_allocator.h>
+#    include <__io/io_awaitable.h>
+#    include <__io/io_env.h>
+
+#  endif // _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+
+#endif // _LIBCPP_IO

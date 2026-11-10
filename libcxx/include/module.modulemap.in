@@ -2931,6 +2931,40 @@ module std [system] {
     export *
   }
 
+  module io {
+    module continuation {
+      header "__io/continuation.h"
+      export *
+    }
+    module execution_context {
+      header "__io/execution_context.h"
+      export *
+    }
+    module executor {
+      header "__io/executor.h"
+      export *
+    }
+    module executor_ref {
+      header "__io/executor_ref.h"
+      export *
+    }
+    module frame_allocator {
+      header "__io/frame_allocator.h"
+      export *
+    }
+    module io_awaitable {
+      header "__io/io_awaitable.h"
+      export *
+    }
+    module io_env {
+      header "__io/io_env.h"
+      export *
+    }
+
+    header "io"
+    export *
+  }
+
   module iomanip {
     header "iomanip"
     export *

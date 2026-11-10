@@ -551,6 +551,13 @@ set(files
   __hardened_violation
   __hash_table
   __hazard_pointer/hazard_pointer.h
+  __io/continuation.h
+  __io/execution_context.h
+  __io/executor.h
+  __io/executor_ref.h
+  __io/frame_allocator.h
+  __io/io_awaitable.h
+  __io/io_env.h
   __ios/fpos.h
   __iterator/access.h
   __iterator/advance.h
@@ -1177,6 +1184,7 @@ set(files
   initializer_list
   inplace_vector
   inttypes.h
+  io
   iomanip
   ios
   iosfwd

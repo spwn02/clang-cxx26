@@ -551,6 +551,7 @@ inplace_vector type_traits
 inplace_vector utility
 inplace_vector variant
 inplace_vector version
+io version
 iomanip cctype
 iomanip cerrno
 iomanip climits

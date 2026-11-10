@@ -75,6 +75,7 @@ module;
 #include <hive>
 #include <initializer_list>
 #include <inplace_vector>
+#include <io>
 #include <iomanip>
 #include <ios>
 #include <iosfwd>
