@@ -58,6 +58,7 @@ set(LIBCXX_MODULE_STD_SOURCES
   std/inplace_vector.inc
   std/io.inc
   std/io_buffer.inc
+  std/io_stream.inc
   std/iomanip.inc
   std/ios.inc
   std/iosfwd.inc

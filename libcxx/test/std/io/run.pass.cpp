@@ -112,7 +112,8 @@ int main(int, char**) {
   {
     test_context a, b;
     results r;
-    io::io_env env{a.get_executor(), {}, nullptr};
+    auto env_executor = a.get_executor(); // io_env keeps a reference: it must name an object that outlives it
+    io::io_env env{env_executor, {}, nullptr};
     io::continuation c;
     auto t = switch_executor(b, r);
     start(a, t, env, c);
@@ -131,7 +132,8 @@ int main(int, char**) {
     child_src.request_stop();
     counting_resource mr;
     results r;
-    io::io_env env{a.get_executor(), parent_src.get_token(), &mr};
+    auto env_executor = a.get_executor(); // io_env keeps a reference: it must name an object that outlives it
+    io::io_env env{env_executor, parent_src.get_token(), &mr};
     io::continuation c;
     io::set_cached_frame_allocator(&mr);
     auto t = switch_stop(child_src.get_token(), r);
@@ -148,7 +150,8 @@ int main(int, char**) {
     test_context a;
     counting_resource outer, inner;
     results r;
-    io::io_env env{a.get_executor(), {}, &outer};
+    auto env_executor = a.get_executor(); // io_env keeps a reference: it must name an object that outlives it
+    io::io_env env{env_executor, {}, &outer};
     io::continuation c;
     io::set_cached_frame_allocator(&outer);
     auto t = switch_allocator(&inner, r);
@@ -172,7 +175,8 @@ int main(int, char**) {
     std::stop_source src;
     src.request_stop();
     results r;
-    io::io_env env{a.get_executor(), {}, nullptr};
+    auto env_executor = a.get_executor(); // io_env keeps a reference: it must name an object that outlives it
+    io::io_env env{env_executor, {}, nullptr};
     io::continuation c;
     auto t = switch_all(b, src.get_token(), &mr, r);
     start(a, t, env, c);
@@ -185,7 +189,8 @@ int main(int, char**) {
   // Values and exceptions come back through run().
   {
     test_context a, b;
-    io::io_env env{a.get_executor(), {}, nullptr};
+    auto env_executor = a.get_executor(); // io_env keeps a reference: it must name an object that outlives it
+    io::io_env env{env_executor, {}, nullptr};
     io::continuation c;
     auto t = value_through_run(b);
     start(a, t, env, c);
@@ -195,7 +200,8 @@ int main(int, char**) {
 #ifndef TEST_HAS_NO_EXCEPTIONS
   for (bool sw : {false, true}) {
     test_context a, b;
-    io::io_env env{a.get_executor(), {}, nullptr};
+    auto env_executor = a.get_executor(); // io_env keeps a reference: it must name an object that outlives it
+    io::io_env env{env_executor, {}, nullptr};
     io::continuation c;
     auto t = exception_through_run(b, sw);
     start(a, t, env, c);

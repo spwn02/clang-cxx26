@@ -187,7 +187,8 @@ int main(int, char**) {
     counting_resource mr;
     std::stop_source src;
     src.request_stop();
-    io::io_env env{ctx.get_executor(), src.get_token(), &mr};
+    auto env_executor = ctx.get_executor(); // io_env keeps a reference: it must name an object that outlives it
+    io::io_env env{env_executor, src.get_token(), &mr};
     bool seen = false;
     io::run_async(env, [&](bool b) { seen = b; }, [](std::exception_ptr) {})(stop_state());
     ctx.run();

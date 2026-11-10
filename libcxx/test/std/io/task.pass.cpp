@@ -30,7 +30,8 @@ using namespace test_io;
 // Drives a root task on a test_context: starts it through the executor with the given environment.
 template <class T>
 void drive(test_context& ctx, io::task<T>& t, std::stop_token st = {}, std::pmr::memory_resource* mr = nullptr) {
-  io::io_env env{ctx.get_executor(), st, mr};
+  auto env_executor = ctx.get_executor(); // io_env keeps a reference: it must name an object that outlives it
+  io::io_env env{env_executor, st, mr};
   t.handle().promise().set_environment(&env);
   io::continuation start{t.handle()};
   ctx.get_executor().post(start);

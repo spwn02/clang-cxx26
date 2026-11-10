@@ -616,6 +616,7 @@ inplace_vector variant
 inplace_vector version
 io version
 io_buffer version
+io_stream version
 iomanip cctype
 iomanip cerrno
 iomanip climits

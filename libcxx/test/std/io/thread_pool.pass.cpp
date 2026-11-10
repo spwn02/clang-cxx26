@@ -116,6 +116,10 @@ int main(int, char**) {
 
   // Executor properties: equality, context, dispatch from a non-worker thread posts.
   {
+    // The continuation must outlive the pool: an item abandoned in the queue is read when the pool is destroyed.
+    std::atomic<int> destroyed{0}, ran{0};
+    detached d = holds_sentinel(sentinel(&destroyed), &ran);
+    io::continuation c{d.h};
     io::thread_pool pool(1);
     io::thread_pool other(1);
     auto ex = pool.get_executor();
@@ -123,9 +127,6 @@ int main(int, char**) {
     assert(!(ex == other.get_executor()));
     assert(&ex.context() == &pool);
 
-    std::atomic<int> destroyed{0}, ran{0};
-    detached d = holds_sentinel(sentinel(&destroyed), &ran);
-    io::continuation c{d.h};
     std::coroutine_handle<> r = ex.dispatch(c);
     assert(r.address() == std::noop_coroutine().address());
     pool.stop();
@@ -135,11 +136,11 @@ int main(int, char**) {
   // Queued work that never ran is destroyed (not resumed) with the pool, after stop().
   {
     std::atomic<int> destroyed{0}, ran{0};
+    detached d = holds_sentinel(sentinel(&destroyed), &ran);
+    io::continuation c{d.h}; // outlives the pool, which reads the abandoned queue when it is destroyed
     {
       io::thread_pool pool(1);
       pool.stop();
-      detached d = holds_sentinel(sentinel(&destroyed), &ran);
-      io::continuation c{d.h};
       pool.get_executor().post(c);
     }
     assert(ran == 0);

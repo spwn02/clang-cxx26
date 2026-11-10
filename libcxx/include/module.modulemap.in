@@ -3051,6 +3051,56 @@ module std [system] {
     export *
   }
 
+  module io_stream {
+    module any_buffer_sink {
+      header "__io_stream/any_buffer_sink.h"
+      export *
+    }
+    module any_buffer_source {
+      header "__io_stream/any_buffer_source.h"
+      export *
+    }
+    module any_read_source {
+      header "__io_stream/any_read_source.h"
+      export *
+    }
+    module any_read_stream {
+      header "__io_stream/any_read_stream.h"
+      export *
+    }
+    module any_stream {
+      header "__io_stream/any_stream.h"
+      export *
+    }
+    module any_write_sink {
+      header "__io_stream/any_write_sink.h"
+      export *
+    }
+    module any_write_stream {
+      header "__io_stream/any_write_stream.h"
+      export *
+    }
+    module erased {
+      header "__io_stream/erased.h"
+      export *
+    }
+    module error {
+      header "__io_stream/error.h"
+      export *
+    }
+    module stream_algorithms {
+      header "__io_stream/stream_algorithms.h"
+      export *
+    }
+    module stream_concepts {
+      header "__io_stream/stream_concepts.h"
+      export *
+    }
+
+    header "io_stream"
+    export *
+  }
+
   module iomanip {
     header "iomanip"
     export *

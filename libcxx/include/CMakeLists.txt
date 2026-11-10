@@ -578,6 +578,17 @@ set(files
   __io_buffer/make_buffer.h
   __io_buffer/string_dynamic_buffer.h
   __io_buffer/vector_dynamic_buffer.h
+  __io_stream/any_buffer_sink.h
+  __io_stream/any_buffer_source.h
+  __io_stream/any_read_source.h
+  __io_stream/any_read_stream.h
+  __io_stream/any_stream.h
+  __io_stream/any_write_sink.h
+  __io_stream/any_write_stream.h
+  __io_stream/erased.h
+  __io_stream/error.h
+  __io_stream/stream_algorithms.h
+  __io_stream/stream_concepts.h
   __ios/fpos.h
   __iterator/access.h
   __iterator/advance.h
@@ -1206,6 +1217,7 @@ set(files
   inttypes.h
   io
   io_buffer
+  io_stream
   iomanip
   ios
   iosfwd

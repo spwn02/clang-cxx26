@@ -1023,6 +1023,7 @@ inplace_vector variant
 inplace_vector version
 io version
 io_buffer version
+io_stream version
 iomanip algorithm
 iomanip array
 iomanip atomic

@@ -135,7 +135,8 @@ int main(int, char**) {
     test_context ctx;
     counting_resource mr;
     ctx.set_frame_allocator(&mr);
-    io::io_env env{ctx.get_executor(), {}, ctx.get_frame_allocator()};
+    auto env_executor = ctx.get_executor(); // io_env keeps a reference: it must name an object that outlives it
+    io::io_env env{env_executor, {}, ctx.get_frame_allocator()};
     assert(env.frame_allocator == &mr);
     assert(&env.executor.context() == &ctx);
   }

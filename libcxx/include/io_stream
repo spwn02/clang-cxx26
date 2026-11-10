@@ -1,0 +1,88 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_IO_STREAM
+#define _LIBCPP_IO_STREAM
+
+/*
+    io_stream synopsis
+
+    Paper 6 of P4100R1 (stream concepts and type-erasing wrappers). There is no WG21 paper text yet: the behavior follows
+    P4100R1 8.6, P4172R1 appendix B and Boost.Capy (B1005). Experimental: available in C++29 mode with
+    -fexperimental-library (and threads) only; otherwise the header is empty.
+
+namespace std::io {
+  // results and errors
+  template<class... Ts> using io_result = tuple<error_code, Ts...>;     // auto [ec, n] = co_await s.read_some(b);
+  template<class... Ts> using io_task   = task<io_result<Ts...>>;
+  enum class error { eof = 1, canceled, stream_truncated, timeout };    // is_error_code_enum
+  enum class cond  { eof = 1, canceled, stream_truncated, timeout };    // is_error_condition_enum; error::X == cond::X
+  const error_category& io_category() noexcept;
+  const error_category& io_condition_category() noexcept;
+  error_code      make_error_code(error) noexcept;
+  error_condition make_error_condition(cond) noexcept;
+
+  // caller-owned buffers
+  template<class T> concept ReadStream;    // s.read_some(MutableBufferSequence)  -> IoAwaitable of (error_code, size_t)
+  template<class T> concept WriteStream;   // s.write_some(ConstBufferSequence)   -> IoAwaitable of (error_code, size_t)
+  template<class T> concept Stream;        // ReadStream && WriteStream
+  template<class T> concept ReadSource;    // s.read(MutableBufferSequence): complete reads, short read is an error
+  template<class T> concept WriteSink;     // s.write(cbs), s.write(cbs, eof), s.write_eof()
+  // callee-owned buffers
+  template<class T> concept BufferSource;  // s.pull(const_buffer*, size_t) -> (error_code, count); s.consume(n)
+  template<class T> concept BufferSink;    // s.prepare(mutable_buffer*, size_t) -> count; s.commit(n[, eof]); s.commit_eof()
+
+  // non-owning type-erased wrappers: one object pointer, one vtable pointer, operation storage allocated once by the
+  // constructor; no allocation per operation. Operations complete inline when the wrapped awaitable is ready.
+  class any_read_stream;     explicit any_read_stream(ReadStream auto*)
+  class any_write_stream;    explicit any_write_stream(WriteStream auto*)
+  class any_stream : public any_read_stream, public any_write_stream;
+  class any_read_source;
+  class any_write_sink;
+  class any_buffer_source;
+  class any_buffer_sink;
+
+  // composed operations
+  io_task<size_t> read(ReadStream auto& s, const MutableBufferSequence auto& buffers);   // until full; eof is an error
+  io_task<size_t> write(WriteStream auto& s, const ConstBufferSequence auto& buffers);   // until all written
+  io_task<size_t> read(ReadStream auto& s, DynamicBuffer auto& db, size_t initial = 2048); // until eof (success)
+}
+
+*/
+
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
+
+#  include <version>
+
+#  if _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
+
+#    include <__io_stream/any_buffer_sink.h>
+#    include <__io_stream/any_buffer_source.h>
+#    include <__io_stream/any_read_source.h>
+#    include <__io_stream/any_read_stream.h>
+#    include <__io_stream/any_stream.h>
+#    include <__io_stream/any_write_sink.h>
+#    include <__io_stream/any_write_stream.h>
+#    include <__io_stream/erased.h>
+#    include <__io_stream/error.h>
+#    include <__io_stream/stream_algorithms.h>
+#    include <__io_stream/stream_concepts.h>
+
+#  endif // _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+
+#endif // _LIBCPP_IO_STREAM
