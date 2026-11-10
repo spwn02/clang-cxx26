@@ -870,16 +870,6 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
       TrailingRequiresClause.ConstraintExpr->printPretty(
           Out, nullptr, SubPolicy, Indentation, "\n", &Context);
     }
-
-    const ContractSpecifierDecl *Contracts = D->getContracts();
-    if (Contracts) {
-      Out << " [[";
-      for (const auto *Contract : Contracts->contracts()) {
-        Contract->printPretty(Out, nullptr, SubPolicy, Indentation, "\n",
-                              &Context);
-      }
-      Out << "]]";
-    }
   } else {
     Ty.print(Out, Policy, Proto);
   }
@@ -887,6 +877,15 @@ void DeclPrinter::VisitFunctionDecl(FunctionDecl *D) {
   if (std::optional<std::string> Attrs =
           prettyPrintAttributes(D, AttrPosAsWritten::Right))
     Out << ' ' << *Attrs;
+
+  // function-contract-specifier-seq follows the virt-specifiers and precedes
+  // the pure-specifier / function-body.
+  if (D->getContracts()) {
+    for (const auto *Contract : D->getContracts()->contracts()) {
+      Out << ' ';
+      Contract->printPretty(Out, nullptr, Policy, Indentation, "\n", &Context);
+    }
+  }
 
   if (D->isPureVirtual())
     Out << " = 0";

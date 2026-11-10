@@ -3206,6 +3206,8 @@ void StmtPrinter::VisitContractStmt(ContractStmt *Node) {
       OS << " ";
   }
   OS << "(";
+  if (Node->hasResultName())
+    OS << Node->getResultName()->getName() << ": ";
   PrintExpr(Node->getCond());
   OS << ")";
   if (Node->getContractKind() == ContractKind::Assert)
