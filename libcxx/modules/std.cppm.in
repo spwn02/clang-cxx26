@@ -101,6 +101,7 @@ module;
 #include <meta>
 #include <mutex>
 #include <net>
+#include <net_tls>
 #include <new>
 #include <numbers>
 #include <numeric>

@@ -1550,6 +1550,7 @@ mutex utility
 mutex variant
 mutex version
 net version
+net_tls version
 new cstddef
 new cstdint
 new cstdlib

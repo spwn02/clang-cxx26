@@ -894,6 +894,7 @@ mutex ratio
 mutex tuple
 mutex version
 net version
+net_tls version
 new version
 numbers version
 numeric cctype

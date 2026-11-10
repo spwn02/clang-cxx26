@@ -3937,6 +3937,38 @@ module std [system] {
     export *
   }
 
+  module net_tls {
+    module engine {
+      header "__net_tls/engine.h"
+      export *
+    }
+    module error {
+      header "__net_tls/error.h"
+      export *
+    }
+    module openssl_engine {
+      header "__net_tls/openssl_engine.h"
+      export *
+    }
+    module support {
+      module openssl_dl {
+        header "__net_tls/support/openssl_dl.h"
+        export *
+      }
+    }
+    module tls_context {
+      header "__net_tls/tls_context.h"
+      export *
+    }
+    module tls_stream {
+      header "__net_tls/tls_stream.h"
+      export *
+    }
+
+    header "net_tls"
+    export *
+  }
+
   module new {
     header "new"
     module align_val_t {

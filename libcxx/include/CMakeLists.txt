@@ -793,6 +793,12 @@ set(files
   __net/tcp_acceptor.h
   __net/tcp_socket.h
   __net/udp_socket.h
+  __net_tls/engine.h
+  __net_tls/error.h
+  __net_tls/openssl_engine.h
+  __net_tls/support/openssl_dl.h
+  __net_tls/tls_context.h
+  __net_tls/tls_stream.h
   __new/align_val_t.h
   __new/allocate.h
   __new/destroying_delete_t.h
@@ -1281,6 +1287,7 @@ set(files
   meta
   mutex
   net
+  net_tls
   new
   numbers
   numeric

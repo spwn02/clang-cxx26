@@ -1,0 +1,85 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_NET_TLS
+#define _LIBCPP_NET_TLS
+
+/*
+    net_tls synopsis
+
+    Paper 14 of the networking series (TLS). Experimental: the header is available in C++29 mode with
+    -fexperimental-library only, on a platform that has a backend (Linux: epoll) and <dlfcn.h>, and needs thread support;
+    otherwise it is empty. Provisional specification: P4100R1 [8.10] and the Corosio library (no WG21 paper yet). The
+    cryptographic engine is OpenSSL, loaded at run time (libssl.so.3, else libssl.so): the library has no build or link
+    dependency on it. If it cannot be loaded, every TLS operation completes with tls_error::engine_unavailable.
+
+namespace std::io {
+  bool tls_engine_available() noexcept;                          // can the engine be loaded?
+
+  enum class tls_role { client, server };
+  enum class tls_version { tls_1_2, tls_1_3 };
+  enum class tls_verify_mode { none, peer, require_peer };       // the default is none, as in Corosio
+
+  enum class tls_error { engine_unavailable = 1, bad_configuration, handshake_failed, certificate_verify_failed,
+                         protocol_error, not_established };
+  const error_category& tls_category() noexcept;                 // and make_error_code(tls_error)
+
+  class tls_context {                                            // a shared handle; PEM only
+  public:
+    tls_context();
+    error_code use_certificate(string_view pem);  use_certificate_chain(string_view pem);
+    error_code use_certificate_file(string_view path);  use_certificate_chain_file(string_view path);
+    error_code use_private_key(string_view pem);  use_private_key_file(string_view path);
+    error_code add_certificate_authority(string_view pem);  load_verify_file(string_view path);
+    error_code add_verify_path(string_view dir);  set_default_verify_paths();  use_system_trust();
+    error_code set_min_protocol_version(tls_version);  set_max_protocol_version(tls_version);
+    error_code set_ciphersuites(string_view);  set_ciphersuites_tls13(string_view);
+    error_code set_alpn(initializer_list<string_view>);
+    error_code set_verify_mode(tls_verify_mode);  set_verify_depth(int);
+  };
+
+  class tls_stream {                                             // wraps a Stream; satisfies Stream; converts to any_stream
+  public:
+    template <Stream S> tls_stream(S* stream, const tls_context&);
+    tls_stream(any_stream& stream, const tls_context&);
+    void set_hostname(string_view);                              // SNI and certificate host name (client)
+    IoAwaitable-of-io_result<> handshake(tls_role);
+    IoAwaitable-of-io_result<size_t> read_some(MutableBufferSequence);   // error::eof after the close_notify,
+    IoAwaitable-of-io_result<size_t> write_some(ConstBufferSequence);    // error::stream_truncated without it
+    IoAwaitable-of-io_result<> shutdown();                       // close_notify
+    string_view alpn_protocol() const noexcept;  bool is_established() const noexcept;
+    string error_detail() const;  any_stream& next_layer() noexcept;  string_view name() const noexcept;
+  };
+}
+*/
+
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
+
+#  include <version>
+
+#  include <__io/support/config.h>
+
+#  if _LIBCPP_HAS_IO_TLS
+
+#    include <__net_tls/error.h>
+#    include <__net_tls/tls_context.h>
+#    include <__net_tls/tls_stream.h>
+
+#  endif // _LIBCPP_HAS_IO_TLS
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+
+#endif // _LIBCPP_NET_TLS

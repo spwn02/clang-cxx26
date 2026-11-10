@@ -48,6 +48,15 @@
 #  define _LIBCPP_HAS_IO_FILES 0
 #endif
 
+// TLS (<net_tls>): the engine is OpenSSL, loaded at run time with dlopen (no build or link dependency, no OpenSSL header
+// is included). On top of the sockets only because the stream is useful with them; the stream itself works on any Stream.
+// The loader is in libcxx/include/__net_tls/support/openssl_dl.h behind the internal __tls_engine interface.
+#if _LIBCPP_HAS_IO_EPOLL && __has_include(<dlfcn.h>)
+#  define _LIBCPP_HAS_IO_TLS 1
+#else
+#  define _LIBCPP_HAS_IO_TLS 0
+#endif
+
 // sigaction() plus a self-pipe. Defined together with a backend that is also available on a POSIX system.
 #define _LIBCPP_HAS_IO_POSIX_SIGNALS _LIBCPP_HAS_IO_EPOLL
 

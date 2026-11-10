@@ -82,6 +82,7 @@ set(LIBCXX_MODULE_STD_SOURCES
   std/memory_resource.inc
   std/mutex.inc
   std/net.inc
+  std/net_tls.inc
   std/new.inc
   std/numbers.inc
   std/numeric.inc
