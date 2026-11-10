@@ -32,14 +32,14 @@ namespace order_and_lookup {
 struct A { int x; int y; int z; };
 struct B : A { int q; };
 B e{.x = 1, .q = 3};
-B f{.q = 3, .x = 1};       // expected-warning {{field designators to be specified in declaration order; field 'q' will be initialized after field 'x'}}
-B g2{.y = 1, .x = 2};      // expected-warning {{field 'y' will be initialized after field 'x'}}
+B f{.q = 3, .x = 1};       // expected-error {{designators naming members of base classes must be specified in declaration order; field 'q' will be initialized after field 'x'}}
+B g2{.y = 1, .x = 2};      // expected-error {{field 'y' will be initialized after field 'x'}}
 
 struct C { int p; int x; };
 struct D : A, C { };
 D g{.y=1, .p=2};
 D h{.x=2};                 // expected-error {{designator 'x' is ambiguous: it names members of several base class subobjects of 'D'}}
-D h2{.p=1, .y=2};          // expected-warning {{field 'p' will be initialized after field 'y'}}
+D h2{.p=1, .y=2};          // expected-error {{field 'p' will be initialized after field 'y'}}
 
 struct NonAggr { int na; NonAggr(int); };
 struct E : NonAggr { int e; };

@@ -560,7 +560,7 @@ private:
   void manglePrefix(QualType type);
   void mangleTemplatePrefix(GlobalDecl GD, bool NoFunction=false);
   void mangleTemplatePrefix(TemplateName Template);
-  void DiagnoseUnsupportedPackIndexTemplateName();
+  void manglePackIndexingTemplateName(TemplateName TN);
   const NamedDecl *getClosurePrefix(const Decl *ND);
   void mangleClosurePrefix(const NamedDecl *ND, bool NoFunction = false);
   bool mangleUnresolvedTypeOrSimpleId(QualType DestroyedType,
@@ -1283,12 +1283,21 @@ void CXXNameMangler::mangleFixedPointLiteral() {
   Diags.Report(DiagID);
 }
 
-void CXXNameMangler::DiagnoseUnsupportedPackIndexTemplateName() {
-  DiagnosticsEngine &Diags = Context.getDiags();
-  unsigned DiagID = Diags.getCustomDiagID(
-      DiagnosticsEngine::Error,
-      "cannot yet mangle a pack indexing template name");
-  Diags.Report(DiagID);
+// PROVISIONAL (owner decision 2026-11-10): the Itanium ABI has no encoding for
+// a pack-index-template-name (P3670R4; cxx-abi issue 175 is open). Until the
+// ABI defines one, a still dependent name is mangled as
+//   Dy <template-name of the pack> <index expression>
+// and a name whose selection is known is mangled as the selected template.
+void CXXNameMangler::manglePackIndexingTemplateName(TemplateName TN) {
+  PackIndexingTemplateStorage *PI = TN.getAsPackIndexingTemplate();
+  assert(PI && "not a pack-index-template-name");
+  if (PI->isFullySubstituted() && PI->getSelectedIndex()) {
+    mangleTemplatePrefix(PI->getSelectedTemplate());
+    return;
+  }
+  Out << "Dy";
+  mangleTemplatePrefix(PI->getPattern());
+  mangleExpression(PI->getIndexExpr());
 }
 
 void CXXNameMangler::mangleNullPointer(QualType T) {
@@ -2273,7 +2282,7 @@ void CXXNameMangler::mangleTemplatePrefix(TemplateName Template) {
     return mangleTemplatePrefix(TD);
 
   if (Template.getAsPackIndexingTemplate()) {
-    DiagnoseUnsupportedPackIndexTemplateName();
+    manglePackIndexingTemplateName(Template);
     return;
   }
 
@@ -2434,7 +2443,7 @@ void CXXNameMangler::mangleType(TemplateName TN) {
   }
 
   case TemplateName::PackIndexingTemplate:
-    DiagnoseUnsupportedPackIndexTemplateName();
+    manglePackIndexingTemplateName(TN);
     return;
 
   case TemplateName::DeducedTemplate:
@@ -2604,7 +2613,7 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
     }
 
     case TemplateName::PackIndexingTemplate:
-      DiagnoseUnsupportedPackIndexTemplateName();
+      // Not substitutable (see manglePackIndexingTemplateName).
       return false;
 
     case TemplateName::UsingTemplate: {
@@ -4948,14 +4957,12 @@ void CXXNameMangler::mangleRequirement(SourceLocation RequiresExprLoc,
     Out << 'X';
     mangleExpression(ER->getExpr());
 
-    if (ER->getNoexceptCondition()) {
-      // P3822R2: the Itanium ABI has no encoding for a conditional noexcept
-      // requirement.
-      DiagnosticsEngine &Diags = Context.getDiags();
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "cannot yet mangle a requirement with a conditional noexcept");
-      Diags.Report(DiagID);
+    if (const Expr *Cond = ER->getNoexceptCondition()) {
+      // PROVISIONAL (owner decision 2026-11-10; P3822R2): the Itanium ABI has
+      // no encoding for a conditional noexcept requirement: 'Nc <expression>'
+      // (a plain noexcept stays 'N').
+      Out << "Nc";
+      mangleExpression(Cond);
     } else if (ER->hasNoexceptRequirement())
       Out << 'N';
 
@@ -5791,7 +5798,9 @@ recurse:
     NotPrimaryExpr();
     const auto *DTI = cast<DependentTemplateIdExpr>(E);
     if (DTI->getTemplateName().getAsPackIndexingTemplate()) {
-      DiagnoseUnsupportedPackIndexTemplateName();
+      manglePackIndexingTemplateName(DTI->getTemplateName());
+      mangleTemplateArgs(TemplateName(), DTI->template_arguments().data(),
+                         DTI->getNumTemplateArgs());
       break;
     }
     mangleUnresolvedName(std::nullopt, DTI->getName(),

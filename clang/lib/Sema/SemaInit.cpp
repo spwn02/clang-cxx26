@@ -2603,10 +2603,12 @@ void InitListChecker::CheckStructUnionTypes(
                 std::lexicographical_compare(Path.begin(), Path.end(),
                                              LastDesignatedPath.begin(),
                                              LastDesignatedPath.end()))
+            {
               SemaRef.Diag(DIE->getInit()->getBeginLoc(),
-                           diag::ext_designated_init_reordered)
+                           diag::err_designated_init_base_reordered)
                   << F << LastDesignatedField << DIE->getSourceRange();
-            else {
+              hadError = true;
+            } else {
               LastDesignatedPath = Path;
               LastDesignatedField = F;
             }

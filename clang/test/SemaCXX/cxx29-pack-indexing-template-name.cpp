@@ -51,3 +51,18 @@ template <template <class> concept... CC>
 struct Concepts {
   template <CC...[0] T> void f(T); // expected-error {{a pack-index-template-name as a type-constraint is not implemented yet}}
 };
+
+namespace in_expression {
+// Parsing regression: a pack-index-template-name used as the head of an
+// expression ('T...[N]<args>{}', '()' or '::name') asserted in the parser.
+template <typename T> struct A { static const int value = 1; };
+template <typename T> struct B { static const int value = 2; };
+template <template <typename> class... TT>
+int f() {
+  auto a = TT...[1]<int>{};
+  auto b = TT...[0]<int>();
+  return a.value + b.value + TT...[1]<int>::value;
+}
+template int f<A, B>();
+static_assert(B<int>::value == 2);
+}

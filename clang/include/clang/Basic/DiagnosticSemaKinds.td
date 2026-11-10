@@ -311,6 +311,9 @@ def ext_designated_init_reordered : ExtWarn<
   "ISO C++ requires field designators to be specified in declaration order; "
   "field %1 will be initialized after field %0">, InGroup<ReorderInitList>,
   SFINAEFailure;
+def err_designated_init_base_reordered : Error<
+  "designators naming members of base classes must be specified in "
+  "declaration order; field %1 will be initialized after field %0">;
 def note_previous_field_init : Note<
   "previous initialization for field %0 is here">;
 def ext_designated_init_brace_elision : ExtWarn<
