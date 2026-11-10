@@ -2518,14 +2518,17 @@ class ExprRequirement : public Node {
   const Node *Expr;
   bool IsNoexcept;
   const Node *TypeConstraint;
+  const Node *NoexceptCondition;
 public:
   ExprRequirement(const Node *Expr_, bool IsNoexcept_,
-                  const Node *TypeConstraint_)
+                  const Node *TypeConstraint_,
+                  const Node *NoexceptCondition_ = nullptr)
       : Node(KExprRequirement), Expr(Expr_), IsNoexcept(IsNoexcept_),
-        TypeConstraint(TypeConstraint_) {}
+        TypeConstraint(TypeConstraint_), NoexceptCondition(NoexceptCondition_) {
+  }
 
   template <typename Fn> void match(Fn F) const {
-    F(Expr, IsNoexcept, TypeConstraint);
+    F(Expr, IsNoexcept, TypeConstraint, NoexceptCondition);
   }
 
   void printLeft(OutputBuffer &OB) const override {
@@ -2535,13 +2538,39 @@ public:
     Expr->print(OB);
     if (IsNoexcept || TypeConstraint)
       OB.printClose('}');
-    if (IsNoexcept)
+    if (IsNoexcept) {
       OB += " noexcept";
+      if (NoexceptCondition) {
+        OB.printOpen();
+        NoexceptCondition->print(OB);
+        OB.printClose();
+      }
+    }
     if (TypeConstraint) {
       OB += " -> ";
       TypeConstraint->print(OB);
     }
     OB += ';';
+  }
+};
+
+// PROVISIONAL (no Itanium ABI encoding exists yet; P3670R4): a
+// pack-index-template-name, mangled as 'u10pack_index <template-param>
+// <expression>'.
+class PackIndexTemplateName : public Node {
+  const Node *Pattern;
+  const Node *Index;
+public:
+  PackIndexTemplateName(const Node *Pattern_, const Node *Index_)
+      : Node(KPackIndexTemplateName), Pattern(Pattern_), Index(Index_) {}
+
+  template <typename Fn> void match(Fn F) const { F(Pattern, Index); }
+
+  void printLeft(OutputBuffer &OB) const override {
+    Pattern->print(OB);
+    OB += "...[";
+    Index->print(OB);
+    OB += ']';
   }
 };
 
@@ -3658,6 +3687,18 @@ AbstractManglingParser<Derived, Alloc>::parseNestedName(NameState *State) {
       if (SoFar != nullptr)
         return nullptr; // Cannot have a prefix.
       SoFar = getDerived().parseDecltype();
+    } else if (consumeIf("u10pack_index")) {
+      // PROVISIONAL: <pack-index-template-name> ::= u10pack_index
+      //                                             <template-param> <expression>
+      if (SoFar != nullptr)
+        return nullptr; // Cannot have a prefix.
+      Node *Pattern = getDerived().parseTemplateParam();
+      if (Pattern == nullptr)
+        return nullptr;
+      Node *Index = getDerived().parseExpr();
+      if (Index == nullptr)
+        return nullptr;
+      SoFar = make<PackIndexTemplateName>(Pattern, Index);
     } else {
       ModuleName *Module = nullptr;
 
@@ -5094,13 +5135,21 @@ Node *AbstractManglingParser<Derived, Alloc>::parseRequiresExpr() {
       if (Expr == nullptr)
         return nullptr;
       bool Noexcept = consumeIf('N');
+      // PROVISIONAL (P3822R2): 'Nc <expression>' is noexcept(<expression>).
+      Node *NoexceptCond = nullptr;
+      if (Noexcept && look() == 'c') {
+        ++First;
+        NoexceptCond = getDerived().parseExpr();
+        if (NoexceptCond == nullptr)
+          return nullptr;
+      }
       Node *TypeReq = nullptr;
       if (consumeIf('R')) {
         TypeReq = getDerived().parseName();
         if (TypeReq == nullptr)
           return nullptr;
       }
-      Constraint = make<ExprRequirement>(Expr, Noexcept, TypeReq);
+      Constraint = make<ExprRequirement>(Expr, Noexcept, TypeReq, NoexceptCond);
     } else if (consumeIf('T')) {
       // <requirement> ::= T <type>
       Node *Type = getDerived().parseType();

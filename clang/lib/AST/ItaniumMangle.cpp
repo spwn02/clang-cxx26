@@ -1286,7 +1286,7 @@ void CXXNameMangler::mangleFixedPointLiteral() {
 // PROVISIONAL (owner decision 2026-11-10): the Itanium ABI has no encoding for
 // a pack-index-template-name (P3670R4; cxx-abi issue 175 is open). Until the
 // ABI defines one, a still dependent name is mangled as
-//   Dy <template-name of the pack> <index expression>
+//   u10pack_index <template-param of the pack> <index expression>
 // and a name whose selection is known is mangled as the selected template.
 void CXXNameMangler::manglePackIndexingTemplateName(TemplateName TN) {
   PackIndexingTemplateStorage *PI = TN.getAsPackIndexingTemplate();
@@ -1295,7 +1295,7 @@ void CXXNameMangler::manglePackIndexingTemplateName(TemplateName TN) {
     mangleTemplatePrefix(PI->getSelectedTemplate());
     return;
   }
-  Out << "Dy";
+  Out << "u10pack_index";
   mangleTemplatePrefix(PI->getPattern());
   mangleExpression(PI->getIndexExpr());
 }

@@ -30219,4 +30219,6 @@
 {"_Z3fooIPU9__ptrauthILj1ELb0ELj64EEPiEvT_", "void foo<int* __ptrauth<1u, false, 64u>*>(int* __ptrauth<1u, false, 64u>*)"},
 
 {"_ZN1CpmEi", "C::operator->*(int)"},
+{"_Z4condIiLb1EEv1SIXrQT__Xfp_NcT0_EEE", "void cond<int, true>(S<requires (int) { {fp} noexcept(true); }>)"},
+{"_Z1gIJ1A1BEEvNu10pack_indexT_Li1EIiEE", "void g<A, B>(A...[1]<int>)"},
     // clang-format on

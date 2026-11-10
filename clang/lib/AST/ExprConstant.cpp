@@ -9215,12 +9215,24 @@ static bool HandleDestructionImpl(EvalInfo &Info, SourceRange CallRange,
   APValue RetVal;
   StmtResult Ret = {RetVal, nullptr};
   Info.CurrentCall->FunctionReturnValue = &RetVal;
+
+  // [expr.call]: the precondition assertions of a destructor are evaluated
+  // before its body, its postcondition assertions after the destructor (the
+  // body and the destruction of the members and bases) has completed.
+  if (Definition->getContracts() &&
+      !EvaluatePreContracts(Info, Definition, &Frame))
+    return false;
+  auto EvaluateDtorPostContracts = [&] {
+    return !Definition->getContracts() ||
+           EvaluatePostContracts(Info, Definition, RetVal, nullptr);
+  };
+
   if (EvaluateStmt(Ret, Info, Definition->getBody()) == ESR_Failed)
     return false;
 
   // A union destructor does not implicitly destroy its members.
   if (RD->isUnion())
-    return true;
+    return EvaluateDtorPostContracts();
 
   const ASTRecordLayout &Layout = Info.Ctx.getASTRecordLayout(RD);
 
@@ -9288,6 +9300,9 @@ static bool HandleDestructionImpl(EvalInfo &Info, SourceRange CallRange,
         return false;
     }
   }
+
+  if (!EvaluateDtorPostContracts())
+    return false;
 
   // The period of destruction ends now. The object is gone.
   Value = APValue();
