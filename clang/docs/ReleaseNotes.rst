@@ -306,7 +306,8 @@ C++2d (C++29) Feature Support
 - Implemented `P3097R3 <https://wg21.link/P3097R3>`_ under ``-std=c++29``: a virtual function may have ``pre`` and
   ``post`` assertions. A virtual call through a class member access evaluates the preconditions of the statically
   chosen function and then those of the final overrider, and the postconditions of the final overrider and then those
-  of the statically chosen function, also in constant evaluation (assertions are not inherited by overriders;
+  of the statically chosen function, also in constant evaluation (as are the preconditions and postconditions of a
+  destructor, which constant evaluation used to skip) (assertions are not inherited by overriders;
   qualified calls and calls through a pointer to member name one function). ``__cpp_contracts`` is 202606L in C++29
   mode (the value of the draft N5054). C++26 keeps rejecting contract specifiers on virtual functions.
 
@@ -314,8 +315,8 @@ C++2d (C++29) Feature Support
   conditional ``noexcept``, ``{ E } noexcept(condition)``. The condition is a contextually converted constant
   expression of type ``bool`` (as for a function), substituted after ``E``; the expression must not be
   potentially-throwing only if the condition is true, and a substitution failure in the condition makes the requirement
-  unsatisfied. Earlier modes diagnose it. The Itanium mangling of such a requirement is not defined yet and is reported
-  as unsupported.
+  unsatisfied. Earlier modes diagnose it. The Itanium ABI has no mangling for it yet: ``Nc <expression>`` is a provisional
+  vendor encoding that may change when the ABI defines one (the demangler in LLVM and libc++abi understands it).
 
 - Implemented `P2287R6 <https://wg21.link/P2287R6>`_ under ``-std=c++29``: a designator can name a non-static data
   member of an aggregate base class (``B{.a1 = 1, .b = 2}`` with ``struct B : A``). The identifier must be found in
@@ -323,13 +324,13 @@ C++2d (C++29) Feature Support
   designators that name its members, and positional initializers before the designators initialize base classes only
   (``B{A{1, 2}, .b = 3}``); a base class initialized both ways, or a positional initializer for a non-static data member
   in a list with designators, is an error, and designators naming members of bases must be in element order
-  (``-Wreorder-init-list``). Earlier modes keep rejecting a designator that names a member of a base class.
+  (an error; direct members keep ``-Wreorder-init-list``). Earlier modes keep rejecting a designator that names a member of a base class.
 
 - Implemented `P3670R4 <https://wg21.link/P3670R4>`_ (partially) under ``-std=c++29``: a pack of template template
   parameters can be indexed, ``TT...[N]<args>`` (type, variable and alias templates), based on the upstream LLVM
   implementation (llvm-project#218738). Earlier modes reject it. Not implemented yet: a pack-index-template-name as a
-  type-constraint (a pack of concepts) and the mangling of a dependent one, for which the Itanium ABI has no
-  encoding.
+  type-constraint (a pack of concepts). The mangling of a dependent one is provisional
+  (``u10pack_index <template-param> <expression>``; the Itanium ABI has none yet, cxx-abi issue 175) and may change.
 
 - Implemented `P3549R1 <https://wg21.link/P3549R1>`_ (exploratory, EWG) under ``-std=c++29``: diverging expressions
   and the bottom type ``std::noreturn_t`` (``decltype(throw 0)``): a function or lambda that only diverges deduces
