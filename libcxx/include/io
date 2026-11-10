@@ -79,6 +79,24 @@ namespace std::io {
   pmr::memory_resource* get_cached_frame_allocator() noexcept;
   void set_cached_frame_allocator(pmr::memory_resource* mr) noexcept;
   void safe_resume(coroutine_handle<> h) noexcept;
+
+  // task, launch functions and basic execution contexts (P4100R1 8.2; provisional specification: Capy)
+  template<class T> class task;                       // lazy coroutine; IoAwaitable and IoRunnable
+  inline constexpr unspecified get_stop_token;        // co_await get_stop_token yields the stop_token
+  inline constexpr unspecified get_environment;       // co_await get_environment yields const io_env*
+
+  unspecified run_async(Executor-or-io_env, [stop_token,] [pmr::memory_resource*,] [on_value, on_error]);
+  unspecified run([Executor,] [stop_token,] [pmr::memory_resource*]);  // run(...)(task) is an IoAwaitable
+
+  class thread_pool : public execution_context {
+  public:
+    class executor_type;
+    explicit thread_pool(size_t num_threads = 0);
+    void join() noexcept;
+    void stop() noexcept;
+    executor_type get_executor() const noexcept;
+  };
+  thread_pool& system_context();
 }
 
 */
@@ -103,6 +121,10 @@ namespace std::io {
 #    include <__io/frame_allocator.h>
 #    include <__io/io_awaitable.h>
 #    include <__io/io_env.h>
+#    include <__io/run.h>
+#    include <__io/run_async.h>
+#    include <__io/task.h>
+#    include <__io/thread_pool.h>
 
 #  endif // _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
 

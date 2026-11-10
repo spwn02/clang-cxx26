@@ -27,6 +27,14 @@ export namespace std {
     using std::io::get_cached_frame_allocator;
     using std::io::safe_resume;
     using std::io::set_cached_frame_allocator;
+
+    using std::io::get_environment;
+    using std::io::get_stop_token;
+    using std::io::run;
+    using std::io::run_async;
+    using std::io::system_context;
+    using std::io::task;
+    using std::io::thread_pool;
   } // namespace io
 #endif
 } // namespace std

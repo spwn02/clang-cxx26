@@ -558,6 +558,10 @@ set(files
   __io/frame_allocator.h
   __io/io_awaitable.h
   __io/io_env.h
+  __io/run.h
+  __io/run_async.h
+  __io/task.h
+  __io/thread_pool.h
   __io_buffer/buffer.h
   __io_buffer/buffer_algorithms.h
   __io_buffer/buffer_pair.h

@@ -2960,6 +2960,22 @@ module std [system] {
       header "__io/io_env.h"
       export *
     }
+    module run {
+      header "__io/run.h"
+      export *
+    }
+    module run_async {
+      header "__io/run_async.h"
+      export *
+    }
+    module task {
+      header "__io/task.h"
+      export *
+    }
+    module thread_pool {
+      header "__io/thread_pool.h"
+      export *
+    }
 
     header "io"
     export *
