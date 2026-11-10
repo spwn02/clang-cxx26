@@ -224,8 +224,13 @@ void JSONNodeDumper::Visit(const concepts::Requirement *R) {
     break;
   }
 
-  if (auto *ER = dyn_cast<concepts::ExprRequirement>(R))
+  if (auto *ER = dyn_cast<concepts::ExprRequirement>(R)) {
     attributeOnlyIfTrue("noexcept", ER->hasNoexceptRequirement());
+    // P3822R2: noexcept(constant-expression); the condition is the child
+    // expression following the requirement's expression.
+    attributeOnlyIfTrue("noexceptCondition",
+                        ER->getNoexceptCondition() != nullptr);
+  }
 
   attributeOnlyIfTrue("isDependent", R->isDependent());
   if (!R->isDependent())
