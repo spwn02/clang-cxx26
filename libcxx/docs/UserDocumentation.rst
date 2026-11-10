@@ -59,6 +59,17 @@ algorithms library with ``<execution>``, ``std::chrono::tzdb`` and the related t
 zone functionality, and ``<syncstream>``) is part of the library in the language
 modes that include it, without any flag.
 
+The one exception is the C++29 networking and I/O library proposed by the
+"Network Endeavor" papers (P4100 and its companions): it is not adopted into the
+working draft and its design is still moving, so it is only available in
+``-std=c++29`` together with ``-fexperimental-library`` (libc++ defines
+``_LIBCPP_HAS_EXPERIMENTAL_NETWORKING`` to ``1`` in that configuration). The
+flag does not link anything extra, neither API nor ABI stability is guaranteed
+for those headers (``<io>``, ``<io_buffer>``, ``<net>`` and the others as they
+land), and the flag is removed again once the networking work is complete and
+has no known gaps. Libc++ did not ship the Networking TS and still does not;
+this library is a different design.
+
 
 .. _libcxx-configuration-macros:
 
