@@ -3609,6 +3609,116 @@ TEST_P(ASTImporterOptionSpecificTestBase, ImportBitfields) {
   EXPECT_EQ(BuiltinType::Int, ToBT->getKind());
 }
 
+struct ImportCxx29 : ASTImporterOptionSpecificTestBase {};
+
+namespace {
+struct Cxx29Nodes : RecursiveASTVisitor<Cxx29Nodes> {
+  std::vector<concepts::ExprRequirement *> Reqs;
+  std::vector<DesignatedInitExpr *> Designated;
+  std::vector<TemplateSpecializationTypeLoc> PackIndexedTSTs;
+  bool shouldVisitTemplateInstantiations() const { return true; }
+  bool VisitRequiresExpr(RequiresExpr *E) {
+    for (concepts::Requirement *R : E->getRequirements())
+      if (auto *ER = dyn_cast<concepts::ExprRequirement>(R))
+        Reqs.push_back(ER);
+    return true;
+  }
+  bool VisitDesignatedInitExpr(DesignatedInitExpr *E) {
+    Designated.push_back(E);
+    return true;
+  }
+  bool VisitTemplateSpecializationType(TemplateSpecializationType *T) {
+    if (T->getTemplateName().getAsPackIndexingTemplate())
+      PackIndexedTSTs.push_back({});
+    return true;
+  }
+};
+} // namespace
+
+// P3822R2: { E } noexcept(constant-expression)
+TEST_P(ImportCxx29, ImportCompoundRequirementNoexceptCondition) {
+  Decl *From, *To;
+  std::tie(From, To) = getImportedDecl(R"(
+      template <typename T, bool B>
+      constexpr bool declToImport = requires(T t) { { t } noexcept(B); };
+      )",
+                                       Lang_CXX26, "", Lang_CXX26);
+  ASSERT_TRUE(To);
+  Cxx29Nodes F, T;
+  F.TraverseDecl(From);
+  T.TraverseDecl(To);
+  ASSERT_EQ(F.Reqs.size(), 1u);
+  ASSERT_EQ(T.Reqs.size(), 1u);
+  ASSERT_TRUE(F.Reqs[0]->getNoexceptCondition());
+  ASSERT_TRUE(T.Reqs[0]->getNoexceptCondition());
+  EXPECT_NE(T.Reqs[0]->getNoexceptCondition(), F.Reqs[0]->getNoexceptCondition());
+  EXPECT_TRUE(T.Reqs[0]->hasNoexceptRequirement());
+}
+
+// P2287R6: a designator naming a member of an aggregate base class.
+TEST_P(ImportCxx29, ImportDesignatedInitOfBaseMember) {
+  Decl *From, *To;
+  std::tie(From, To) = getImportedDecl(R"(
+      struct A { int x; int y; };
+      struct B : A { int z; };
+      B declToImport{.x = 1, .y = 2, .z = 3};
+      )",
+                                       Lang_CXX26, "", Lang_CXX26);
+  ASSERT_TRUE(To);
+  Cxx29Nodes F, T;
+  F.TraverseDecl(From);
+  T.TraverseDecl(To);
+  ASSERT_EQ(T.Designated.size(), F.Designated.size());
+  ASSERT_EQ(T.Designated.size(), 3u);
+  // The traversal visits the syntactic form (the designator holds the name);
+  // the semantic form is reached through the InitListExpr, whose initializers
+  // for the base live in a nested list of the imported base.
+  EXPECT_EQ(T.Designated[0]->getDesignator(0)->getFieldName()->getName(), "x");
+  EXPECT_EQ(T.Designated[2]->getDesignator(0)->getFieldName()->getName(), "z");
+  auto *ToVar = cast<VarDecl>(To);
+  auto *Sem = cast<InitListExpr>(ToVar->getInit()->IgnoreImplicit());
+  if (InitListExpr *SynOrSem = Sem->isSemanticForm() ? Sem : Sem->getSemanticForm()) {
+    ASSERT_EQ(SynOrSem->getNumInits(), 2u);
+    // B{A{.x, .y}, .z}: the first initializer is the imported base A.
+    auto *BaseList = dyn_cast<InitListExpr>(SynOrSem->getInit(0));
+    ASSERT_TRUE(BaseList);
+    EXPECT_EQ(BaseList->getType()->getAsCXXRecordDecl()->getName(), "A");
+    EXPECT_EQ(BaseList->getType()->getAsCXXRecordDecl(),
+              cast<CXXRecordDecl>(
+                  cast<VarDecl>(To)->getType()->getAsCXXRecordDecl()
+                      ->bases_begin()->getType()->getAsCXXRecordDecl()));
+  }
+}
+
+// P3670R4: pack-index-template-name.
+TEST_P(ImportCxx29, ImportPackIndexedTemplateName) {
+  Decl *From, *To;
+  std::tie(From, To) = getImportedDecl(R"(
+      template <typename> struct A {};
+      template <typename> struct B {};
+      template <template <typename> class... TT>
+      using declToImport = TT...[1]<int>;
+      )",
+                                       Lang_CXX26, "", Lang_CXX26);
+  ASSERT_TRUE(To);
+  Cxx29Nodes F, T;
+  F.TraverseDecl(From);
+  T.TraverseDecl(To);
+  EXPECT_EQ(T.PackIndexedTSTs.size(), F.PackIndexedTSTs.size());
+  EXPECT_GE(T.PackIndexedTSTs.size(), 1u);
+  auto *Alias = cast<TypeAliasTemplateDecl>(To);
+  auto *Pattern = Alias->getTemplatedDecl()->getUnderlyingType()
+                      ->getAs<TemplateSpecializationType>();
+  ASSERT_TRUE(Pattern);
+  PackIndexingTemplateStorage *PI =
+      Pattern->getTemplateName().getAsPackIndexingTemplate();
+  ASSERT_TRUE(PI);
+  // The pattern is the imported template template parameter pack.
+  EXPECT_EQ(PI->getPattern().getAsTemplateDecl()->getName(), "TT");
+  EXPECT_EQ(PI->getPattern().getAsTemplateDecl()->getDeclContext(),
+            Alias->getTemplatedDecl()->getDeclContext());
+}
+
 struct ImportDoExpr : ASTImporterOptionSpecificTestBase {};
 
 namespace {
@@ -10916,6 +11026,11 @@ INSTANTIATE_TEST_SUITE_P(ParameterizedTests, ImportFixedPointExpr,
                          ExtendWithOptions(DefaultTestArrayForRunOptions,
                                            std::vector<std::string>{
                                                "-ffixed-point"}));
+
+INSTANTIATE_TEST_SUITE_P(ParameterizedTests, ImportCxx29,
+                         ExtendWithOptions(DefaultTestArrayForRunOptions,
+                                           std::vector<std::string>{
+                                               "-std=c++29"}));
 
 INSTANTIATE_TEST_SUITE_P(ParameterizedTests, ImportDoExpr,
                          ExtendWithOptions(DefaultTestArrayForRunOptions,
