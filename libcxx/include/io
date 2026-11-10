@@ -97,6 +97,14 @@ namespace std::io {
     executor_type get_executor() const noexcept;
   };
   thread_pool& system_context();
+
+  // strand, any_executor and the combinators (P4100R1 8.7; provisional specification: Capy)
+  template<Executor Ex> class strand;                  // serializes the resumption of continuations through it
+  class any_executor;                                  // owning, copyable, type-erased Executor
+  auto when_all(IoAwaitable auto&&... awaitables);     // concurrent; tuple of the values; first exception rethrown
+  auto when_all(input_range auto&& awaitables);        // vector of the values
+  auto when_any(IoAwaitable auto&&... awaitables);     // first normal completion; variant of the values
+  auto when_any(input_range auto&& awaitables);        // pair<size_t, T> (size_t for void)
 }
 
 */
@@ -114,6 +122,7 @@ namespace std::io {
 
 #  if _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
 
+#    include <__io/any_executor.h>
 #    include <__io/continuation.h>
 #    include <__io/execution_context.h>
 #    include <__io/executor.h>
@@ -121,10 +130,14 @@ namespace std::io {
 #    include <__io/frame_allocator.h>
 #    include <__io/io_awaitable.h>
 #    include <__io/io_env.h>
+#    include <__io/join_support.h>
 #    include <__io/run.h>
 #    include <__io/run_async.h>
+#    include <__io/strand.h>
 #    include <__io/task.h>
 #    include <__io/thread_pool.h>
+#    include <__io/when_all.h>
+#    include <__io/when_any.h>
 
 #  endif // _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
 

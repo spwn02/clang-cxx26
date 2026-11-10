@@ -11,6 +11,7 @@ export namespace std {
 #if _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
   // P4003R3, experimental: C++29 with -fexperimental-library
   namespace io {
+    using std::io::any_executor;
     using std::io::continuation;
 
     using std::io::Executor;
@@ -32,9 +33,12 @@ export namespace std {
     using std::io::get_stop_token;
     using std::io::run;
     using std::io::run_async;
+    using std::io::strand;
     using std::io::system_context;
     using std::io::task;
     using std::io::thread_pool;
+    using std::io::when_all;
+    using std::io::when_any;
   } // namespace io
 #endif
 } // namespace std

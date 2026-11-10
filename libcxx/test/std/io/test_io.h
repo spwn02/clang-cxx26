@@ -253,7 +253,20 @@ struct task {
 template <class T>
 void run_to_completion(
     test_context& ctx, task<T>& t, std::stop_token st = {}, std::pmr::memory_resource* frame_mr = nullptr) {
-  io::io_env env{ctx.get_executor(), st, frame_mr};
+  test_executor ex = ctx.get_executor();
+  io::io_env env{ex, st, frame_mr};
+  t.handle().promise().set_environment(&env);
+  io::continuation start{t.handle()};
+  ctx.get_executor().post(start);
+  ctx.run();
+  assert(t.handle().done());
+}
+
+// The same for any IoRunnable task (for example std::io::task<T>).
+template <io::IoRunnable Task>
+void run_root(test_context& ctx, Task& t, std::stop_token st = {}, std::pmr::memory_resource* frame_mr = nullptr) {
+  test_executor ex = ctx.get_executor();
+  io::io_env env{ex, st, frame_mr};
   t.handle().promise().set_environment(&env);
   io::continuation start{t.handle()};
   ctx.get_executor().post(start);

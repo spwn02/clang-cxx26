@@ -551,6 +551,7 @@ set(files
   __hardened_violation
   __hash_table
   __hazard_pointer/hazard_pointer.h
+  __io/any_executor.h
   __io/continuation.h
   __io/execution_context.h
   __io/executor.h
@@ -558,10 +559,14 @@ set(files
   __io/frame_allocator.h
   __io/io_awaitable.h
   __io/io_env.h
+  __io/join_support.h
   __io/run.h
   __io/run_async.h
+  __io/strand.h
   __io/task.h
   __io/thread_pool.h
+  __io/when_all.h
+  __io/when_any.h
   __io_buffer/buffer.h
   __io_buffer/buffer_algorithms.h
   __io_buffer/buffer_pair.h

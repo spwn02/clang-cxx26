@@ -2932,6 +2932,10 @@ module std [system] {
   }
 
   module io {
+    module any_executor {
+      header "__io/any_executor.h"
+      export *
+    }
     module continuation {
       header "__io/continuation.h"
       export *
@@ -2960,6 +2964,10 @@ module std [system] {
       header "__io/io_env.h"
       export *
     }
+    module join_support {
+      header "__io/join_support.h"
+      export *
+    }
     module run {
       header "__io/run.h"
       export *
@@ -2968,12 +2976,24 @@ module std [system] {
       header "__io/run_async.h"
       export *
     }
+    module strand {
+      header "__io/strand.h"
+      export *
+    }
     module task {
       header "__io/task.h"
       export *
     }
     module thread_pool {
       header "__io/thread_pool.h"
+      export *
+    }
+    module when_all {
+      header "__io/when_all.h"
+      export *
+    }
+    module when_any {
+      header "__io/when_any.h"
       export *
     }
 
