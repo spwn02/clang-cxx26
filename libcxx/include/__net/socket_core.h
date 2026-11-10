@@ -140,11 +140,11 @@ protected:
   _LIBCPP_HIDE_FROM_ABI execution_context& __context() const noexcept { return *__ctx_; }
   _LIBCPP_HIDE_FROM_ABI io::family __family() const noexcept { return __family_; }
 
-  _LIBCPP_HIDE_FROM_ABI error_code __open(__sock_domain __d) noexcept {
+  _LIBCPP_HIDE_FROM_ABI error_code __open(__sock_domain __d, __sock_type __t = __sock_type::__stream) noexcept {
     if (__fd_ != __invalid_socket)
       return error_code();
     __native_socket __s;
-    if (error_code __ec = io::__sock_open(__d, __s))
+    if (error_code __ec = io::__sock_open(__d, __s, __t))
       return __ec;
     __fd_     = __s;
     __family_ = __d == __sock_domain::__v6 ? io::family::v6 : io::family::v4;
@@ -162,6 +162,12 @@ protected:
       return;
     cancel();
     io::__sock_close(std::exchange(__fd_, __invalid_socket));
+  }
+
+  // Cancels the pending operations and gives up the descriptor without closing it.
+  _LIBCPP_HIDE_FROM_ABI __native_socket __detach() noexcept {
+    cancel();
+    return std::exchange(__fd_, __invalid_socket);
   }
 
   _LIBCPP_HIDE_FROM_ABI __sock_wait_awaiter __wait_for(unsigned __events) noexcept {
@@ -230,8 +236,9 @@ protected:
   }
 
   // Connects to the address, opening the socket for the domain first if necessary.
-  _LIBCPP_HIDE_FROM_ABI task<io_result<>> __connect_raw(__sock_domain __d, __sockaddr_buf __addr) {
-    if (error_code __ec = __open(__d))
+  _LIBCPP_HIDE_FROM_ABI task<io_result<>>
+  __connect_raw(__sock_domain __d, __sockaddr_buf __addr, __sock_type __t = __sock_type::__stream) {
+    if (error_code __ec = __open(__d, __t))
       co_return io_result<>(__ec);
     error_code __ec = io::__sock_connect(__fd_, __addr);
     if (!__ec)

@@ -3824,6 +3824,14 @@ module std [system] {
   }
 
   module net {
+    module connect {
+      header "__net/connect.h"
+      export *
+    }
+    module datagram_core {
+      header "__net/datagram_core.h"
+      export *
+    }
     module endpoint {
       header "__net/endpoint.h"
       export *
@@ -3844,6 +3852,10 @@ module std [system] {
       header "__net/ipv6_address.h"
       export *
     }
+    module local_datagram_socket {
+      header "__net/local_datagram_socket.h"
+      export *
+    }
     module local_endpoint {
       header "__net/local_endpoint.h"
       export *
@@ -3856,12 +3868,28 @@ module std [system] {
       header "__net/local_stream_socket.h"
       export *
     }
+    module message_flags {
+      header "__net/message_flags.h"
+      export *
+    }
+    module resolver {
+      header "__net/resolver.h"
+      export *
+    }
+    module resolver_error {
+      header "__net/resolver_error.h"
+      export *
+    }
     module socket_core {
       header "__net/socket_core.h"
       export *
     }
     module socket_option {
       header "__net/socket_option.h"
+      export *
+    }
+    module support_posix_resolve {
+      header "__net/support/posix_resolve.h"
       export *
     }
     module support_posix_socket {
@@ -3874,6 +3902,10 @@ module std [system] {
     }
     module tcp_socket {
       header "__net/tcp_socket.h"
+      export *
+    }
+    module udp_socket {
+      header "__net/udp_socket.h"
       export *
     }
 

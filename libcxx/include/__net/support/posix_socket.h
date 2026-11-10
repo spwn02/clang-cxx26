@@ -59,6 +59,7 @@
 #  include <cstddef>
 #  include <cstdint>
 #  include <cstring>
+#  include <netdb.h>
 #  include <netinet/in.h>
 #  include <netinet/tcp.h>
 #  include <string_view>
@@ -108,6 +109,7 @@ using __native_socket _LIBCPP_NODEBUG             = int;
 inline constexpr __native_socket __invalid_socket = -1;
 
 enum class __sock_domain { __v4, __v6, __local };
+enum class __sock_type { __stream, __datagram };
 
 // A socket address in the representation of the platform.
 struct __sockaddr_buf {
@@ -207,10 +209,12 @@ struct __sockaddr_buf {
 
 // --- sockets
 
-// A non-blocking, close-on-exec stream socket.
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __sock_open(__sock_domain __d, __native_socket& __fd) noexcept {
+// A non-blocking, close-on-exec stream or datagram socket.
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code
+__sock_open(__sock_domain __d, __native_socket& __fd, __sock_type __t = __sock_type::__stream) noexcept {
   int __af = __d == __sock_domain::__v4 ? AF_INET : (__d == __sock_domain::__v6 ? AF_INET6 : AF_UNIX);
-  int __s  = ::socket(__af, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+  int __ty = __t == __sock_type::__stream ? SOCK_STREAM : SOCK_DGRAM;
+  int __s  = ::socket(__af, __ty | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
   if (__s < 0)
     return __last_error();
   __fd = __s;
@@ -328,6 +332,124 @@ __sock_send(__native_socket __fd, const const_buffer* __bufs, size_t __n, size_t
   }
 }
 
+// A connected pair of Unix domain sockets (socketpair), non-blocking and close-on-exec.
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code
+__sock_pair(__sock_type __t, __native_socket& __a, __native_socket& __b) noexcept {
+  int __fds[2];
+  int __ty = __t == __sock_type::__stream ? SOCK_STREAM : SOCK_DGRAM;
+  if (::socketpair(AF_UNIX, __ty | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, __fds) != 0)
+    return __last_error();
+  __a = __fds[0];
+  __b = __fds[1];
+  return error_code();
+}
+
+// The portable message flags (message_flags) in the representation of the platform.
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline int __to_native_msg_flags(int __f) noexcept {
+  int __r = 0;
+  if (__f & 1)
+    __r |= MSG_PEEK;
+  if (__f & 2)
+    __r |= MSG_OOB;
+  if (__f & 4)
+    __r |= MSG_DONTROUTE;
+  return __r;
+}
+
+// Receives one datagram into the first __n buffers (scatter); a datagram that is larger than the buffers is truncated.
+// __got may be 0 (an empty datagram). The sender address goes to __from (its length is 0 for an unnamed sender).
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __sock_receive_from(
+    __native_socket __fd,
+    const mutable_buffer* __bufs,
+    size_t __n,
+    int __flags,
+    __sockaddr_buf& __from,
+    size_t& __got) noexcept {
+  iovec __iov[__sock_max_buffers];
+  if (__n > __sock_max_buffers)
+    __n = __sock_max_buffers;
+  for (size_t __i = 0; __i != __n; ++__i) {
+    __iov[__i].iov_base = __bufs[__i].data();
+    __iov[__i].iov_len  = __bufs[__i].size();
+  }
+  ::memset(&__from.__ss_, 0, sizeof(__from.__ss_));
+  msghdr __m;
+  ::memset(&__m, 0, sizeof(__m));
+  __m.msg_name    = &__from.__ss_;
+  __m.msg_namelen = sizeof(__from.__ss_);
+  __m.msg_iov     = __iov;
+  __m.msg_iovlen  = __n;
+  for (;;) {
+    ssize_t __r = ::recvmsg(__fd, &__m, MSG_CMSG_CLOEXEC | io::__to_native_msg_flags(__flags));
+    if (__r >= 0) {
+      __from.__len_ = __m.msg_namelen;
+      __got         = static_cast<size_t>(__r);
+      return error_code();
+    }
+    if (errno != EINTR)
+      return __last_error();
+  }
+}
+
+// Sends the first __n buffers as one datagram (gather) to __to, or to the connected peer if __to is null. Zero buffers
+// send an empty datagram.
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __sock_send_to(
+    __native_socket __fd,
+    const const_buffer* __bufs,
+    size_t __n,
+    int __flags,
+    const __sockaddr_buf* __to,
+    size_t& __got) noexcept {
+  iovec __iov[__sock_max_buffers];
+  if (__n > __sock_max_buffers)
+    __n = __sock_max_buffers;
+  for (size_t __i = 0; __i != __n; ++__i) {
+    __iov[__i].iov_base = const_cast<void*>(__bufs[__i].data());
+    __iov[__i].iov_len  = __bufs[__i].size();
+  }
+  msghdr __m;
+  ::memset(&__m, 0, sizeof(__m));
+  if (__to) {
+    __m.msg_name    = const_cast<sockaddr_storage*>(&__to->__ss_);
+    __m.msg_namelen = __to->__len_;
+  }
+  __m.msg_iov    = __iov;
+  __m.msg_iovlen = __n;
+  for (;;) {
+    ssize_t __r = ::sendmsg(__fd, &__m, MSG_NOSIGNAL | io::__to_native_msg_flags(__flags));
+    if (__r >= 0) {
+      __got = static_cast<size_t>(__r);
+      return error_code();
+    }
+    if (errno != EINTR)
+      return __last_error();
+  }
+}
+
+// Joins or leaves a multicast group. An IPv4 group takes the address of the interface (any if zero), an IPv6 group the
+// index of the interface (0: the scope of the group, then the choice of the system).
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __sock_membership(
+    __native_socket __fd, bool __join, const ip_address& __group, const ipv4_address& __iface, unsigned __if_index) noexcept {
+  if (__group.is_v4()) {
+    ip_mreq __r;
+    ::memset(&__r, 0, sizeof(__r));
+    __r.imr_multiaddr.s_addr = htonl(__group.to_v4().to_uint());
+    __r.imr_interface.s_addr = htonl(__iface.to_uint());
+    return ::setsockopt(__fd, IPPROTO_IP, __join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP, &__r, sizeof(__r)) == 0
+             ? error_code()
+             : __last_error();
+  }
+  ipv6_address __g = __group.to_v6();
+  ipv6_mreq __r;
+  ::memset(&__r, 0, sizeof(__r));
+  auto __bytes = __g.to_bytes();
+  ::memcpy(&__r.ipv6mr_multiaddr, __bytes.data(), 16);
+  __r.ipv6mr_interface = __if_index != 0 ? __if_index : __g.scope_id();
+  return ::setsockopt(__fd, IPPROTO_IPV6, __join ? IPV6_JOIN_GROUP : IPV6_LEAVE_GROUP, &__r, sizeof(__r)) == 0
+           ? error_code()
+           : __last_error();
+}
+
 // --- options
 
 enum class __sockopt_id {
@@ -337,11 +459,37 @@ enum class __sockopt_id {
   __keep_alive,
   __v6_only,
   __receive_buffer_size,
-  __send_buffer_size
+  __send_buffer_size,
+  __broadcast,
+  __multicast_loop,
+  __multicast_hops
 };
 
-_LIBCPP_HIDE_FROM_ABI inline void __sockopt_location(__sockopt_id __id, int& __level, int& __name) noexcept {
+// The options of multicast have a different level and name for IPv4 and IPv6 sockets: the family is asked of the socket.
+_LIBCPP_HIDE_FROM_ABI inline bool __sock_is_v6(__native_socket __fd) noexcept {
+  int __d         = 0;
+  socklen_t __len = sizeof(__d);
+  return ::getsockopt(__fd, SOL_SOCKET, SO_DOMAIN, &__d, &__len) == 0 && __d == AF_INET6;
+}
+
+_LIBCPP_HIDE_FROM_ABI inline void
+__sockopt_location(__native_socket __fd, __sockopt_id __id, int& __level, int& __name) noexcept {
   switch (__id) {
+  case __sockopt_id::__broadcast:
+    __level = SOL_SOCKET, __name = SO_BROADCAST;
+    break;
+  case __sockopt_id::__multicast_loop:
+    if (io::__sock_is_v6(__fd))
+      __level = IPPROTO_IPV6, __name = IPV6_MULTICAST_LOOP;
+    else
+      __level = IPPROTO_IP, __name = IP_MULTICAST_LOOP;
+    break;
+  case __sockopt_id::__multicast_hops:
+    if (io::__sock_is_v6(__fd))
+      __level = IPPROTO_IPV6, __name = IPV6_MULTICAST_HOPS;
+    else
+      __level = IPPROTO_IP, __name = IP_MULTICAST_TTL;
+    break;
   case __sockopt_id::__reuse_address:
     __level = SOL_SOCKET, __name = SO_REUSEADDR;
     break;
@@ -369,14 +517,14 @@ _LIBCPP_HIDE_FROM_ABI inline void __sockopt_location(__sockopt_id __id, int& __l
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code
 __sock_set_int(__native_socket __fd, __sockopt_id __id, int __v) noexcept {
   int __level, __name;
-  io::__sockopt_location(__id, __level, __name);
+  io::__sockopt_location(__fd, __id, __level, __name);
   return ::setsockopt(__fd, __level, __name, &__v, sizeof(__v)) == 0 ? error_code() : __last_error();
 }
 
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code
 __sock_get_int(__native_socket __fd, __sockopt_id __id, int& __v) noexcept {
   int __level, __name;
-  io::__sockopt_location(__id, __level, __name);
+  io::__sockopt_location(__fd, __id, __level, __name);
   int __r         = 0;
   socklen_t __len = sizeof(__r);
   if (::getsockopt(__fd, __level, __name, &__r, &__len) != 0)

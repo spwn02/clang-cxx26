@@ -12,8 +12,8 @@
 /*
     net synopsis
 
-    Stage Two of the networking series (platform I/O): addresses, endpoints, TCP sockets and acceptors, and Unix domain
-    stream sockets. Experimental: the header is available in C++29 mode with -fexperimental-library only, on a platform
+    Stage Two of the networking series (platform I/O): addresses, endpoints, TCP sockets and acceptors, Unix domain
+    stream sockets, the DNS resolver, UDP sockets and Unix domain datagram sockets. Experimental: the header is available in C++29 mode with -fexperimental-library only, on a platform
     that has a backend (Linux: epoll) and the BSD socket API, and needs thread support; otherwise it is empty.
     Provisional specification: P4100R1 [8.9] and the Corosio library (no WG21 paper yet). The names are in std::io so
     that the sockets sit next to the stream concepts of <io_stream>.
@@ -29,13 +29,29 @@ namespace std::io {
   class local_endpoint;     // a Unix domain socket path; make_local_endpoint(string_view)
 
   namespace socket_option {
-    reuse_address, reuse_port, no_delay, keep_alive, v6_only, receive_buffer_size, send_buffer_size, linger
+    reuse_address, reuse_port, no_delay, keep_alive, v6_only, receive_buffer_size, send_buffer_size, linger,
+    broadcast, multicast_loop, multicast_hops, join_group, leave_group
   }
 
   class tcp_socket;         // satisfies Stream; connect, read_some, write_some, shutdown, cancel, close, options
   class tcp_acceptor;       // open, bind, listen, accept, cancel, close
   class local_stream_socket;
   class local_stream_acceptor;
+
+  enum class resolve_flags, reverse_flags;     // flag sets of the lookups
+  enum class resolver_error;                   // the failures of the name service (resolver_category())
+  class resolver_entry, resolver_results;      // a forward result: endpoint, host name, service name
+  class reverse_resolver_result;               // host_name(), service_name()
+  class resolver;                              // resolve(host, service[, flags]), resolve(endpoint[, flags]), cancel
+  io_result<string> host_name();               // the name of this machine
+
+  // connect(socket, range-of-endpoints[, condition]) and connect(socket, first, last[, condition]): tries each endpoint
+  // in order (tcp_socket, local_stream_socket, the datagram sockets)
+
+  enum class message_flags;                    // none, peek, out_of_band, do_not_route
+  class udp_socket;                            // open, bind, send_to, receive_from, connect/send/receive, options
+  class local_datagram_socket;                 // the same for Unix domain datagrams, with local_endpoint
+  error_code connect_pair(local_datagram_socket&, local_datagram_socket&);   // and for local_stream_socket
 }
 */
 
@@ -54,17 +70,23 @@ namespace std::io {
 
 #  if _LIBCPP_HAS_IO_SOCKETS
 
+#    include <__net/connect.h>
 #    include <__net/endpoint.h>
 #    include <__net/family.h>
 #    include <__net/ip_address.h>
 #    include <__net/ipv4_address.h>
 #    include <__net/ipv6_address.h>
+#    include <__net/local_datagram_socket.h>
 #    include <__net/local_endpoint.h>
 #    include <__net/local_stream_acceptor.h>
 #    include <__net/local_stream_socket.h>
+#    include <__net/message_flags.h>
+#    include <__net/resolver.h>
+#    include <__net/resolver_error.h>
 #    include <__net/socket_option.h>
 #    include <__net/tcp_acceptor.h>
 #    include <__net/tcp_socket.h>
+#    include <__net/udp_socket.h>
 
 #  endif // _LIBCPP_HAS_IO_SOCKETS
 

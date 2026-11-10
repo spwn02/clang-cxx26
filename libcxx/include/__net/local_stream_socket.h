@@ -16,6 +16,7 @@
 #include <__net/local_endpoint.h>
 #include <__net/socket_core.h>
 #include <__net/support/posix_socket.h>
+#include <__system_error/errc.h>
 #include <__system_error/error_code.h>
 #include <__type_traits/is_same.h>
 #include <__type_traits/remove_cvref.h>
@@ -60,6 +61,16 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code open() noexcept { return __open(__sock_domain::__local); }
 
   _LIBCPP_HIDE_FROM_ABI void close() noexcept { __close(); }
+
+  // Adopts a Unix domain stream socket created elsewhere (socketpair, inherited). The descriptor must already be
+  // non-blocking and close-on-exec; the object must be closed (errc::already_connected otherwise, and the descriptor
+  // stays with the caller).
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code assign(__native_socket __fd) noexcept {
+    if (is_open())
+      return make_error_code(errc::already_connected);
+    __adopt(__fd, io::family::v4);
+    return error_code();
+  }
 
   // Connects to the path (opening the socket if necessary). Connecting to a path nobody listens on fails with
   // errc::connection_refused or errc::no_such_file_or_directory at once.

@@ -33,7 +33,7 @@
 // The BSD socket API (<sys/socket.h>, <netinet/in.h>, <sys/un.h>) on top of a backend: <net> (addresses, TCP and Unix
 // domain stream sockets). The platform specifics are in libcxx/include/__net/support/.
 #if _LIBCPP_HAS_IO_EPOLL && __has_include(<sys/socket.h>) && __has_include(<netinet/in.h>) && \
-    __has_include(<netinet/tcp.h>) && __has_include(<sys/un.h>)
+    __has_include(<netinet/tcp.h>) && __has_include(<sys/un.h>) && __has_include(<netdb.h>)
 #  define _LIBCPP_HAS_IO_SOCKETS 1
 #else
 #  define _LIBCPP_HAS_IO_SOCKETS 0

@@ -10,6 +10,9 @@
 
 #include <__config>
 #include <__io/support/config.h>
+#include <__net/ip_address.h>
+#include <__net/ipv4_address.h>
+#include <__net/ipv6_address.h>
 #include <__net/support/posix_socket.h>
 #include <__system_error/error_code.h>
 
@@ -90,6 +93,10 @@ using v6_only _LIBCPP_NODEBUG             = __boolean_option<__sockopt_id::__v6_
 using receive_buffer_size _LIBCPP_NODEBUG = __integer_option<__sockopt_id::__receive_buffer_size>; // SO_RCVBUF
 using send_buffer_size _LIBCPP_NODEBUG    = __integer_option<__sockopt_id::__send_buffer_size>;    // SO_SNDBUF
 
+using broadcast _LIBCPP_NODEBUG      = __boolean_option<__sockopt_id::__broadcast>;      // SO_BROADCAST
+using multicast_loop _LIBCPP_NODEBUG = __boolean_option<__sockopt_id::__multicast_loop>; // IP_MULTICAST_LOOP, IPV6_MULTICAST_LOOP
+using multicast_hops _LIBCPP_NODEBUG = __integer_option<__sockopt_id::__multicast_hops>; // IP_MULTICAST_TTL, IPV6_MULTICAST_HOPS
+
 // SO_LINGER: whether close() blocks for the unsent data and for how many seconds.
 class linger {
   bool __on_ = false;
@@ -110,6 +117,38 @@ public:
     return io::__sock_get_linger(__fd, __on_, __sec_);
   }
 };
+
+// Membership of a multicast group (IP_ADD_MEMBERSHIP / IP_DROP_MEMBERSHIP, IPV6_JOIN_GROUP / IPV6_LEAVE_GROUP): set
+// with set_option() only (there is no value to read back). The family of the group, not that of the socket, selects the
+// system call. Deviation: Corosio's options render themselves for the family of the socket (level(), name(), data());
+// the options here look at the socket in the platform layer, and the multicast options of the dual-stack case are the
+// system's.
+template <bool _Join>
+class __group_membership {
+  ip_address __group_;
+  ipv4_address __iface_;
+  unsigned __if_index_ = 0;
+
+public:
+  _LIBCPP_HIDE_FROM_ABI __group_membership() noexcept = default;
+  // The group; the interface is chosen by the system (for an IPv6 group by its zone).
+  _LIBCPP_HIDE_FROM_ABI explicit __group_membership(const ip_address& __g) noexcept : __group_(__g) {}
+  // An IPv4 group and the address of the local interface (any by default).
+  _LIBCPP_HIDE_FROM_ABI __group_membership(const ipv4_address& __g, const ipv4_address& __iface = ipv4_address()) noexcept
+      : __group_(__g), __iface_(__iface) {}
+  // An IPv6 group and the index of the interface (0: the zone of the group, then the choice of the system).
+  _LIBCPP_HIDE_FROM_ABI __group_membership(const ipv6_address& __g, unsigned __if_index = 0) noexcept
+      : __group_(__g), __if_index_(__if_index) {}
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI ip_address group() const noexcept { return __group_; }
+
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code __set(__native_socket __fd) const noexcept {
+    return io::__sock_membership(__fd, _Join, __group_, __iface_, __if_index_);
+  }
+};
+
+using join_group _LIBCPP_NODEBUG  = __group_membership<true>;
+using leave_group _LIBCPP_NODEBUG = __group_membership<false>;
 
 } // namespace socket_option
 

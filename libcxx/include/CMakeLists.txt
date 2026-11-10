@@ -768,19 +768,27 @@ set(files
   __mutex/once_flag.h
   __mutex/tag_types.h
   __mutex/unique_lock.h
+  __net/connect.h
+  __net/datagram_core.h
   __net/endpoint.h
   __net/family.h
   __net/ip_address.h
   __net/ipv4_address.h
   __net/ipv6_address.h
+  __net/local_datagram_socket.h
   __net/local_endpoint.h
   __net/local_stream_acceptor.h
   __net/local_stream_socket.h
+  __net/message_flags.h
+  __net/resolver.h
+  __net/resolver_error.h
   __net/socket_core.h
   __net/socket_option.h
+  __net/support/posix_resolve.h
   __net/support/posix_socket.h
   __net/tcp_acceptor.h
   __net/tcp_socket.h
+  __net/udp_socket.h
   __new/align_val_t.h
   __new/allocate.h
   __new/destroying_delete_t.h
