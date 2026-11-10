@@ -1,0 +1,60 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_IO_SIGNAL
+#define _LIBCPP_IO_SIGNAL
+
+/*
+    io_signal synopsis
+
+    Stage Two of the networking series (platform I/O). Experimental: the header is available in C++29 mode with
+    -fexperimental-library only, on a platform that has a backend (Linux: epoll), and needs thread support; otherwise it
+    is empty. Provisional specification: P4100R1 [8.8] and the Corosio library (no WG21 paper yet).
+
+namespace std::io {
+  class signal_set {
+  public:
+    enum flags_t : unsigned { none, restart, no_child_stop, no_child_wait, no_defer, reset_handler, dont_care };
+
+    explicit signal_set(execution_context&);
+    signal_set(execution_context&, int sig, auto... sigs);      // throws system_error
+    template<Executor Ex> explicit signal_set(const Ex&);       // and with signals
+    ~signal_set();
+
+    error_code add(int sig, flags_t = none);
+    error_code remove(int sig);
+    error_code clear();
+    void cancel() noexcept;
+    IoAwaitable-of-io_result<int> wait() noexcept;
+  };
+}
+*/
+
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
+
+#  include <version>
+
+#  include <__io/support/config.h>
+
+#  if _LIBCPP_HAS_IO_POSIX_SIGNALS
+
+#    include <__io_signal/signal_set.h>
+
+#  endif // _LIBCPP_HAS_IO_POSIX_SIGNALS
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+
+#endif // _LIBCPP_IO_SIGNAL

@@ -2980,6 +2980,26 @@ module std [system] {
       header "__io/strand.h"
       export *
     }
+    module support_config {
+      header "__io/support/config.h"
+      export *
+    }
+    module support_epoll_poller {
+      header "__io/support/epoll_poller.h"
+      export *
+    }
+    module support_poller {
+      header "__io/support/poller.h"
+      export *
+    }
+    module support_poller_types {
+      header "__io/support/poller_types.h"
+      export *
+    }
+    module support_posix_signal {
+      header "__io/support/posix_signal.h"
+      export *
+    }
     module task {
       header "__io/task.h"
       export *
@@ -3069,6 +3089,38 @@ module std [system] {
     export *
   }
 
+  module io_context {
+    module io_context {
+      header "__io_context/io_context.h"
+      export *
+    }
+    module op {
+      header "__io_context/op.h"
+      export *
+    }
+    module reactor {
+      header "__io_context/reactor.h"
+      export *
+    }
+    module reactor_wait {
+      header "__io_context/reactor_wait.h"
+      export *
+    }
+
+    header "io_context"
+    export *
+  }
+
+  module io_signal {
+    module signal_set {
+      header "__io_signal/signal_set.h"
+      export *
+    }
+
+    header "io_signal"
+    export *
+  }
+
   module io_stream {
     module any_buffer_sink {
       header "__io_stream/any_buffer_sink.h"
@@ -3116,6 +3168,16 @@ module std [system] {
     }
 
     header "io_stream"
+    export *
+  }
+
+  module io_timer {
+    module timer {
+      header "__io_timer/timer.h"
+      export *
+    }
+
+    header "io_timer"
     export *
   }
 

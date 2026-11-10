@@ -563,6 +563,11 @@ set(files
   __io/run.h
   __io/run_async.h
   __io/strand.h
+  __io/support/config.h
+  __io/support/epoll_poller.h
+  __io/support/poller.h
+  __io/support/poller_types.h
+  __io/support/posix_signal.h
   __io/task.h
   __io/thread_pool.h
   __io/when_all.h
@@ -581,6 +586,11 @@ set(files
   __io_buffer/make_buffer.h
   __io_buffer/string_dynamic_buffer.h
   __io_buffer/vector_dynamic_buffer.h
+  __io_context/io_context.h
+  __io_context/op.h
+  __io_context/reactor.h
+  __io_context/reactor_wait.h
+  __io_signal/signal_set.h
   __io_stream/any_buffer_sink.h
   __io_stream/any_buffer_source.h
   __io_stream/any_read_source.h
@@ -592,6 +602,7 @@ set(files
   __io_stream/error.h
   __io_stream/stream_algorithms.h
   __io_stream/stream_concepts.h
+  __io_timer/timer.h
   __ios/fpos.h
   __iterator/access.h
   __iterator/advance.h
@@ -1221,7 +1232,10 @@ set(files
   io
   io_bridge
   io_buffer
+  io_context
+  io_signal
   io_stream
+  io_timer
   iomanip
   ios
   iosfwd

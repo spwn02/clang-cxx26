@@ -1,0 +1,67 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_IO_CONTEXT
+#define _LIBCPP_IO_CONTEXT
+
+/*
+    io_context synopsis
+
+    Stage Two of the networking series (platform I/O). Experimental: the header is available in C++29 mode with
+    -fexperimental-library only, on a platform that has a backend (Linux: epoll), and needs thread support; otherwise it
+    is empty. Provisional specification: P4100R1 [8.8] and the Corosio library (no WG21 paper yet).
+
+namespace std::io {
+  class io_context : public execution_context {
+  public:
+    class executor_type;                         // an Executor; post/dispatch queue the continuation
+
+    io_context();
+    ~io_context();
+
+    executor_type get_executor() const noexcept;
+
+    size_t run();                                // runs until stopped or out of work
+    size_t run_one();
+    size_t poll();                               // does not wait
+    size_t poll_one();
+    void stop() noexcept;
+    void restart() noexcept;
+    bool stopped() const noexcept;
+  };
+
+  // internal: awaits the readiness of a file descriptor on the reactor of the context
+  auto __reactor_wait(execution_context&, int fd, unsigned events);   // io_result<unsigned>
+}
+*/
+
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
+
+#  include <version>
+
+#  include <__io/support/config.h>
+
+#  if _LIBCPP_HAS_IO_EPOLL
+
+#    include <__io_context/io_context.h>
+#    include <__io_context/reactor.h>
+#    include <__io_context/reactor_wait.h>
+
+#  endif // _LIBCPP_HAS_IO_EPOLL
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+
+#endif // _LIBCPP_IO_CONTEXT

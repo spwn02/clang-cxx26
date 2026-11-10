@@ -78,7 +78,10 @@ module;
 #include <io>
 #include <io_bridge>
 #include <io_buffer>
+#include <io_context>
+#include <io_signal>
 #include <io_stream>
+#include <io_timer>
 #include <iomanip>
 #include <ios>
 #include <iosfwd>
