@@ -203,6 +203,39 @@ static_assert(use_concept<Always, Never>());
 static_assert(!use_concept<Never, Always>());
 
 template <template <class> concept... CC>
+struct Constrained {
+  template <CC...[0] T>
+  static constexpr int f() { return 1; }
+};
+static_assert(Constrained<Always, Never>::f<int>() == 1);
+
+template <template <class, class> concept... CC>
+struct ConstrainedWithArgs {
+  template <CC...[0]<int> T>
+  static constexpr int f() { return 2; }
+};
+static_assert(ConstrainedWithArgs<Same>::f<int>() == 2);
+
+template <template <class> concept... CC, CC...[0] T>
+constexpr int in_same_list(T) { return 3; }
+static_assert(in_same_list<Always>(0) == 3);
+
+template <template <class> concept... CC>
+constexpr int with_auto(CC...[0] auto x) { return 4; }
+static_assert(with_auto<Always>(0) == 4);
+
+template <template <class> concept... CC>
+constexpr int with_auto_var() {
+  CC...[0] auto x = 5;
+  return x;
+}
+static_assert(with_auto_var<Always>() == 5);
+
+template <template <class> concept... CC>
+constexpr auto with_auto_return() -> CC...[0] auto { return 6; }
+static_assert(with_auto_return<Always>() == 6);
+
+template <template <class> concept... CC>
 constexpr int with_requires() requires CC...[0]<int> { return 7; }
 static_assert(with_requires<Always>() == 7);
 
@@ -261,6 +294,27 @@ template <class T> constexpr int Var = 1;
 template <class T> constexpr int Var2 = 2;
 template <class T> concept Always = true;
 template <class T> concept Big = sizeof(T) > 1;
+// expected-note@-1 2{{because 'sizeof(char) > 1' (1 > 1) evaluated to false}}
+
+template <template <class> concept... CC>
+void constrained_auto(CC...[1] auto x);
+// expected-note@-1 {{candidate template ignored: constraints not satisfied}}
+// expected-note@-2 {{because 'char' does not satisfy 'Big'}}
+
+void use_constrained_auto() {
+  constrained_auto<Always, Big>('c'); // expected-error {{no matching function for call to 'constrained_auto'}}
+  constrained_auto<Big, Always>('c');
+}
+
+template <template <class> concept... CC>
+struct Constrained {
+  template <CC...[0] T> // expected-note {{because 'char' does not satisfy 'Big'}}
+  static void f();      // expected-note {{candidate template ignored: constraints not satisfied [with T = char]}}
+};
+void use_constrained() {
+  Constrained<Big>::f<char>(); // expected-error {{no matching function for call to 'f'}}
+  Constrained<Big>::f<int>();
+}
 
 template <template <class> auto... VV>
 constexpr int VarOutOfBounds = VV...[2]<int>; // expected-error {{invalid index 2 for pack 'VV' of size 2}}
@@ -270,6 +324,22 @@ template <template <class> concept... CC>
 constexpr bool ConceptOutOfBounds = CC...[1]<int>; // expected-error {{invalid index 1 for pack 'CC' of size 1}}
 constexpr bool E2 = ConceptOutOfBounds<Always>;    // expected-note {{in instantiation of variable template specialization 'kind_errors::ConceptOutOfBounds<kind_errors::Always>' requested here}}
 
+template <template <class> concept... CC>
+struct ConstraintOutOfBounds {
+  // expected-note@+1 {{because substituted constraint expression is ill-formed: invalid index 1 for pack 'CC' of size 1}}
+  template <CC...[1] T>
+  static void f(); // expected-note {{candidate template ignored: constraints not satisfied [with T = int]}}
+};
+void use_out_of_bounds() {
+  ConstraintOutOfBounds<Always>::f<int>(); // expected-error {{no matching function for call to 'f'}}
+}
+
+template <auto> concept NonType = true;
+template <template <auto> concept... CC>
+struct NotATypeConcept {
+  template <CC...[0] T> // expected-error {{concept named in type constraint is not a type concept}}
+  static void f();
+};
 }
 
 namespace sfinae {
@@ -289,6 +359,16 @@ static_assert(f<NoType>(nullptr) == 2);
 
 namespace equivalence {
 template <class T> concept Always = true;
+
+template <template <class> concept... CC>
+void same(CC...[0] auto x) {} // expected-note {{previous definition is here}}
+template <template <class> concept... CC>
+void same(CC...[0] auto x) {} // expected-error {{redefinition of 'same'}}
+
+template <template <class> concept... CC>
+void different(CC...[0] auto x) {}
+template <template <class> concept... CC>
+void different(CC...[1] auto x) {}
 
 template <template <class> concept... CC>
 constexpr bool same_id = CC...[0]<int>; // expected-note {{previous definition is here}}

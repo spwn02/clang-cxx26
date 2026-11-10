@@ -34,6 +34,13 @@ constexpr bool ConceptId = CC...[I]<int>;
 export template <unsigned I, template <class> auto... VV>
 constexpr int VariableTemplateId = VV...[I]<int>;
 
+export template <template <class> concept... CC>
+struct Constrained {
+  template <CC...[0] T>
+  static constexpr int f() { return 3; }
+  static constexpr int g(CC...[0] auto) { return 4; }
+};
+
 export Indexed<0, Wrapper, Other> a = {42};
 
 //--- b.cpp
@@ -62,3 +69,5 @@ static_assert(__is_same(decltype(Holder<Local>::value), int));
 static_assert(ConceptId<0, Always, Never>);
 static_assert(!ConceptId<1, Always, Never>);
 static_assert(VariableTemplateId<1, Var, Var2> == 2);
+static_assert(Constrained<Always>::f<int>() == 3);
+static_assert(Constrained<Always>::g(0) == 4);

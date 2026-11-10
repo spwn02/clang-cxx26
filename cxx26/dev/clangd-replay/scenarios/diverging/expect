@@ -1,0 +1,6 @@
+# P3549R1: diverging expressions (throw as an operand of ?:, a function that only
+# diverges) leave navigation intact.
+hover-x must-contain  param `x`
+refs-x  must-contain  2:11
+refs-x  must-contain  2:23
+refs-g  must-contain  1:6

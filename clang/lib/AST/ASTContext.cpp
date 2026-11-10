@@ -6828,7 +6828,8 @@ QualType ASTContext::getAutoTypeInternal(
   llvm::FoldingSetNodeID ID;
   bool IsDeducedDependent =
       (!TypeConstraintConcept.isNull() &&
-       (TypeConstraintConcept.getAsPackIndexingTemplate() ||
+       ((TypeConstraintConcept.getAsPackIndexingTemplate() &&
+         TypeConstraintConcept.isInstantiationDependent()) ||
         isa_and_nonnull<TemplateTemplateParmDecl>(
             TypeConstraintConcept.getAsTemplateDecl()))) ||
       (!DeducedType.isNull() && DeducedType->isDependentType());
@@ -7411,6 +7412,12 @@ TemplateName ASTContext::getCanonicalTemplateName(TemplateName Name,
 
   case TemplateName::PackIndexingTemplate: {
     PackIndexingTemplateStorage *PI = Name.getAsPackIndexingTemplate();
+    // Once the element is selected the name is that element (as for a
+    // PackIndexingType), whatever the pattern was substituted with.
+    if (UnsignedOrNone Selected = PI->getSelectedIndex();
+        Selected && *Selected < PI->getExpansions().size())
+      return getCanonicalTemplateName(PI->getExpansions()[*Selected],
+                                      IgnoreDeduced);
     SmallVector<TemplateName, 4> CanonExpansions;
     for (TemplateName T : PI->getExpansions())
       CanonExpansions.push_back(getCanonicalTemplateName(T, IgnoreDeduced));
@@ -7504,7 +7511,11 @@ bool ASTContext::isSameTypeConstraint(const TypeConstraint *XTC,
 
   TemplateDecl *NCX = XTC->getNamedConcept().getAsTemplateDecl();
   TemplateDecl *NCY = YTC->getNamedConcept().getAsTemplateDecl();
-  if (!NCX || !NCY || !isSameEntity(NCX, NCY))
+  if (!NCX && !NCY) {
+    // Pack-index-template-names (P3670R4): same pack and equivalent index.
+    if (!hasSameTemplateName(XTC->getNamedConcept(), YTC->getNamedConcept()))
+      return false;
+  } else if (!NCX || !NCY || !isSameEntity(NCX, NCY))
     return false;
   if (XTC->getConceptReference()->hasExplicitTemplateArgs() !=
       YTC->getConceptReference()->hasExplicitTemplateArgs())

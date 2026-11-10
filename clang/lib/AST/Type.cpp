@@ -5667,13 +5667,11 @@ AutoType::AutoType(QualType DeducedAsType, AutoTypeKeyword Keyword,
   if (!TypeConstraintConcept.isNull()) {
     // A concept named through a template template parameter (or a
     // pack-index-template-name) depends on a template parameter.
-    if (TypeConstraintConcept.getAsPackIndexingTemplate() ||
-        isa_and_nonnull<TemplateTemplateParmDecl>(
-            TypeConstraintConcept.getAsTemplateDecl()))
+    if (isa_and_nonnull<TemplateTemplateParmDecl>(
+            TypeConstraintConcept.getAsTemplateDecl()) ||
+        (TypeConstraintConcept.getAsPackIndexingTemplate() &&
+         TypeConstraintConcept.isInstantiationDependent()))
       addDependence(TypeDependence::DependentInstantiation);
-    if (TypeConstraintConcept.getAsPackIndexingTemplate())
-      addDependence(toTypeDependence(TypeConstraintConcept.getDependence()) &
-                    ~TypeDependence::VariablyModified);
 
     auto *ArgBuffer =
         const_cast<TemplateArgument *>(getTypeConstraintArguments().data());

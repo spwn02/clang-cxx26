@@ -3085,7 +3085,10 @@ enum CXTypeKind {
   /* HLSL Types */
   CXType_HLSLResource = 179,
   CXType_HLSLAttributedResource = 180,
-  CXType_HLSLInlineSpirv = 181
+  CXType_HLSLInlineSpirv = 181,
+
+  /* The bottom type std::noreturn_t of a diverging expression (P3549, C++29). */
+  CXType_NoReturn = 182
 };
 
 /**

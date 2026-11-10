@@ -304,7 +304,14 @@ class DumpVisitor : public RecursiveASTVisitor<DumpVisitor> {
     return CBS.isVirtual() ? "virtual" : "";
   }
   std::string getDetail(const ConceptReference *CR) {
-    return getWrittenConceptDecl(CR->getNamedConcept())->getNameAsString();
+    TemplateName Concept = CR->getNamedConcept();
+    if (Concept.getAsPackIndexingTemplate()) { // P3670R4: 'CC...[N]'
+      std::string Spelling;
+      llvm::raw_string_ostream OS(Spelling);
+      Concept.print(OS, PrintingPolicy(LangOptions()));
+      return Spelling;
+    }
+    return getWrittenConceptDecl(Concept)->getNameAsString();
   }
 
   /// Arcana is produced by TextNodeDumper, for the types it supports.

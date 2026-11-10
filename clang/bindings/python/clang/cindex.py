@@ -2671,6 +2671,7 @@ class TypeKind(BaseEnumeration):
     HLSLRESOURCE = 179
     HLSLATTRIBUTEDRESOURCE = 180
     HLSLINLINESPIRV = 181
+    NORETURN = 182
 
 class RefQualifierKind(BaseEnumeration):
     """Describes a specific ref-qualifier of a type."""

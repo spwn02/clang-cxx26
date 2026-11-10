@@ -43,6 +43,13 @@ template <unsigned I, template <class> auto... VV>
 constexpr int VariableTemplateId = VV...[I]<int>;
 
 template <template <class> concept... CC>
+struct Constrained {
+  template <CC...[0] T>
+  static constexpr int f() { return 3; }
+  static constexpr int g(CC...[0] auto) { return 4; }
+};
+
+template <template <class> concept... CC>
 constexpr int Requires() requires CC...[0]<int> { return 5; }
 
 void fn() {
@@ -54,5 +61,7 @@ void fn() {
   static_assert(ConceptId<0, Always, Never>);
   static_assert(!ConceptId<1, Always, Never>);
   static_assert(VariableTemplateId<1, Var, Var2> == 2);
+  static_assert(Constrained<Always>::f<int>() == 3);
+  static_assert(Constrained<Always>::g(0) == 4);
   static_assert(Requires<Always>() == 5);
 }

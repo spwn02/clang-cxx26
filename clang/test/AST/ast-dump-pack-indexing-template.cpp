@@ -46,6 +46,15 @@ constexpr int DumpVariableTemplateId = VV...[1]<int>;
 // CHECK:      DependentTemplateIdExpr {{.*}} variable template
 // CHECK-NEXT: `-name: 'VV...[1]':'template-parameter-0-0...[1]' pack_indexing index 1
 
+template <template <class> concept... CC>
+struct DumpTypeConstraint {
+  template <CC...[0] T>
+  static void f();
+};
+
+// CHECK-LABEL: Dumping DumpTypeConstraint:
+// CHECK: TemplateTypeParmDecl {{.*}} Concept {{.*}} 'CC...[0]' depth 1 index 0 T
+
 
 template <int N, template <class> class... TT>
 struct DumpDependentIndex {

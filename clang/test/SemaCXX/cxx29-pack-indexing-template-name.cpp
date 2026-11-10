@@ -69,6 +69,49 @@ void use_concepts() {
 // expected-note@55 {{candidate template ignored: constraints not satisfied [with auto:1 = double]}}
 // expected-note@55 {{because 'double' does not satisfy 'C2'}}
 
+// Other places a constrained placeholder or a concept-id can appear.
+namespace concept_pack_uses {
+template <class T> concept Any = true;
+template <class T> concept IsInt = __is_same(T, int);
+template <template <class> concept... CC>
+struct S {
+  void local() { CC...[0] auto v = 1; (void)v; }          // deduced variable
+  CC...[1] auto ret() { return 1; }                        // deduced return type
+  template <CC...[0] auto N> void nttp() {}                // placeholder NTTP
+  template <class T>
+  static constexpr bool rtr0 = requires(T t) { { t } -> CC...[0]; }; // return-type-requirement
+  template <class T>
+  static constexpr bool rtr1 = requires(T t) { { t } -> CC...[1]; };
+};
+template struct S<Any, IsInt>;
+static_assert(S<Any, IsInt>::rtr0<int>);
+// The constraint applies to decltype((t)), which is 'int &'.
+static_assert(!S<Any, IsInt>::rtr1<int>);
+int use() {
+  S<Any, IsInt>().nttp<1>();
+  return S<Any, IsInt>().ret();
+}
+}
+
+// Out-of-line definitions match their declarations when the constraint names
+// CC...[N] (the substituted name is canonically the selected element).
+namespace out_of_line {
+template <class T> concept Any = true;
+template <template <class> concept... CC>
+struct S {
+  template <CC...[0] T> void f(T);
+  template <class T> requires CC...[0]<T> void g(T);
+  void h(CC...[0] auto);
+};
+template <template <class> concept... CC>
+template <CC...[0] T> void S<CC...>::f(T) {}
+template <template <class> concept... CC>
+template <class T> requires CC...[0]<T> void S<CC...>::g(T) {}
+template <template <class> concept... CC>
+void S<CC...>::h(CC...[0] auto) {}
+void use() { S<Any>().f(1); S<Any>().g(1); S<Any>().h(1); }
+}
+
 namespace in_expression {
 // Parsing regression: a pack-index-template-name used as the head of an
 // expression ('T...[N]<args>{}', '()' or '::name') asserted in the parser.

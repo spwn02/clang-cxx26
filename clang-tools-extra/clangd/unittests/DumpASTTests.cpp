@@ -207,6 +207,28 @@ TEST(DumpASTTests, NoRange) {
   ASSERT_FALSE(Node.range) << "Expected no range for translation unit";
 }
 
+bool hasDetail(const ASTNode &Node, llvm::StringRef Detail) {
+  if (Node.detail == Detail)
+    return true;
+  return llvm::any_of(Node.children, [&Detail](const ASTNode &Child) {
+    return hasDetail(Child, Detail);
+  });
+}
+
+TEST(DumpASTTests, PackIndexedConcept) {
+  auto TU = TestTU::withCode(R"cpp(
+template <template <class> concept... CC, CC...[0] T>
+void func(T);
+  )cpp");
+  TU.ExtraArgs = {"-std=c++2d"};
+  ParsedAST AST = TU.build();
+  const ASTNode Node = dumpAST(
+      DynTypedNode::create(*AST.getASTContext().getTranslationUnitDecl()),
+      AST.getTokens(), AST.getASTContext());
+
+  EXPECT_TRUE(hasDetail(Node, "CC...[0]"));
+}
+
 TEST(DumpASTTests, Arcana) {
   ParsedAST AST = TestTU::withCode("int x;").build();
   auto Node = dumpAST(DynTypedNode::create(findDecl(AST, "x")), AST.getTokens(),

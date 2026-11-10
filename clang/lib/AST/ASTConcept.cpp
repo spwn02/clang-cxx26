@@ -183,12 +183,16 @@ concepts::ExprRequirement::ReturnTypeRequirement::ReturnTypeRequirement(
       cast<TemplateTypeParmDecl>(TPL->getParam(0))->getTypeConstraint();
   assert(TC &&
          "TPL must have a template type parameter with a type constraint");
+  // A concept named through a template template parameter or a
+  // pack-index-template-name (P3670R4) has a dependent id-expression as its
+  // immediately-declared constraint, not a ConceptSpecializationExpr.
   auto *Constraint =
-      cast<ConceptSpecializationExpr>(TC->getImmediatelyDeclaredConstraint());
+      dyn_cast<ConceptSpecializationExpr>(TC->getImmediatelyDeclaredConstraint());
   bool Dependent =
-      Constraint->getTemplateArgsAsWritten() &&
-      TemplateSpecializationType::anyInstantiationDependentTemplateArguments(
-          Constraint->getTemplateArgsAsWritten()->arguments().drop_front(1));
+      !Constraint ||
+      (Constraint->getTemplateArgsAsWritten() &&
+       TemplateSpecializationType::anyInstantiationDependentTemplateArguments(
+           Constraint->getTemplateArgsAsWritten()->arguments().drop_front(1)));
   TypeConstraintInfo.setInt(Dependent ? true : false);
 }
 

@@ -954,8 +954,7 @@ void TextNodeDumper::dumpBareConcept(TemplateName TN) {
   }
 
   const TemplateDecl *TD = TN.getAsTemplateDecl();
-  if (TD)
-    dumpPointer(TD);
+  dumpPointer(TD ? static_cast<const void *>(TD) : TN.getAsVoidPointer());
 
   ColorScope Color(OS, ShowColors, DeclNameColor);
   OS << " '";

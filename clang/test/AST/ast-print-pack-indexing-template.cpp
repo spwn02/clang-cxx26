@@ -16,6 +16,17 @@ TT...[0]<int> f(TT...[1]<int>);
 // CHECK: template <template <class> class ...TT> TT...[0]<int> f(TT...[1]<int>);
 
 template <template <class> concept... CC>
+struct Constrained {
+  template <CC...[0] T>
+  static void f();
+  static void g(CC...[1] auto);
+};
+
+// CHECK:      template <template <class> concept ...CC> struct Constrained {
+// CHECK-NEXT: template <CC...[0] T> static void f();
+// CHECK-NEXT: static void g(CC...[1] auto);
+
+template <template <class> concept... CC>
 constexpr bool concept_id = CC...[0]<int>;
 
 // CHECK: template <template <class> concept ...CC> constexpr bool concept_id = CC...[0]<int>;

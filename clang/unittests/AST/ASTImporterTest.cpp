@@ -3615,12 +3615,23 @@ namespace {
 struct Cxx29Nodes : RecursiveASTVisitor<Cxx29Nodes> {
   std::vector<concepts::ExprRequirement *> Reqs;
   std::vector<DesignatedInitExpr *> Designated;
+  std::vector<CXXThrowExpr *> Throws;
+  std::vector<ImplicitCastExpr *> NoReturnCasts;
   std::vector<TemplateSpecializationTypeLoc> PackIndexedTSTs;
   bool shouldVisitTemplateInstantiations() const { return true; }
   bool VisitRequiresExpr(RequiresExpr *E) {
     for (concepts::Requirement *R : E->getRequirements())
       if (auto *ER = dyn_cast<concepts::ExprRequirement>(R))
         Reqs.push_back(ER);
+    return true;
+  }
+  bool VisitCXXThrowExpr(CXXThrowExpr *E) {
+    Throws.push_back(E);
+    return true;
+  }
+  bool VisitImplicitCastExpr(ImplicitCastExpr *E) {
+    if (E->getCastKind() == CK_NoReturnToAny)
+      NoReturnCasts.push_back(E);
     return true;
   }
   bool VisitDesignatedInitExpr(DesignatedInitExpr *E) {
@@ -3688,6 +3699,56 @@ TEST_P(ImportCxx29, ImportDesignatedInitOfBaseMember) {
                   cast<VarDecl>(To)->getType()->getAsCXXRecordDecl()
                       ->bases_begin()->getType()->getAsCXXRecordDecl()));
   }
+}
+
+// P3670R4: a pack-index-template-name as a type-constraint and in 'CC...[N] auto'.
+TEST_P(ImportCxx29, ImportPackIndexedConcept) {
+  Decl *From, *To;
+  std::tie(From, To) = getImportedDecl(R"(
+      template <template <class> concept... CC>
+      struct declToImport {
+        template <CC...[0] T> void f(T);
+        void g(CC...[1] auto);
+      };
+      )",
+                                       Lang_CXX26, "", Lang_CXX26);
+  ASSERT_TRUE(To);
+  auto *Class = cast<ClassTemplateDecl>(To)->getTemplatedDecl();
+  // Both member function templates ('template <CC...[0] T> f' and the
+  // abbreviated 'g(CC...[1] auto)', whose invented parameter carries the
+  // constraint) keep a pack-index-template-name as the constraint's concept.
+  unsigned Seen = 0;
+  for (Decl *D : Class->decls()) {
+    auto *Tmpl = dyn_cast<FunctionTemplateDecl>(D);
+    if (!Tmpl)
+      continue;
+    auto *P = cast<TemplateTypeParmDecl>(Tmpl->getTemplateParameters()->getParam(0));
+    const TypeConstraint *TC = P->getTypeConstraint();
+    ASSERT_TRUE(TC);
+    PackIndexingTemplateStorage *PI =
+        TC->getNamedConcept().getAsPackIndexingTemplate();
+    ASSERT_TRUE(PI);
+    EXPECT_EQ(PI->getPattern().getAsTemplateDecl()->getName(), "CC");
+    ++Seen;
+  }
+  EXPECT_EQ(Seen, 2u);
+}
+
+// P3549R1: the bottom type of a throw-expression and the cast out of it.
+TEST_P(ImportCxx29, ImportDivergingThrowInConditional) {
+  Decl *From, *To;
+  std::tie(From, To) = getImportedDecl(R"(
+      int declToImport(bool b) { return b ? 1 : throw 0; }
+      )",
+                                       Lang_CXX26, "", Lang_CXX26);
+  ASSERT_TRUE(To);
+  Cxx29Nodes F, T;
+  F.TraverseDecl(From);
+  T.TraverseDecl(To);
+  ASSERT_EQ(T.Throws.size(), 1u);
+  EXPECT_TRUE(T.Throws[0]->getType()->isNoReturnType());
+  EXPECT_NE(T.Throws[0], F.Throws[0]);
+  EXPECT_EQ(T.NoReturnCasts.size(), F.NoReturnCasts.size());
 }
 
 // P3670R4: pack-index-template-name.

@@ -46,6 +46,17 @@ template <template <class> auto... VV>
 constexpr int variable_template_id() {
   return VV...[0]<int>;
 }
+template <template <class> concept... CC>
+struct TypeConstraint {
+  template <CC...[0] T>
+  static constexpr int f() { return 2; }
+};
+template <template <class> concept... CC>
+struct MalformedConcept {
+  template <CC...[] T> // expected-error {{expected identifier}}
+  static void f(); // expected-error {{no candidate function template was found for dependent member function template specialization}} \
+                   // expected-warning {{explicit specialization cannot have a storage class}}
+};
 
 namespace not_a_template {
 template <class... T>
