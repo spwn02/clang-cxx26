@@ -1346,9 +1346,8 @@ bool CursorVisitor::VisitTypeConstraint(const TypeConstraint &TC) {
     if (VisitNestedNameSpecifierLoc(TC.getNestedNameSpecifierLoc()))
       return true;
   }
-  if (TC.getNamedConcept()) {
-    if (Visit(MakeCursorTemplateRef(TC.getNamedConcept(),
-                                    TC.getConceptNameLoc(), TU)))
+  if (TemplateDecl *TD = TC.getNamedConcept().getAsTemplateDecl()) {
+    if (Visit(MakeCursorTemplateRef(TD, TC.getConceptNameLoc(), TU)))
       return true;
   }
   if (auto Args = TC.getTemplateArgsAsWritten()) {
@@ -4093,8 +4092,8 @@ bool CursorVisitor::RunVisitorWorkList(VisitorWorkList &WL) {
           return true;
       }
 
-      if (E->getNamedConcept() &&
-          Visit(MakeCursorTemplateRef(E->getNamedConcept(),
+      if (E->getNamedConcept().getAsTemplateDecl() &&
+          Visit(MakeCursorTemplateRef(E->getConceptDecl(),
                                       E->getConceptNameLoc(), TU)))
         return true;
 

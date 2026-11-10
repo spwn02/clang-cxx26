@@ -326,11 +326,12 @@ C++2d (C++29) Feature Support
   in a list with designators, is an error, and designators naming members of bases must be in element order
   (an error; direct members keep ``-Wreorder-init-list``). Earlier modes keep rejecting a designator that names a member of a base class.
 
-- Implemented `P3670R4 <https://wg21.link/P3670R4>`_ (partially) under ``-std=c++29``: a pack of template template
-  parameters can be indexed, ``TT...[N]<args>`` (type, variable and alias templates), based on the upstream LLVM
-  implementation (llvm-project#218738). Earlier modes reject it. Not implemented yet: a pack-index-template-name as a
-  type-constraint (a pack of concepts). The mangling of a dependent one is provisional
-  (``u10pack_index <template-param> <expression>``; the Itanium ABI has none yet, cxx-abi issue 175) and may change.
+- Implemented `P3670R4 <https://wg21.link/P3670R4>`_ under ``-std=c++29``: a pack of template template parameters
+  can be indexed, ``TT...[N]<args>`` (type, variable, alias templates and concepts, also as a type-constraint,
+  ``template <CC...[0] T>`` and ``CC...[0] auto``), based on the upstream LLVM implementation (llvm-project#218738 and
+  #217637: a type-constraint now stores the concept as a ``TemplateName``). Earlier modes reject it. The mangling of a
+  dependent one is provisional (``u10pack_index <template-param> <expression>``; the Itanium ABI has none yet,
+  cxx-abi issue 175) and may change.
 
 - Implemented `P3549R1 <https://wg21.link/P3549R1>`_ (exploratory, EWG) under ``-std=c++29``: diverging expressions
   and the bottom type ``std::noreturn_t`` (``decltype(throw 0)``): a function or lambda that only diverges deduces

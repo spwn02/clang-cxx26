@@ -526,7 +526,11 @@ public:
   }
 
   void add(const ConceptReference *CR, RelSet Flags) {
-    add(CR->getNamedConcept(), Flags);
+    TemplateName TN = CR->getNamedConcept();
+    // P3670R4: a pack-index-template-name refers to the written pack.
+    if (const auto *PI = TN.getAsPackIndexingTemplate())
+      TN = PI->getPattern();
+    add(TN.getAsTemplateDecl(), Flags);
   }
 };
 
@@ -1041,6 +1045,14 @@ private:
   ///     be references. However, declarations can have references inside them,
   ///     e.g. 'namespace foo = std' references namespace 'std' and this
   ///     function will return the corresponding reference.
+  // The declaration a concept name refers to; for a pack-index-template-name
+  // (P3670R4) the written pack of concepts.
+  static const NamedDecl *conceptDeclOf(TemplateName TN) {
+    if (const auto *PI = TN.getAsPackIndexingTemplate())
+      return PI->getPattern().getAsTemplateDecl();
+    return TN.getAsTemplateDecl();
+  }
+
   llvm::SmallVector<ReferenceLoc> explicitReference(DynTypedNode N) {
     if (auto *D = N.get<Decl>())
       return refInDecl(D, Resolver);
@@ -1079,7 +1091,7 @@ private:
       return {ReferenceLoc{CR->getNestedNameSpecifierLoc(),
                            CR->getConceptNameLoc(),
                            /*IsDecl=*/false,
-                           {CR->getNamedConcept()}}};
+                           {conceptDeclOf(CR->getNamedConcept())}}};
 
     // We do not have location information for other nodes (QualType, etc)
     return {};

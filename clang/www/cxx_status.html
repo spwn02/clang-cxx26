@@ -163,11 +163,10 @@ published standard, and nothing is in the C++26 releases.</p>
  <tr>
   <td>Pack indexing for template names</td>
   <td><a href="https://wg21.link/P3670R4">P3670R4</a></td>
-  <td class="partial" align="center">
-    <details><summary>cxx29 branch (Partial)</summary>
-      <tt>-std=c++29</tt>. Not implemented: indexing a pack of concepts as a type-constraint. The
-      mangling of a <i>pack-index-template-name</i> in a dependent signature is provisional
-      (<tt>u10pack_index</tt>; the Itanium ABI has no encoding yet).
+  <td class="full" align="center">
+    <details><summary>cxx29 branch (<tt>-std=c++29</tt>)</summary>
+      The mangling of a <i>pack-index-template-name</i> in a dependent signature is provisional
+      (<tt>u10pack_index</tt>; the Itanium ABI has no encoding yet, cxx-abi issue 175).
     </details>
   </td>
  </tr>

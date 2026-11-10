@@ -1217,7 +1217,7 @@ public:
   ///
   /// By default, builds a new AutoType with the given deduced type.
   QualType RebuildAutoType(QualType Deduced, AutoTypeKeyword Keyword,
-                           ConceptDecl *TypeConstraintConcept,
+                           TemplateName TypeConstraintConcept,
                            ArrayRef<TemplateArgument> TypeConstraintArgs) {
     // Note, IsDependent is always false here: we implicitly convert an 'auto'
     // which has been deduced to a dependent type into an undeduced 'auto', so
@@ -8218,13 +8218,15 @@ QualType TreeTransform<Derived>::TransformAutoType(TypeLocBuilder &TLB,
       return QualType();
   }
 
-  ConceptDecl *NewCD = nullptr;
+  TemplateName NewCD;
   TemplateArgumentListInfo NewTemplateArgs;
   NestedNameSpecifierLoc NewNestedNameSpec;
   if (T->isConstrained()) {
     assert(TL.getConceptReference());
-    NewCD = cast_or_null<ConceptDecl>(getDerived().TransformDecl(
-        TL.getConceptNameLoc(), T->getTypeConstraintConcept()));
+    NewCD = getDerived().TransformConceptTemplateName(
+        T->getTypeConstraintConcept(), TL.getConceptNameLoc());
+    if (NewCD.isNull())
+      return QualType();
 
     NewTemplateArgs.setLAngleLoc(TL.getLAngleLoc());
     NewTemplateArgs.setRAngleLoc(TL.getRAngleLoc());
@@ -8263,10 +8265,8 @@ QualType TreeTransform<Derived>::TransformAutoType(TypeLocBuilder &TLB,
   NewTL.setConceptReference(nullptr);
 
   if (T->isConstrained()) {
-    DeclarationNameInfo DNI = DeclarationNameInfo(
-        TL.getTypePtr()->getTypeConstraintConcept()->getDeclName(),
-        TL.getConceptNameLoc(),
-        TL.getTypePtr()->getTypeConstraintConcept()->getDeclName());
+    DeclarationNameInfo DNI = SemaRef.Context.getNameForTemplate(
+        TL.getTypePtr()->getTypeConstraintConcept(), TL.getConceptNameLoc());
     auto *CR = ConceptReference::Create(
         SemaRef.Context, NewNestedNameSpec, TL.getTemplateKWLoc(), DNI,
         TL.getFoundDecl(), TL.getTypePtr()->getTypeConstraintConcept(),
@@ -17126,7 +17126,7 @@ TreeTransform<Derived>::TransformConceptSpecializationExpr(
 
   return getDerived().RebuildConceptSpecializationExpr(
       E->getNestedNameSpecifierLoc(), E->getTemplateKWLoc(),
-      E->getConceptNameInfo(), E->getFoundDecl(), E->getNamedConcept(),
+      E->getConceptNameInfo(), E->getFoundDecl(), E->getConceptDecl(),
       &TransArgs);
 }
 

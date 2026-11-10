@@ -314,6 +314,27 @@ TEST_F(TargetDeclTest, BaseSpecifier) {
   EXPECT_DECLS("RecordTypeLoc", "struct X");
 }
 
+TEST_F(TargetDeclTest, PackIndexedConcept) {
+  Flags.push_back("-std=c++2d");
+
+  // constrained-parameter
+  Code = R"cpp(
+    template <template <class> concept... CC>
+    struct S {
+      template <[[CC]]...[0] T>
+      void bar(T t);
+    };
+  )cpp";
+  EXPECT_DECLS("ConceptReference", {"template <class> concept ...CC"});
+
+  // constrained placeholder type
+  Code = R"cpp(
+    template <template <class> concept... CC>
+    void bar([[CC]]...[0] auto t);
+  )cpp";
+  EXPECT_DECLS("ConceptReference", {"template <class> concept ...CC"});
+}
+
 TEST_F(TargetDeclTest, PackIndexedTemplateName) {
   // P3670R4: T...[N]<args>; used to crash the heuristic resolver.
   Flags.push_back("-std=c++2d");

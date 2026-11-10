@@ -1190,13 +1190,9 @@ bool Sema::BuildTypeConstraint(const CXXScopeSpec &SS,
 
   TemplateName TN = TypeConstr->Template.get();
   UsingShadowDecl *USD = TN.getAsUsingShadowDecl();
+  // C++29 [temp.param]: the concept can be named by a pack-index-template-name
+  // (P3670R4), in which case there is no declaration yet.
   TemplateDecl *CD = TN.getAsTemplateDecl();
-  if (!CD) {
-    // A pack-index-template-name as a type-constraint: not implemented yet.
-    Diag(TypeConstr->TemplateNameLoc,
-         diag::err_pack_indexing_type_constraint_unsupported);
-    return true;
-  }
 
   DeclarationNameInfo ConceptName(DeclarationName(TypeConstr->Name),
                                   TypeConstr->TemplateNameLoc);
@@ -1215,7 +1211,8 @@ bool Sema::BuildTypeConstraint(const CXXScopeSpec &SS,
   }
   return AttachTypeConstraint(
       SS.isSet() ? SS.getWithLocInContext(Context) : NestedNameSpecifierLoc(),
-      ConceptName, CD, /*FoundDecl=*/USD ? cast<NamedDecl>(USD) : CD,
+      ConceptName, TN,
+      /*FoundDecl=*/USD ? cast<NamedDecl>(USD) : cast_if_present<NamedDecl>(CD),
       TypeConstr->LAngleLoc.isValid() ? &TemplateArgs : nullptr,
       ConstrainedParameter, EllipsisLoc);
 }
@@ -1223,7 +1220,7 @@ bool Sema::BuildTypeConstraint(const CXXScopeSpec &SS,
 template <typename ArgumentLocAppender>
 static ExprResult formImmediatelyDeclaredConstraint(
     Sema &S, NestedNameSpecifierLoc NS, DeclarationNameInfo NameInfo,
-    NamedDecl *NamedConcept, NamedDecl *FoundDecl, SourceLocation LAngleLoc,
+    TemplateName NamedConcept, NamedDecl *FoundDecl, SourceLocation LAngleLoc,
     SourceLocation RAngleLoc, QualType ConstrainedType,
     SourceLocation ParamNameLoc, ArgumentLocAppender Appender,
     SourceLocation EllipsisLoc) {
@@ -1243,7 +1240,8 @@ static ExprResult formImmediatelyDeclaredConstraint(
   CXXScopeSpec SS;
   SS.Adopt(NS);
   ExprResult ImmediatelyDeclaredConstraint;
-  if (auto *CD = dyn_cast<ConceptDecl>(NamedConcept)) {
+  if (auto *CD =
+          dyn_cast_if_present<ConceptDecl>(NamedConcept.getAsTemplateDecl())) {
     ImmediatelyDeclaredConstraint = S.CheckConceptTemplateId(
         SS, /*TemplateKWLoc=*/SourceLocation(), NameInfo,
         /*FoundDecl=*/FoundDecl ? FoundDecl : CD, CD, &ConstraintArgs,
@@ -1253,9 +1251,8 @@ static ExprResult formImmediatelyDeclaredConstraint(
   // We have a template template parameter
   else {
     assert(SS.isEmpty() && "template parameter with a scope specifier?");
-    auto *CDT = dyn_cast<TemplateTemplateParmDecl>(NamedConcept);
     ImmediatelyDeclaredConstraint = S.CheckVarOrConceptTemplateTemplateId(
-        NameInfo, TemplateName(CDT), &ConstraintArgs);
+        NameInfo, NamedConcept, &ConstraintArgs);
   }
   if (ImmediatelyDeclaredConstraint.isInvalid() || !EllipsisLoc.isValid())
     return ImmediatelyDeclaredConstraint;
@@ -1282,7 +1279,7 @@ static ExprResult formImmediatelyDeclaredConstraint(
 
 bool Sema::AttachTypeConstraint(NestedNameSpecifierLoc NS,
                                 DeclarationNameInfo NameInfo,
-                                TemplateDecl *NamedConcept, NamedDecl *FoundDecl,
+                                TemplateName NamedConcept, NamedDecl *FoundDecl,
                                 const TemplateArgumentListInfo *TemplateArgs,
                                 TemplateTypeParmDecl *ConstrainedParameter,
                                 SourceLocation EllipsisLoc) {
@@ -1309,12 +1306,13 @@ bool Sema::AttachTypeConstraint(NestedNameSpecifierLoc NS,
   if (ImmediatelyDeclaredConstraint.isInvalid())
     return true;
 
-  auto *CL = ConceptReference::Create(Context, /*NNS=*/NS,
-                                      /*TemplateKWLoc=*/SourceLocation{},
-                                      /*ConceptNameInfo=*/NameInfo,
-                                      /*FoundDecl=*/FoundDecl,
-                                      /*NamedConcept=*/NamedConcept,
-                                      /*ArgsWritten=*/ArgsAsWritten);
+  auto *CL =
+      ConceptReference::Create(Context, /*NNS=*/NS,
+                               /*TemplateKWLoc=*/SourceLocation{},
+                               /*ConceptNameInfo=*/NameInfo,
+                               /*FoundDecl=*/FoundDecl,
+                               /*NamedConcept=*/NamedConcept,
+                               /*ArgsWritten=*/ArgsAsWritten);
   ConstrainedParameter->setTypeConstraint(
       CL, ImmediatelyDeclaredConstraint.get(), std::nullopt);
   return false;
@@ -1342,9 +1340,9 @@ bool Sema::AttachTypeConstraint(AutoTypeLoc TL,
     return true;
   ExprResult ImmediatelyDeclaredConstraint = formImmediatelyDeclaredConstraint(
       *this, TL.getNestedNameSpecifierLoc(), TL.getConceptNameInfo(),
-      TL.getNamedConcept(), /*FoundDecl=*/TL.getFoundDecl(), TL.getLAngleLoc(),
-      TL.getRAngleLoc(), BuildDecltypeType(Ref),
-      OrigConstrainedParm->getLocation(),
+      TL.getNamedConcept(),
+      /*FoundDecl=*/TL.getFoundDecl(), TL.getLAngleLoc(), TL.getRAngleLoc(),
+      BuildDecltypeType(Ref), OrigConstrainedParm->getLocation(),
       [&](TemplateArgumentListInfo &ConstraintArgs) {
         for (unsigned I = 0, C = TL.getNumArgs(); I != C; ++I)
           ConstraintArgs.addArgument(TL.getArgLoc(I));
@@ -4944,7 +4942,7 @@ ExprResult Sema::CheckConceptTemplateId(
   auto *CL = ConceptReference::Create(
       Context,
       SS.isSet() ? SS.getWithLocInContext(Context) : NestedNameSpecifierLoc{},
-      TemplateKWLoc, ConceptNameInfo, FoundDecl, NamedConcept,
+      TemplateKWLoc, ConceptNameInfo, FoundDecl, TemplateName(NamedConcept),
       ASTTemplateArgumentListInfo::Create(Context, *TemplateArgs));
 
   bool Error = false;

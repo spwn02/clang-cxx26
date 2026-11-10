@@ -332,7 +332,7 @@ satisfiesTypeConstraint(Sema &S, const ConceptReference *Constraint,
   ExprResult Result = S.CheckConceptTemplateId(
       SS, Constraint->getTemplateKWLoc(), Constraint->getConceptNameInfo(),
       Constraint->getFoundDecl(),
-      Constraint->getNamedConcept(), &Args);
+      Constraint->getNamedConcept().getAsTemplateDecl(), &Args);
   if (Result.isInvalid())
     return std::nullopt;
   auto *Specialization = cast<ConceptSpecializationExpr>(Result.get());

@@ -6345,8 +6345,6 @@ def err_pack_index_out_of_bound : Error<
 
 def err_pack_indexing_template_cxx29 : Error<
   "pack indexing for template names is only available in C++29">;
-def err_pack_indexing_type_constraint_unsupported : Error<
-  "a pack-index-template-name as a type-constraint is not implemented yet">;
 def err_pack_index_negative : Error<
   "pack index evaluates to %0, which cannot be narrowed to type %1">;
 def ext_pack_indexing : ExtWarn<

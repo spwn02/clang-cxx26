@@ -231,7 +231,7 @@ ResultNameDecl *Sema::ActOnResultNameDeclarator(ContractKind CK, Scope *S,
       RetType->isUndeducedAutoType() && !RetType->isDependentType();
   if (HasInventedPlaceholderTypes)
     RetType = Context.getAutoType(QualType(), AutoTypeKeyword::Auto, true,
-                                  false, nullptr, {});
+                                  false, TemplateName(), {});
   auto *New = ResultNameDecl::Create(Context, CurContext, IDLoc, II, RetType,
                                      nullptr, HasInventedPlaceholderTypes, FunctionScopeDepth);
 

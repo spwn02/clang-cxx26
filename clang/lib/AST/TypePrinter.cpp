@@ -1394,12 +1394,17 @@ void TypePrinter::printAutoBefore(const AutoType *T, raw_ostream &OS) {
     if (T->isConstrained()) {
       // FIXME: Track a TypeConstraint as type sugar, so that we can print the
       // type as it was written.
-      T->getTypeConstraintConcept()->getDeclName().print(OS, Policy);
+      const TemplateDecl *ConceptDecl =
+          T->getTypeConstraintConcept().getAsTemplateDecl();
+      if (ConceptDecl) // not a pack-index-template-name (P3670R4)
+        ConceptDecl->getDeclName().print(OS, Policy);
+      else
+        T->getTypeConstraintConcept().print(OS, Policy);
       auto Args = T->getTypeConstraintArguments();
       if (!Args.empty())
         printTemplateArgumentList(
             OS, Args, Policy,
-            T->getTypeConstraintConcept()->getTemplateParameters());
+            ConceptDecl ? ConceptDecl->getTemplateParameters() : nullptr);
       OS << ' ';
     }
     switch (T->getKeyword()) {

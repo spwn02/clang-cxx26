@@ -5657,16 +5657,23 @@ void clang::FixedPointValueToString(SmallVectorImpl<char> &Str,
 
 AutoType::AutoType(QualType DeducedAsType, AutoTypeKeyword Keyword,
                    TypeDependence ExtraDependence, QualType Canon,
-                   TemplateDecl *TypeConstraintConcept,
+                   TemplateName TypeConstraintConcept,
                    ArrayRef<TemplateArgument> TypeConstraintArgs)
     : DeducedType(Auto, DeducedAsType, ExtraDependence, Canon) {
   AutoTypeBits.Keyword = llvm::to_underlying(Keyword);
   AutoTypeBits.NumArgs = TypeConstraintArgs.size();
   this->TypeConstraintConcept = TypeConstraintConcept;
-  assert(TypeConstraintConcept || AutoTypeBits.NumArgs == 0);
-  if (TypeConstraintConcept) {
-    if (isa<TemplateTemplateParmDecl>(TypeConstraintConcept))
+  assert(!TypeConstraintConcept.isNull() || AutoTypeBits.NumArgs == 0);
+  if (!TypeConstraintConcept.isNull()) {
+    // A concept named through a template template parameter (or a
+    // pack-index-template-name) depends on a template parameter.
+    if (TypeConstraintConcept.getAsPackIndexingTemplate() ||
+        isa_and_nonnull<TemplateTemplateParmDecl>(
+            TypeConstraintConcept.getAsTemplateDecl()))
       addDependence(TypeDependence::DependentInstantiation);
+    if (TypeConstraintConcept.getAsPackIndexingTemplate())
+      addDependence(toTypeDependence(TypeConstraintConcept.getDependence()) &
+                    ~TypeDependence::VariablyModified);
 
     auto *ArgBuffer =
         const_cast<TemplateArgument *>(getTypeConstraintArguments().data());
@@ -5683,12 +5690,12 @@ AutoType::AutoType(QualType DeducedAsType, AutoTypeKeyword Keyword,
 
 void AutoType::Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
                        QualType Deduced, AutoTypeKeyword Keyword,
-                       bool IsDependent, TemplateDecl *CD,
+                       bool IsDependent, TemplateName CD,
                        ArrayRef<TemplateArgument> Arguments) {
   ID.AddPointer(Deduced.getAsOpaquePtr());
   ID.AddInteger((unsigned)Keyword);
   ID.AddBoolean(IsDependent);
-  ID.AddPointer(CD);
+  CD.Profile(ID);
   for (const TemplateArgument &Arg : Arguments)
     Arg.Profile(ID, Context);
 }

@@ -3539,10 +3539,21 @@ bool Sema::SubstTypeConstraint(
                                InstArgs))
       return true;
   }
+  TemplateName ConceptName = TC->getNamedConcept();
+  NamedDecl *FoundDecl = TC->getConceptReference()->getFoundDecl();
+  if (ConceptName.getAsPackIndexingTemplate()) {
+    // P3670R4: select the concept from the pack now that it is known.
+    NestedNameSpecifierLoc QualifierLoc = TC->getNestedNameSpecifierLoc();
+    ConceptName = SubstTemplateName(
+        /*TemplateKWLoc=*/SourceLocation(), QualifierLoc, ConceptName,
+        TC->getConceptNameInfo().getLoc(), TemplateArgs);
+    if (ConceptName.isNull())
+      return true;
+    FoundDecl = ConceptName.getAsTemplateDecl();
+  }
   return AttachTypeConstraint(
-      TC->getNestedNameSpecifierLoc(), TC->getConceptNameInfo(),
-      TC->getNamedConcept(),
-      /*FoundDecl=*/TC->getConceptReference()->getFoundDecl(), &InstArgs, Inst,
+      TC->getNestedNameSpecifierLoc(), TC->getConceptNameInfo(), ConceptName,
+      FoundDecl, &InstArgs, Inst,
       Inst->isParameterPack()
           ? cast<CXXFoldExpr>(TC->getImmediatelyDeclaredConstraint())
                 ->getEllipsisLoc()
@@ -5068,7 +5079,7 @@ ExprResult Sema::SubstConceptTemplateArguments(
   Sema::InstantiatingTemplate Inst(
       *this, ArgsAsWritten->arguments().front().getSourceRange().getBegin(),
       Sema::InstantiatingTemplate::ConstraintNormalization{},
-      CSE->getNamedConcept(),
+      CSE->getConceptDecl(),
       ArgsAsWritten->arguments().front().getSourceRange());
 
   if (Inst.isInvalid())
@@ -5087,8 +5098,7 @@ ExprResult Sema::SubstConceptTemplateArguments(
 
   MultiLevelTemplateArgumentList MLTALForConstraint =
       getTemplateInstantiationArgs(
-          CSE->getNamedConcept(),
-          CSE->getNamedConcept()->getLexicalDeclContext(),
+          CSE->getConceptDecl(), CSE->getConceptDecl()->getLexicalDeclContext(),
           /*Final=*/false,
           /*Innermost=*/NewArgList,
           /*RelativeToPrimary=*/true,

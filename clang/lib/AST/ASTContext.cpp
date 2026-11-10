@@ -6818,16 +6818,19 @@ ASTContext::getUnaryTransformType(QualType BaseType, QualType UnderlyingType,
 
 QualType ASTContext::getAutoTypeInternal(
     QualType DeducedType, AutoTypeKeyword Keyword, bool IsDependent,
-    bool IsPack, TemplateDecl *TypeConstraintConcept,
+    bool IsPack, TemplateName TypeConstraintConcept,
     ArrayRef<TemplateArgument> TypeConstraintArgs, bool IsCanon) const {
   if (DeducedType.isNull() && Keyword == AutoTypeKeyword::Auto &&
-      !TypeConstraintConcept && !IsDependent)
+      TypeConstraintConcept.isNull() && !IsDependent)
     return getAutoDeductType();
 
   // Look in the folding set for an existing type.
   llvm::FoldingSetNodeID ID;
   bool IsDeducedDependent =
-      isa_and_nonnull<TemplateTemplateParmDecl>(TypeConstraintConcept) ||
+      (!TypeConstraintConcept.isNull() &&
+       (TypeConstraintConcept.getAsPackIndexingTemplate() ||
+        isa_and_nonnull<TemplateTemplateParmDecl>(
+            TypeConstraintConcept.getAsTemplateDecl()))) ||
       (!DeducedType.isNull() && DeducedType->isDependentType());
   AutoType::Profile(ID, *this, DeducedType, Keyword,
                     IsDependent || IsDeducedDependent, TypeConstraintConcept,
@@ -6839,10 +6842,10 @@ QualType ASTContext::getAutoTypeInternal(
   if (!IsCanon) {
     if (!DeducedType.isNull()) {
       Canon = DeducedType.getCanonicalType();
-    } else if (TypeConstraintConcept) {
+    } else if (!TypeConstraintConcept.isNull()) {
       bool AnyNonCanonArgs = false;
-      auto *CanonicalConcept =
-          cast<TemplateDecl>(TypeConstraintConcept->getCanonicalDecl());
+      TemplateName CanonicalConcept =
+          getCanonicalTemplateName(TypeConstraintConcept);
       auto CanonicalConceptArgs = ::getCanonicalTemplateArguments(
           *this, TypeConstraintArgs, AnyNonCanonArgs);
       if (CanonicalConcept != TypeConstraintConcept || AnyNonCanonArgs) {
@@ -6878,7 +6881,7 @@ QualType ASTContext::getAutoTypeInternal(
 QualType
 ASTContext::getAutoType(QualType DeducedType, AutoTypeKeyword Keyword,
                         bool IsDependent, bool IsPack,
-                        TemplateDecl *TypeConstraintConcept,
+                        TemplateName TypeConstraintConcept,
                         ArrayRef<TemplateArgument> TypeConstraintArgs) const {
   assert((!IsPack || IsDependent) && "only use IsPack for a dependent pack");
   assert((!IsDependent || DeducedType.isNull()) &&
@@ -6988,7 +6991,7 @@ QualType ASTContext::getAutoDeductType() const {
     AutoDeductTy = QualType(new (*this, alignof(AutoType))
                                 AutoType(QualType(), AutoTypeKeyword::Auto,
                                          TypeDependence::None, QualType(),
-                                         /*concept*/ nullptr, /*args*/ {}),
+                                         /*concept*/ TemplateName(), /*args*/ {}),
                             0);
   return AutoDeductTy;
 }
@@ -7499,8 +7502,8 @@ bool ASTContext::isSameTypeConstraint(const TypeConstraint *XTC,
   if (!XTC)
     return true;
 
-  auto *NCX = XTC->getNamedConcept();
-  auto *NCY = YTC->getNamedConcept();
+  TemplateDecl *NCX = XTC->getNamedConcept().getAsTemplateDecl();
+  TemplateDecl *NCY = YTC->getNamedConcept().getAsTemplateDecl();
   if (!NCX || !NCY || !isSameEntity(NCX, NCY))
     return false;
   if (XTC->getConceptReference()->hasExplicitTemplateArgs() !=
@@ -14786,8 +14789,9 @@ static QualType getCommonNonSugarTypeNode(const ASTContext &Ctx, const Type *X,
     return Ctx.getAutoType(QualType(), AX->getKeyword(),
                            AX->isInstantiationDependentType(),
                            AX->containsUnexpandedParameterPack(),
-                           getCommonDeclChecked(AX->getTypeConstraintConcept(),
-                                                AY->getTypeConstraintConcept()),
+                           TemplateName(getCommonDeclChecked(
+                               AX->getTypeConstraintConcept().getAsTemplateDecl(),
+                               AY->getTypeConstraintConcept().getAsTemplateDecl())),
                            As);
   }
   case Type::IncompleteArray: {
@@ -15157,8 +15161,9 @@ static QualType getCommonSugarTypeNode(const ASTContext &Ctx, const Type *X,
     if (KW != AY->getKeyword())
       return QualType();
 
-    TemplateDecl *CD = ::getCommonDecl(AX->getTypeConstraintConcept(),
-                                       AY->getTypeConstraintConcept());
+    TemplateDecl *CD =
+        ::getCommonDecl(AX->getTypeConstraintConcept().getAsTemplateDecl(),
+                        AY->getTypeConstraintConcept().getAsTemplateDecl());
     SmallVector<TemplateArgument, 8> As;
     if (CD &&
         getCommonTemplateArguments(Ctx, As, AX->getTypeConstraintArguments(),
@@ -15170,7 +15175,7 @@ static QualType getCommonSugarTypeNode(const ASTContext &Ctx, const Type *X,
     // Both auto types can't be dependent, otherwise they wouldn't have been
     // sugar. This implies they can't contain unexpanded packs either.
     return Ctx.getAutoType(Ctx.getQualifiedType(Underlying), AX->getKeyword(),
-                           /*IsDependent=*/false, /*IsPack=*/false, CD, As);
+                           /*IsDependent=*/false, /*IsPack=*/false, TemplateName(CD), As);
   }
   case Type::PackIndexing:
   case Type::Decltype:

@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ExtractAPI/DeclarationFragments.h"
+#include "clang/ExtractAPI/API.h"
 #include "clang/AST/ASTFwd.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
@@ -996,10 +997,9 @@ DeclarationFragmentsBuilder::getFragmentsForTemplateParameters(
     if (const auto *TemplateParam =
             dyn_cast<TemplateTypeParmDecl>(ParameterArray[i])) {
       if (TemplateParam->getTypeConstraint())
-        Fragments.append(TemplateParam->getTypeConstraint()
-                             ->getNamedConcept()
-                             ->getName()
-                             .str(),
+        Fragments.append(extractapi::getConceptNameSpelling(
+                             TemplateParam->getTypeConstraint()
+                                 ->getNamedConcept()),
                          DeclarationFragments::FragmentKind::TypeIdentifier);
       else if (TemplateParam->wasDeclaredWithTypename())
         Fragments.append("typename",

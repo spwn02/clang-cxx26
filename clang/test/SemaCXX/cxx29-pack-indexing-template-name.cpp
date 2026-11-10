@@ -45,12 +45,29 @@ struct NotAPack {
   template <typename U> using I = T...[0]<U>; // expected-error {{'T' does not refer to the name of a parameter pack}}
 };
 
-// Indexing a pack of concepts as a type-constraint is not implemented yet.
+// Indexing a pack of concepts as a type-constraint.
 template <class T> concept C1 = true;
+template <class T> concept C2 = __is_same(T, int);
 template <template <class> concept... CC>
 struct Concepts {
-  template <CC...[0] T> void f(T); // expected-error {{a pack-index-template-name as a type-constraint is not implemented yet}}
+  template <CC...[0] T> void f(T);
+  template <CC...[1] T> void g(T);
+  void h(CC...[1] auto);
 };
+Concepts<C1, C2> cs;
+void use_concepts() {
+  cs.f(1);
+  cs.f(1.0);
+  cs.g(1);
+  cs.g(1.0); // expected-error {{no matching member function for call to 'g'}}
+  cs.h(1);
+  cs.h(1.0); // expected-error {{no matching member function for call to 'h'}}
+}
+// expected-note@54 {{candidate template ignored: constraints not satisfied [with T = double]}}
+// expected-note@54 {{because 'double' does not satisfy 'C2'}}
+// expected-note@50 2{{because '__is_same(double, int)' evaluated to false}}
+// expected-note@55 {{candidate template ignored: constraints not satisfied [with auto:1 = double]}}
+// expected-note@55 {{because 'double' does not satisfy 'C2'}}
 
 namespace in_expression {
 // Parsing regression: a pack-index-template-name used as the head of an

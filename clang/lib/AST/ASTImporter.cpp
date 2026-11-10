@@ -1788,9 +1788,14 @@ ExpectedType ASTNodeImporter::VisitAutoType(const AutoType *T) {
   if (!ToDeducedTypeOrErr)
     return ToDeducedTypeOrErr.takeError();
 
-  ExpectedDecl ToTypeConstraintConcept = import(T->getTypeConstraintConcept());
-  if (!ToTypeConstraintConcept)
-    return ToTypeConstraintConcept.takeError();
+  TemplateName ToTypeConstraintConcept;
+  if (T->isConstrained()) {
+    Expected<TemplateName> ToConceptOrErr =
+        import(T->getTypeConstraintConcept());
+    if (!ToConceptOrErr)
+      return ToConceptOrErr.takeError();
+    ToTypeConstraintConcept = *ToConceptOrErr;
+  }
 
   SmallVector<TemplateArgument, 2> ToTemplateArgs;
   if (Error Err = ImportTemplateArguments(T->getTypeConstraintArguments(),
@@ -1799,8 +1804,7 @@ ExpectedType ASTNodeImporter::VisitAutoType(const AutoType *T) {
 
   return Importer.getToContext().getAutoType(
       *ToDeducedTypeOrErr, T->getKeyword(), /*IsDependent*/false,
-      /*IsPack=*/false, cast_or_null<ConceptDecl>(*ToTypeConstraintConcept),
-      ToTemplateArgs);
+      /*IsPack=*/false, ToTypeConstraintConcept, ToTemplateArgs);
 }
 
 ExpectedType ASTNodeImporter::VisitDeducedTemplateSpecializationType(

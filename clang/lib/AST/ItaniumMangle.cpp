@@ -542,7 +542,7 @@ private:
   void mangleUnqualifiedBlock(const BlockDecl *Block);
   void mangleTemplateParamDecl(const NamedDecl *Decl);
   void mangleTemplateParameterList(const TemplateParameterList *Params);
-  void mangleTypeConstraint(const TemplateDecl *Concept,
+  void mangleTypeConstraint(TemplateName Concept,
                             ArrayRef<TemplateArgument> Arguments);
   void mangleTypeConstraint(const TypeConstraint *Constraint);
   void mangleRequiresClause(const Expr *RequiresClause);
@@ -2128,14 +2128,26 @@ void CXXNameMangler::mangleTemplateParameterList(
 }
 
 void CXXNameMangler::mangleTypeConstraint(
-    const TemplateDecl *Concept, ArrayRef<TemplateArgument> Arguments) {
-  const DeclContext *DC = Context.getEffectiveDeclContext(Concept);
+    TemplateName Concept, ArrayRef<TemplateArgument> Arguments) {
+  // P3670R4: a substituted pack-index-template-name is its selected concept.
+  if (const auto *PI = Concept.getAsPackIndexingTemplate();
+      PI && PI->isFullySubstituted() && PI->getSelectedIndex())
+    Concept = PI->getSelectedTemplate();
+  const TemplateDecl *TD = Concept.getAsTemplateDecl();
+  if (!TD) {
+    // Still dependent: the provisional pack-index-template-name encoding.
+    manglePackIndexingTemplateName(Concept);
+    if (!Arguments.empty())
+      mangleTemplateArgs(TemplateName(), Arguments);
+    return;
+  }
+  const DeclContext *DC = Context.getEffectiveDeclContext(TD);
   if (!Arguments.empty())
-    mangleTemplateName(Concept, Arguments);
+    mangleTemplateName(TD, Arguments);
   else if (DC->isTranslationUnit() || isStdNamespace(DC))
-    mangleUnscopedName(Concept, DC, nullptr);
+    mangleUnscopedName(TD, DC, nullptr);
   else
-    mangleNestedName(Concept, DC, nullptr);
+    mangleNestedName(TD, DC, nullptr);
 }
 
 void CXXNameMangler::mangleTypeConstraint(const TypeConstraint *Constraint) {
@@ -6194,7 +6206,7 @@ recurse:
       // entity, meaning that references to enclosing template arguments don't
       // work.
       Out << "L_Z";
-      mangleTemplateName(CSE->getNamedConcept(), CSE->getTemplateArguments());
+      mangleTemplateName(CSE->getConceptDecl(), CSE->getTemplateArguments());
       Out << 'E';
       break;
     }

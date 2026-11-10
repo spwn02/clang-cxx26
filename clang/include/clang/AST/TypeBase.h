@@ -7228,10 +7228,10 @@ public:
 class AutoType : public DeducedType {
   friend class ASTContext; // ASTContext creates these
 
-  TemplateDecl *TypeConstraintConcept;
+  TemplateName TypeConstraintConcept;
 
   AutoType(QualType DeducedAsType, AutoTypeKeyword Keyword,
-           TypeDependence ExtraDependence, QualType Canon, TemplateDecl *CD,
+           TypeDependence ExtraDependence, QualType Canon, TemplateName CD,
            ArrayRef<TemplateArgument> TypeConstraintArgs);
 
 public:
@@ -7240,13 +7240,11 @@ public:
             AutoTypeBits.NumArgs};
   }
 
-  TemplateDecl *getTypeConstraintConcept() const {
+  TemplateName getTypeConstraintConcept() const {
     return TypeConstraintConcept;
   }
 
-  bool isConstrained() const {
-    return TypeConstraintConcept != nullptr;
-  }
+  bool isConstrained() const { return !TypeConstraintConcept.isNull(); }
 
   bool isDecltypeAuto() const {
     return getKeyword() == AutoTypeKeyword::DecltypeAuto;
@@ -7263,7 +7261,7 @@ public:
   void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context);
   static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
                       QualType Deduced, AutoTypeKeyword Keyword,
-                      bool IsDependent, TemplateDecl *CD,
+                      bool IsDependent, TemplateName CD,
                       ArrayRef<TemplateArgument> Arguments);
 
   static bool classof(const Type *T) {

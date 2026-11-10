@@ -791,8 +791,8 @@ handleCompoundConstraints(const Expr *Constraint,
   } else if (Constraint->getStmtClass() ==
              Stmt::ConceptSpecializationExprClass) {
     auto *Concept = dyn_cast<ConceptSpecializationExpr>(Constraint);
-    ConstraintInfo CI(getUSRForDecl(Concept->getNamedConcept()),
-                      Concept->getNamedConcept()->getNameAsString());
+    ConstraintInfo CI(getUSRForDecl(Concept->getConceptDecl()),
+                      Concept->getConceptDecl()->getNameAsString());
     CI.ConstraintExpr = exprToString(Concept);
     ConstraintInfos.push_back(CI);
   }
@@ -812,8 +812,8 @@ static void populateConstraints(TemplateInfo &I, const TemplateDecl *D) {
     if (const auto *ConstraintExpr =
             dyn_cast_or_null<ConceptSpecializationExpr>(
                 Constraint.ConstraintExpr)) {
-      ConstraintInfo CI(getUSRForDecl(ConstraintExpr->getNamedConcept()),
-                        ConstraintExpr->getNamedConcept()->getNameAsString());
+      ConstraintInfo CI(getUSRForDecl(ConstraintExpr->getConceptDecl()),
+                        ConstraintExpr->getConceptDecl()->getNameAsString());
       CI.ConstraintExpr = exprToString(ConstraintExpr);
       I.Constraints.push_back(std::move(CI));
     } else {

@@ -1332,18 +1332,11 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
                       ? AutoTypeKeyword::DecltypeAuto
                       : AutoTypeKeyword::Auto;
 
-    TemplateDecl *TypeConstraintConcept = nullptr;
+    TemplateName TypeConstraintConcept;
     llvm::SmallVector<TemplateArgument, 8> TemplateArgs;
     if (DS.isConstrainedAuto()) {
       if (TemplateIdAnnotation *TemplateId = DS.getRepAsTemplateId()) {
-        TypeConstraintConcept = cast_if_present<TemplateDecl>(
-            TemplateId->Template.get().getAsTemplateDecl());
-        if (!TypeConstraintConcept) {
-          // A pack-index-template-name as a type-constraint: not implemented.
-          S.Diag(TemplateId->TemplateNameLoc,
-                 diag::err_pack_indexing_type_constraint_unsupported);
-          declarator.setInvalidType(true);
-        }
+        TypeConstraintConcept = TemplateId->Template.get();
         TemplateArgumentListInfo TemplateArgsInfo;
         TemplateArgsInfo.setLAngleLoc(TemplateId->LAngleLoc);
         TemplateArgsInfo.setRAngleLoc(TemplateId->RAngleLoc);
@@ -3091,15 +3084,15 @@ InventTemplateParameter(TypeProcessingState &state, QualType T,
   // Create the TemplateTypeParmDecl here to retrieve the corresponding
   // template parameter type. Template parameters are temporarily added
   // to the TU until the associated TemplateDecl is created.
-  TemplateTypeParmDecl *InventedTemplateParam =
-      TemplateTypeParmDecl::Create(
-          S.Context, S.Context.getTranslationUnitDecl(),
-          /*KeyLoc=*/D.getDeclSpec().getTypeSpecTypeLoc(),
-          /*NameLoc=*/D.getIdentifierLoc(),
-          TemplateParameterDepth, AutoParameterPosition,
-          S.InventAbbreviatedTemplateParameterTypeName(
-              D.getIdentifier(), AutoParameterPosition), false,
-          IsParameterPack, /*HasTypeConstraint=*/Auto->isConstrained());
+  TemplateTypeParmDecl *InventedTemplateParam = TemplateTypeParmDecl::Create(
+      S.Context, S.Context.getTranslationUnitDecl(),
+      /*KeyLoc=*/D.getDeclSpec().getTypeSpecTypeLoc(),
+      /*NameLoc=*/D.getIdentifierLoc(), TemplateParameterDepth,
+      AutoParameterPosition,
+      S.InventAbbreviatedTemplateParameterTypeName(D.getIdentifier(),
+                                                   AutoParameterPosition),
+      false, IsParameterPack,
+      /*HasTypeConstraint=*/Auto->isConstrained());
   InventedTemplateParam->setImplicit();
   Info.TemplateParams.push_back(InventedTemplateParam);
 
@@ -3122,7 +3115,8 @@ InventTemplateParameter(TypeProcessingState &state, QualType T,
       if (!Invalid) {
         S.AttachTypeConstraint(
             AutoLoc.getNestedNameSpecifierLoc(), AutoLoc.getConceptNameInfo(),
-            AutoLoc.getNamedConcept(), /*FoundDecl=*/AutoLoc.getFoundDecl(),
+            AutoLoc.getNamedConcept(),
+            /*FoundDecl=*/AutoLoc.getFoundDecl(),
             AutoLoc.hasExplicitTemplateArgs() ? &TAL : nullptr,
             InventedTemplateParam, D.getEllipsisLoc());
       }
@@ -3152,20 +3146,15 @@ InventTemplateParameter(TypeProcessingState &state, QualType T,
         TemplateName TN = TemplateId->Template.get();
         UsingShadowDecl *USD = TN.getAsUsingShadowDecl();
         TemplateDecl *CD = TN.getAsTemplateDecl();
-        if (!CD) {
-          S.Diag(TemplateId->TemplateNameLoc,
-                 diag::err_pack_indexing_type_constraint_unsupported);
-          Invalid = true;
-        } else {
-          S.AttachTypeConstraint(
-              D.getDeclSpec().getTypeSpecScope().getWithLocInContext(S.Context),
-              DeclarationNameInfo(DeclarationName(TemplateId->Name),
-                                  TemplateId->TemplateNameLoc),
-              CD,
-              /*FoundDecl=*/USD ? cast<NamedDecl>(USD) : CD,
-              TemplateId->LAngleLoc.isValid() ? &TemplateArgsInfo : nullptr,
-              InventedTemplateParam, D.getEllipsisLoc());
-        }
+        S.AttachTypeConstraint(
+            D.getDeclSpec().getTypeSpecScope().getWithLocInContext(S.Context),
+            DeclarationNameInfo(DeclarationName(TemplateId->Name),
+                                TemplateId->TemplateNameLoc),
+            TN,
+            /*FoundDecl=*/
+            USD ? cast<NamedDecl>(USD) : cast_if_present<NamedDecl>(CD),
+            TemplateId->LAngleLoc.isValid() ? &TemplateArgsInfo : nullptr,
+            InventedTemplateParam, D.getEllipsisLoc());
       }
     }
   }
@@ -6213,9 +6202,10 @@ namespace {
                                            TemplateId->NumArgs);
         SemaRef.translateTemplateArguments(TemplateArgsPtr, TemplateArgsInfo);
       }
-      DeclarationNameInfo DNI = DeclarationNameInfo(
-          TL.getTypePtr()->getTypeConstraintConcept()->getDeclName(),
-          TemplateId->TemplateNameLoc);
+      DeclarationNameInfo DNI =
+          Context.getNameForTemplate(
+              TL.getTypePtr()->getTypeConstraintConcept(),
+              TemplateId->TemplateNameLoc);
 
       NamedDecl *FoundDecl;
       if (auto TN = TemplateId->Template.get();
