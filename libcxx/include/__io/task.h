@@ -82,7 +82,7 @@ _LIBCPP_HIDE_FROM_ABI inline void __frame_deallocate(void* __p, size_t __n) noex
     ::operator delete(__p);
 }
 
-template <class _Tp>
+template <class _Tp = void>
 class task;
 
 // Result storage of the promise; the value of a coroutine that co_returns a T.
