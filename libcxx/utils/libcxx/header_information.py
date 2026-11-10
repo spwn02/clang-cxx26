@@ -174,6 +174,7 @@ lit_header_restrictions = {
     "io_context": "// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library",
     "io_timer": "// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library",
     "io_signal": "// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library",
+    "net": "// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library",
     # Removed in C++20: including them is an error since then.
     "ccomplex": "// UNSUPPORTED: c++20, c++23, c++26, c++29",
     "ciso646": "// UNSUPPORTED: c++20, c++23, c++26, c++29",

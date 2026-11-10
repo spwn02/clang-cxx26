@@ -814,6 +814,7 @@ mutex ratio
 mutex tuple
 mutex typeinfo
 mutex version
+net version
 new version
 numbers version
 numeric cctype

@@ -1,0 +1,73 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+#ifndef _LIBCPP_NET
+#define _LIBCPP_NET
+
+/*
+    net synopsis
+
+    Stage Two of the networking series (platform I/O): addresses, endpoints, TCP sockets and acceptors, and Unix domain
+    stream sockets. Experimental: the header is available in C++29 mode with -fexperimental-library only, on a platform
+    that has a backend (Linux: epoll) and the BSD socket API, and needs thread support; otherwise it is empty.
+    Provisional specification: P4100R1 [8.9] and the Corosio library (no WG21 paper yet). The names are in std::io so
+    that the sockets sit next to the stream concepts of <io_stream>.
+
+namespace std::io {
+  enum class family { v4, v6 };
+  enum shutdown_type { shutdown_receive, shutdown_send, shutdown_both };
+
+  class ipv4_address;       // value type; make_ipv4_address(string_view) -> io_result<ipv4_address>
+  class ipv6_address;       // value type with a zone; make_ipv6_address(string_view)
+  class ip_address;         // either of the two; make_ip_address(string_view)
+  class endpoint;           // ip_address and port; make_endpoint(string_view)
+  class local_endpoint;     // a Unix domain socket path; make_local_endpoint(string_view)
+
+  namespace socket_option {
+    reuse_address, reuse_port, no_delay, keep_alive, v6_only, receive_buffer_size, send_buffer_size, linger
+  }
+
+  class tcp_socket;         // satisfies Stream; connect, read_some, write_some, shutdown, cancel, close, options
+  class tcp_acceptor;       // open, bind, listen, accept, cancel, close
+  class local_stream_socket;
+  class local_stream_acceptor;
+}
+*/
+
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
+
+#  include <version>
+
+#  include <__io/support/config.h>
+
+#  if _LIBCPP_HAS_IO_SOCKETS
+
+#    include <__net/endpoint.h>
+#    include <__net/family.h>
+#    include <__net/ip_address.h>
+#    include <__net/ipv4_address.h>
+#    include <__net/ipv6_address.h>
+#    include <__net/local_endpoint.h>
+#    include <__net/local_stream_acceptor.h>
+#    include <__net/local_stream_socket.h>
+#    include <__net/socket_option.h>
+#    include <__net/tcp_acceptor.h>
+#    include <__net/tcp_socket.h>
+
+#  endif // _LIBCPP_HAS_IO_SOCKETS
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+
+#endif // _LIBCPP_NET

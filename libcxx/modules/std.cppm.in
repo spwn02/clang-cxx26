@@ -99,6 +99,7 @@ module;
 #include <memory_resource>
 #include <meta>
 #include <mutex>
+#include <net>
 #include <new>
 #include <numbers>
 #include <numeric>

@@ -3823,6 +3823,64 @@ module std [system] {
     export *
   }
 
+  module net {
+    module endpoint {
+      header "__net/endpoint.h"
+      export *
+    }
+    module family {
+      header "__net/family.h"
+      export *
+    }
+    module ip_address {
+      header "__net/ip_address.h"
+      export *
+    }
+    module ipv4_address {
+      header "__net/ipv4_address.h"
+      export *
+    }
+    module ipv6_address {
+      header "__net/ipv6_address.h"
+      export *
+    }
+    module local_endpoint {
+      header "__net/local_endpoint.h"
+      export *
+    }
+    module local_stream_acceptor {
+      header "__net/local_stream_acceptor.h"
+      export *
+    }
+    module local_stream_socket {
+      header "__net/local_stream_socket.h"
+      export *
+    }
+    module socket_core {
+      header "__net/socket_core.h"
+      export *
+    }
+    module socket_option {
+      header "__net/socket_option.h"
+      export *
+    }
+    module support_posix_socket {
+      header "__net/support/posix_socket.h"
+      export *
+    }
+    module tcp_acceptor {
+      header "__net/tcp_acceptor.h"
+      export *
+    }
+    module tcp_socket {
+      header "__net/tcp_socket.h"
+      export *
+    }
+
+    header "net"
+    export *
+  }
+
   module new {
     header "new"
     module align_val_t {

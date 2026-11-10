@@ -892,6 +892,7 @@ mutex limits
 mutex ratio
 mutex tuple
 mutex version
+net version
 new version
 numbers version
 numeric cctype

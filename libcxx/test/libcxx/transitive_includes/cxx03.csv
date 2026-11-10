@@ -1502,6 +1502,7 @@ mutex typeinfo
 mutex utility
 mutex variant
 mutex version
+net version
 new cstddef
 new cstdint
 new cstdlib
