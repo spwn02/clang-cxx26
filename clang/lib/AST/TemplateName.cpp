@@ -624,8 +624,10 @@ void TemplateName::print(raw_ostream &OS, const PrintingPolicy &Policy,
                  getAsSubstTemplateTemplateParm()) {
     subst->getReplacement().print(OS, Policy, Qual);
   } else if (PackIndexingTemplateStorage *PI = getAsPackIndexingTemplate()) {
+    // Like PackIndexingType: a selected pack element prints as itself, so an
+    // instantiated declaration round-trips (the pack is not in scope there).
     if (TemplateName Selected = PI->getSelectedTemplate();
-        !Selected.isNull() && Policy.PrintAsCanonical) {
+        !Selected.isNull()) {
       Selected.print(OS, Policy, Qual);
       return;
     }

@@ -450,7 +450,13 @@ public:
         else if (auto *TD = TST->getTemplateName().getAsTemplateDecl())
           // fallback: the (un-specialized) declaration from primary template.
           Outer.add(TD->getTemplatedDecl(), Flags | Rel::TemplatePattern);
-        else if (Outer.Resolver)
+        // P3670R4: TT...[N]<args> refers to the template template parameter
+        // pack that was written.
+        else if (const auto *PI =
+                     TST->getTemplateName().getAsPackIndexingTemplate()) {
+          if (TemplateDecl *Pack = PI->getPattern().getAsTemplateDecl())
+            Outer.add(Pack, Flags);
+        } else if (Outer.Resolver)
           for (const NamedDecl *ND :
                Outer.Resolver->resolveTemplateSpecializationType(TST))
             Outer.add(ND, Flags);

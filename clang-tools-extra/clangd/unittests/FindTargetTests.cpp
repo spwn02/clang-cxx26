@@ -314,6 +314,18 @@ TEST_F(TargetDeclTest, BaseSpecifier) {
   EXPECT_DECLS("RecordTypeLoc", "struct X");
 }
 
+TEST_F(TargetDeclTest, PackIndexedTemplateName) {
+  // P3670R4: T...[N]<args>; used to crash the heuristic resolver.
+  Flags.push_back("-std=c++2d");
+  Code = R"cpp(
+    template <typename> struct A {};
+    template <template <typename> class... TT>
+    using Sel = [[TT]]...[0]<int>;
+  )cpp";
+  EXPECT_DECLS("TemplateSpecializationTypeLoc",
+               {"template <typename> class ...TT"});
+}
+
 TEST_F(TargetDeclTest, ConstructorInitList) {
   Code = R"cpp(
     struct X {

@@ -22,8 +22,8 @@ using DumpSubstituted = DumpDependent<A, B>::type;
 
 // CHECK-LABEL: Dumping DumpSubstituted:
 // CHECK:      TypeAliasDecl {{.*}} DumpSubstituted 'DumpDependent<A, B>::type':'B<int>'
-// CHECK:      TemplateSpecializationType {{.*}} 'TT...[1]<int>' sugar
-// CHECK-NEXT: |-name: 'TT...[1]':'B' pack_indexing fully_substituted index 1
+// CHECK:      TemplateSpecializationType {{.*}} 'B<int>' sugar
+// CHECK-NEXT: |-name: 'B' pack_indexing fully_substituted index 1
 
 template <class T> concept C = true;
 

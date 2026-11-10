@@ -408,11 +408,13 @@ HeuristicResolverImpl::resolveDependentNameType(const DependentNameType *DNT) {
 std::vector<const NamedDecl *>
 HeuristicResolverImpl::resolveTemplateSpecializationType(
     const TemplateSpecializationType *TST) {
-  const DependentTemplateStorage &DTN =
-      *TST->getTemplateName().getAsDependentTemplateName();
+  const DependentTemplateStorage *DTN =
+      TST->getTemplateName().getAsDependentTemplateName();
+  if (!DTN) // e.g. a pack-index-template-name (P3670R4)
+    return {};
   return resolveDependentMember(
-      resolveNestedNameSpecifierToType(DTN.getQualifier()),
-      DTN.getName().getIdentifier(), TemplateFilter);
+      resolveNestedNameSpecifierToType(DTN->getQualifier()),
+      DTN->getName().getIdentifier(), TemplateFilter);
 }
 
 std::vector<const NamedDecl *>
