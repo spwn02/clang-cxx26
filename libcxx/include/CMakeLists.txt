@@ -586,10 +586,14 @@ set(files
   __io_buffer/make_buffer.h
   __io_buffer/string_dynamic_buffer.h
   __io_buffer/vector_dynamic_buffer.h
+  __io_context/blocking_service.h
   __io_context/io_context.h
   __io_context/op.h
   __io_context/reactor.h
   __io_context/reactor_wait.h
+  __io_file/file.h
+  __io_file/file_base.h
+  __io_file/support/posix_file.h
   __io_signal/signal_set.h
   __io_stream/any_buffer_sink.h
   __io_stream/any_buffer_source.h
@@ -1254,6 +1258,7 @@ set(files
   io_bridge
   io_buffer
   io_context
+  io_file
   io_signal
   io_stream
   io_timer

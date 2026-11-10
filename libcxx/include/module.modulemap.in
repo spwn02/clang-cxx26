@@ -3102,12 +3102,36 @@ module std [system] {
       header "__io_context/reactor.h"
       export *
     }
+    module blocking_service {
+      header "__io_context/blocking_service.h"
+      export *
+    }
     module reactor_wait {
       header "__io_context/reactor_wait.h"
       export *
     }
 
     header "io_context"
+    export *
+  }
+
+  module io_file {
+    module file {
+      header "__io_file/file.h"
+      export *
+    }
+    module file_base {
+      header "__io_file/file_base.h"
+      export *
+    }
+    module support {
+      module posix_file {
+        header "__io_file/support/posix_file.h"
+        export *
+      }
+    }
+
+    header "io_file"
     export *
   }
 

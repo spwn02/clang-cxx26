@@ -172,6 +172,7 @@ lit_header_restrictions = {
     "io_stream": "// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library",
     "io_bridge": "// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library",
     "io_context": "// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library",
+    "io_file": "// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library",
     "io_timer": "// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library",
     "io_signal": "// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library",
     "net": "// ADDITIONAL_COMPILE_FLAGS: -fexperimental-library",

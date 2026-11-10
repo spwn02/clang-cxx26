@@ -1,0 +1,71 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_IO_FILE
+#define _LIBCPP_IO_FILE
+
+/*
+    io_file synopsis
+
+    Stage Two of the networking series (platform I/O). Experimental: the header is available in C++29 mode with
+    -fexperimental-library only, on a platform that has a backend (Linux: epoll, POSIX file I/O), and needs thread
+    support; otherwise it is empty. Provisional specification: P4100R1 [8.8] and the Corosio library (no WG21 paper yet).
+
+namespace std::io {
+  struct file_base {
+    enum flags : unsigned { read_only = 1, write_only = 2, read_write = 3, append = 4, create = 8, exclusive = 16,
+                            truncate = 32, sync_all_on_write = 64 };
+    enum seek_basis { seek_set, seek_cur, seek_end };
+  };
+  using open_flags = file_base::flags;
+
+  class random_access_file : public file_base {                 // pread/pwrite on helper threads of the io_context
+  public:
+    explicit random_access_file(execution_context&);            // and with an executor
+    error_code open(string_view path, flags = read_only) noexcept;    // also a std::filesystem::path
+    void close() noexcept;  bool is_open() const noexcept;  void cancel() noexcept;
+    int native_handle() const noexcept;
+    io_result<uint64_t> size() const noexcept;
+    error_code resize(uint64_t) noexcept;  error_code sync_data() noexcept;  error_code sync_all() noexcept;
+    io_result<int> release() noexcept;  error_code assign(int) noexcept;
+    IoAwaitable-of-io_result<size_t> read_some_at(uint64_t offset, MutableBufferSequence);
+    IoAwaitable-of-io_result<size_t> write_some_at(uint64_t offset, ConstBufferSequence);
+  };
+
+  class stream_file : public file_base {                        // satisfies Stream; converts to any_stream
+    // as above, without read_some_at/write_some_at, and
+    IoAwaitable-of-io_result<size_t> read_some(MutableBufferSequence);   // error::eof at the end of the file
+    IoAwaitable-of-io_result<size_t> write_some(ConstBufferSequence);
+    io_result<uint64_t> seek(int64_t offset, seek_basis = seek_set) noexcept;
+  };
+}
+*/
+
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
+
+#  include <version>
+
+#  include <__io/support/config.h>
+
+#  if _LIBCPP_HAS_IO_FILES
+
+#    include <__io_file/file.h>
+
+#  endif // _LIBCPP_HAS_IO_FILES
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+
+#endif // _LIBCPP_IO_FILE

@@ -60,6 +60,7 @@ set(LIBCXX_MODULE_STD_SOURCES
   std/io_bridge.inc
   std/io_buffer.inc
   std/io_context.inc
+  std/io_file.inc
   std/io_signal.inc
   std/io_stream.inc
   std/io_timer.inc

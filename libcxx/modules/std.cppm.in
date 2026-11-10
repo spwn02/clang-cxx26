@@ -79,6 +79,7 @@ module;
 #include <io_bridge>
 #include <io_buffer>
 #include <io_context>
+#include <io_file>
 #include <io_signal>
 #include <io_stream>
 #include <io_timer>

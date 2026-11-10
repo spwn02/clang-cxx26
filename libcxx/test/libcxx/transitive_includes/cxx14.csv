@@ -1025,6 +1025,7 @@ io version
 io_bridge version
 io_buffer version
 io_context version
+io_file version
 io_signal version
 io_stream version
 io_timer version

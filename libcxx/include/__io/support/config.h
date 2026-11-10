@@ -39,6 +39,15 @@
 #  define _LIBCPP_HAS_IO_SOCKETS 0
 #endif
 
+// POSIX file I/O (<fcntl.h>, <sys/uio.h>, <sys/stat.h>) on top of a backend: <io_file>. Regular files cannot be waited for
+// with epoll, so the operations run on helper threads. The platform specifics are in libcxx/include/__io_file/support/.
+#if _LIBCPP_HAS_IO_EPOLL && __has_include(<fcntl.h>) && __has_include(<sys/uio.h>) && __has_include(<sys/stat.h>) && \
+    __has_include(<unistd.h>)
+#  define _LIBCPP_HAS_IO_FILES 1
+#else
+#  define _LIBCPP_HAS_IO_FILES 0
+#endif
+
 // sigaction() plus a self-pipe. Defined together with a backend that is also available on a POSIX system.
 #define _LIBCPP_HAS_IO_POSIX_SIGNALS _LIBCPP_HAS_IO_EPOLL
 
