@@ -9,7 +9,7 @@
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23, c++26
 // UNSUPPORTED: no-threads
 // ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
-// REQUIRES: linux
+// REQUIRES: linux || darwin || freebsd
 
 // The documented usage pattern of the library (P4100R1 section 13): coroutines taking any_stream&, an echo server and
 // clients on one io_context. Also checks that io::task<> means task<void>.

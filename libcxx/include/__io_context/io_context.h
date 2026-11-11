@@ -23,7 +23,7 @@
 #include <__mutex/mutex.h>
 #include <__mutex/unique_lock.h>
 
-#if _LIBCPP_HAS_IO_EPOLL
+#if _LIBCPP_HAS_IO_REACTOR
 #  include <__io_context/reactor.h>
 #endif
 
@@ -31,7 +31,7 @@
 #  pragma GCC system_header
 #endif
 
-#if _LIBCPP_HAS_IO_EPOLL
+#if _LIBCPP_HAS_IO_REACTOR
 
 _LIBCPP_PUSH_MACROS
 #  include <__undef_macros>
@@ -50,7 +50,7 @@ _LIBCPP_HIDE_FROM_ABI inline const io_context*& __current_io_context() noexcept 
 
 // P4100R1 [8.8]; provisional specification: Corosio. An event-loop ExecutionContext: the threads that call run() resume
 // the posted continuations and drive the platform I/O of the context (the reactor, a service of the context that owns
-// the epoll instance, the timer queue and the signal pipe).
+// the epoll or kqueue instance, the timer queue and the signal pipe).
 //
 // run() returns when there is no work left: no queued continuation, no continuation being resumed, no pending operation
 // (timer wait, descriptor wait, signal wait) and no outstanding on_work_started() of an executor. Then the context is
@@ -283,6 +283,6 @@ _LIBCPP_END_NAMESPACE_STD
 
 _LIBCPP_POP_MACROS
 
-#endif // _LIBCPP_HAS_IO_EPOLL
+#endif // _LIBCPP_HAS_IO_REACTOR
 
 #endif // _LIBCPP___IO_CONTEXT_IO_CONTEXT_H

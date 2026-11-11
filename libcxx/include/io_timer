@@ -14,8 +14,8 @@
     io_timer synopsis
 
     Stage Two of the networking series (platform I/O). Experimental: the header is available in C++29 mode with
-    -fexperimental-library only, on a platform that has a backend (Linux: epoll), and needs thread support; otherwise it
-    is empty. Provisional specification: P4100R1 [8.8] and the Corosio library (no WG21 paper yet).
+    -fexperimental-library only, on a platform that has a backend (Linux: epoll, macOS and FreeBSD: kqueue), and needs
+    thread support; otherwise it is empty. Provisional specification: P4100R1 [8.8] and the Corosio library (no WG21 paper yet).
 
 namespace std::io {
   class timer {
@@ -53,11 +53,11 @@ namespace std::io {
 
 #  include <__io/support/config.h>
 
-#  if _LIBCPP_HAS_IO_EPOLL
+#  if _LIBCPP_HAS_IO_REACTOR
 
 #    include <__io_timer/timer.h>
 
-#  endif // _LIBCPP_HAS_IO_EPOLL
+#  endif // _LIBCPP_HAS_IO_REACTOR
 
 #endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 

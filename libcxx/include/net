@@ -13,8 +13,9 @@
     net synopsis
 
     Stage Two of the networking series (platform I/O): addresses, endpoints, TCP sockets and acceptors, Unix domain
-    stream sockets, the DNS resolver, UDP sockets and Unix domain datagram sockets. Experimental: the header is available in C++29 mode with -fexperimental-library only, on a platform
-    that has a backend (Linux: epoll) and the BSD socket API, and needs thread support; otherwise it is empty.
+    stream sockets, the DNS resolver, UDP sockets and Unix domain datagram sockets. Experimental: the header is
+    available in C++29 mode with -fexperimental-library only, on a platform that has a backend (Linux: epoll, macOS and
+    FreeBSD: kqueue) and the BSD socket API, and needs thread support; otherwise it is empty.
     Provisional specification: P4100R1 [8.9] and the Corosio library (no WG21 paper yet). The names are in std::io so
     that the sockets sit next to the stream concepts of <io_stream>.
 

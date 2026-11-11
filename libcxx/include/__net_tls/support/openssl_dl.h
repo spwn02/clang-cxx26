@@ -93,32 +93,32 @@ struct __ossl_store;
 struct __ossl_vparam;
 
 // Constants, from <openssl/ssl.h>, <openssl/bio.h>, <openssl/tls1.h> and <openssl/x509_vfy.h> of OpenSSL 3.
-inline constexpr int __ossl_ssl_verify_none                    = 0x00;
-inline constexpr int __ossl_ssl_verify_peer                    = 0x01;
-inline constexpr int __ossl_ssl_verify_fail_if_no_peer_cert    = 0x02;
-inline constexpr int __ossl_ssl_error_none                     = 0;
-inline constexpr int __ossl_ssl_error_ssl                      = 1;
-inline constexpr int __ossl_ssl_error_want_read                = 2;
-inline constexpr int __ossl_ssl_error_want_write               = 3;
-inline constexpr int __ossl_ssl_error_syscall                  = 5;
-inline constexpr int __ossl_ssl_error_zero_return              = 6;
-inline constexpr int __ossl_ctrl_extra_chain_cert              = 14;
-inline constexpr int __ossl_ctrl_mode                          = 33;
-inline constexpr int __ossl_ctrl_set_tlsext_hostname           = 55;
-inline constexpr int __ossl_ctrl_chain_cert                    = 89;
-inline constexpr int __ossl_ctrl_set_min_proto_version         = 123;
-inline constexpr int __ossl_ctrl_set_max_proto_version         = 124;
-inline constexpr long __ossl_mode_enable_partial_write         = 0x00000001L;
-inline constexpr long __ossl_mode_accept_moving_write_buffer   = 0x00000002L;
-inline constexpr int __ossl_tlsext_nametype_host_name          = 0;
-inline constexpr int __ossl_tls1_2_version                     = 0x0303;
-inline constexpr int __ossl_tls1_3_version                     = 0x0304;
-inline constexpr int __ossl_ssl_received_shutdown              = 2;
-inline constexpr int __ossl_bio_ctrl_pending                   = 10;
-inline constexpr int __ossl_tlsext_err_ok                      = 0;
-inline constexpr int __ossl_tlsext_err_alert_fatal             = 2;
-inline constexpr int __ossl_npn_negotiated                     = 1;
-inline constexpr long __ossl_x509_v_ok                         = 0;
+inline constexpr int __ossl_ssl_verify_none                  = 0x00;
+inline constexpr int __ossl_ssl_verify_peer                  = 0x01;
+inline constexpr int __ossl_ssl_verify_fail_if_no_peer_cert  = 0x02;
+inline constexpr int __ossl_ssl_error_none                   = 0;
+inline constexpr int __ossl_ssl_error_ssl                    = 1;
+inline constexpr int __ossl_ssl_error_want_read              = 2;
+inline constexpr int __ossl_ssl_error_want_write             = 3;
+inline constexpr int __ossl_ssl_error_syscall                = 5;
+inline constexpr int __ossl_ssl_error_zero_return            = 6;
+inline constexpr int __ossl_ctrl_extra_chain_cert            = 14;
+inline constexpr int __ossl_ctrl_mode                        = 33;
+inline constexpr int __ossl_ctrl_set_tlsext_hostname         = 55;
+inline constexpr int __ossl_ctrl_chain_cert                  = 89;
+inline constexpr int __ossl_ctrl_set_min_proto_version       = 123;
+inline constexpr int __ossl_ctrl_set_max_proto_version       = 124;
+inline constexpr long __ossl_mode_enable_partial_write       = 0x00000001L;
+inline constexpr long __ossl_mode_accept_moving_write_buffer = 0x00000002L;
+inline constexpr int __ossl_tlsext_nametype_host_name        = 0;
+inline constexpr int __ossl_tls1_2_version                   = 0x0303;
+inline constexpr int __ossl_tls1_3_version                   = 0x0304;
+inline constexpr int __ossl_ssl_received_shutdown            = 2;
+inline constexpr int __ossl_bio_ctrl_pending                 = 10;
+inline constexpr int __ossl_tlsext_err_ok                    = 0;
+inline constexpr int __ossl_tlsext_err_alert_fatal           = 2;
+inline constexpr int __ossl_npn_negotiated                   = 1;
+inline constexpr long __ossl_x509_v_ok                       = 0;
 
 using __ossl_alpn_select_cb_t _LIBCPP_NODEBUG =
     int (*)(__ossl_ssl*, const unsigned char**, unsigned char*, const unsigned char*, unsigned int, void*);
@@ -193,23 +193,63 @@ _LIBCPP_HIDE_FROM_ABI bool __ossl_resolve(void* __ssl, void* __crypto, const cha
   return __p != nullptr;
 }
 
-_LIBCPP_HIDE_FROM_ABI inline void* __ossl_open(const char* __first, const char* __second) noexcept {
-  void* __h = ::dlopen(__first, RTLD_NOW | RTLD_LOCAL);
-  if (!__h)
-    __h = ::dlopen(__second, RTLD_NOW | RTLD_LOCAL);
-  return __h;
+// Opens the first of the candidates that loads. The candidates are tried in order.
+template <size_t _Np>
+_LIBCPP_HIDE_FROM_ABI void* __ossl_open(const char* const (&__names)[_Np]) noexcept {
+  for (const char* __n : __names)
+    if (void* __h = ::dlopen(__n, RTLD_NOW | RTLD_LOCAL))
+      return __h;
+  return nullptr;
 }
+
+// Where the libraries are looked for. Linux: the dynamic loader's search path (libssl.so.3 first, the unversioned name
+// of a development package second). macOS: the system's libssl.dylib is LibreSSL (and on recent releases a stub that
+// aborts the process when it is loaded), so the bare name is never tried; OpenSSL 3 is looked for by its versioned name
+// through the loader's search path, then in the Homebrew prefixes of Apple silicon and Intel (the keg of openssl@3 and
+// the linked lib directory) and MacPorts.
+#  ifdef __APPLE__
+inline constexpr const char* __ossl_ssl_names[] = {
+    "libssl.3.dylib",
+    "/opt/homebrew/opt/openssl@3/lib/libssl.3.dylib",
+    "/opt/homebrew/lib/libssl.3.dylib",
+    "/usr/local/opt/openssl@3/lib/libssl.3.dylib",
+    "/usr/local/lib/libssl.3.dylib",
+    "/opt/local/lib/libssl.3.dylib"};
+inline constexpr const char* __ossl_crypto_names[] = {
+    "libcrypto.3.dylib",
+    "/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib",
+    "/opt/homebrew/lib/libcrypto.3.dylib",
+    "/usr/local/opt/openssl@3/lib/libcrypto.3.dylib",
+    "/usr/local/lib/libcrypto.3.dylib",
+    "/opt/local/lib/libcrypto.3.dylib"};
+#  elif defined(__FreeBSD__)
+inline constexpr const char* __ossl_ssl_names[] = {
+    "libssl.so.30", "libssl.so.3", "libssl.so", "/usr/local/lib/libssl.so.3"};
+inline constexpr const char* __ossl_crypto_names[] = {
+    "libcrypto.so.30", "libcrypto.so.3", "libcrypto.so", "/usr/local/lib/libcrypto.so.3"};
+#  else
+inline constexpr const char* __ossl_ssl_names[]    = {"libssl.so.3", "libssl.so"};
+inline constexpr const char* __ossl_crypto_names[] = {"libcrypto.so.3", "libcrypto.so"};
+#  endif
 
 _LIBCPP_HIDE_FROM_ABI inline const __ossl_api* __ossl_load() noexcept {
   static __ossl_api __api;
-  void* __ssl = io::__ossl_open("libssl.so.3", "libssl.so");
+  void* __ssl = io::__ossl_open(__ossl_ssl_names);
   if (!__ssl)
     return nullptr;
   // libssl depends on libcrypto, so its handle resolves the libcrypto symbols as well; the explicit libcrypto handle is
   // consulted when the dependency is not visible through the handle.
-  void* __crypto = io::__ossl_open("libcrypto.so.3", "libcrypto.so");
-  bool __ok      = true;
-  auto __r       = [&](const char* __n, auto*& __f) { __ok = io::__ossl_resolve(__ssl, __crypto, __n, __f) && __ok; };
+  void* __crypto = io::__ossl_open(__ossl_crypto_names);
+#  ifndef __linux__
+  // Refuse anything that is not OpenSSL 3 (LibreSSL reports 0x20000000 or has no such function; OpenSSL 1.1 reports
+  // 0x1010...): the engine uses the OpenSSL 3 entry points and their semantics. Not checked on Linux, where the
+  // library names above already select OpenSSL 3 (a missing entry point fails the load below).
+  unsigned long (*__version_num)() = nullptr;
+  if (!io::__ossl_resolve(__ssl, __crypto, "OpenSSL_version_num", __version_num) || __version_num() < 0x30000000UL)
+    return nullptr;
+#  endif
+  bool __ok = true;
+  auto __r  = [&](const char* __n, auto*& __f) { __ok = io::__ossl_resolve(__ssl, __crypto, __n, __f) && __ok; };
   __r("TLS_method", __api.__TLS_method);
   __r("SSL_CTX_new", __api.__SSL_CTX_new);
   __r("SSL_CTX_free", __api.__SSL_CTX_free);

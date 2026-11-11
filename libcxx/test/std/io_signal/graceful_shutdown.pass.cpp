@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23, c++26
 // UNSUPPORTED: no-threads
-// REQUIRES: linux
+// REQUIRES: linux || darwin || freebsd
 // ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
 
 // <io_signal>

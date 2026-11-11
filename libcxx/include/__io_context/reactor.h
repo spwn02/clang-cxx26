@@ -28,7 +28,7 @@
 #include <__vector/vector.h>
 #include <unordered_map>
 
-#if _LIBCPP_HAS_IO_EPOLL
+#if _LIBCPP_HAS_IO_REACTOR
 #  include <__io/support/poller.h>
 #  include <__io_context/op.h>
 #  include <__io_stream/error.h>
@@ -38,7 +38,7 @@
 #  pragma GCC system_header
 #endif
 
-#if _LIBCPP_HAS_IO_EPOLL
+#if _LIBCPP_HAS_IO_REACTOR
 
 _LIBCPP_PUSH_MACROS
 #  include <__undef_macros>
@@ -87,7 +87,7 @@ struct __timer_op : __op_base {
 
 // The reactor: the part of an io_context that talks to the operating system. It is an execution_context service,
 // created on first use (io_context creates it eagerly), and it owns
-//   - the poller (epoll on Linux), with the wake-up mechanism,
+//   - the poller (epoll on Linux, kqueue on macOS and FreeBSD), with the wake-up mechanism,
 //   - the file descriptor waits (one slot per descriptor with the list of its pending waits),
 //   - the timer queue (a binary heap of the pending timer waits),
 //   - the persistent event sources of other services (the signal pipe).
@@ -482,6 +482,6 @@ _LIBCPP_END_NAMESPACE_STD
 
 _LIBCPP_POP_MACROS
 
-#endif // _LIBCPP_HAS_IO_EPOLL
+#endif // _LIBCPP_HAS_IO_REACTOR
 
 #endif // _LIBCPP___IO_CONTEXT_REACTOR_H

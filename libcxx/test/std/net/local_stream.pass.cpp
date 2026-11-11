@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23, c++26
 // UNSUPPORTED: no-threads
-// REQUIRES: linux
+// REQUIRES: linux || darwin || freebsd
 // ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
 
 // <net>
@@ -113,7 +113,16 @@ static void test_abstract_echo() {
   using namespace std::string_literals;
   auto [ec, ep] = io::make_local_endpoint("\0clang-cxx26-net-test-"s + std::to_string(::getpid()));
   assert(!ec && ep.is_abstract());
+#if defined(__linux__)
   run_echo(ep, false);
+#else
+  // The abstract namespace is a Linux feature: elsewhere binding or connecting to such a name is an error
+  // (address_family_not_supported), checked at the platform layer.
+  io::io_context ctx;
+  io::local_stream_acceptor acc(ctx);
+  assert(!acc.open());
+  assert(acc.bind(ep) == std::errc::address_family_not_supported);
+#endif
 }
 
 // A path that does not exist, a stale socket file, unlink_existing

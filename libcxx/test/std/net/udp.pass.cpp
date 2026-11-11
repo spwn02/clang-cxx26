@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23, c++26
 // UNSUPPORTED: no-threads
-// REQUIRES: linux
+// REQUIRES: linux || darwin || freebsd
 // ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
 
 // <net>
@@ -140,7 +140,11 @@ io::task<void> empty_and_large(io::udp_socket& a, io::udp_socket& b, bool* done)
   assert(!rec && rn == 0);
   assert(from == a.local_endpoint());
   // A large datagram: scatter on both sides.
+#if defined(__linux__)
   std::string big(60000, '\0');
+#else
+  std::string big(8000, '\0'); // macOS and FreeBSD: net.inet.udp.maxdgram is 9216
+#endif
   for (std::size_t i = 0; i != big.size(); ++i)
     big[i] = static_cast<char>('a' + i % 23);
   auto [bec, bn] = co_await a.send_to(cbuf(big), dest);

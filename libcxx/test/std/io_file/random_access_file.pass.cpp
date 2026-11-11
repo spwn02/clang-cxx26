@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23, c++26
 // UNSUPPORTED: no-threads
-// REQUIRES: linux
+// REQUIRES: linux || darwin || freebsd
 // ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
 
 // <io_file>
@@ -154,13 +154,18 @@ int main(int, char**) {
       assert(e3 == std::errc::bad_file_descriptor && n3 == 0);
       auto [e4, n4] = co_await f.read_some_at(2, io::mutable_buffer(c, 4));
       assert(!e4 && n4 == 4 && std::memcmp(c, "2345", 4) == 0);
-      // append: writes go to the end whatever the offset
+      // append: pwrite() on a descriptor opened with O_APPEND appends whatever the offset on Linux; macOS and FreeBSD
+      // write at the offset (POSIX leaves it to the system call, see the BUGS section of pwrite(2) on Linux).
       assert(!f.open(path, io::file_base::read_write | io::file_base::append));
       std::string ap = "AB";
       auto [e5, n5]  = co_await f.write_some_at(0, io::const_buffer(ap.data(), ap.size()));
       assert(!e5 && n5 == 2);
       auto [es, sz] = f.size();
+#if defined(__linux__)
       assert(!es && sz == 12);
+#else
+      assert(!es && sz == 10);
+#endif
       // truncate empties the file
       assert(!f.open(path, io::file_base::read_write | io::file_base::truncate));
       auto [es2, sz2] = f.size();

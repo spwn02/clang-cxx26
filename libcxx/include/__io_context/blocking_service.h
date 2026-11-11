@@ -34,7 +34,7 @@
 #  pragma GCC system_header
 #endif
 
-#if _LIBCPP_HAS_IO_EPOLL
+#if _LIBCPP_HAS_IO_REACTOR
 
 _LIBCPP_PUSH_MACROS
 #  include <__undef_macros>
@@ -306,6 +306,6 @@ _LIBCPP_END_NAMESPACE_STD
 
 _LIBCPP_POP_MACROS
 
-#endif // _LIBCPP_HAS_IO_EPOLL
+#endif // _LIBCPP_HAS_IO_REACTOR
 
 #endif // _LIBCPP___IO_CONTEXT_BLOCKING_SERVICE_H

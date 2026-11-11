@@ -93,13 +93,18 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace io {
 
-// The platform layer of <io_file> for POSIX file I/O (Linux): the only place that includes the system file headers. A
-// Windows backend (overlapped I/O on the completion port) provides the same functions (the same names, the same
-// meaning) in a sibling file.
+// The platform layer of <io_file> for POSIX file I/O (Linux, macOS, FreeBSD): the only place that includes the system
+// file headers. A Windows backend (overlapped I/O on the completion port) provides the same functions (the same names,
+// the same meaning) in a sibling file.
 //
 // The calls block; the file operations of <io_file> call __file_read, __file_write, __file_pread and __file_pwrite from
 // the helper threads of the context. The others are quick and are called directly. Every function is noexcept and
 // reports failure as an error_code in generic_category (the errno value).
+//
+// macOS: preadv and pwritev exist only from macOS 11, so a positioned transfer is a loop of pread/pwrite over the
+// buffers there (it stops at the first short transfer, like the vectored call would report it); fdatasync does not
+// exist, __file_sync_data is fsync (which on macOS does not flush the drive cache) and __file_sync_all is
+// fcntl(F_FULLFSYNC), the call that does.
 
 using __native_file _LIBCPP_NODEBUG           = int;
 inline constexpr __native_file __invalid_file = -1;
@@ -156,7 +161,7 @@ __file_open(const char* __path, file_base::flags __f, __native_file& __fd) noexc
 
 _LIBCPP_HIDE_FROM_ABI inline void __file_close(__native_file __fd) noexcept {
   if (__fd >= 0)
-    ::close(__fd); // EINTR on close leaves the descriptor closed on Linux; there is no retry.
+    ::close(__fd); // EINTR on close leaves the descriptor closed on Linux (and macOS); there is no retry.
 }
 
 // Transfers at the position of the descriptor (a stream file).
@@ -193,6 +198,27 @@ __file_write(__native_file __fd, const __file_iovec* __v, size_t __n, size_t& __
 __file_pread(__native_file __fd, const __file_iovec* __v, size_t __n, uint64_t __off, size_t& __got) noexcept {
   if (!io::__file_offset_ok(__off))
     return make_error_code(errc::invalid_argument);
+#  ifdef __APPLE__
+  size_t __total = 0;
+  for (size_t __i = 0; __i != __n; ++__i) {
+    if (__v[__i].iov_len == 0)
+      continue;
+    ssize_t __r;
+    do {
+      __r = ::pread(__fd, __v[__i].iov_base, __v[__i].iov_len, static_cast<off_t>(__off + __total));
+    } while (__r < 0 && errno == EINTR);
+    if (__r < 0) {
+      if (__total != 0)
+        break;
+      return io::__file_errno(errno);
+    }
+    __total += static_cast<size_t>(__r);
+    if (static_cast<size_t>(__r) != __v[__i].iov_len)
+      break;
+  }
+  __got = __total;
+  return error_code();
+#  else
   ssize_t __r;
   do {
     __r = ::preadv(__fd, __v, static_cast<int>(__n), static_cast<off_t>(__off));
@@ -201,12 +227,34 @@ __file_pread(__native_file __fd, const __file_iovec* __v, size_t __n, uint64_t _
     return io::__file_errno(errno);
   __got = static_cast<size_t>(__r);
   return error_code();
+#  endif
 }
 
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code
 __file_pwrite(__native_file __fd, const __file_iovec* __v, size_t __n, uint64_t __off, size_t& __got) noexcept {
   if (!io::__file_offset_ok(__off))
     return make_error_code(errc::invalid_argument);
+#  ifdef __APPLE__
+  size_t __total = 0;
+  for (size_t __i = 0; __i != __n; ++__i) {
+    if (__v[__i].iov_len == 0)
+      continue;
+    ssize_t __r;
+    do {
+      __r = ::pwrite(__fd, __v[__i].iov_base, __v[__i].iov_len, static_cast<off_t>(__off + __total));
+    } while (__r < 0 && errno == EINTR);
+    if (__r < 0) {
+      if (__total != 0)
+        break;
+      return io::__file_errno(errno);
+    }
+    __total += static_cast<size_t>(__r);
+    if (static_cast<size_t>(__r) != __v[__i].iov_len)
+      break;
+  }
+  __got = __total;
+  return error_code();
+#  else
   ssize_t __r;
   do {
     __r = ::pwritev(__fd, __v, static_cast<int>(__n), static_cast<off_t>(__off));
@@ -215,6 +263,7 @@ __file_pwrite(__native_file __fd, const __file_iovec* __v, size_t __n, uint64_t 
     return io::__file_errno(errno);
   __got = static_cast<size_t>(__r);
   return error_code();
+#  endif
 }
 
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __file_size(__native_file __fd, uint64_t& __size) noexcept {
@@ -239,7 +288,11 @@ __file_pwrite(__native_file __fd, const __file_iovec* __v, size_t __n, uint64_t 
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __file_sync_data(__native_file __fd) noexcept {
   int __r;
   do {
+#  ifdef __APPLE__
+    __r = ::fsync(__fd); // no fdatasync on macOS
+#  else
     __r = ::fdatasync(__fd);
+#  endif
   } while (__r < 0 && errno == EINTR);
   return __r < 0 ? io::__file_errno(errno) : error_code();
 }
@@ -247,7 +300,14 @@ __file_pwrite(__native_file __fd, const __file_iovec* __v, size_t __n, uint64_t 
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __file_sync_all(__native_file __fd) noexcept {
   int __r;
   do {
+#  ifdef __APPLE__
+    __r = ::fcntl(__fd, F_FULLFSYNC);
+    if (__r < 0 && errno != EINTR &&
+        (errno == ENOTSUP || errno == EINVAL || errno == ENOTTY)) // not supported by the file system
+      __r = ::fsync(__fd);
+#  else
     __r = ::fsync(__fd);
+#  endif
   } while (__r < 0 && errno == EINTR);
   return __r < 0 ? io::__file_errno(errno) : error_code();
 }

@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23, c++26
 // UNSUPPORTED: no-threads
-// REQUIRES: linux
+// REQUIRES: linux || darwin || freebsd
 // ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
 
 // <io_context>
@@ -185,7 +185,9 @@ int main(int, char**) {
     ::close(p[1]);
   }
 
-  // A regular file cannot be watched by epoll: the wait fails at once.
+#if defined(__linux__)
+  // A regular file cannot be watched by epoll: the wait fails at once. (kqueue can watch a regular file: it is always
+  // ready, so the case does not exist there.)
   {
     int fd = ::open("/dev/null", O_RDONLY);
     assert(fd >= 0);
@@ -200,6 +202,8 @@ int main(int, char**) {
     ::close(fd);
     ::close(rf);
   }
+
+#endif
 
   // An invalid descriptor fails at once.
   {

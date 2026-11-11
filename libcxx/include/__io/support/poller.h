@@ -16,9 +16,10 @@
 #  pragma GCC system_header
 #endif
 
-#if _LIBCPP_HAS_IO_EPOLL
+#if _LIBCPP_HAS_IO_REACTOR
 
 #  include <__io/support/epoll_poller.h>
+#  include <__io/support/kqueue_poller.h>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -36,12 +37,18 @@ namespace io {
 //
 // Events are the neutral bits __poll_read, __poll_write, __poll_error of poller_types.h. A oneshot registration is
 // disarmed after it delivered an event until __modify arms it again. Conditions are level-triggered.
+// A backend reports __poll_error for an error or hang-up that the descriptor is polled for (the reactor then completes
+// every wait on it).
+#  if _LIBCPP_HAS_IO_EPOLL
 using __poller _LIBCPP_NODEBUG = __epoll_poller;
+#  else
+using __poller _LIBCPP_NODEBUG = __kqueue_poller;
+#  endif
 
 } // namespace io
 
 _LIBCPP_END_NAMESPACE_STD
 
-#endif // _LIBCPP_HAS_IO_EPOLL
+#endif // _LIBCPP_HAS_IO_REACTOR
 
 #endif // _LIBCPP___IO_SUPPORT_POLLER_H

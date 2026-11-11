@@ -34,14 +34,20 @@ namespace io {
 
 // P4100R1 [8.9]; provisional specification: Corosio's local_endpoint. The address of a Unix domain socket: a path in a
 // fixed-size buffer (no allocation, trivially copyable). A path whose first character is '\0' names an abstract
-// socket (Linux): the leading NUL is part of the stored path. The path is never unlinked by the library.
+// socket (Linux only; the other systems report an error when it is bound or
+// connected): the leading NUL is part of the stored path. The path is never unlinked by the library.
 class local_endpoint {
   char __path_[108] = {};
   uint8_t __len_    = 0;
 
 public:
-  // The longest path that fits the address of the platform (sizeof sun_path - 1 on Linux).
+  // The longest path that fits the address of the platform (sizeof sun_path - 1: 107 on Linux, 103 on macOS and BSD).
+#  if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) ||                     \
+      defined(__DragonFly__)
+  static constexpr size_t max_path_length = 103;
+#  else
   static constexpr size_t max_path_length = 107;
+#  endif
 
   _LIBCPP_HIDE_FROM_ABI constexpr local_endpoint() noexcept = default;
 

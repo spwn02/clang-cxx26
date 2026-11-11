@@ -23,7 +23,7 @@
 #include <__type_traits/remove_cvref.h>
 #include <__utility/move.h>
 
-#if _LIBCPP_HAS_IO_EPOLL
+#if _LIBCPP_HAS_IO_REACTOR
 #  include <__io_context/op.h>
 #  include <__io_context/reactor.h>
 #  include <__io_stream/error.h>
@@ -33,7 +33,7 @@
 #  pragma GCC system_header
 #endif
 
-#if _LIBCPP_HAS_IO_EPOLL
+#if _LIBCPP_HAS_IO_REACTOR
 
 _LIBCPP_PUSH_MACROS
 #  include <__undef_macros>
@@ -163,6 +163,6 @@ _LIBCPP_END_NAMESPACE_STD
 
 _LIBCPP_POP_MACROS
 
-#endif // _LIBCPP_HAS_IO_EPOLL
+#endif // _LIBCPP_HAS_IO_REACTOR
 
 #endif // _LIBCPP___IO_TIMER_TIMER_H

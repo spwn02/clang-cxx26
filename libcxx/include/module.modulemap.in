@@ -2988,6 +2988,10 @@ module std [system] {
       header "__io/support/epoll_poller.h"
       export *
     }
+    module support_kqueue_poller {
+      header "__io/support/kqueue_poller.h"
+      export *
+    }
     module support_poller {
       header "__io/support/poller.h"
       export *

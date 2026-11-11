@@ -14,8 +14,8 @@
     io_file synopsis
 
     Stage Two of the networking series (platform I/O). Experimental: the header is available in C++29 mode with
-    -fexperimental-library only, on a platform that has a backend (Linux: epoll, POSIX file I/O), and needs thread
-    support; otherwise it is empty. Provisional specification: P4100R1 [8.8] and the Corosio library (no WG21 paper yet).
+    -fexperimental-library only, on a platform that has a backend (Linux: epoll, macOS and FreeBSD: kqueue; POSIX file
+    I/O), and needs thread support; otherwise it is empty. Provisional specification: P4100R1 [8.8] and the Corosio library (no WG21 paper yet).
 
 namespace std::io {
   struct file_base {
