@@ -21,6 +21,7 @@
 #  include <__io/support/epoll_poller.h>
 #  include <__io/support/kqueue_poller.h>
 #  include <__io/support/uring.h>
+#  include <__io/support/winsock_poller.h>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -42,8 +43,10 @@ namespace io {
 // every wait on it).
 #  if _LIBCPP_HAS_IO_EPOLL
 using __poller _LIBCPP_NODEBUG = __epoll_poller;
-#  else
+#  elif _LIBCPP_HAS_IO_KQUEUE
 using __poller _LIBCPP_NODEBUG = __kqueue_poller;
+#  else
+using __poller _LIBCPP_NODEBUG = __winsock_poller;
 #  endif
 
 } // namespace io

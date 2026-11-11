@@ -3008,6 +3008,14 @@ module std [system] {
       header "__io/support/uring.h"
       export *
     }
+    module support_winsock {
+      header "__io/support/winsock.h"
+      export *
+    }
+    module support_winsock_poller {
+      header "__io/support/winsock_poller.h"
+      export *
+    }
     module task {
       header "__io/task.h"
       export *
@@ -3926,6 +3934,10 @@ module std [system] {
     }
     module support_posix_socket {
       header "__net/support/posix_socket.h"
+      export *
+    }
+    module support_winsock_socket {
+      header "__net/support/winsock_socket.h"
       export *
     }
     module tcp_acceptor {

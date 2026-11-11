@@ -570,6 +570,8 @@ set(files
   __io/support/poller_types.h
   __io/support/posix_signal.h
   __io/support/uring.h
+  __io/support/winsock.h
+  __io/support/winsock_poller.h
   __io/task.h
   __io/thread_pool.h
   __io/when_all.h
@@ -792,6 +794,7 @@ set(files
   __net/socket_option.h
   __net/support/posix_resolve.h
   __net/support/posix_socket.h
+  __net/support/winsock_socket.h
   __net/tcp_acceptor.h
   __net/tcp_socket.h
   __net/udp_socket.h

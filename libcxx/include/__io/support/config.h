@@ -23,8 +23,13 @@
 //   - _LIBCPP_HAS_IO_KQUEUE: the macOS and FreeBSD backend (kqueue, with EVFILT_USER for the wake-up).
 //   - _LIBCPP_HAS_IO_REACTOR: one of the above. Code that does not depend on which one gates on this macro.
 //
-// The IOCP (Windows) backend will be added behind the same interface and define the same macros. On a platform without
-// a backend, <io_context>, <io_timer> and <io_signal> are valid, empty headers.
+//   - _LIBCPP_HAS_IO_WINSOCK: the Windows backend (Winsock 2): WSAPoll over the registered sockets, with a loopback
+//     datagram socket for the wake-up. Readiness is level-triggered like on the other systems, so the operations above
+//     the poller are the same "try, wait for readiness, retry" loops.
+//   - _LIBCPP_HAS_IO_IOCP: the Windows completion backend (an I/O completion port), an addition to the readiness
+//     poller that is chosen at run time, the way _LIBCPP_HAS_IO_URING is on Linux.
+//
+// On a platform without a backend, <io_context>, <io_timer> and <io_signal> are valid, empty headers.
 #if _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS && defined(__linux__) && __has_include(<sys/epoll.h>) && \
     __has_include(<sys/eventfd.h>)
 #  define _LIBCPP_HAS_IO_EPOLL 1
@@ -50,7 +55,14 @@
 #  define _LIBCPP_HAS_IO_URING 0
 #endif
 
-#if _LIBCPP_HAS_IO_EPOLL || _LIBCPP_HAS_IO_KQUEUE
+#if _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS && defined(_WIN32) && __has_include(<winsock2.h>) &&   \
+    __has_include(<ws2tcpip.h>)
+#  define _LIBCPP_HAS_IO_WINSOCK 1
+#else
+#  define _LIBCPP_HAS_IO_WINSOCK 0
+#endif
+
+#if _LIBCPP_HAS_IO_EPOLL || _LIBCPP_HAS_IO_KQUEUE || _LIBCPP_HAS_IO_WINSOCK
 #  define _LIBCPP_HAS_IO_REACTOR 1
 #else
 #  define _LIBCPP_HAS_IO_REACTOR 0
@@ -58,8 +70,11 @@
 
 // The BSD socket API (<sys/socket.h>, <netinet/in.h>, <sys/un.h>) on top of a backend: <net> (addresses, TCP and Unix
 // domain stream sockets). The platform specifics are in libcxx/include/__net/support/.
-#if _LIBCPP_HAS_IO_REACTOR && __has_include(<sys/socket.h>) && __has_include(<netinet/in.h>) && \
-    __has_include(<netinet/tcp.h>) && __has_include(<sys/un.h>) && __has_include(<netdb.h>)
+#if (_LIBCPP_HAS_IO_EPOLL || _LIBCPP_HAS_IO_KQUEUE) && __has_include(<sys/socket.h>) &&                                \
+    __has_include(<netinet/in.h>) && __has_include(<netinet/tcp.h>) && __has_include(<sys/un.h>) &&                  \
+    __has_include(<netdb.h>)
+#  define _LIBCPP_HAS_IO_SOCKETS 1
+#elif _LIBCPP_HAS_IO_WINSOCK && __has_include(<afunix.h>)
 #  define _LIBCPP_HAS_IO_SOCKETS 1
 #else
 #  define _LIBCPP_HAS_IO_SOCKETS 0
@@ -68,7 +83,7 @@
 // POSIX file I/O (<fcntl.h>, <sys/uio.h>, <sys/stat.h>) on top of a backend: <io_file>. Regular files cannot be waited
 // for with epoll (kqueue could, but the behaviour differs between systems), so the operations run on helper threads.
 // The platform specifics are in libcxx/include/__io_file/support/.
-#if _LIBCPP_HAS_IO_REACTOR && __has_include(<fcntl.h>) && __has_include(<sys/uio.h>) && __has_include(<sys/stat.h>) && \
+#if (_LIBCPP_HAS_IO_EPOLL || _LIBCPP_HAS_IO_KQUEUE) && __has_include(<fcntl.h>) && __has_include(<sys/uio.h>) && __has_include(<sys/stat.h>) && \
     __has_include(<unistd.h>)
 #  define _LIBCPP_HAS_IO_FILES 1
 #else
@@ -79,13 +94,13 @@
 // header is included). On top of the sockets only because the stream is useful with them; the stream itself works on
 // any Stream. The loader is in libcxx/include/__net_tls/support/openssl_dl.h behind the internal __tls_engine
 // interface.
-#if _LIBCPP_HAS_IO_REACTOR && __has_include(<dlfcn.h>)
+#if (_LIBCPP_HAS_IO_EPOLL || _LIBCPP_HAS_IO_KQUEUE) && __has_include(<dlfcn.h>)
 #  define _LIBCPP_HAS_IO_TLS 1
 #else
 #  define _LIBCPP_HAS_IO_TLS 0
 #endif
 
 // sigaction() plus a self-pipe. Defined together with a backend that is also available on a POSIX system.
-#define _LIBCPP_HAS_IO_POSIX_SIGNALS _LIBCPP_HAS_IO_REACTOR
+#define _LIBCPP_HAS_IO_POSIX_SIGNALS (_LIBCPP_HAS_IO_EPOLL || _LIBCPP_HAS_IO_KQUEUE)
 
 #endif // _LIBCPP___IO_SUPPORT_CONFIG_H

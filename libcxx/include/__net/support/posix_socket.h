@@ -11,7 +11,9 @@
 #include <__config>
 #include <__io/support/config.h>
 
-#if _LIBCPP_HAS_IO_SOCKETS
+#if _LIBCPP_HAS_IO_SOCKETS && _LIBCPP_HAS_IO_WINSOCK
+#  include <__net/support/winsock_socket.h>
+#elif _LIBCPP_HAS_IO_SOCKETS
 #  include <__io_buffer/buffer.h>
 #  include <__net/endpoint.h>
 #  include <__net/family.h>
@@ -91,7 +93,7 @@
 #  pragma GCC system_header
 #endif
 
-#if _LIBCPP_HAS_IO_SOCKETS
+#if _LIBCPP_HAS_IO_SOCKETS && !_LIBCPP_HAS_IO_WINSOCK
 
 _LIBCPP_PUSH_MACROS
 #  include <__undef_macros>
@@ -741,6 +743,6 @@ _LIBCPP_END_NAMESPACE_STD
 
 _LIBCPP_POP_MACROS
 
-#endif // _LIBCPP_HAS_IO_SOCKETS
+#endif // _LIBCPP_HAS_IO_SOCKETS && !_LIBCPP_HAS_IO_WINSOCK
 
 #endif // _LIBCPP___NET_SUPPORT_POSIX_SOCKET_H

@@ -39,13 +39,22 @@ namespace io {
 // Failures are reported as an error_code: resolver_error for the failures of the name service, the errno value for
 // EAI_SYSTEM.
 
+// Winsock has to be started before the name service is used; the other systems need nothing.
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __resolve_init() noexcept {
+#  if _LIBCPP_HAS_IO_WINSOCK
+  return io::__winsock_init();
+#  else
+  return error_code();
+#  endif
+}
+
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __gai_error(int __e) noexcept {
   switch (__e) {
   case 0:
     return error_code();
   case EAI_NONAME:
     return make_error_code(resolver_error::host_not_found);
-#  ifdef EAI_NODATA
+#  if defined(EAI_NODATA) && EAI_NODATA != EAI_NONAME
   case EAI_NODATA:
     return make_error_code(resolver_error::no_data);
 #  endif
@@ -67,10 +76,14 @@ namespace io {
     return make_error_code(resolver_error::bad_flags);
   case EAI_MEMORY:
     return make_error_code(resolver_error::out_of_memory);
+#  ifdef EAI_OVERFLOW
   case EAI_OVERFLOW:
     return make_error_code(resolver_error::overflow);
+#  endif
+#  ifdef EAI_SYSTEM
   case EAI_SYSTEM:
     return io::__last_error();
+#  endif
   default:
     return make_error_code(resolver_error::unknown);
   }
@@ -114,6 +127,8 @@ namespace io {
 // empty host or service is "not given" (a null pointer).
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code
 __sys_resolve(const string& __host, const string& __service, unsigned __flags, vector<endpoint>& __results) {
+  if (error_code __ec = io::__resolve_init())
+    return __ec;
   addrinfo __hints;
   ::memset(&__hints, 0, sizeof(__hints));
   __hints.ai_family   = AF_UNSPEC;
@@ -134,7 +149,7 @@ __sys_resolve(const string& __host, const string& __service, unsigned __flags, v
     if (__p->ai_addrlen > sizeof(__b.__ss_))
       continue;
     ::memcpy(&__b.__ss_, __p->ai_addr, __p->ai_addrlen);
-    __b.__len_ = __p->ai_addrlen;
+    __b.__len_ = static_cast<decltype(__b.__len_)>(__p->ai_addrlen);
     __results.push_back(io::__from_sockaddr(__b));
   }
   ::freeaddrinfo(__res);
@@ -144,6 +159,8 @@ __sys_resolve(const string& __host, const string& __service, unsigned __flags, v
 // Reverse resolution of an endpoint.
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code
 __sys_reverse_resolve(const endpoint& __ep, unsigned __flags, string& __host, string& __service) {
+  if (error_code __ec = io::__resolve_init())
+    return __ec;
   __sockaddr_buf __b = io::__to_sockaddr(__ep);
   char __h[NI_MAXHOST];
   char __s[NI_MAXSERV];
@@ -164,6 +181,8 @@ __sys_reverse_resolve(const endpoint& __ep, unsigned __flags, string& __host, st
 
 // The name of the local machine.
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __sys_host_name(string& __name) {
+  if (error_code __ec = io::__resolve_init())
+    return __ec;
   char __buf[256];
   if (::gethostname(__buf, sizeof(__buf)) != 0)
     return io::__last_error();

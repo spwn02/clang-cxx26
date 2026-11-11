@@ -367,8 +367,10 @@ public:
 #  endif
 #  if _LIBCPP_HAS_IO_EPOLL
     return "epoll";
-#  else
+#  elif _LIBCPP_HAS_IO_KQUEUE
     return "kqueue";
+#  else
+    return "winsock";
 #  endif
   }
   // Why the ring is not used (empty if it is, or if epoll was requested).
