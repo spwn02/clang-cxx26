@@ -48,12 +48,15 @@ public:
   using endpoint_type = io::endpoint;
 
   _LIBCPP_HIDE_FROM_ABI explicit tcp_acceptor(execution_context& __ctx) noexcept : __socket_core(__ctx) {}
-  // Opens (with the family of __ep), sets reuse_address, binds and listens; throws system_error.
+  // Opens (with the family of __ep), sets reuse_address (not on Windows, where the option means something else), binds and
+  // listens; throws system_error.
   _LIBCPP_HIDE_FROM_ABI tcp_acceptor(execution_context& __ctx, const io::endpoint& __ep, int __backlog = 128)
       : __socket_core(__ctx) {
     error_code __ec = open(__ep.is_v6() ? io::family::v6 : io::family::v4);
+#  if !_LIBCPP_HAS_IO_WINSOCK // on Windows SO_REUSEADDR lets another socket bind the port that is in use; it is not set
     if (!__ec)
       __ec = set_option(socket_option::reuse_address(true));
+#  endif
     if (!__ec)
       __ec = bind(__ep);
     if (!__ec)
