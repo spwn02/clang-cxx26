@@ -421,21 +421,15 @@ inline void __signal_service::__cancel_op(__signal_op* __op) noexcept {
 }
 
 inline void __signal_service::shutdown() {
-  vector<coroutine_handle<>> __handles;
-  {
-    lock_guard<mutex> __lk(__m_);
-    __shut_down_ = true;
-    for (signal_set* __s : __sets_) {
-      if (__signal_op* __op = __s->__waiter_) {
-        __s->__waiter_ = nullptr;
-        __op->__state_ = __op_base::__done;
-        __handles.push_back(__op->__cont_.h);
-      }
+  // The waiting coroutines are dropped, not destroyed: their chains are destroyed by the context (see reactor.h).
+  lock_guard<mutex> __lk(__m_);
+  __shut_down_ = true;
+  for (signal_set* __s : __sets_) {
+    if (__signal_op* __op = __s->__waiter_) {
+      __s->__waiter_ = nullptr;
+      __op->__state_ = __op_base::__done;
     }
   }
-  for (coroutine_handle<> __h : __handles)
-    if (__h)
-      __h.destroy();
 }
 
 inline void __signal_service::__deliver(int __sig) noexcept {

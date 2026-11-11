@@ -20,6 +20,7 @@
 #include <__io_context/reactor.h>
 #include <__io_stream/error.h>
 #include <__memory/addressof.h>
+#include <__memory/shared_ptr.h>
 #include <__mutex/lock_guard.h>
 #include <__mutex/mutex.h>
 #include <__mutex/unique_lock.h>
@@ -53,8 +54,16 @@ class __blocking_service;
 // __work_ is never called). An operation whose call is in progress is not cancelled: the call cannot be interrupted,
 // and the buffers it uses belong to the awaiting coroutine, which is not resumed before the call has returned. It
 // completes with the result of the call.
+//
+// A detachable operation (the lookups of the resolver) is the exception: it does not use the memory of the awaiting
+// coroutine. Instead of __work_ it has __detached_work_, which is called with __data_ (a shared state that the
+// service keeps alive until the call has returned) and never touches the operation. Such an operation is also
+// cancelled while its call is in progress: it completes at once with error::canceled, and the helper thread finishes
+// the call and discards the result.
 struct __blocking_op : __op_base {
   void (*__work_)(__blocking_op*) noexcept = nullptr;
+  void (*__detached_work_)(void*) noexcept = nullptr;
+  shared_ptr<void> __data_;
   __blocking_service* __svc_;
   const void* __owner_ = nullptr; // the object whose cancel() reaches this operation
   bool __running_      = false;
@@ -68,7 +77,12 @@ struct __blocking_op : __op_base {
   // An awaiter is moved only before it is started.
   // NOLINTBEGIN(bugprone-use-after-move): only the __op_base subobject is moved from
   _LIBCPP_HIDE_FROM_ABI __blocking_op(__blocking_op&& __o) noexcept
-      : __op_base(std::move(__o)), __work_(__o.__work_), __svc_(__o.__svc_), __owner_(__o.__owner_) {
+      : __op_base(std::move(__o)),
+        __work_(__o.__work_),
+        __detached_work_(__o.__detached_work_),
+        __data_(std::move(__o.__data_)),
+        __svc_(__o.__svc_),
+        __owner_(__o.__owner_) {
     __cancel_ = &__cancel_cb;
   }
   // NOLINTEND(bugprone-use-after-move)
@@ -79,11 +93,13 @@ struct __blocking_op : __op_base {
 };
 
 // The service of an execution_context that runs blocking calls on a small pool of helper threads: the mechanism of the
-// resolver (see <net>) for the operations that cannot be waited for with the reactor. The threads are started lazily
+// file operations (see <io_file>) and of the resolver (see <net>), the operations that cannot be waited for with the
+// reactor. The two share the threads of the context. The threads are started lazily
 // (one more per request, up to __max_threads, when no thread is idle) and joined by shutdown(). Completions are posted
-// to the executor of the awaiting coroutine through the reactor of the context. Shutting down the context abandons the
-// requests that wait for a thread and those that have completed after the shutdown (their coroutines are destroyed,
-// like those of the reactor), and waits for the calls in progress.
+// to the executor of the awaiting coroutine through the reactor of the context, which counts the request as work.
+// Shutting down the context abandons the requests that wait for a thread and those that have completed after the
+// shutdown (their coroutines are dropped, not resumed; the context destroys their chains, see
+// execution_context::shutdown), and waits for the calls in progress.
 _LIBCPP_DIAGNOSTIC_PUSH
 _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class __blocking_service final : public execution_context::service {
@@ -95,11 +111,11 @@ class __blocking_service final : public execution_context::service {
   __op_list __queue_;   // the requests that wait for a thread
   size_t __queued_ = 0; // their number
   vector<thread> __threads_;
-  vector<coroutine_handle<>> __orphans_; // coroutines of calls that finished after the shutdown
-  size_t __idle_    = 0;
-  bool __shut_down_ = false;
+  __blocking_op* __running_[__max_threads] = {}; // the detachable operation that each thread runs, if any
+  size_t __idle_                           = 0;
+  bool __shut_down_                        = false;
 
-  _LIBCPP_HIDE_FROM_ABI void __worker() {
+  _LIBCPP_HIDE_FROM_ABI void __worker(size_t __index) {
     unique_lock<mutex> __lk(__m_);
     for (;;) {
       ++__idle_;
@@ -111,13 +127,27 @@ class __blocking_service final : public execution_context::service {
       __queue_.__remove(__op);
       --__queued_;
       __op->__running_ = true;
-      __lk.unlock();
-      __op->__work_(__op);
-      __lk.lock();
-      __op->__state_ = __op_base::__done;
-      if (__shut_down_) {
-        __orphans_.push_back(__op->__cont_.h);
+      if (__op->__detached_work_) {
+        // The operation may be cancelled (and its coroutine resumed, even destroyed) while the call is in progress,
+        // so the call only uses the shared data, and the operation is not touched until the call has returned and
+        // __running_ still names it (a cancellation clears the slot).
+        void (*__fn)(void*) noexcept = __op->__detached_work_;
+        shared_ptr<void> __data      = __op->__data_;
+        __running_[__index]          = __op;
+        __lk.unlock();
+        __fn(__data.get());
+        __data.reset();
+        __lk.lock();
+        if (__running_[__index] != __op) // detached: it has been completed, the result is dropped
+          continue;
+        __running_[__index] = nullptr;
       } else {
+        __lk.unlock();
+        __op->__work_(__op);
+        __lk.lock();
+      }
+      __op->__state_ = __op_base::__done;
+      if (!__shut_down_) { // after the shutdown the result is dropped, like the other pending operations
         __lk.unlock();
         __reactor_->__complete(__op);
         __lk.lock();
@@ -130,7 +160,6 @@ public:
       : __reactor_(&__ctx.use_service<__reactor_service>()) {}
 
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL void shutdown() override {
-    vector<coroutine_handle<>> __handles;
     vector<thread> __threads;
     {
       lock_guard<mutex> __lk(__m_);
@@ -138,7 +167,6 @@ public:
       while (__op_base* __op = __queue_.__front()) {
         __queue_.__remove(__op);
         __op->__state_ = __op_base::__done;
-        __handles.push_back(__op->__cont_.h);
       }
       __queued_ = 0;
       __threads = std::move(__threads_);
@@ -147,15 +175,6 @@ public:
     for (thread& __t : __threads)
       if (__t.joinable())
         __t.join();
-    {
-      lock_guard<mutex> __lk(__m_);
-      for (coroutine_handle<> __h : __orphans_)
-        __handles.push_back(__h);
-      __orphans_.clear();
-    }
-    for (coroutine_handle<> __h : __handles)
-      if (__h)
-        __h.destroy();
   }
 
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL ~__blocking_service() override { shutdown(); }
@@ -174,7 +193,7 @@ public:
       if (__idle_ < __queued_ + 1 && __threads_.size() < __max_threads) {
 #  if _LIBCPP_HAS_EXCEPTIONS
         try {
-          __threads_.emplace_back([this] { __worker(); });
+          __threads_.emplace_back([this, __i = __threads_.size()] { __worker(__i); });
         } catch (...) {
           if (__threads_.empty()) {
             __op.__ec_    = make_error_code(errc::resource_unavailable_try_again);
@@ -183,7 +202,7 @@ public:
           }
         }
 #  else
-        __threads_.emplace_back([this] { __worker(); });
+        __threads_.emplace_back([this, __i = __threads_.size()] { __worker(__i); });
 #  endif
       }
       __queue_.__push_back(std::addressof(__op));
@@ -203,9 +222,14 @@ public:
         __op->__cancel_requested_ = true;
         return;
       }
-      if (__op->__state_ == __op_base::__done || __op->__running_)
+      if (__op->__state_ == __op_base::__done)
         return;
-      __finish_canceled_locked(__op);
+      if (__op->__running_) {
+        if (!__detach_locked(__op))
+          return;
+      } else {
+        __finish_canceled_locked(__op);
+      }
     }
     __reactor_->__complete(__op);
   }
@@ -223,12 +247,35 @@ public:
           __ops.push_back(__op);
         }
       }
+      for (__blocking_op*& __slot : __running_) {
+        if (__slot && __slot->__owner_ == __owner) {
+          __blocking_op* __op = __slot;
+          if (__detach_locked(__op))
+            __ops.push_back(__op);
+        }
+      }
     }
     for (__blocking_op* __op : __ops)
       __reactor_->__complete(__op);
   }
 
 private:
+  // Completes an operation whose call is in progress, if it is detachable: the thread that runs it sees that its slot
+  // is cleared when the call returns and drops the result. Returns false if the operation cannot be detached.
+  _LIBCPP_HIDE_FROM_ABI bool __detach_locked(__blocking_op* __op) noexcept {
+    if (!__op->__detached_work_)
+      return false;
+    for (__blocking_op*& __slot : __running_) {
+      if (__slot == __op) {
+        __slot = nullptr;
+        break;
+      }
+    }
+    __op->__state_ = __op_base::__done;
+    __op->__ec_    = make_error_code(error::canceled);
+    return true;
+  }
+
   _LIBCPP_HIDE_FROM_ABI void __finish_canceled_locked(__blocking_op* __op) noexcept {
     __queue_.__remove(__op);
     --__queued_;

@@ -150,12 +150,13 @@ public:
   _LIBCPP_HIDE_FROM_ABI ~thread_pool() {
     stop();
     __join_threads();
+    __shutdown_services();
     continuation* __c = __head_;
     __head_           = nullptr;
     __tail_           = nullptr;
     while (__c) {
       continuation* __next = __c->next;
-      if (__c->h)
+      if (__c->h && !__c->__chained_) // a chained one belongs to its chain, see continuation
         __c->h.destroy();
       __c = __next;
     }

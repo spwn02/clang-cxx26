@@ -50,11 +50,11 @@ struct __op_base {
   continuation __cont_;
   executor_ref __ex_;
   error_code __ec_;
-  __op_base* __prev_                       = nullptr;
-  __op_base* __next_                       = nullptr;
-  void (*__cancel_)(__op_base*) noexcept   = nullptr; // asks the owner to cancel this operation
-  __state_t __state_                       = __idle;
-  bool __cancel_requested_                 = false;
+  __op_base* __prev_                     = nullptr;
+  __op_base* __next_                     = nullptr;
+  void (*__cancel_)(__op_base*) noexcept = nullptr; // asks the owner to cancel this operation
+  __state_t __state_                     = __idle;
+  bool __cancel_requested_               = false;
 
   struct __canceler {
     __op_base* __op_;
@@ -69,8 +69,9 @@ struct __op_base {
 
   // A derived operation sets __cancel_ in its constructors.
   _LIBCPP_HIDE_FROM_ABI void __bind(coroutine_handle<> __h, const io_env* __env) noexcept {
-    __cont_.h = __h;
-    __ex_     = __env->executor;
+    __cont_.h          = __h;
+    __cont_.__chained_ = true; // the awaiting coroutine belongs to a chain
+    __ex_              = __env->executor;
   }
 
   // Connects the stop token. Must be called before the operation is queued, because the callback may run at any time

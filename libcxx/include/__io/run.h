@@ -16,6 +16,7 @@
 #include <__coroutine/trivial_awaitables.h>
 #include <__exception/terminate.h>
 #include <__io/continuation.h>
+#include <__io/execution_context.h>
 #include <__io/executor.h>
 #include <__io/executor_ref.h>
 #include <__io/frame_allocator.h>
@@ -47,6 +48,7 @@ struct __run_return {
   struct promise_type {
     executor_ref __parent_executor_;
     continuation* __parent_cont_ = nullptr;
+    execution_context::__frame_node __node_; // registered with the context of the parent, see execution_context
 
     struct __final_awaiter {
       _LIBCPP_HIDE_FROM_ABI bool await_ready() const noexcept { return false; }
@@ -111,10 +113,13 @@ public:
     } else {
       __env_.executor                           = executor_ref(__ex_);
       __parent_cont_.h                          = __h;
+      __parent_cont_.__chained_                 = true;
       __run_return __tramp                      = io::__run_trampoline(std::addressof(__t_), std::addressof(__env_));
       __tramp.__h_.promise().__parent_executor_ = __parent->executor;
       __tramp.__h_.promise().__parent_cont_     = &__parent_cont_;
       __start_cont_.h                           = __tramp.__h_;
+      __start_cont_.__chained_                  = true;
+      __tramp.__h_.promise().__node_.__register(__parent->executor.context(), __tramp.__h_);
       return __env_.executor.dispatch(__start_cont_);
     }
   }

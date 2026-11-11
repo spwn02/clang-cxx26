@@ -18,6 +18,7 @@
 #include <__cstddef/size_t.h>
 #include <__exception/exception_ptr.h>
 #include <__io/continuation.h>
+#include <__io/execution_context.h>
 #include <__io/executor_ref.h>
 #include <__io/frame_allocator.h>
 #include <__io/io_awaitable.h>
@@ -99,9 +100,10 @@ struct __join_core {
   // Children run with the caller's executor and frame allocator and with a stop token that fires when the caller's
   // token fires or when the operation itself requests stop.
   _LIBCPP_HIDE_FROM_ABI void __begin(coroutine_handle<> __h, const io_env* __parent) {
-    __parent_.h  = __h;
-    __parent_ex_ = __parent->executor;
-    __env_       = io_env{__parent->executor, __stop_.get_token(), __parent->frame_allocator};
+    __parent_.h          = __h;
+    __parent_.__chained_ = true;
+    __parent_ex_         = __parent->executor;
+    __env_               = io_env{__parent->executor, __stop_.get_token(), __parent->frame_allocator};
     if (__parent->stop_token.stop_possible())
       __parent_stop_cb_.emplace(__parent->stop_token, __stop_fn{&__stop_});
   }
@@ -114,9 +116,12 @@ class __join_runner {
 public:
   struct promise_type {
     __join_core* __core_;
+    execution_context::__frame_node __node_; // registered until the runner has finished, see execution_context
 
     template <class... _Args>
-    _LIBCPP_HIDE_FROM_ABI explicit promise_type(__join_core* __c, _Args&&...) noexcept : __core_(__c) {}
+    _LIBCPP_HIDE_FROM_ABI explicit promise_type(__join_core* __c, _Args&&...) : __core_(__c) {
+      __node_.__register(__c->__parent_ex_.context(), coroutine_handle<promise_type>::from_promise(*this));
+    }
 
     _LIBCPP_HIDE_FROM_ABI static void* operator new(size_t __n) { return io::__frame_allocate(__n); }
     _LIBCPP_HIDE_FROM_ABI static void operator delete(void* __p, size_t __n) noexcept {
@@ -175,8 +180,10 @@ private:
 // Posts the first __n continuations, in order, to the caller's executor. The state may be gone as soon as the last one
 // has been posted.
 _LIBCPP_HIDE_FROM_ABI inline void __join_post_all(continuation* __conts, size_t __n, executor_ref __ex) {
-  for (size_t __i = 0; __i != __n; ++__i)
+  for (size_t __i = 0; __i != __n; ++__i) {
+    __conts[__i].__chained_ = true; // the runner is destroyed by its context, or ends itself
     __ex.post(__conts[__i]);
+  }
 }
 
 // Creates runners with the caller's frame allocator in the out-of-band slot.

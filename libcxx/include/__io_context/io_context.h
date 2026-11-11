@@ -49,18 +49,18 @@ _LIBCPP_HIDE_FROM_ABI inline const io_context*& __current_io_context() noexcept 
 }
 
 // P4100R1 [8.8]; provisional specification: Corosio. An event-loop ExecutionContext: the threads that call run() resume
-// the posted continuations and drive the platform I/O of the context (the reactor, a service of the context that owns the
-// epoll instance, the timer queue and the signal pipe).
+// the posted continuations and drive the platform I/O of the context (the reactor, a service of the context that owns
+// the epoll instance, the timer queue and the signal pipe).
 //
 // run() returns when there is no work left: no queued continuation, no continuation being resumed, no pending operation
 // (timer wait, descriptor wait, signal wait) and no outstanding on_work_started() of an executor. Then the context is
-// stopped, as by stop(); restart() makes it runnable again. Several threads may call run() concurrently; one of them at a
-// time waits for I/O events, the others wait for posted continuations. The continuations are resumed in the order they
-// were posted, except that concurrent threads of course run them concurrently.
+// stopped, as by stop(); restart() makes it runnable again. Several threads may call run() concurrently; one of them at
+// a time waits for I/O events, the others wait for posted continuations. The continuations are resumed in the order
+// they were posted, except that concurrent threads of course run them concurrently.
 //
 // Differences from the shape of Asio's io_context (see the deviation notes of the networking series): run_for and
-// run_until are not provided, and a continuation that is posted counts as work until it has been resumed (a bare post is
-// therefore enough to keep run() going).
+// run_until are not provided, and a continuation that is posted counts as work until it has been resumed (a bare post
+// is therefore enough to keep run() going).
 class io_context : public execution_context {
 public:
   class executor_type;
@@ -172,16 +172,22 @@ public:
   io_context(const io_context&)            = delete;
   io_context& operator=(const io_context&) = delete;
 
-  // Abandons the queued continuations (the coroutines are destroyed, not resumed) and shuts the services down. The
-  // timers, signal sets and other objects that were made from the context must be destroyed before it. Preconditions:
-  // no thread is inside run(); no other thread posts concurrently.
+  // Shuts the services down, abandons the queued continuations (a raw one is destroyed, not resumed; a chained one is
+  // dropped) and destroys the chains that are still suspended (see execution_context::shutdown). The timers, signal
+  // sets and other objects that were made from the context must be destroyed before it. Preconditions: no thread is
+  // inside run(); no other thread posts concurrently.
   _LIBCPP_HIDE_FROM_ABI ~io_context() {
-    continuation* __c = __head_;
-    __head_           = nullptr;
-    __tail_           = nullptr;
+    __shutdown_services(); // joins the helper threads that post completions
+    continuation* __c;
+    {
+      lock_guard<mutex> __lk(__m_);
+      __c     = __head_;
+      __head_ = nullptr;
+      __tail_ = nullptr;
+    }
     while (__c) {
       continuation* __next = __c->next;
-      if (__c->h)
+      if (__c->h && !__c->__chained_) // a chained one belongs to its chain, see continuation
         __c->h.destroy();
       __c = __next;
     }

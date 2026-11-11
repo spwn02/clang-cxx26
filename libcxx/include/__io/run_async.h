@@ -18,6 +18,7 @@
 #include <__exception/exception_ptr.h>
 #include <__exception/terminate.h>
 #include <__io/continuation.h>
+#include <__io/execution_context.h>
 #include <__io/executor.h>
 #include <__io/executor_ref.h>
 #include <__io/frame_allocator.h>
@@ -51,6 +52,7 @@ struct __no_handler {};
 struct __run_async_root {
   struct promise_type {
     continuation __start_;
+    execution_context::__frame_node __node_; // registered until the chain has finished, see execution_context
 
     _LIBCPP_HIDE_FROM_ABI __run_async_root get_return_object() noexcept {
       return __run_async_root{coroutine_handle<promise_type>::from_promise(*this)};
@@ -70,6 +72,17 @@ struct __run_async_root {
   };
 
   coroutine_handle<promise_type> __h_;
+};
+
+// Leaves the registry of the context when the chain has finished, before the work count is released (releasing it may
+// let join() return and the context be destroyed while the frame is still ending).
+struct __run_async_unregister {
+  _LIBCPP_HIDE_FROM_ABI bool await_ready() const noexcept { return false; }
+  _LIBCPP_HIDE_FROM_ABI bool await_suspend(coroutine_handle<__run_async_root::promise_type> __h) const noexcept {
+    __h.promise().__node_.__unregister();
+    return false;
+  }
+  _LIBCPP_HIDE_FROM_ABI void await_resume() const noexcept {}
 };
 
 template <class _Task>
@@ -121,7 +134,10 @@ __run_async_body(_Ex __ex, stop_token __st, pmr::memory_resource* __mr, _Task __
   }
 
   // The task frame goes back to its allocator before the work is reported finished: join() may release the allocator.
-  { _Task __done = std::move(__t); }
+  {
+    _Task __done = std::move(__t);
+  }
+  co_await __run_async_unregister{};
   if constexpr (__counts_work<_Ex>)
     __ex.on_work_finished();
 }
@@ -137,7 +153,8 @@ class [[nodiscard]] __run_async_wrapper {
   _OnError __oe_;
 
 public:
-  _LIBCPP_HIDE_FROM_ABI __run_async_wrapper(_Ex __ex, stop_token __st, pmr::memory_resource* __mr, _OnValue __ov, _OnError __oe)
+  _LIBCPP_HIDE_FROM_ABI
+  __run_async_wrapper(_Ex __ex, stop_token __st, pmr::memory_resource* __mr, _OnValue __ov, _OnError __oe)
       : __ex_(std::move(__ex)), __st_(std::move(__st)), __mr_(__mr), __ov_(std::move(__ov)), __oe_(std::move(__oe)) {
     io::set_cached_frame_allocator(__mr_);
   }
@@ -149,9 +166,12 @@ public:
     io::set_cached_frame_allocator(nullptr);
     if constexpr (__counts_work<_Ex>)
       __ex_.on_work_started();
-    __run_async_root __root = io::__run_async_body(__ex_, std::move(__st_), __mr_, std::move(__t), std::move(__ov_), std::move(__oe_));
-    auto __h                 = __root.__h_;
-    __h.promise().__start_.h = __h;
+    __run_async_root __root =
+        io::__run_async_body(__ex_, std::move(__st_), __mr_, std::move(__t), std::move(__ov_), std::move(__oe_));
+    auto __h                          = __root.__h_;
+    __h.promise().__start_.h          = __h;
+    __h.promise().__start_.__chained_ = true;
+    __h.promise().__node_.__register(io::__run_async_ref(__ex_).context(), __h);
     __ex_.post(__h.promise().__start_);
   }
 };
@@ -177,8 +197,8 @@ __run_async_parse(_Ex __ex, stop_token __st, pmr::memory_resource* __mr, _A0&& _
   if constexpr (same_as<remove_cvref_t<_A0>, stop_token>) {
     return io::__run_async_parse(std::move(__ex), std::forward<_A0>(__a0), __mr, std::forward<_Rest>(__rest)...);
   } else if constexpr (convertible_to<_A0, pmr::memory_resource*>) {
-    return io::__run_async_parse(std::move(__ex), std::move(__st), static_cast<pmr::memory_resource*>(__a0),
-                                 std::forward<_Rest>(__rest)...);
+    return io::__run_async_parse(
+        std::move(__ex), std::move(__st), static_cast<pmr::memory_resource*>(__a0), std::forward<_Rest>(__rest)...);
   } else if constexpr (sizeof...(_Rest) == 0) {
     remove_cvref_t<_A0> __h(std::forward<_A0>(__a0));
     remove_cvref_t<_A0> __h2(__h);
@@ -186,7 +206,10 @@ __run_async_parse(_Ex __ex, stop_token __st, pmr::memory_resource* __mr, _A0&& _
   } else {
     static_assert(sizeof...(_Rest) == 1, "run_async takes at most an on_value and an on_error handler");
     return io::__run_async_finish(
-        std::move(__ex), std::move(__st), __mr, remove_cvref_t<_A0>(std::forward<_A0>(__a0)),
+        std::move(__ex),
+        std::move(__st),
+        __mr,
+        remove_cvref_t<_A0>(std::forward<_A0>(__a0)),
         remove_cvref_t<_Rest>(std::forward<_Rest>(__rest))...);
   }
 }

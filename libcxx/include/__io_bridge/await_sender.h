@@ -98,8 +98,8 @@ struct __bridge_void {};
 // thread it likes; the result is stored and the coroutine is posted to the executor of its io_env.
 template <class _Sndr>
 class sender_awaitable {
-  using __value_t _LIBCPP_NODEBUG = execution::__single_sender_value_type<_Sndr, __bridge_env>;
-  static constexpr bool __has_ec  = __sender_has_error_code_v<_Sndr>;
+  using __value_t _LIBCPP_NODEBUG  = execution::__single_sender_value_type<_Sndr, __bridge_env>;
+  static constexpr bool __has_ec   = __sender_has_error_code_v<_Sndr>;
   using __stored_t _LIBCPP_NODEBUG = conditional_t<is_void_v<__value_t>, __bridge_void, __value_t>;
 
   struct __receiver {
@@ -219,8 +219,9 @@ public:
   // in place and started; the receiver posts the coroutine to env->executor when the sender completes. Nothing here
   // touches *this after start(), because the completion may run (and resume the coroutine) concurrently.
   _LIBCPP_HIDE_FROM_ABI void await_suspend(coroutine_handle<> __h, const io_env* __env) {
-    __env_    = __env;
-    __cont_.h = __h;
+    __env_             = __env;
+    __cont_.h          = __h;
+    __cont_.__chained_ = true; // the awaiting coroutine belongs to a chain
     ::new (static_cast<void*>(__op_buf_)) __op_t(execution::connect(std::move(__sndr_), __receiver{this}));
     __op_constructed_ = true;
     execution::start(*__op());
@@ -237,8 +238,9 @@ public:
 // P4092R1 section 3: co_await await_sender(sndr) from any coroutine that propagates its io_env. Requires a sender with
 // at most one set_value shape.
 template <class _Sndr>
-  requires execution::sender_in<remove_cvref_t<_Sndr>, __bridge_env> &&
-           requires { typename execution::__single_sender_value_type<remove_cvref_t<_Sndr>, __bridge_env>; }
+  requires execution::sender_in<remove_cvref_t<_Sndr>, __bridge_env> && requires {
+    typename execution::__single_sender_value_type<remove_cvref_t<_Sndr>, __bridge_env>;
+  }
 _LIBCPP_HIDE_FROM_ABI auto await_sender(_Sndr&& __sndr) {
   return sender_awaitable<remove_cvref_t<_Sndr>>(std::forward<_Sndr>(__sndr));
 }

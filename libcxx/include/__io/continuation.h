@@ -25,9 +25,16 @@ namespace io {
 // P4003R3 [4.3]: pairs a coroutine handle with an intrusive link, so that an executor can queue a resumption without
 // allocating a node. The object is owned by whoever posts it (typically the awaitable) and must stay alive until the
 // executor has resumed (or dropped) it.
+//
+// __chained_ marks a continuation whose coroutine is owned by something else: a frame in an awaiting chain (owned by
+// its parent, up to the root) or a self-owned helper frame that its execution_context destroys on shutdown (see
+// execution_context::__frame_node). An executor that is destroyed with such a continuation still queued drops it
+// without destroying the coroutine (destroying it would free a frame its owner destroys again, or leave the owner of
+// the chain alive); a raw continuation is destroyed.
 struct continuation {
   coroutine_handle<> h;
   continuation* next = nullptr;
+  bool __chained_    = false;
 };
 
 } // namespace io

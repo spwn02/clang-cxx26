@@ -259,6 +259,7 @@ class awaitable_sender {
       __bridge_.__h_.promise().__op_  = this;
       __bridge_.__h_.promise().__env_ = &__env_;
       __start_.h                      = __bridge_.__h_;
+      __start_.__chained_             = true; // the frame belongs to this operation state
       __env_.executor.post(__start_);
     }
 

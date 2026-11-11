@@ -214,32 +214,26 @@ class __reactor_service final : public execution_context::service {
 public:
   _LIBCPP_HIDE_FROM_ABI explicit __reactor_service(execution_context&) {}
 
-  // Abandons everything that is still pending: the coroutines that wait are destroyed, not resumed (like the queued
-  // work of an io_context). Operations started afterwards complete with an error.
+  // Abandons everything that is still pending: the operations are dropped, the coroutines that wait are not resumed
+  // (like the queued work of an io_context). They are not destroyed here either: they belong to chains, whose roots the
+  // execution_context destroys after every service has been shut down (see execution_context::shutdown). Operations
+  // started afterwards complete with an error.
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL void shutdown() override {
-    vector<coroutine_handle<>> __handles;
-    {
-      lock_guard<mutex> __lk(__m_);
-      __shut_down_ = true;
-      for (auto& __kv : __slots_) {
-        while (__op_base* __op = __kv.second.__ops_.__front()) {
-          __kv.second.__ops_.__remove(__op);
-          __op->__state_ = __op_base::__done;
-          __handles.push_back(__op->__cont_.h);
-        }
-      }
-      for (__timer_op* __op : __heap_) {
-        if (__op->__waiters_)
-          __op->__waiters_->__remove(__op);
+    lock_guard<mutex> __lk(__m_);
+    __shut_down_ = true;
+    for (auto& __kv : __slots_) {
+      while (__op_base* __op = __kv.second.__ops_.__front()) {
+        __kv.second.__ops_.__remove(__op);
         __op->__state_ = __op_base::__done;
-        __handles.push_back(__op->__cont_.h);
       }
-      __heap_.clear();
-      __pending_.store(0, memory_order_release);
     }
-    for (coroutine_handle<> __h : __handles)
-      if (__h)
-        __h.destroy();
+    for (__timer_op* __op : __heap_) {
+      if (__op->__waiters_)
+        __op->__waiters_->__remove(__op);
+      __op->__state_ = __op_base::__done;
+    }
+    __heap_.clear();
+    __pending_.store(0, memory_order_release);
   }
 
   // ---------------------------------------------------------------------------------------------------------------
