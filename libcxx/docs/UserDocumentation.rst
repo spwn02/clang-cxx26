@@ -97,7 +97,7 @@ All names are in ``std::io``. The headers and what they hold:
   ``tls_context`` and ``tls_stream``. The engine is OpenSSL 3 loaded with ``dlopen`` at run time: nothing is linked and
   no OpenSSL header is included. Peer certificates are verified by default.
 
-Linux (epoll, with io_uring for the socket transfers where the kernel allows it) is supported; a kqueue backend for macOS and FreeBSD is implemented but not verified yet; the platform specifics sit behind small internal interfaces
+Linux (epoll, with io_uring for the socket transfers where the kernel allows it) is supported; a kqueue backend for macOS and FreeBSD and a Winsock backend with an I/O completion port for Windows (clang-cl, MSVC ABI) are implemented and checked on the continuous integration runners of a scratch repository; the platform specifics sit behind small internal interfaces
 (``__io/support/``, ``__net/support/``, ``__io_file/support/``, ``__net_tls/support/``). Coroutines that use this library
 are ``io::task`` coroutines: they cannot ``co_await`` a sender directly (use ``await_sender``) and a
 ``std::execution::task`` cannot ``co_await`` an I/O awaitable (use ``as_sender``).
@@ -109,6 +109,17 @@ before 5.6, ``kernel.io_uring_disabled``, a seccomp filter, a container runtime)
 created. The environment variable ``_LIBCPP_IO_BACKEND`` set to ``epoll``, ``io_uring`` or ``auto`` (the default)
 selects it for a diagnosis or a test; ``io_uring`` still falls back to epoll when the kernel refuses. The public API is
 the same on every backend. The test suite takes ``--param io_backend=epoll|io_uring|auto`` to run on one of them.
+
+On Windows the readiness poller is ``WSAPoll`` over the registered sockets (with a loopback datagram socket for the
+wake-up), and an ``io_context`` also opens an I/O completion port: the receive and send operations of the sockets are
+overlapped calls whose completions a thread of the context dequeues, while the readiness waits, accept, connect and the
+timers stay on the poller. ``_LIBCPP_IO_BACKEND`` set to ``winsock``, ``iocp`` or ``auto`` (the default) selects the
+backend. ``<io_file>`` uses synchronous Win32 handles on the helper threads, ``<io_signal>`` the C library's ``signal``
+(``SIGINT``, ``SIGBREAK``, ``SIGTERM``, ``SIGABRT``, ``SIGFPE``, ``SIGILL``, ``SIGSEGV``; no flags), and
+``local_stream_socket`` the Unix domain sockets of Windows 10 and later (written, not yet covered by the Windows test run). Not on Windows: ``<net_tls>``, Unix domain
+datagram sockets, abstract Unix domain names, ``reuse_port``, ``random_access_file``/``stream_file`` on FIFOs. The
+headers include ``<winsock2.h>`` and link ``ws2_32.lib`` (``#pragma comment``); include ``<winsock2.h>`` before
+``<windows.h>`` in a program that uses both.
 
 
 .. _libcxx-configuration-macros:

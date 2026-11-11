@@ -59,7 +59,7 @@ Implemented Papers
 - The C++29 networking and I/O library of the "Network Endeavor" papers (P4100 and companions: P4003 ``<io>``,
   ``<io_buffer>``, ``<io_stream>``, ``<io_bridge>`` with the P4092/P4093 sender bridges, ``<io_context>``, ``<io_timer>``,
   ``<io_signal>``, ``<io_file>``, ``<net>`` for TCP, UDP, Unix domain sockets and DNS, and ``<net_tls>``) is implemented
-  for Linux (epoll, plus io_uring for the socket transfers where the kernel allows it, chosen at run time; a kqueue backend for macOS and FreeBSD is implemented but not yet verified) behind ``-std=c++29 -fexperimental-library``. It is not adopted into the working draft: most of its
+  for Linux (epoll, plus io_uring for the socket transfers where the kernel allows it, chosen at run time; a kqueue backend for macOS and FreeBSD and a Winsock/IOCP backend for Windows are implemented and checked on CI runners) behind ``-std=c++29 -fexperimental-library``. It is not adopted into the working draft: most of its
   papers do not exist yet, so the missing parts follow the Networking TS (N4771) and the Boost Capy/Corosio libraries, and
   every divergence is tracked on GitHub (label ``cxx29``, milestone "C++29: Networking"). Libc++ does not ship the
   Networking TS and this is a different design. See :ref:`libcxx-networking-library`.
