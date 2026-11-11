@@ -144,10 +144,12 @@ protected:
   //  4. destroy(): the services are deleted last, because destroying a frame runs destructors of sockets and timers
   //     that call into them.
   // Limitation: the frames of a chain are destroyed by the context of its root. The objects they hold (timers,
-  // sockets) are bound to the services of the context they were made from, and a pending operation of another
-  // context holds a pointer into the frames. So a chain that runs on two contexts (run(other_executor)(task)) must,
-  // when its root's context is destroyed, have no operation pending in the other context and no continuation queued in
-  // it; the other context must outlive the root's. The frame allocator of the context must outlive it too.
+  // sockets) are bound to the services of the context they were made from. A chain that runs on two contexts
+  // (run(other_executor)(task)) may be destroyed while it waits in the other one: the destructor of the awaiter of a
+  // pending operation unlinks the operation from the other context (see __op_base), which must outlive the root's.
+  // What the other context must not hold is a continuation of the chain that is already queued in it (a completion that
+  // has been posted but not yet resumed), and, with the I/O completion port backend, a pending transfer. The frame
+  // allocator of the context must outlive it too.
   _LIBCPP_HIDE_FROM_ABI void shutdown() noexcept {
     __shutdown_services();
     __destroy_frames();
