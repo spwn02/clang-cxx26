@@ -9,6 +9,7 @@
 #ifndef _LIBCPP___IO_SIGNAL_SIGNAL_SET_H
 #define _LIBCPP___IO_SIGNAL_SIGNAL_SET_H
 
+#include <__condition_variable/condition_variable.h>
 #include <__config>
 #include <__coroutine/coroutine_handle.h>
 #include <__cstddef/size_t.h>
@@ -18,6 +19,7 @@
 #include <__io/support/config.h>
 #include <__mutex/lock_guard.h>
 #include <__mutex/mutex.h>
+#include <__mutex/unique_lock.h>
 #include <__system_error/errc.h>
 #include <__system_error/error_code.h>
 #include <__system_error/throw_system_error.h>
@@ -69,7 +71,13 @@ struct __signal_op : __op_base {
 // The process-wide part of signal handling. Signal dispositions belong to the process, not to a context: the registry
 // counts, per signal, how many signal sets (of any context) have the signal registered, remembers the flags it was
 // installed with, and lists the services of all contexts so that a delivered signal reaches every set that registered
-// it. Lock order: registry mutex, then the mutex of a service.
+// it. Lock order: registry mutex, then the mutex of a service, then the mutex of the reactor (add() registers the pipe
+// at the reactor while it holds the registry). A completion (which posts to the executor of the awaiting coroutine, and
+// may run it at once) is never made with any of the three held: __deliver collects the waits under the registry and
+// service locks and completes them afterwards, from the callback of the pipe source, which the reactor calls with its
+// lock released. The service of a context that is destroyed meanwhile is kept alive by __completing_: __deliver counts
+// each wait it has taken in the service of the wait, and the shutdown of the service waits for the count to reach zero,
+// before the context destroys the frames of the waits.
 struct __signal_registry {
   mutex __m_;
   size_t __count_[__posix_max_signal]   = {};
@@ -93,7 +101,9 @@ class __signal_service final : public execution_context::service {
 
   __reactor_service& __reactor_;
   mutex __m_;
+  condition_variable __cv_;
   vector<signal_set*> __sets_;
+  size_t __completing_ = 0; // the waits that a delivery has taken and not yet completed
   bool __shut_down_    = false;
   bool __source_added_ = false;
   int __pipe_fd_       = -1;
@@ -108,6 +118,10 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL ~__signal_service() override {
     {
+      unique_lock<mutex> __lk(__m_);
+      __cv_.wait(__lk, [this] { return __completing_ == 0; });
+    }
+    {
       __signal_registry& __r = __get_signal_registry();
       lock_guard<mutex> __lk(__r.__m_);
       for (size_t __i = 0; __i != __r.__services_.size(); ++__i) {
@@ -121,7 +135,8 @@ public:
       __reactor_.__remove_source(__pipe_fd_);
   }
 
-  // Abandons the waits that are still pending (the coroutines are destroyed, not resumed).
+  // Abandons the waits that are still pending (the coroutines are destroyed, not resumed) and waits for the deliveries
+  // that are completing a wait of this service.
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL void shutdown() override;
 
   // The callback of the reactor when the signal pipe is readable: delivers the signals that arrived to all contexts.
@@ -422,7 +437,7 @@ inline void __signal_service::__cancel_op(__signal_op* __op) noexcept {
 
 inline void __signal_service::shutdown() {
   // The waiting coroutines are dropped, not destroyed: their chains are destroyed by the context (see reactor.h).
-  lock_guard<mutex> __lk(__m_);
+  unique_lock<mutex> __lk(__m_);
   __shut_down_ = true;
   for (signal_set* __s : __sets_) {
     if (__signal_op* __op = __s->__waiter_) {
@@ -430,6 +445,8 @@ inline void __signal_service::shutdown() {
       __op->__state_ = __op_base::__done;
     }
   }
+  // A delivery from another context may be completing a wait of this one; the frame of the wait must stay until then.
+  __cv_.wait(__lk, [this] { return __completing_ == 0; });
 }
 
 inline void __signal_service::__deliver(int __sig) noexcept {
@@ -447,6 +464,7 @@ inline void __signal_service::__deliver(int __sig) noexcept {
           __op->__state_ = __op_base::__done;
           __op->__signo_ = __sig;
           __op->__ec_    = error_code();
+          ++__svc->__completing_; // keeps the service (and the frame of the wait) alive until the wait is completed
           __done.push_back(__op);
         } else {
           ++__s->__undelivered_[__sig];
@@ -455,8 +473,11 @@ inline void __signal_service::__deliver(int __sig) noexcept {
     }
   }
   for (__signal_op* __op : __done) {
-    __reactor_service& __rs = __op->__svc_->__reactor_;
-    __rs.__complete(__op);
+    __signal_service* __svc = __op->__svc_; // read before the completion: the op may be gone afterwards
+    __svc->__reactor_.__complete(__op);
+    lock_guard<mutex> __lk(__svc->__m_);
+    if (--__svc->__completing_ == 0)
+      __svc->__cv_.notify_all(); // notified under the lock: the waiter cannot destroy the service before we unlock
   }
 }
 

@@ -31,8 +31,9 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace io {
 
-// P4100R1 [8.6]: a non-owning, type-erased ReadSource. read is a complete operation, so the buffer sequence may hold at
-// most 16 non-empty buffers (hardened precondition).
+// P4100R1 [8.6]: a non-owning, type-erased ReadSource. read is a complete operation: a sequence of up to 16 non-empty
+// buffers is one read of the wrapped source, a longer one is read in windows of 16 buffers (this takes allocations, and the
+// wrapped source sees one read per window).
 class any_read_source {
   using _Res _LIBCPP_NODEBUG = io_result<size_t>;
 
@@ -78,8 +79,14 @@ public:
     _LIBCPP_ASSERT_UNCATEGORIZED(has_value(), "operation on an empty type-erased stream");
     _LIBCPP_ASSERT_UNCATEGORIZED(
         !__st_.__slot_.__active(), "an operation is already in flight on this type-erased stream");
-    _LIBCPP_ASSERT_VALID_INPUT_RANGE(
-        !io::__exceeds_erased_max(__buffers), "a complete type-erased operation takes at most 16 non-empty buffers");
+    if (io::__exceeds_erased_max(__buffers))
+      return io::__erased_begin_slow<_Res>(
+          __st_.__slot_,
+          io::__erased_complete_windows<_Res, mutable_buffer>(
+              io::__collect_all_buffers<mutable_buffer>(__buffers), [this](span<const mutable_buffer> __b, bool) {
+                return io::__erased_begin<_Res>(
+                    __st_.__slot_, __st_.__vt_->__start_(__st_.__obj_, __st_.__slot_.__memory(), __b));
+              }));
     size_t __n = io::__gather_buffers<mutable_buffer>(__buffers, 0, __bufs_);
     return io::__erased_begin<_Res>(
         __st_.__slot_,

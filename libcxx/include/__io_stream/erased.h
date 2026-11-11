@@ -15,11 +15,13 @@
 #include <__coroutine/noop_coroutine_handle.h>
 #include <__cstddef/size_t.h>
 #include <__io/io_env.h>
+#include <__io/task.h>
 #include <__io_buffer/buffer.h>
 #include <__io_buffer/buffer_sequence.h>
 #include <__memory/addressof.h>
 #include <__new/allocate.h>
 #include <__new/placement_new_delete.h>
+#include <__system_error/error_code.h>
 #include <__tuple/tuple_element.h>
 #include <__tuple/tuple_size.h>
 #include <__type_traits/is_same.h>
@@ -28,6 +30,8 @@
 #include <__utility/exchange.h>
 #include <__utility/integer_sequence.h>
 #include <__utility/move.h>
+#include <__vector/vector.h>
+#include <span>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -45,8 +49,9 @@ namespace io {
 // The type-erasing wrappers copy the caller's buffer sequence into a fixed array inside the wrapper (the operation may
 // outlive the call that created it, and the wrapped stream sees a span over this array). A partial operation
 // (read_some, write_some) simply sees the first __erased_max_buffers non-empty buffers, which it is allowed to do; a
-// complete operation (read, write) requires that many or fewer, because a larger gather would take a heap allocation
-// per operation.
+// complete operation (read, write) with that many or fewer buffers is a single operation of the wrapped object; a larger
+// sequence takes the slow path, a vector and a coroutine frame per operation: the buffers are collected into a vector and the wrapped
+// object is given successive windows of __erased_max_buffers of them (see __erased_complete_windows).
 inline constexpr size_t __erased_max_buffers = 16;
 
 // Copies up to __erased_max_buffers non-empty buffers of the sequence into __dst, after skipping __skip bytes. Returns
@@ -160,25 +165,35 @@ private:
 };
 
 // What a wrapper's operation returns. The operation state lives in the wrapper's slot; this object is a reference to
-// it. Destroying the object before await_resume ends the operation.
+// it. Destroying the object before await_resume ends the operation. The slow path of a complete operation (more than
+// __erased_max_buffers buffers) is a task that starts one operation after the other in the slot; __op_ is null then.
 template <class _Res>
 class __erased_awaitable {
   __erased_slot* __slot_;
   const __erased_op_vtable<_Res>* __op_;
+  task<_Res> __slow_;
 
 public:
   _LIBCPP_HIDE_FROM_ABI __erased_awaitable(__erased_slot* __s, const __erased_op_vtable<_Res>* __op) noexcept
       : __slot_(__s), __op_(__op) {}
+  _LIBCPP_HIDE_FROM_ABI __erased_awaitable(__erased_slot* __s, task<_Res> __t) noexcept
+      : __slot_(__s), __op_(nullptr), __slow_(std::move(__t)) {}
   _LIBCPP_HIDE_FROM_ABI __erased_awaitable(__erased_awaitable&& __o) noexcept
-      : __slot_(std::exchange(__o.__slot_, nullptr)), __op_(__o.__op_) {}
+      : __slot_(std::exchange(__o.__slot_, nullptr)), __op_(__o.__op_), __slow_(std::move(__o.__slow_)) {}
   __erased_awaitable& operator=(const __erased_awaitable&) = delete;
   _LIBCPP_HIDE_FROM_ABI ~__erased_awaitable() {
     if (__slot_)
       __slot_->__end();
   }
 
-  _LIBCPP_HIDE_FROM_ABI bool await_ready() { return __op_->__ready_(__slot_->__memory()); }
+  _LIBCPP_HIDE_FROM_ABI bool await_ready() {
+    if (!__op_)
+      return false;
+    return __op_->__ready_(__slot_->__memory());
+  }
   _LIBCPP_HIDE_FROM_ABI coroutine_handle<> await_suspend(coroutine_handle<> __h, const io_env* __env) {
+    if (!__op_)
+      return __slow_.await_suspend(__h, __env);
     return __op_->__suspend_(__slot_->__memory(), __h, __env);
   }
   _LIBCPP_HIDE_FROM_ABI _Res await_resume() {
@@ -186,6 +201,8 @@ public:
       __erased_slot* __s_;
       _LIBCPP_HIDE_FROM_ABI ~__guard() { __s_->__end(); }
     } __g{std::exchange(__slot_, nullptr)};
+    if (!__op_)
+      return __slow_.await_resume();
     return __op_->__resume_(__g.__s_->__memory());
   }
 };
@@ -204,6 +221,47 @@ _LIBCPP_HIDE_FROM_ABI __erased_awaitable<_Res>
 __erased_begin(__erased_slot& __slot, const __erased_op_vtable<_Res>* __op) noexcept {
   __slot.__mark_active(__op->__destroy_);
   return __erased_awaitable<_Res>(&__slot, __op);
+}
+
+// Marks the slot as busy for the slow path of a complete operation, and hands out the awaitable that drives the task.
+template <class _Res>
+_LIBCPP_HIDE_FROM_ABI __erased_awaitable<_Res> __erased_begin_slow(__erased_slot& __slot, task<_Res> __t) noexcept {
+  __slot.__mark_active([](void*) noexcept {});
+  return __erased_awaitable<_Res>(std::addressof(__slot), std::move(__t));
+}
+
+// All the non-empty buffers of the sequence.
+template <class _Buf, class _Seq>
+_LIBCPP_HIDE_FROM_ABI vector<_Buf> __collect_all_buffers(const _Seq& __seq) {
+  vector<_Buf> __all;
+  for (auto __it = io::buffer_sequence_begin(__seq), __last = io::buffer_sequence_end(__seq); __it != __last; ++__it) {
+    _Buf __b = static_cast<_Buf>(*__it);
+    if (__b.size() != 0)
+      __all.push_back(__b);
+  }
+  return __all;
+}
+
+// The slow path of a complete operation: calls __begin(window, is_last_window) for successive windows of at most
+// __erased_max_buffers buffers and awaits each; stops at the first error or short window. The result carries the bytes
+// of all the windows.
+template <class _Res, class _Buf, class _Begin>
+_LIBCPP_HIDE_FROM_ABI task<_Res> __erased_complete_windows(vector<_Buf> __all, _Begin __begin) {
+  size_t __done = 0;
+  size_t __off  = 0;
+  while (__off != __all.size()) {
+    const size_t __rest = __all.size() - __off;
+    const size_t __n    = __rest < __erased_max_buffers ? __rest : __erased_max_buffers;
+    size_t __want       = 0;
+    for (size_t __i = 0; __i != __n; ++__i)
+      __want += __all[__off + __i].size();
+    auto [__ec, __got] = co_await __begin(span<const _Buf>(__all.data() + __off, __n), __n == __rest);
+    __done += __got;
+    if (__ec || __got != __want)
+      co_return _Res(__ec, __done);
+    __off += __n;
+  }
+  co_return _Res(error_code(), __done);
 }
 
 // The part of a wrapper that is the same for all seven: the object pointer, the vtable pointer and the slot. A wrapper

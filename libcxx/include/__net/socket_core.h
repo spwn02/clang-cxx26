@@ -8,6 +8,7 @@
 #ifndef _LIBCPP___NET_SOCKET_CORE_H
 #define _LIBCPP___NET_SOCKET_CORE_H
 
+#include <__condition_variable/condition_variable.h>
 #include <__config>
 #include <__coroutine/coroutine_handle.h>
 #include <__coroutine/coroutine_traits.h>
@@ -24,10 +25,12 @@
 #include <__memory/addressof.h>
 #include <__mutex/lock_guard.h>
 #include <__mutex/mutex.h>
+#include <__mutex/unique_lock.h>
 #include <__net/family.h>
 #include <__net/support/posix_socket.h>
 #include <__system_error/errc.h>
 #include <__system_error/error_code.h>
+#include <__thread/id.h>
 #include <__utility/exchange.h>
 #include <__utility/move.h>
 #include <__utility/swap.h>
@@ -63,10 +66,23 @@ _LIBCPP_HIDE_FROM_ABI size_t __collect_buffers(const _Seq& __seq, _Buf* __dst) n
 class __socket_core;
 
 // A link of the list of the waits that are pending on one socket, so that cancel() and close() can reach them.
+//
+// The node lives in the awaiter, so it must leave the list before the awaiter dies: await_resume and the destructor of
+// the awaiter (a frame that is destroyed while its wait is pending, as at the shutdown of the context) both do it. A
+// cancel() that is calling the cancel function of the operation (with no lock held) marks the node __active_; the
+// unregistration waits for the call to end, except when it is made from the very call (an executor whose post()
+// resumes the coroutine inline), where the cancelling loop is told that the node is gone.
 struct __wait_node {
-  __wait_node* __prev_ = nullptr;
-  __wait_node* __next_ = nullptr;
-  __op_base* __op_     = nullptr;
+  __wait_node* __prev_    = nullptr;
+  __wait_node* __next_    = nullptr;
+  __op_base* __op_        = nullptr;
+  __socket_core* __core_  = nullptr; // null once the socket is destroyed while the wait is still registered
+  size_t __seq_           = 0;
+  bool __linked_          = false;
+  bool __cancelled_       = false; // cancel() has taken this node
+  bool __active_          = false; // the cancel function of the operation is being called by __active_thread_
+  bool* __gone_           = nullptr; // set by an unregistration that is made from the call itself
+  __thread_id __active_thread_;
 };
 
 // A wait for readiness of the descriptor of a socket (a __reactor_wait that is registered at the socket). It lives in
@@ -82,6 +98,8 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI bool await_suspend(coroutine_handle<> __h, const io_env* __env);
   _LIBCPP_HIDE_FROM_ABI io_result<unsigned> await_resume() noexcept;
+  _LIBCPP_HIDE_FROM_ABI void __unregister_node() noexcept;
+  _LIBCPP_HIDE_FROM_ABI ~__sock_wait_awaiter();
 };
 
 // The state shared by every socket and acceptor: the context, the descriptor and the registry of the pending waits.
@@ -98,27 +116,46 @@ class __socket_core {
   __native_socket __fd_ = __invalid_socket;
   io::family __family_  = io::family::v4;
   mutex __m_;
+  condition_variable __cv_; // an unregistration waits here for the call of the cancel function of its node
   __wait_node* __head_ = nullptr;
+  size_t __next_seq_   = 0;
 
   _LIBCPP_HIDE_FROM_ABI void __register(__wait_node* __n) noexcept {
     lock_guard<mutex> __lk(__m_);
+    __n->__core_      = this;
+    __n->__seq_       = __next_seq_++;
+    __n->__linked_    = true;
+    __n->__cancelled_ = false;
+    __n->__active_    = false;
+    __n->__gone_      = nullptr;
     __n->__prev_ = nullptr;
     __n->__next_ = __head_;
     if (__head_)
       __head_->__prev_ = __n;
     __head_ = __n;
   }
+  // Idempotent. Waits while another thread is calling the cancel function of the node, so that the operation (which
+  // lives in the same awaiter) stays valid for that call.
   _LIBCPP_HIDE_FROM_ABI void __unregister(__wait_node* __n) noexcept {
-    lock_guard<mutex> __lk(__m_);
+    unique_lock<mutex> __lk(__m_);
+    if (!__n->__linked_)
+      return;
+    if (__n->__active_) {
+      if (__n->__active_thread_ == this_thread::get_id()) {
+        *__n->__gone_ = true; // the cancelling loop must not touch the node any more
+        __n->__active_ = false;
+      } else {
+        __cv_.wait(__lk, [__n] { return !__n->__active_; });
+      }
+    }
     if (__n->__prev_)
       __n->__prev_->__next_ = __n->__next_;
-    else if (__head_ == __n)
-      __head_ = __n->__next_;
     else
-      return; // not registered
+      __head_ = __n->__next_;
     if (__n->__next_)
       __n->__next_->__prev_ = __n->__prev_;
     __n->__prev_ = __n->__next_ = nullptr;
+    __n->__linked_              = false;
   }
 
 protected:
@@ -135,7 +172,17 @@ protected:
     }
     return *this;
   }
-  _LIBCPP_HIDE_FROM_ABI ~__socket_core() { __close(); }
+  _LIBCPP_HIDE_FROM_ABI ~__socket_core() {
+    __close();
+    // A wait that is still registered belongs to a frame that outlives the socket (it is destroyed after it, as at the
+    // shutdown of a context): it must not unregister from a dead object.
+    lock_guard<mutex> __lk(__m_);
+    for (__wait_node* __n = __head_; __n; __n = __n->__next_) {
+      __n->__core_   = nullptr;
+      __n->__linked_ = false;
+    }
+    __head_ = nullptr;
+  }
 
   _LIBCPP_HIDE_FROM_ABI execution_context& __context() const noexcept { return *__ctx_; }
   _LIBCPP_HIDE_FROM_ABI io::family __family() const noexcept { return __family_; }
@@ -256,14 +303,39 @@ public:
   __socket_core& operator=(const __socket_core&) = delete;
 
   // Cancels every pending operation of the socket: each completes with error::canceled (unless its result was already
-  // decided). The operations that are started later are not affected.
+  // decided). The operations that are started later are not affected. The cancel functions are called with no lock
+  // held, because they post the continuation to the executor of the awaiting coroutine, and an executor may run it at
+  // once, in this thread, which unregisters its wait.
   _LIBCPP_HIDE_FROM_ABI void cancel() noexcept {
-    lock_guard<mutex> __lk(__m_);
-    for (__wait_node* __n = __head_; __n;) {
-      __wait_node* __next = __n->__next_;
-      __n->__op_->__cancel_(__n->__op_);
-      __n = __next;
+    unique_lock<mutex> __lk(__m_);
+    const size_t __limit = __next_seq_;
+    for (;;) {
+      __wait_node* __n = __head_;
+      while (__n && (__n->__cancelled_ || __n->__seq_ >= __limit))
+        __n = __n->__next_;
+      if (!__n)
+        return;
+      bool __gone            = false;
+      __n->__cancelled_      = true;
+      __n->__active_         = true;
+      __n->__active_thread_  = this_thread::get_id();
+      __n->__gone_           = std::addressof(__gone);
+      __op_base* __op        = __n->__op_;
+      __lk.unlock();
+      __op->__cancel_(__op);
+      __lk.lock();
+      if (!__gone) { // otherwise the node (and its awaiter) may be destroyed already
+        __n->__active_ = false;
+        __n->__gone_   = nullptr;
+        __cv_.notify_all();
+      }
     }
+  }
+
+  // True if a wait is registered at the socket (for the tests of the teardown of a context).
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool __has_waits() noexcept {
+    lock_guard<mutex> __lk(__m_);
+    return __head_ != nullptr;
   }
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool is_open() const noexcept { return __fd_ != __invalid_socket; }
@@ -298,10 +370,19 @@ _LIBCPP_HIDE_FROM_ABI inline bool __sock_wait_awaiter::await_suspend(coroutine_h
   return __reactor_wait_awaiter::await_suspend(__h, __env);
 }
 
+_LIBCPP_HIDE_FROM_ABI inline void __sock_wait_awaiter::__unregister_node() noexcept {
+  if (__node_.__linked_ && __node_.__core_) // an unlinked node is only touched under the lock of its socket
+    __node_.__core_->__unregister(std::addressof(__node_));
+}
+
 _LIBCPP_HIDE_FROM_ABI inline io_result<unsigned> __sock_wait_awaiter::await_resume() noexcept {
   io_result<unsigned> __r = __reactor_wait_awaiter::await_resume();
-  __core_->__unregister(std::addressof(__node_));
+  __unregister_node();
   return __r;
+}
+
+_LIBCPP_HIDE_FROM_ABI inline __sock_wait_awaiter::~__sock_wait_awaiter() {
+  __unregister_node(); // the frame can be destroyed while the wait is pending
 }
 
 // What both kinds of stream socket have in common: reading, writing, shutdown.

@@ -31,8 +31,9 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace io {
 
-// P4100R1 [8.6]: a non-owning, type-erased WriteSink. write is a complete operation, so the buffer sequence may hold at
-// most 16 non-empty buffers (hardened precondition).
+// P4100R1 [8.6]: a non-owning, type-erased WriteSink. write is a complete operation: a sequence of up to 16 non-empty
+// buffers is one write of the wrapped sink, a longer one is written in windows of 16 buffers (this takes allocations, and the
+// wrapped sink sees one write per window; the end of the stream is signalled with the last window).
 class any_write_sink {
   using _Res _LIBCPP_NODEBUG    = io_result<size_t>;
   using _EofRes _LIBCPP_NODEBUG = io_result<>;
@@ -71,14 +72,33 @@ class any_write_sink {
   __erased_state<__vtable> __st_;
   const_buffer __bufs_[__erased_max_buffers];
 
-  template <class _Seq>
-  _LIBCPP_HIDE_FROM_ABI size_t __prepare(const _Seq& __buffers) noexcept {
+  _LIBCPP_HIDE_FROM_ABI void __check() const noexcept {
     _LIBCPP_ASSERT_UNCATEGORIZED(has_value(), "operation on an empty type-erased sink");
     _LIBCPP_ASSERT_UNCATEGORIZED(
         !__st_.__slot_.__active(), "an operation is already in flight on this type-erased sink");
-    _LIBCPP_ASSERT_VALID_INPUT_RANGE(
-        !io::__exceeds_erased_max(__buffers), "a complete type-erased operation takes at most 16 non-empty buffers");
-    return io::__gather_buffers<const_buffer>(__buffers, 0, __bufs_);
+  }
+
+  // The operation for one window; __eof is passed on only if the window is the last one.
+  _LIBCPP_HIDE_FROM_ABI __erased_awaitable<_Res> __begin_window(span<const const_buffer> __b, bool __eof, bool __flag) {
+    if (__flag)
+      return io::__erased_begin<_Res>(
+          __st_.__slot_, __st_.__vt_->__write_eof_flag_(__st_.__obj_, __st_.__slot_.__memory(), __b, __eof));
+    return io::__erased_begin<_Res>(__st_.__slot_, __st_.__vt_->__write_(__st_.__obj_, __st_.__slot_.__memory(), __b));
+  }
+
+  template <class _Seq>
+  _LIBCPP_HIDE_FROM_ABI __erased_awaitable<_Res> __write(const _Seq& __buffers, bool __eof, bool __flag) {
+    __check();
+    if (io::__exceeds_erased_max(__buffers))
+      return io::__erased_begin_slow<_Res>(
+          __st_.__slot_,
+          io::__erased_complete_windows<_Res, const_buffer>(
+              io::__collect_all_buffers<const_buffer>(__buffers),
+              [this, __eof, __flag](span<const const_buffer> __b, bool __last) {
+                return __begin_window(__b, __eof && __last, __flag);
+              }));
+    size_t __n = io::__gather_buffers<const_buffer>(__buffers, 0, __bufs_);
+    return __begin_window(span<const const_buffer>(__bufs_, __n), __eof, __flag);
   }
 
 public:
@@ -99,19 +119,12 @@ public:
 
   template <ConstBufferSequence _Seq>
   _LIBCPP_HIDE_FROM_ABI __erased_awaitable<_Res> write(const _Seq& __buffers) {
-    size_t __n = __prepare(__buffers);
-    return io::__erased_begin<_Res>(
-        __st_.__slot_,
-        __st_.__vt_->__write_(__st_.__obj_, __st_.__slot_.__memory(), span<const const_buffer>(__bufs_, __n)));
+    return __write(__buffers, false, false);
   }
   // Writes the buffers and, when __eof is true, finalizes the sink in the same operation.
   template <ConstBufferSequence _Seq>
   _LIBCPP_HIDE_FROM_ABI __erased_awaitable<_Res> write(const _Seq& __buffers, bool __eof) {
-    size_t __n = __prepare(__buffers);
-    return io::__erased_begin<_Res>(
-        __st_.__slot_,
-        __st_.__vt_->__write_eof_flag_(
-            __st_.__obj_, __st_.__slot_.__memory(), span<const const_buffer>(__bufs_, __n), __eof));
+    return __write(__buffers, __eof, true);
   }
   _LIBCPP_HIDE_FROM_ABI __erased_awaitable<_EofRes> write_eof() {
     _LIBCPP_ASSERT_UNCATEGORIZED(has_value(), "operation on an empty type-erased sink");

@@ -61,6 +61,8 @@ _LIBCPP_HIDE_FROM_ABI inline const io_context*& __current_io_context() noexcept 
 // Differences from the shape of Asio's io_context (see the deviation notes of the networking series): run_for and
 // run_until are not provided, and a continuation that is posted counts as work until it has been resumed (a bare post
 // is therefore enough to keep run() going).
+//
+// Known limitation: the latency of the run() threads that are idle (waiting for work) is not tuned yet.
 class io_context : public execution_context {
 public:
   class executor_type;

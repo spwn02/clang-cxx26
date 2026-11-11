@@ -21,6 +21,9 @@
 #include <__io_stream/stream_concepts.h>
 #include <__system_error/errc.h>
 #include <__system_error/error_code.h>
+#include <__type_traits/is_array.h>
+#include <__type_traits/is_trivially_copyable.h>
+#include <__utility/move.h>
 #include <span>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -28,6 +31,9 @@
 #endif
 
 #if _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
+
+_LIBCPP_PUSH_MACROS
+#  include <__undef_macros>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -37,12 +43,17 @@ namespace io {
 template <class... _Ts>
 using io_task = task<io_result<_Ts...>>;
 
-// P4100R1 [8.6], B1005 [4.2]: reads until the whole buffer sequence is filled or an error occurs, by calling read_some
-// repeatedly. The result carries the bytes transferred so far: on end of stream before the sequence was full the error
-// is io::error::eof and n < buffer_size(buffers). The buffer sequence is held by reference: it must outlive the
-// operation (the task is lazy), so pass a named sequence or await the call in the same full-expression.
-template <ReadStream _Stream, MutableBufferSequence _Seq>
-_LIBCPP_HIDE_FROM_ABI io_task<size_t> read(_Stream& __stream, const _Seq& __buffers) {
+// A buffer sequence that is a small, trivially copyable value (a buffer, a pair of buffers, a span): read() and write()
+// copy it into the frame of the operation, so a temporary such as io::make_buffer(p, n) is fine even though the task is
+// lazy. Any other sequence (a vector of buffers, an array of more than a few buffers, a user type) is held by reference
+// and must outlive the operation; a temporary of such a type does not compile.
+template <class _Seq>
+inline constexpr bool __io_copied_sequence_v =
+    !is_array_v<_Seq> && is_trivially_copyable_v<_Seq> && sizeof(_Seq) <= 4 * sizeof(void*);
+
+// _Seq is the type of the sequence, _Held the type that the frame stores: _Seq by value, or const _Seq&.
+template <class _Stream, class _Seq, class _Held>
+_LIBCPP_HIDE_FROM_ABI io_task<size_t> __read_impl(_Stream& __stream, _Held __buffers) {
   const size_t __total = io::buffer_size(__buffers);
   size_t __done        = 0;
   while (__done < __total) {
@@ -56,9 +67,8 @@ _LIBCPP_HIDE_FROM_ABI io_task<size_t> read(_Stream& __stream, const _Seq& __buff
   co_return io_result<size_t>{error_code{}, __done};
 }
 
-// Writes until the whole buffer sequence is consumed or an error occurs, by calling write_some repeatedly.
-template <WriteStream _Stream, ConstBufferSequence _Seq>
-_LIBCPP_HIDE_FROM_ABI io_task<size_t> write(_Stream& __stream, const _Seq& __buffers) {
+template <class _Stream, class _Seq, class _Held>
+_LIBCPP_HIDE_FROM_ABI io_task<size_t> __write_impl(_Stream& __stream, _Held __buffers) {
   const size_t __total = io::buffer_size(__buffers);
   size_t __done        = 0;
   while (__done < __total) {
@@ -71,6 +81,41 @@ _LIBCPP_HIDE_FROM_ABI io_task<size_t> write(_Stream& __stream, const _Seq& __buf
   }
   co_return io_result<size_t>{error_code{}, __done};
 }
+
+// P4100R1 [8.6], B1005 [4.2]: reads until the whole buffer sequence is filled or an error occurs, by calling read_some
+// repeatedly. The result carries the bytes transferred so far: on end of stream before the sequence was full the error
+// is io::error::eof and n < buffer_size(buffers). A buffer, a pair of buffers or another small trivially copyable
+// sequence is copied into the operation. Any other sequence is held by reference: it must outlive the operation (the
+// task is lazy), so pass a named sequence or await the call in the same full-expression; a temporary is rejected.
+template <ReadStream _Stream, MutableBufferSequence _Seq>
+  requires __io_copied_sequence_v<_Seq>
+_LIBCPP_HIDE_FROM_ABI io_task<size_t> read(_Stream& __stream, _Seq __buffers) {
+  return io::__read_impl<_Stream, _Seq, _Seq>(__stream, std::move(__buffers));
+}
+template <ReadStream _Stream, MutableBufferSequence _Seq>
+  requires(!__io_copied_sequence_v<_Seq>)
+_LIBCPP_HIDE_FROM_ABI io_task<size_t> read(_Stream& __stream, const _Seq& __buffers) {
+  return io::__read_impl<_Stream, _Seq, const _Seq&>(__stream, __buffers);
+}
+template <ReadStream _Stream, MutableBufferSequence _Seq>
+  requires(!__io_copied_sequence_v<_Seq>)
+io_task<size_t> read(_Stream&, const _Seq&&) = delete; // a temporary would dangle in the lazy task
+
+// Writes until the whole buffer sequence is consumed or an error occurs, by calling write_some repeatedly (the same
+// rules for the lifetime of the sequence).
+template <WriteStream _Stream, ConstBufferSequence _Seq>
+  requires __io_copied_sequence_v<_Seq>
+_LIBCPP_HIDE_FROM_ABI io_task<size_t> write(_Stream& __stream, _Seq __buffers) {
+  return io::__write_impl<_Stream, _Seq, _Seq>(__stream, std::move(__buffers));
+}
+template <WriteStream _Stream, ConstBufferSequence _Seq>
+  requires(!__io_copied_sequence_v<_Seq>)
+_LIBCPP_HIDE_FROM_ABI io_task<size_t> write(_Stream& __stream, const _Seq& __buffers) {
+  return io::__write_impl<_Stream, _Seq, const _Seq&>(__stream, __buffers);
+}
+template <WriteStream _Stream, ConstBufferSequence _Seq>
+  requires(!__io_copied_sequence_v<_Seq>)
+io_task<size_t> write(_Stream&, const _Seq&&) = delete; // a temporary would dangle in the lazy task
 
 // Reads from the stream into a dynamic buffer until end of stream, which is a success here (the goal is to read
 // everything). The buffer grows by 1.5x per round from `__initial` bytes. If the buffer is full (size() == max_size())
@@ -100,6 +145,8 @@ _LIBCPP_HIDE_FROM_ABI io_task<size_t> read(_Stream& __stream, _Db& __db, size_t 
 } // namespace io
 
 _LIBCPP_END_NAMESPACE_STD
+
+_LIBCPP_POP_MACROS
 
 #endif // _LIBCPP_HAS_EXPERIMENTAL_NETWORKING && _LIBCPP_HAS_THREADS
 
