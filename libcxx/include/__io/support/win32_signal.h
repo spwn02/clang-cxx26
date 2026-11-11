@@ -19,6 +19,8 @@
 #  include <__system_error/error_category.h>
 #  include <__system_error/error_code.h>
 #  include <csignal>
+#  include <cstdint>
+#  include <cstring>
 #endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)

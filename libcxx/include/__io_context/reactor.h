@@ -13,7 +13,6 @@
 #include <__atomic/memory_order.h>
 #include <__chrono/duration.h>
 #include <__chrono/steady_clock.h>
-#include <__condition_variable/condition_variable.h>
 #include <__config>
 #include <__coroutine/coroutine_handle.h>
 #include <__cstddef/size_t.h>
@@ -24,8 +23,6 @@
 #include <__mutex/unique_lock.h>
 #include <__system_error/errc.h>
 #include <__system_error/error_code.h>
-#include <__thread/id.h>
-#include <__thread/thread.h>
 #include <__utility/move.h>
 #include <__utility/swap.h>
 #include <__vector/vector.h>
@@ -39,7 +36,12 @@
 #  include <cerrno>
 #  include <cstdint>
 #  include <cstdlib>
-#  include <cstring>
+#  if _LIBCPP_HAS_IO_IOCP
+#    include <__condition_variable/condition_variable.h>
+#    include <__thread/id.h>
+#    include <__thread/thread.h>
+#    include <cstring>
+#  endif
 #endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -112,6 +114,7 @@ struct __iocp_op : __op_base {
   int __res_                            = 0;
   bool __fallback_                      = false; // the port did not do the transfer: use the readiness path
   bool __cancel_sent_                   = false;
+  bool __handoff_                       = false; // the canceller completes the operation, not the thread of the port
 
   _LIBCPP_HIDE_FROM_ABI explicit __iocp_op(__reactor_service* __s) noexcept : __svc_(__s) {
     ::memset(&__ov_.__ov_, 0, sizeof(__ov_.__ov_));
@@ -458,8 +461,8 @@ class __reactor_service final : public execution_context::service {
         } else {
           __op->__ec_ = io::__wsa_error_code(__werr);
         }
-        __post             = !__shut_down_;
-        __iocp_completing_ = __op;
+        __post             = !__shut_down_ && !__op->__handoff_; // a canceller that waits posts the completion itself
+        __iocp_completing_ = __post ? __op : nullptr;
       }
       if (__post)
         __complete(__op); // the operation must not be touched afterwards
@@ -777,25 +780,30 @@ public:
     return true;
   }
 
-  // Asks the system to finish the call and waits (a few milliseconds in practice, two seconds at most) until the thread
-  // of the port has posted the completion, so that the operation has completed when cancel() returns, like a
-  // cancellation on the readiness path. The operation is valid for the whole call: the socket's cancel() and the stop
-  // callback both keep it alive until their call returns.
+  // Asks the system to finish the call and waits (a few milliseconds in practice, two seconds at most) for the thread of
+  // the port to dequeue the packet, then posts the completion itself, so that the operation has completed (its
+  // continuation is posted) when cancel() returns, like a cancellation on the readiness path. The operation is valid for
+  // the whole call: the socket's cancel() and the stop callback both keep it alive until their call returns. A
+  // completion that this thread posts is posted with no lock held, and nothing touches the operation after that.
   _LIBCPP_HIDE_FROM_ABI void __cancel_iocp(__iocp_op* __op) noexcept {
     unique_lock<mutex> __lk(__m_);
     if (__op->__state_ == __op_base::__idle) {
       __op->__cancel_requested_ = true;
       return;
     }
-    if (__op->__state_ == __op_base::__pending && !__op->__cancel_sent_) {
-      __op->__cancel_sent_ = true;
-      (void)::CancelIoEx(reinterpret_cast<HANDLE>(static_cast<SOCKET>(static_cast<intptr_t>(__op->__fd_))), &__op->__ov_.__ov_);
-    }
+    if (__op->__state_ != __op_base::__pending || __op->__cancel_sent_)
+      return;
+    __op->__cancel_sent_ = true;
+    (void)::CancelIoEx(reinterpret_cast<HANDLE>(static_cast<SOCKET>(static_cast<intptr_t>(__op->__fd_))), &__op->__ov_.__ov_);
     if (this_thread::get_id() == __iocp_thread_id_) // an inline executor runs the continuation on the thread that would answer
       return;
-    __iocp_cv_.wait_for(__lk, chrono::seconds(2), [this, __op] {
-      return __op->__state_ != __op_base::__pending && __iocp_completing_ != __op;
-    });
+    __op->__handoff_ = true;
+    __iocp_cv_.wait_for(__lk, chrono::seconds(2), [__op] { return __op->__state_ != __op_base::__pending; });
+    bool __mine      = __op->__state_ == __op_base::__done && __op->__handoff_ && !__shut_down_;
+    __op->__handoff_ = false; // after a timeout the thread of the port posts the completion
+    __lk.unlock();
+    if (__mine)
+      __complete(__op);
   }
 #  endif // _LIBCPP_HAS_IO_IOCP
 

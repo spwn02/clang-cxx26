@@ -29,6 +29,7 @@
 #  include <__system_error/throw_system_error.h>
 #  include <__vector/vector.h>
 #  include <cstdint>
+#  include <cstring>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 

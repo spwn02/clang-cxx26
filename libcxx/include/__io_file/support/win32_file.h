@@ -20,6 +20,7 @@
 #  include <__system_error/error_category.h>
 #  include <__system_error/error_code.h>
 #  include <cstdint>
+#  include <cstring>
 #  include <string>
 #endif
 
