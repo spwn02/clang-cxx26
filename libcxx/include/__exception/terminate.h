@@ -18,8 +18,13 @@
 _LIBCPP_BEGIN_UNVERSIONED_NAMESPACE_STD
 #if defined(__cpp_diverging_expressions)
 // P3549: a function that cannot return returns the bottom type. (Same ABI as
-// void: the definition in the runtime library is still 'void terminate()'.)
+// void: the definition in the runtime library is still 'void terminate()'.) The Microsoft ABI mangles the return type
+// into the name, so there the declaration names the symbol of 'void terminate()' explicitly.
+#  if defined(_LIBCPP_ABI_MICROSOFT)
+_LIBCPP_EXPORTED_FROM_ABI decltype(throw 0) terminate() _NOEXCEPT __asm__("?terminate@std@@YAXXZ");
+#  else
 _LIBCPP_EXPORTED_FROM_ABI decltype(throw 0) terminate() _NOEXCEPT;
+#  endif
 #else
 [[__noreturn__]] _LIBCPP_EXPORTED_FROM_ABI void terminate() _NOEXCEPT;
 #endif
