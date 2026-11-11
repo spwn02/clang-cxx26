@@ -728,8 +728,9 @@ _LIBCPP_HIDE_FROM_ABI __sock_iocp_awaiter::__sock_iocp_awaiter(
   } else if (__to) {
     __name_ = *__to;
   }
-  __fd_     = __c.__fd_;
-  __submit_ = &__submit_cb;
+  __fd_      = __c.__fd_;
+  __is_send_ = !__recv;
+  __submit_  = &__submit_cb;
 }
 
 _LIBCPP_HIDE_FROM_ABI inline bool __sock_iocp_awaiter::await_suspend(coroutine_handle<> __h, const io_env* __env) {

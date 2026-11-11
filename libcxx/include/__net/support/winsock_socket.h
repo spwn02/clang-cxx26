@@ -75,6 +75,11 @@ struct __sockaddr_buf {
 }
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __last_error() noexcept { return io::__last_wsa_error(); }
 
+// A send to a connection that the system aborted (the peer is gone) reports a reset, as the POSIX systems do.
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __send_error(int __e) noexcept {
+  return io::__wsa_error_code(__e == WSAECONNABORTED ? WSAECONNRESET : __e);
+}
+
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline SOCKET __to_win_socket(__native_socket __s) noexcept {
   return static_cast<SOCKET>(static_cast<intptr_t>(__s));
 }
@@ -332,7 +337,7 @@ __sock_send(__native_socket __fd, const const_buffer* __bufs, size_t __n, size_t
   DWORD __cnt   = io::__to_wsabuf(__bufs, __n, __wb, char());
   DWORD __bytes = 0;
   if (::WSASend(io::__to_win_socket(__fd), __wb, __cnt, &__bytes, 0, nullptr, nullptr) != 0)
-    return __last_error();
+    return io::__send_error(::WSAGetLastError());
   __got = __bytes;
   return error_code();
 }
@@ -442,7 +447,7 @@ __sock_pair(__sock_type __t, __native_socket& __a, __native_socket& __b) noexcep
     __rc = ::WSASend(io::__to_win_socket(__fd), __wb, __cnt, &__bytes, static_cast<DWORD>(io::__to_native_msg_flags(__flags)),
                      nullptr, nullptr);
   if (__rc != 0)
-    return __last_error();
+    return io::__send_error(::WSAGetLastError());
   __got = __bytes;
   return error_code();
 }
