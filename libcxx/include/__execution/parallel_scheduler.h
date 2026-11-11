@@ -259,9 +259,9 @@ private:
   [[noreturn]] _LIBCPP_HIDE_FROM_ABI_VIRTUAL void set_error(std::exception_ptr) noexcept override { std::terminate(); }
 
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL bool
-  __query_env(const type_info& __query_type, const type_info& __result_type, const void*, void* __result_storage)
+  __query_env(const void* __query_type, const void* __result_type, const void*, void* __result_storage)
       const noexcept override {
-    if (__query_type == typeid(get_stop_token_t) && __result_type == typeid(_StopToken)) {
+    if (__query_type == execution::__type_tag<get_stop_token_t>() && __result_type == execution::__type_tag<_StopToken>()) {
       ::new (__result_storage) _StopToken(std::get_stop_token(execution::get_env(__rcvr_)));
       return true;
     }

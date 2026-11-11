@@ -174,6 +174,7 @@ struct __task_scheduler_concept {
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual unique_ptr<__task_scheduler_opstate_base>
       __connect(unique_ptr<__task_scheduler_rcvr_base>) const                                           = 0;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual bool __equals(const __task_scheduler_concept&) const noexcept   = 0;
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual const void* __scheduler_type() const noexcept                   = 0; // no RTTI
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual forward_progress_guarantee __fwd_progress() const noexcept      = 0;
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
   __bulk_backend() const = 0;
@@ -216,8 +217,13 @@ struct __task_scheduler_model final : __task_scheduler_concept {
   }
 
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL bool __equals(const __task_scheduler_concept& __other) const noexcept override {
-    auto* __p = dynamic_cast<const __task_scheduler_model*>(&__other);
-    return __p != nullptr && __sch_ == __p->__sch_;
+    if (__other.__scheduler_type() != execution::__type_tag<_Sch>())
+      return false;
+    return __sch_ == static_cast<const __task_scheduler_model&>(__other).__sch_;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI_VIRTUAL const void* __scheduler_type() const noexcept override {
+    return execution::__type_tag<_Sch>();
   }
 
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL forward_progress_guarantee __fwd_progress() const noexcept override {
@@ -296,8 +302,9 @@ public:
   template <scheduler _Sch>
     requires (!same_as<task_scheduler, _Sch>)
   _LIBCPP_HIDE_FROM_ABI friend bool operator==(const task_scheduler& __lhs, const _Sch& __rhs) noexcept {
-    auto* __p = dynamic_cast<const __task_scheduler_model<_Sch>*>(__lhs.__holder_.get());
-    return __p != nullptr && __p->__sch_ == __rhs;
+    if (__lhs.__holder_->__scheduler_type() != execution::__type_tag<_Sch>())
+      return false;
+    return static_cast<const __task_scheduler_model<_Sch>&>(*__lhs.__holder_).__sch_ == __rhs;
   }
 
   _LIBCPP_HIDE_FROM_ABI __task_scheduler_sender schedule() const noexcept { return __task_scheduler_sender(__holder_); }

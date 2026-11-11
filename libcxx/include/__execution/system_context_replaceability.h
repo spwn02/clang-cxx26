@@ -12,6 +12,7 @@
 #include <__config>
 #include <__exception/exception_ptr.h>
 #include <__execution/movable_value.h>
+#include <__memory/addressof.h>
 #include <__memory/shared_ptr.h>
 #include <__type_traits/decay.h>
 #include <__type_traits/is_array.h>
@@ -23,7 +24,6 @@
 #include <new>
 #include <optional>
 #include <span>
-#include <typeinfo>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -37,6 +37,16 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 #if _LIBCPP_STD_VER >= 26 && _LIBCPP_HAS_THREADS
 
 namespace execution {
+
+// A per-type identity that needs no RTTI: typeid and dynamic_cast do not exist under -fno-rtti, and the library must
+// stay usable there.
+template <class _Tp>
+inline constexpr char __type_tag_v = 0;
+template <class _Tp>
+_LIBCPP_HIDE_FROM_ABI const void* __type_tag() noexcept {
+  return std::addressof(__type_tag_v<_Tp>);
+}
+
 namespace parallel_scheduler_replacement {
 
 // [exec.parschedrepl.recvproxy]: type-erased receiver completion and environment queries.
@@ -71,7 +81,7 @@ public:
     static_assert(is_object_v<_ResultTp> && !is_array_v<_ResultTp> && !is_const_v<_ResultTp> && !is_volatile_v<_ResultTp>,
                   "Mandates: P is a cv-unqualified non-array object type.");
     alignas(_ResultTp) unsigned char __storage[sizeof(_ResultTp)];
-    if (__query_env(typeid(_Query), typeid(_ResultTp), std::addressof(__q), static_cast<void*>(__storage))) {
+    if (__query_env(execution::__type_tag<_Query>(), execution::__type_tag<_ResultTp>(), std::addressof(__q), static_cast<void*>(__storage))) {
       _ResultTp* __p = std::launder(reinterpret_cast<_ResultTp*>(__storage));
       optional<_ResultTp> __result(std::in_place, std::move(*__p));
       __p->~_ResultTp();
@@ -84,8 +94,8 @@ protected:
   // Exposition-only "_query-env_" in the paper. __query is a pointer to a live _Query object
   // (as passed to try_query); on a match, placement-construct a _ResultTp into __result_storage and return true.
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL virtual bool
-  __query_env(const type_info& __query_type,
-              const type_info& __result_type,
+  __query_env(const void* __query_type,
+              const void* __result_type,
               const void* __query,
               void* __result_storage) const noexcept = 0;
 };
