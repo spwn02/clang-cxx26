@@ -1988,6 +1988,13 @@ bool Sema::ActOnCXXSpliceScopeSpecifier(CXXScopeSpec &SS,
 
 Decl *Sema::ActOnConstevalBlockDeclaration(SourceLocation ConstevalLoc,
                                            Expr *EvaluatingExpr) {
+  // The block is a lambda that is called at once. A parameter pack used in
+  // its body without being expanded is deferred to the enclosing
+  // full-expression while the lambda is parsed, and a declaration has no
+  // enclosing expression to expand it: diagnose it here, before an
+  // instantiation evaluates a value-dependent block that has no error in it.
+  if (DiagnoseUnexpandedParameterPack(EvaluatingExpr))
+    return nullptr;
   return BuildConstevalBlockDeclaration(ConstevalLoc, EvaluatingExpr);
 }
 
