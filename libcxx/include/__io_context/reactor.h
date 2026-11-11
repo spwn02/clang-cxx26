@@ -69,14 +69,17 @@ struct __fd_op : __op_base {
   _LIBCPP_HIDE_FROM_ABI __fd_op(__reactor_service* __s, int __fd, unsigned __want) noexcept
       : __svc_(__s), __fd_(__fd), __want_(__want) {
     __cancel_ = &__cancel_cb;
+    __abandon_ = &__abandon_cb;
   }
   // NOLINTBEGIN(bugprone-use-after-move): only the __op_base subobject is moved from
   _LIBCPP_HIDE_FROM_ABI __fd_op(__fd_op&& __o) noexcept
       : __op_base(std::move(__o)), __svc_(__o.__svc_), __fd_(__o.__fd_), __want_(__o.__want_) {
     __cancel_ = &__cancel_cb;
+    __abandon_ = &__abandon_cb;
   }
   // NOLINTEND(bugprone-use-after-move)
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
+  _LIBCPP_HIDE_FROM_ABI static void __abandon_cb(__op_base*) noexcept;
 };
 
 #  if _LIBCPP_HAS_IO_URING
@@ -92,12 +95,17 @@ struct __ring_op : __op_base {
   bool __fallback_     = false; // the ring did not do the transfer (refused, full, EAGAIN): use the readiness path
   bool __cancel_sent_  = false;
 
-  _LIBCPP_HIDE_FROM_ABI explicit __ring_op(__reactor_service* __s) noexcept : __svc_(__s) { __cancel_ = &__cancel_cb; }
+  _LIBCPP_HIDE_FROM_ABI explicit __ring_op(__reactor_service* __s) noexcept : __svc_(__s) {
+    __cancel_  = &__cancel_cb;
+    __abandon_ = &__abandon_cb;
+  }
   _LIBCPP_HIDE_FROM_ABI __ring_op(__ring_op&& __o) noexcept
       : __op_base(std::move(__o)), __svc_(__o.__svc_) { // NOLINT(bugprone-use-after-move)
     __cancel_ = &__cancel_cb;
+    __abandon_ = &__abandon_cb;
   }
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
+  _LIBCPP_HIDE_FROM_ABI static void __abandon_cb(__op_base*) noexcept;
 };
 #  endif // _LIBCPP_HAS_IO_URING
 
@@ -141,12 +149,17 @@ struct __timer_op : __op_base {
   size_t __idx_         = 0;
   __op_list* __waiters_ = nullptr; // the waiters of the timer object, in order of arrival
 
-  _LIBCPP_HIDE_FROM_ABI explicit __timer_op(__reactor_service* __s) noexcept : __svc_(__s) { __cancel_ = &__cancel_cb; }
+  _LIBCPP_HIDE_FROM_ABI explicit __timer_op(__reactor_service* __s) noexcept : __svc_(__s) {
+    __cancel_  = &__cancel_cb;
+    __abandon_ = &__abandon_cb;
+  }
   _LIBCPP_HIDE_FROM_ABI __timer_op(__timer_op&& __o) noexcept
       : __op_base(std::move(__o)), __svc_(__o.__svc_) { // NOLINT(bugprone-use-after-move)
     __cancel_ = &__cancel_cb;
+    __abandon_ = &__abandon_cb;
   }
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
+  _LIBCPP_HIDE_FROM_ABI static void __abandon_cb(__op_base*) noexcept;
 };
 
 // The reactor: the part of an io_context that talks to the operating system. It is an execution_context service,
@@ -361,7 +374,10 @@ class __reactor_service final : public execution_context::service {
           continue;
         auto* __op = reinterpret_cast<__ring_op*>(static_cast<uintptr_t>(__cs[__i].__user_data_));
         __finish_ring_op(__op, __cs[__i].__res_);
-        __done.push_back(__op);
+        if (__op->__orphaned_) // its awaiter is being destroyed: the result is dropped (the op is not touched again)
+          __op_abandoned();
+        else
+          __done.push_back(__op);
       }
       if (__n < 64)
         return;
@@ -643,6 +659,13 @@ public:
       __poller_.__wakeup(); // run() may have to return
   }
 
+  // Uncounts an operation that its owner dropped without completing it (see __op_base::__abandon_). May be called from
+  // any thread, with no lock held; the operation is not touched.
+  _LIBCPP_HIDE_FROM_ABI void __op_abandoned() noexcept {
+    if (__pending_.fetch_sub(1, memory_order_acq_rel) == 1)
+      __poller_.__wakeup(); // run() may have to return
+  }
+
   _LIBCPP_HIDE_FROM_ABI bool __start_fd_wait(__fd_op& __op) {
     lock_guard<mutex> __lk(__m_);
     if (__shut_down_ || __op.__cancel_requested_) {
@@ -688,6 +711,25 @@ public:
         (void)__arm(__op->__fd_, __it->second);
     }
     __complete(__op);
+  }
+
+  // Removes a pending wait whose awaiter is being destroyed, without completing it.
+  _LIBCPP_HIDE_FROM_ABI void __abandon_fd(__fd_op* __op) noexcept {
+    {
+      lock_guard<mutex> __lk(__m_);
+      if (__op->__state_ != __op_base::__pending)
+        return;
+      auto __it = __slots_.find(__op->__fd_);
+      if (__it != __slots_.end()) {
+        __it->second.__ops_.__remove(__op);
+        if (__it->second.__ops_.__empty())
+          __drop_slot_if_empty(__it);
+        else
+          (void)__arm(__op->__fd_, __it->second);
+      }
+      __op->__state_ = __op_base::__done;
+    }
+    __op_abandoned();
   }
 
 #  if _LIBCPP_HAS_IO_URING
@@ -754,6 +796,37 @@ public:
         __lk.lock();
         continue;
       }
+      __lk.unlock();
+      __ring_->__wait_readable(1);
+      __lk.lock();
+      if (__op->__state_ != __op_base::__pending)
+        break;
+    }
+    __lk.unlock();
+    for (__op_base* __d : __done)
+      __complete(__d);
+  }
+
+  // Asks the kernel to finish the request of an operation whose awaiter is being destroyed and waits until the kernel
+  // has reported it (the kernel must not write into the buffers of the freed frame). The completion is dropped, not
+  // posted (see __op_base::__orphaned_). Gives up after two seconds.
+  _LIBCPP_HIDE_FROM_ABI void __abandon_ring(__ring_op* __op) noexcept {
+    vector<__op_base*> __done;
+    unique_lock<mutex> __lk(__m_);
+    if (__op->__state_ != __op_base::__pending)
+      return;
+    __op->__orphaned_ = true;
+    if (!__op->__cancel_sent_) {
+      __op->__cancel_sent_ = true;
+      if (__ring_->__prepare_cancel(static_cast<uint64_t>(reinterpret_cast<uintptr_t>(__op))))
+        (void)__ring_->__submit();
+    }
+    auto __deadline = chrono::steady_clock::now() + chrono::seconds(2);
+    for (;;) {
+      __ring_->__flush_events();
+      __reap_ring(__done);
+      if (__op->__state_ != __op_base::__pending || chrono::steady_clock::now() >= __deadline)
+        break;
       __lk.unlock();
       __ring_->__wait_readable(1);
       __lk.lock();
@@ -838,6 +911,18 @@ public:
     if (__heap_.front() == &__op) // a new earliest deadline: a thread blocked in the poller must recompute its timeout
       __kick();
     return true;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void __abandon_timer(__timer_op* __op) noexcept {
+    {
+      lock_guard<mutex> __lk(__m_);
+      if (__op->__state_ != __op_base::__pending)
+        return;
+      __heap_erase(__op);
+      __op->__waiters_->__remove(__op);
+      __op->__state_ = __op_base::__done;
+    }
+    __op_abandoned();
   }
 
   _LIBCPP_HIDE_FROM_ABI void __cancel_timer_op(__timer_op* __op) noexcept {
@@ -996,7 +1081,15 @@ inline void __fd_op::__cancel_cb(__op_base* __b) noexcept {
   __fd_op* __op = static_cast<__fd_op*>(__b);
   __op->__svc_->__cancel_fd(__op);
 }
+inline void __fd_op::__abandon_cb(__op_base* __b) noexcept {
+  __fd_op* __op = static_cast<__fd_op*>(__b);
+  __op->__svc_->__abandon_fd(__op);
+}
 #  if _LIBCPP_HAS_IO_URING
+inline void __ring_op::__abandon_cb(__op_base* __b) noexcept {
+  __ring_op* __op = static_cast<__ring_op*>(__b);
+  __op->__svc_->__abandon_ring(__op);
+}
 inline void __ring_op::__cancel_cb(__op_base* __b) noexcept {
   __ring_op* __op = static_cast<__ring_op*>(__b);
   __op->__svc_->__cancel_ring(__op);
@@ -1008,6 +1101,10 @@ inline void __iocp_op::__cancel_cb(__op_base* __b) noexcept {
   __op->__svc_->__cancel_iocp(__op);
 }
 #  endif
+inline void __timer_op::__abandon_cb(__op_base* __b) noexcept {
+  __timer_op* __op = static_cast<__timer_op*>(__b);
+  __op->__svc_->__abandon_timer(__op);
+}
 inline void __timer_op::__cancel_cb(__op_base* __b) noexcept {
   __timer_op* __op = static_cast<__timer_op*>(__b);
   __op->__svc_->__cancel_timer_op(__op);

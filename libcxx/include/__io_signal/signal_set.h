@@ -59,13 +59,16 @@ struct __signal_op : __op_base {
   int __signo_ = 0;
 
   _LIBCPP_HIDE_FROM_ABI __signal_op(__signal_service* __s, signal_set* __set) noexcept : __svc_(__s), __set_(__set) {
-    __cancel_ = &__cancel_cb;
+    __cancel_  = &__cancel_cb;
+    __abandon_ = &__abandon_cb;
   }
   _LIBCPP_HIDE_FROM_ABI __signal_op(__signal_op&& __o) noexcept
       : __op_base(std::move(__o)), __svc_(__o.__svc_), __set_(__o.__set_) { // NOLINT(bugprone-use-after-move)
-    __cancel_ = &__cancel_cb;
+    __cancel_  = &__cancel_cb;
+    __abandon_ = &__abandon_cb;
   }
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
+  _LIBCPP_HIDE_FROM_ABI static void __abandon_cb(__op_base*) noexcept;
 };
 
 // The process-wide part of signal handling. Signal dispositions belong to the process, not to a context: the registry
@@ -145,6 +148,7 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI bool __start_wait(__signal_op& __op);
   _LIBCPP_HIDE_FROM_ABI void __cancel_op(__signal_op* __op) noexcept;
+  _LIBCPP_HIDE_FROM_ABI void __abandon_op(__signal_op* __op) noexcept;
 };
 _LIBCPP_DIAGNOSTIC_POP
 
@@ -433,6 +437,23 @@ inline void __signal_service::__cancel_op(__signal_op* __op) noexcept {
     __op->__ec_             = make_error_code(error::canceled);
   }
   __reactor_.__complete(__op);
+}
+
+inline void __signal_op::__abandon_cb(__op_base* __b) noexcept {
+  __signal_op* __op = static_cast<__signal_op*>(__b);
+  __op->__svc_->__abandon_op(__op);
+}
+
+// The awaiter of a wait that is pending is destroyed (see __op_base::__abandon_): the wait is dropped, not completed.
+inline void __signal_service::__abandon_op(__signal_op* __op) noexcept {
+  {
+    lock_guard<mutex> __lk(__m_);
+    if (__op->__state_ != __op_base::__pending)
+      return;
+    __op->__set_->__waiter_ = nullptr;
+    __op->__state_          = __op_base::__done;
+  }
+  __reactor_.__op_abandoned();
 }
 
 inline void __signal_service::shutdown() {

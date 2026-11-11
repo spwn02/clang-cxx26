@@ -44,6 +44,13 @@ namespace io {
 //   __done    - completed or abandoned. Its owner never touches it again.
 // A stop request that arrives while the operation is __idle sets __cancel_requested_, which the owner checks when
 // the operation is queued.
+//
+// An operation that is destroyed while it is still __pending (its frame is destroyed by another context than the one
+// that owns the operation, see execution_context::shutdown) is unlinked by the destructor: __abandon_ asks the owner
+// to remove it from its queues without completing it (the continuation is not posted), and to uncount it as work. An
+// operation whose call is in progress on a thread (a file operation, a request of the ring) cannot be unlinked at
+// once: it is marked __orphaned_, and the destructor waits for the call to end, after which the owner drops the
+// result instead of completing it.
 struct __op_base {
   enum __state_t : unsigned char { __idle, __pending, __done };
 
@@ -54,7 +61,9 @@ struct __op_base {
   __op_base* __next_                     = nullptr;
   void (*__cancel_)(__op_base*) noexcept = nullptr; // asks the owner to cancel this operation
   __state_t __state_                     = __idle;
+  void (*__abandon_)(__op_base*) noexcept = nullptr; // unlinks this operation if it is pending, see above
   bool __cancel_requested_               = false;
+  bool __orphaned_                       = false; // the destructor waits for the owner, which must not complete it
 
   struct __canceler {
     __op_base* __op_;
@@ -66,6 +75,14 @@ struct __op_base {
   // An awaiter is moved only before it is started (when_any and friends take their awaitables by value).
   _LIBCPP_HIDE_FROM_ABI __op_base(__op_base&&) noexcept {}
   __op_base& operator=(__op_base&&) = delete;
+  _LIBCPP_HIDE_FROM_ABI ~__op_base() {
+    __cb_.reset(); // waits for a running stop callback, which may be calling into the owner
+    // Unsynchronized read: an operation that is still pending here is not being completed (the precondition of
+    // destroying a chain that is waiting in a context other than the one that destroys it); the owner checks again
+    // under its lock.
+    if (__abandon_ && __state_ == __pending)
+      __abandon_(this);
+  }
 
   // A derived operation sets __cancel_ in its constructors.
   _LIBCPP_HIDE_FROM_ABI void __bind(coroutine_handle<> __h, const io_env* __env) noexcept {

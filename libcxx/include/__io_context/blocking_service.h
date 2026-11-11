@@ -69,10 +69,12 @@ struct __blocking_op : __op_base {
   bool __running_      = false;
 
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base* __b) noexcept;
+  _LIBCPP_HIDE_FROM_ABI static void __abandon_cb(__op_base* __b) noexcept;
 
   _LIBCPP_HIDE_FROM_ABI __blocking_op(__blocking_service* __s, const void* __owner) noexcept
       : __svc_(__s), __owner_(__owner) {
-    __cancel_ = &__cancel_cb;
+    __cancel_  = &__cancel_cb;
+    __abandon_ = &__abandon_cb;
   }
   // An awaiter is moved only before it is started.
   // NOLINTBEGIN(bugprone-use-after-move): only the __op_base subobject is moved from
@@ -83,7 +85,8 @@ struct __blocking_op : __op_base {
         __data_(std::move(__o.__data_)),
         __svc_(__o.__svc_),
         __owner_(__o.__owner_) {
-    __cancel_ = &__cancel_cb;
+    __cancel_  = &__cancel_cb;
+    __abandon_ = &__abandon_cb;
   }
   // NOLINTEND(bugprone-use-after-move)
 
@@ -114,6 +117,7 @@ class __blocking_service final : public execution_context::service {
   __reactor_service* __reactor_;
   mutex __m_;
   condition_variable __cv_[__lanes];
+  condition_variable __abandon_cv_; // an abandoning thread waits for a call in progress
   __op_list __queue_[__lanes];    // the requests that wait for a thread
   size_t __queued_[__lanes] = {}; // their number
   vector<thread> __threads_[__lanes];
@@ -152,7 +156,15 @@ class __blocking_service final : public execution_context::service {
         __op->__work_(__op);
         __lk.lock();
       }
-      __op->__state_ = __op_base::__done;
+      const bool __orphan = __op->__orphaned_; // its awaiter is being destroyed and waits for the call to end
+      __op->__state_      = __op_base::__done;
+      if (__orphan) {
+        __lk.unlock();
+        __reactor_->__op_abandoned(); // the result is dropped; the operation is not touched again
+        __abandon_cv_.notify_all();
+        __lk.lock();
+        continue;
+      }
       if (!__shut_down_) { // after the shutdown the result is dropped, like the other pending operations
         __lk.unlock();
         __reactor_->__complete(__op);
@@ -246,6 +258,24 @@ public:
     __reactor_->__complete(__op);
   }
 
+  // The awaiter of a pending operation is destroyed (see __op_base::__abandon_). An operation that waits for a thread,
+  // or a detachable one, is dropped at once; one whose call is in progress and uses the memory of the awaiter is waited
+  // for (the helper thread then drops the result).
+  _LIBCPP_HIDE_FROM_ABI void __abandon_op(__blocking_op* __op) noexcept {
+    unique_lock<mutex> __lk(__m_);
+    if (__op->__state_ != __op_base::__pending)
+      return;
+    if (!__op->__running_) {
+      __finish_canceled_locked(__op);
+    } else if (!__detach_locked(__op)) {
+      __op->__orphaned_ = true;
+      __abandon_cv_.wait(__lk, [__op] { return __op->__state_ != __op_base::__pending; });
+      return; // the helper thread has uncounted it
+    }
+    __lk.unlock();
+    __reactor_->__op_abandoned();
+  }
+
   // Cancels every operation that waits for a thread and was started through __owner (cancel() and close()).
   _LIBCPP_HIDE_FROM_ABI void __cancel_owner(const void* __owner) noexcept {
     vector<__blocking_op*> __ops;
@@ -302,6 +332,11 @@ _LIBCPP_DIAGNOSTIC_POP
 
 _LIBCPP_HIDE_FROM_ABI inline size_t __blocking_service::__lane_of(const __blocking_op& __op) noexcept {
   return __op.__detached_work_ ? 1 : 0;
+}
+
+_LIBCPP_HIDE_FROM_ABI inline void __blocking_op::__abandon_cb(__op_base* __b) noexcept {
+  auto* __self = static_cast<__blocking_op*>(__b);
+  __self->__svc_->__abandon_op(__self);
 }
 
 _LIBCPP_HIDE_FROM_ABI inline void __blocking_op::__cancel_cb(__op_base* __b) noexcept {
