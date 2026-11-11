@@ -51,7 +51,7 @@ io::task<void> read_one(io::stream_file& f, std::atomic<int>* reads_done, sentin
 }
 
 int main(int, char**) {
-  ::signal(SIGPIPE, SIG_IGN);
+  test_file::ignore_sigpipe();
   temp_dir dir;
   constexpr int K = 6; // more readers than helper threads (four)
   int raw[K];

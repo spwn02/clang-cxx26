@@ -64,7 +64,7 @@ io::task<void> pause(io::io_context& ctx, ms d) {
 }
 
 int main(int, char**) {
-  ::signal(SIGPIPE, SIG_IGN); // a write to a FIFO whose reader is gone must not kill the test
+  test_file::ignore_sigpipe(); // a write to a FIFO whose reader is gone must not kill the test
   temp_dir dir;
   io::io_context ctx;
 

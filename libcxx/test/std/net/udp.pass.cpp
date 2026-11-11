@@ -43,7 +43,7 @@ io::task<void> echo_server(io::udp_socket& s, int count, int* served) {
     assert(!ec);
     assert(from.address().is_loopback() && from.port() != 0);
     auto [wec, wn] = co_await s.send_to(io::make_buffer(static_cast<const void*>(buf), n), from);
-    assert(!wec && wn == n);
+    IO_CHECK(wec, wn, !wec && wn == n);
     ++*served;
   }
 }
@@ -55,7 +55,7 @@ io::task<void> echo_client(io::io_context& ctx, io::endpoint server, std::string
   for (const char* m : {"first datagram", "second", "x"}) {
     std::string msg = m;
     auto [wec, wn]  = co_await c.send_to(cbuf(msg), server);
-    assert(!wec && wn == msg.size());
+    IO_CHECK(wec, wn, !wec && wn == msg.size());
     char buf[64];
     io::endpoint from;
     auto [rec, rn] = co_await c.receive_from(io::make_buffer(buf, sizeof buf), from);
@@ -91,29 +91,29 @@ io::task<void> connected(io::io_context& ctx, io::udp_socket& a, io::endpoint b_
   assert(a.remote_endpoint() == b_ep);
   std::string msg = "ping";
   auto [wec, wn]  = co_await a.send(cbuf(msg));
-  assert(!wec && wn == 4);
+  IO_CHECK(wec, wn, !wec && wn == 4);
   char buf[16];
   io::endpoint from;
   auto [rec, rn] = co_await b.receive_from(io::make_buffer(buf, sizeof buf), from);
-  assert(!rec && rn == 4 && std::string(buf, rn) == "ping");
+  IO_CHECK(rec, rn, !rec && rn == 4 && std::string(buf, rn) == "ping");
   assert(from == a.local_endpoint());
   std::string pong = "pong!";
   auto [sec, sn]   = co_await b.send_to(cbuf(pong), from);
-  assert(!sec && sn == 5);
+  IO_CHECK(sec, sn, !sec && sn == 5);
   auto [r2, n2] = co_await a.receive(io::make_buffer(buf, sizeof buf));
-  assert(!r2 && std::string(buf, n2) == "pong!");
+  IO_CHECK(r2, n2, !r2 && std::string(buf, n2) == "pong!");
 
   // A connected socket receives only the datagrams of its peer: a third socket's datagram is dropped.
   io::udp_socket stranger(ctx);
   assert(!stranger.open());
   std::string lost = "intruder";
   auto [lec, ln]   = co_await stranger.send_to(cbuf(lost), a.local_endpoint());
-  assert(!lec && ln == lost.size());
+  IO_CHECK(lec, ln, !lec && ln == lost.size());
   std::string real = "real";
   auto [s2, sn2]   = co_await b.send_to(cbuf(real), a.local_endpoint());
   assert(!s2);
   auto [r3, n3] = co_await a.receive(io::make_buffer(buf, sizeof buf));
-  assert(!r3 && std::string(buf, n3) == "real");
+  IO_CHECK(r3, n3, !r3 && std::string(buf, n3) == "real");
   *done = true;
 }
 
@@ -133,11 +133,11 @@ io::task<void> empty_and_large(io::udp_socket& a, io::udp_socket& b, bool* done)
   io::endpoint dest = b.local_endpoint();
   // An empty datagram is a datagram of 0 bytes, not the end of a stream.
   auto [wec, wn] = co_await a.send_to(io::const_buffer(nullptr, 0), dest);
-  assert(!wec && wn == 0);
+  IO_CHECK(wec, wn, !wec && wn == 0);
   char buf[16] = {1};
   io::endpoint from;
   auto [rec, rn] = co_await b.receive_from(io::make_buffer(buf, sizeof buf), from);
-  assert(!rec && rn == 0);
+  IO_CHECK(rec, rn, !rec && rn == 0);
   assert(from == a.local_endpoint());
   // A large datagram: scatter on both sides.
 #if defined(__linux__)
@@ -148,26 +148,26 @@ io::task<void> empty_and_large(io::udp_socket& a, io::udp_socket& b, bool* done)
   for (std::size_t i = 0; i != big.size(); ++i)
     big[i] = static_cast<char>('a' + i % 23);
   auto [bec, bn] = co_await a.send_to(cbuf(big), dest);
-  assert(!bec && bn == big.size());
+  IO_CHECK(bec, bn, !bec && bn == big.size());
   std::string back(big.size(), '\0');
   std::array<io::mutable_buffer, 2> parts = {io::mutable_buffer(back.data(), 1000), io::mutable_buffer(back.data() + 1000, back.size() - 1000)};
   auto [gec, gn] = co_await b.receive_from(parts, from);
-  assert(!gec && gn == big.size() && back == big);
+  IO_CHECK(gec, gn, !gec && gn == big.size() && back == big);
   // A datagram that is larger than the buffer is truncated, as the system does it.
   std::string tr(100, 'z');
   (void)co_await a.send_to(cbuf(tr), dest);
   char small[10];
   auto [tec, tn] = co_await b.receive_from(io::make_buffer(small, sizeof small), from);
-  assert(!tec && tn == sizeof small);
+  IO_CHECK(tec, tn, !tec && tn == sizeof small);
   // Gather on the send side; peek leaves the datagram in the queue.
   std::string p1 = "gath", p2 = "ered";
   std::array<io::const_buffer, 2> gparts = {cbuf(p1), cbuf(p2)};
   (void)co_await a.send_to(gparts, dest);
   char pk[16], rd[16];
   auto [pec, pn] = co_await b.receive_from(io::make_buffer(pk, sizeof pk), from, io::message_flags::peek);
-  assert(!pec && std::string(pk, pn) == "gathered");
+  IO_CHECK(pec, pn, !pec && std::string(pk, pn) == "gathered");
   auto [dec, dn] = co_await b.receive_from(io::make_buffer(rd, sizeof rd), from);
-  assert(!dec && std::string(rd, dn) == "gathered");
+  IO_CHECK(dec, dn, !dec && std::string(rd, dn) == "gathered");
   *done = true;
 }
 
@@ -258,7 +258,7 @@ void test_options_and_move() {
   assert(!s.open());
   assert(!s.set_option(so::broadcast(true)));
   auto [ec, bc] = s.get_option<so::broadcast>();
-  assert(!ec && bc.value());
+  IO_CHECK_EC(ec, !ec && bc.value());
   assert(!s.set_option(so::broadcast(false)));
   assert(!std::get<1>(s.get_option<so::broadcast>()));
   assert(!s.set_option(so::reuse_address(true)));
@@ -276,7 +276,7 @@ void test_options_and_move() {
   n = std::move(m);
   assert(n.is_open() && n.local_endpoint() == ep);
   auto [rec, fd] = n.release();
-  assert(!rec && fd >= 0 && !n.is_open());
+  IO_CHECK_EC(rec, !rec && fd >= 0 && !n.is_open());
   io::udp_socket adopted(ctx);
   assert(!adopted.assign(fd));
   assert(adopted.is_open() && adopted.local_endpoint() == ep);
@@ -333,7 +333,7 @@ io::task<void> multicast(io::io_context& ctx, bool* ran) {
     std::printf("skipped: the group does not deliver on this host (no multicast route through the loopback)\n");
     co_return;
   }
-  assert(!rec && std::string(buf, rn) == msg);
+  IO_CHECK(rec, rn, !rec && std::string(buf, rn) == msg);
   *ran = true;
   assert(!rx.set_option(so::leave_group(group, io::ipv4_address::loopback())));
   assert(rx.set_option(so::leave_group(group, io::ipv4_address::loopback()))); // not a member any more

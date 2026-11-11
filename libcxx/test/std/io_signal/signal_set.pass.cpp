@@ -24,6 +24,7 @@
 #include <cassert>
 #include <csignal>
 #include <stop_token>
+#include <utility>
 #include <thread>
 #include <unistd.h>
 
@@ -33,7 +34,11 @@
 using namespace test_ctx;
 
 static volatile std::sig_atomic_t old_handler_calls = 0;
-extern "C" void old_handler(int) { old_handler_calls = old_handler_calls + 1; }
+extern "C" void old_handler_c(int) { old_handler_calls = old_handler_calls + 1; }
+// The type of struct sigaction::sa_handler has C language linkage on glibc and C++ language linkage on macOS, and the
+// two are distinct types: go through the member's own type.
+using sa_handler_t = decltype(std::declval<struct sigaction&>().sa_handler);
+static const sa_handler_t old_handler = reinterpret_cast<sa_handler_t>(&old_handler_c);
 
 static bool is_canceled(std::error_code ec) { return ec == io::cond::canceled; }
 

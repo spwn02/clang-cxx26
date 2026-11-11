@@ -10,6 +10,8 @@
 #define TEST_STD_NET_TEST_NET_H
 
 #include <cassert>
+#include <cstdio>
+#include <cstdlib>
 #include <exception>
 #include <io>
 #include <io_buffer>
@@ -49,6 +51,19 @@ inline io::task<void> sleep_for(io::io_context& ctx, ms d) {
 
 inline io::const_buffer cbuf(const std::string& s) { return io::const_buffer(s.data(), s.size()); }
 
+// A failed check of an I/O result prints what was checked, the error code (value, category, message) and the byte count
+// before it aborts: a failure on a platform that cannot be debugged interactively is then self-explanatory.
+inline void io_check_failed(const char* cond, std::error_code ec, long long n, const char* file, int line) {
+  std::fprintf(stderr, "%s:%d: check failed: %s\n  error_code = %d (%s): %s\n  byte count = %lld\n", file, line, cond,
+               ec.value(), ec.category().name(), ec.message().c_str(), n);
+  std::fflush(stderr);
+  std::abort();
+}
+
 } // namespace test_net
+
+#define IO_CHECK(ec, n, cond) \
+  ((cond) ? (void)0 : ::test_net::io_check_failed(#cond, (ec), static_cast<long long>(n), __FILE__, __LINE__))
+#define IO_CHECK_EC(ec, cond) IO_CHECK(ec, -1, cond)
 
 #endif // TEST_STD_NET_TEST_NET_H

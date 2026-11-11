@@ -129,8 +129,11 @@ _LIBCPP_HIDE_FROM_ABI inline error_code __posix_signal_install(int __sig, unsign
   if (error_code __ec = __posix_signal_ensure_pipe(__fd))
     return __ec;
   struct sigaction __sa;
-  __sa.sa_handler = &__libcpp_io_posix_signal_handler;
-  ::sigfillset(&__sa.sa_mask);
+  // The handler has C language linkage; the type of the member may or may not (it is a plain function pointer type on
+  // macOS), and the two are distinct types in this language. A cast through the member's own type is right for both.
+  __sa.sa_handler = reinterpret_cast<decltype(__sa.sa_handler)>(&__libcpp_io_posix_signal_handler);
+  // Unqualified: on macOS sigfillset is a function-like macro, which '::sigfillset(' would break.
+  sigfillset(&__sa.sa_mask);
   __sa.sa_flags = __posix_sa_flags(__flags);
   if (::sigaction(__sig, &__sa, __s.__installed_[__sig] ? nullptr : &__s.__old_[__sig]) != 0)
     return error_code(errno, generic_category());

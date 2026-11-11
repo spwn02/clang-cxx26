@@ -53,22 +53,22 @@ io::task<void> echo(io::local_datagram_socket& server, io::local_datagram_socket
                     io::local_endpoint client_ep, bool* done) {
   std::string msg = "hello over a datagram socket";
   auto [wec, wn]  = co_await client.send_to(cbuf(msg), server_ep);
-  assert(!wec && wn == msg.size());
+  IO_CHECK(wec, wn, !wec && wn == msg.size());
   char buf[128];
   io::local_endpoint from;
   auto [rec, rn] = co_await server.receive_from(io::make_buffer(buf, sizeof buf), from);
-  assert(!rec && std::string(buf, rn) == msg);
+  IO_CHECK(rec, rn, !rec && std::string(buf, rn) == msg);
   assert(from == client_ep);
   auto [sec, sn] = co_await server.send_to(io::make_buffer(static_cast<const void*>(buf), rn), from);
-  assert(!sec && sn == rn);
+  IO_CHECK(sec, sn, !sec && sn == rn);
   io::local_endpoint from2;
   auto [r2, n2] = co_await client.receive_from(io::make_buffer(buf, sizeof buf), from2);
-  assert(!r2 && std::string(buf, n2) == msg && from2 == server_ep);
+  IO_CHECK(r2, n2, !r2 && std::string(buf, n2) == msg && from2 == server_ep);
   // An empty datagram is a datagram.
   auto [e1, en] = co_await client.send_to(io::const_buffer(nullptr, 0), server_ep);
-  assert(!e1 && en == 0);
+  IO_CHECK(e1, en, !e1 && en == 0);
   auto [e2, en2] = co_await server.receive_from(io::make_buffer(buf, sizeof buf), from);
-  assert(!e2 && en2 == 0 && from == client_ep);
+  IO_CHECK(e2, en2, !e2 && en2 == 0 && from == client_ep);
   *done = true;
 }
 
@@ -96,14 +96,14 @@ io::task<void> unnamed_and_connected(io::io_context& ctx, io::local_datagram_soc
   // A client that is not bound has no address: the sender is the empty endpoint.
   io::local_datagram_socket anon(ctx);
   auto [cec] = co_await anon.connect(sep);
-  assert(!cec && anon.remote_endpoint() == sep);
+  IO_CHECK_EC(cec, !cec && anon.remote_endpoint() == sep);
   std::string msg = "anon";
   auto [wec, wn]  = co_await anon.send(cbuf(msg));
-  assert(!wec && wn == 4);
+  IO_CHECK(wec, wn, !wec && wn == 4);
   char buf[16];
   io::local_endpoint from = ep_of("sentinel");
   auto [rec, rn] = co_await server.receive_from(io::make_buffer(buf, sizeof buf), from);
-  assert(!rec && rn == 4 && from.empty());
+  IO_CHECK(rec, rn, !rec && rn == 4 && from.empty());
   *done = true;
 }
 
@@ -126,18 +126,18 @@ void test_unnamed() {
 io::task<void> pair_ops(io::local_datagram_socket& a, io::local_datagram_socket& b, bool* done) {
   std::string msg = "through a pair";
   auto [wec, wn]  = co_await a.send(cbuf(msg));
-  assert(!wec && wn == msg.size());
+  IO_CHECK(wec, wn, !wec && wn == msg.size());
   char buf[64];
   auto [rec, rn] = co_await b.receive(io::make_buffer(buf, sizeof buf));
-  assert(!rec && std::string(buf, rn) == msg);
+  IO_CHECK(rec, rn, !rec && std::string(buf, rn) == msg);
   // Datagram boundaries are kept: two sends are two receives.
   std::string m1 = "one", m2 = "three";
   (void)co_await b.send(cbuf(m1));
   (void)co_await b.send(cbuf(m2));
   auto [r1, n1] = co_await a.receive(io::make_buffer(buf, sizeof buf));
-  assert(!r1 && n1 == 3);
+  IO_CHECK(r1, n1, !r1 && n1 == 3);
   auto [r2, n2] = co_await a.receive(io::make_buffer(buf, sizeof buf));
-  assert(!r2 && n2 == 5);
+  IO_CHECK(r2, n2, !r2 && n2 == 5);
   *done = true;
 }
 
@@ -160,10 +160,10 @@ void test_pair() {
 io::task<void> stream_pair_ops(io::local_stream_socket& a, io::local_stream_socket& b, bool* done) {
   std::string msg = "stream pair";
   auto [wec, wn]  = co_await io::write(a, cbuf(msg));
-  assert(!wec && wn == msg.size());
+  IO_CHECK(wec, wn, !wec && wn == msg.size());
   std::string back(msg.size(), '\0');
   auto [rec, rn] = co_await io::read(b, io::make_buffer(back.data(), back.size()));
-  assert(!rec && back == msg);
+  IO_CHECK_EC(rec, !rec && back == msg);
   *done = true;
 }
 
