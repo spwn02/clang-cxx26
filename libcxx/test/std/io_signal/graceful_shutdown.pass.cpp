@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23, c++26
 // UNSUPPORTED: no-threads
-// REQUIRES: linux || darwin || freebsd
+// REQUIRES: linux || darwin || freebsd || windows
 // ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
 
 // <io_signal>
@@ -24,7 +24,13 @@
 #include <cassert>
 #include <csignal>
 #include <thread>
-#include <unistd.h>
+#ifdef _WIN32
+// signal() of the C library has no SIGUSR1/SIGUSR2; SIGBREAK and SIGTERM are the signals that can be raised in a process.
+#  define SIGUSR1 SIGBREAK
+#  define SIGUSR2 SIGTERM
+#else
+#  include <unistd.h>
+#endif
 #include <variant>
 
 #include "test_ctx.h"
@@ -52,7 +58,11 @@ int main(int, char**) {
         server(accept_loop, signals, signo));
     std::thread([] {
       std::this_thread::sleep_for(ms(30));
+#ifdef _WIN32
+      std::raise(SIGUSR2);
+#else
       ::kill(::getpid(), SIGUSR2);
+#endif
     }).detach();
     auto start = clk::now();
     watchdog wd(ctx);
@@ -83,7 +93,11 @@ int main(int, char**) {
     }(signals, ec, n));
     std::thread([] {
       std::this_thread::sleep_for(ms(20));
+#ifdef _WIN32
+      std::raise(SIGUSR1);
+#else
       ::kill(::getpid(), SIGUSR1);
+#endif
     }).detach();
     ctx.run();
     assert(!ec && n == SIGUSR1);
