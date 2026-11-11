@@ -20,6 +20,7 @@
 #include <io_timer>
 
 #include <atomic>
+#include <csignal>
 #include <fcntl.h>
 #include <stop_token>
 #include <vector>
@@ -63,6 +64,7 @@ io::task<void> pause(io::io_context& ctx, ms d) {
 }
 
 int main(int, char**) {
+  ::signal(SIGPIPE, SIG_IGN); // a write to a FIFO whose reader is gone must not kill the test
   temp_dir dir;
   io::io_context ctx;
 

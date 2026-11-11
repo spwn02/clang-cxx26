@@ -22,6 +22,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <csignal>
 #include <fcntl.h>
 #include <thread>
 #include <vector>
@@ -50,6 +51,7 @@ io::task<void> read_one(io::stream_file& f, std::atomic<int>* reads_done, sentin
 }
 
 int main(int, char**) {
+  ::signal(SIGPIPE, SIG_IGN);
   temp_dir dir;
   constexpr int K = 6; // more readers than helper threads (four)
   int raw[K];
@@ -76,8 +78,10 @@ int main(int, char**) {
     assert(d == 0 && reads_done == 0);
     writer = std::thread([&] {
       std::this_thread::sleep_for(ms(150)); // after the destruction has started and waits for the threads
+      // The last two FIFOs have no reader once the destructor has dropped the requests that waited for a thread, so the
+      // write may legitimately fail with EPIPE: it must not kill the process (SIGPIPE is ignored) nor be asserted on.
       for (int i = 0; i != K; ++i)
-        assert(::write(raw[i], "x", 1) == 1);
+        (void)::write(raw[i], "x", 1);
     });
     // the files go first, then the context, which waits for the calls in progress
   }
