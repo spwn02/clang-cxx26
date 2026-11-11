@@ -3145,6 +3145,10 @@ module std [system] {
         header "__io_file/support/posix_file.h"
         export *
       }
+      module win32_file {
+        header "__io_file/support/win32_file.h"
+        export *
+      }
     }
 
     header "io_file"

@@ -86,6 +86,8 @@
 #if (_LIBCPP_HAS_IO_EPOLL || _LIBCPP_HAS_IO_KQUEUE) && __has_include(<fcntl.h>) && __has_include(<sys/uio.h>) && __has_include(<sys/stat.h>) && \
     __has_include(<unistd.h>)
 #  define _LIBCPP_HAS_IO_FILES 1
+#elif _LIBCPP_HAS_IO_WINSOCK
+#  define _LIBCPP_HAS_IO_FILES 1 // Win32 handles (libcxx/include/__io_file/support/win32_file.h)
 #else
 #  define _LIBCPP_HAS_IO_FILES 0
 #endif

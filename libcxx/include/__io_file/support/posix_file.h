@@ -11,7 +11,9 @@
 #include <__config>
 #include <__io/support/config.h>
 
-#if _LIBCPP_HAS_IO_FILES
+#if _LIBCPP_HAS_IO_FILES && _LIBCPP_HAS_IO_WINSOCK
+#  include <__io_file/support/win32_file.h>
+#elif _LIBCPP_HAS_IO_FILES
 #  include <__cstddef/size_t.h>
 #  include <__io_file/file_base.h>
 #  include <__system_error/errc.h>
@@ -84,7 +86,7 @@
 #  pragma GCC system_header
 #endif
 
-#if _LIBCPP_HAS_IO_FILES
+#if _LIBCPP_HAS_IO_FILES && !_LIBCPP_HAS_IO_WINSOCK
 
 _LIBCPP_PUSH_MACROS
 #  include <__undef_macros>
@@ -333,6 +335,6 @@ _LIBCPP_END_NAMESPACE_STD
 
 _LIBCPP_POP_MACROS
 
-#endif // _LIBCPP_HAS_IO_FILES
+#endif // _LIBCPP_HAS_IO_FILES && !_LIBCPP_HAS_IO_WINSOCK
 
 #endif // _LIBCPP___IO_FILE_SUPPORT_POSIX_FILE_H

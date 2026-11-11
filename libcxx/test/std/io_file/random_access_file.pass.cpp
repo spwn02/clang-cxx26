@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23, c++26
 // UNSUPPORTED: no-threads
-// REQUIRES: linux || darwin || freebsd
+// REQUIRES: linux || darwin || freebsd || windows
 // ADDITIONAL_COMPILE_FLAGS: -fexperimental-library
 
 // <io_file>
@@ -20,7 +20,13 @@
 
 #include <array>
 #include <cstring>
-#include <fcntl.h>
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  define NOMINMAX
+#  include <windows.h>
+#else
+#  include <fcntl.h>
+#endif
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -36,6 +42,14 @@ static_assert(std::is_nothrow_move_constructible_v<io::random_access_file>);
 static_assert(std::is_nothrow_move_assignable_v<io::random_access_file>);
 static_assert(!std::is_copy_constructible_v<io::random_access_file>);
 static_assert(std::is_same_v<io::open_flags, io::file_base::flags>);
+
+static bool fd_is_open(int fd) {
+#ifdef _WIN32
+  return ::GetFileType(reinterpret_cast<HANDLE>(static_cast<intptr_t>(fd))) != FILE_TYPE_UNKNOWN;
+#else
+  return ::fcntl(fd, F_GETFD) != -1;
+#endif
+}
 static_assert((io::random_access_file::read_only | io::random_access_file::write_only) == io::file_base::read_write);
 
 io::task<std::string> read_at(io::random_access_file& f, std::uint64_t off, std::size_t n, std::error_code* ecp) {
@@ -161,7 +175,7 @@ int main(int, char**) {
       auto [e5, n5]  = co_await f.write_some_at(0, io::const_buffer(ap.data(), ap.size()));
       assert(!e5 && n5 == 2);
       auto [es, sz] = f.size();
-#if defined(__linux__)
+#if defined(__linux__) || defined(_WIN32)
       assert(!es && sz == 12);
 #else
       assert(!es && sz == 10);
@@ -212,12 +226,12 @@ int main(int, char**) {
     assert(!g.is_open() && h.is_open());
     auto [er, raw] = h.release();
     assert(!er && raw == fd && !h.is_open());
-    assert(::fcntl(raw, F_GETFD) != -1); // still open
+    assert(fd_is_open(raw)); // still open
     assert(h.assign(-1) == std::errc::bad_file_descriptor);
     assert(!h.assign(raw));
     assert(h.is_open() && h.native_handle() == raw);
     h.close();
-    assert(::fcntl(raw, F_GETFD) == -1); // closed by close()
+    assert(!fd_is_open(raw)); // closed by close()
     // opening a file closes the open one
     assert(!h.open(dir / "g", io::file_base::read_only));
     int fd1 = h.native_handle();

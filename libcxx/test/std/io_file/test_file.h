@@ -22,8 +22,14 @@
 #include <system_error>
 #include <utility>
 #include <csignal>
-#include <signal.h>
-#include <unistd.h>
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  define NOMINMAX
+#  include <windows.h>
+#else
+#  include <signal.h>
+#  include <unistd.h>
+#endif
 
 #include "test_ctx.h"
 
@@ -36,12 +42,14 @@ using namespace test_ctx;
 // through the type of the member because SIG_IGN has C++ language linkage on macOS and the parameter of signal() has C
 // language linkage (distinct function types in this language).
 inline void ignore_sigpipe() {
+#ifndef _WIN32
   using handler_t = decltype(std::declval<struct sigaction&>().sa_handler);
   struct sigaction sa;
   sigemptyset(&sa.sa_mask);
   sa.sa_flags   = 0;
   sa.sa_handler = reinterpret_cast<handler_t>(SIG_IGN);
   ::sigaction(SIGPIPE, &sa, nullptr);
+#endif
 }
 
 // Runs the task on the context (with a watchdog that stops a hung test) until the context has no more work.
@@ -60,11 +68,25 @@ inline void run(io::io_context& ctx, io::task<void> t, ms limit = ms(8000)) {
 struct temp_dir {
   std::string path;
   temp_dir() {
+#ifdef _WIN32
+    static int counter = 0;
+    std::filesystem::path base = std::filesystem::temp_directory_path();
+    for (;;) {
+      std::filesystem::path p = base / ("libcxxfile" + std::to_string(::GetCurrentProcessId()) + "_" + std::to_string(counter++));
+      std::error_code ec;
+      if (std::filesystem::create_directory(p, ec)) {
+        path = p.generic_string();
+        break;
+      }
+      assert(!ec);
+    }
+#else
     const char* base = std::getenv("TMPDIR");
     std::string tmpl = std::string(base && *base ? base : "/tmp") + "/fileXXXXXX";
     char* r          = ::mkdtemp(tmpl.data());
     assert(r);
     path = r;
+#endif
   }
   ~temp_dir() {
     std::error_code ec;

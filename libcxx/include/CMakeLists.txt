@@ -598,6 +598,7 @@ set(files
   __io_file/file.h
   __io_file/file_base.h
   __io_file/support/posix_file.h
+  __io_file/support/win32_file.h
   __io_signal/signal_set.h
   __io_stream/any_buffer_sink.h
   __io_stream/any_buffer_source.h
