@@ -20,6 +20,7 @@
 
 #  include <__io/support/epoll_poller.h>
 #  include <__io/support/kqueue_poller.h>
+#  include <__io/support/uring.h>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 

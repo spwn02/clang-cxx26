@@ -569,6 +569,7 @@ set(files
   __io/support/poller.h
   __io/support/poller_types.h
   __io/support/posix_signal.h
+  __io/support/uring.h
   __io/task.h
   __io/thread_pool.h
   __io/when_all.h

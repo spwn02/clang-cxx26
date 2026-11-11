@@ -56,6 +56,17 @@ class __datagram_socket_base : public __socket_core {
     const_buffer __bufs[__sock_max_buffers];
     size_t __n            = io::__collect_buffers(__seq, __bufs);
     __sockaddr_buf __addr = io::__to_sockaddr(__dest);
+#  if _LIBCPP_HAS_IO_URING
+    if (__ring_active()) {
+      __ring_outcome __o = co_await __sock_ring_awaiter(
+          *this, __uring_opcode::__sendmsg, __bufs, __n, io::__msg_nosignal | io::__to_native_msg_flags(static_cast<int>(__flags)), false, &__addr);
+      if (!__o.__fallback_) {
+        if (__o.__ec_)
+          co_return io_result<size_t>(__o.__ec_, 0);
+        co_return io_result<size_t>(error_code(), __o.__n_);
+      }
+    }
+#  endif
     for (;;) {
       size_t __got    = 0;
       error_code __ec = io::__sock_send_to(native_handle(), __bufs, __n, static_cast<int>(__flags), &__addr, __got);
@@ -73,6 +84,17 @@ class __datagram_socket_base : public __socket_core {
   _LIBCPP_HIDE_FROM_ABI task<io_result<size_t>> __send_op(_Seq __seq, message_flags __flags) {
     const_buffer __bufs[__sock_max_buffers];
     size_t __n = io::__collect_buffers(__seq, __bufs);
+#  if _LIBCPP_HAS_IO_URING
+    if (__ring_active()) {
+      __ring_outcome __o = co_await __sock_ring_awaiter(
+          *this, __uring_opcode::__sendmsg, __bufs, __n, io::__msg_nosignal | io::__to_native_msg_flags(static_cast<int>(__flags)), false, nullptr);
+      if (!__o.__fallback_) {
+        if (__o.__ec_)
+          co_return io_result<size_t>(__o.__ec_, 0);
+        co_return io_result<size_t>(error_code(), __o.__n_);
+      }
+    }
+#  endif
     for (;;) {
       size_t __got    = 0;
       error_code __ec = io::__sock_send_to(native_handle(), __bufs, __n, static_cast<int>(__flags), nullptr, __got);
@@ -90,6 +112,18 @@ class __datagram_socket_base : public __socket_core {
   _LIBCPP_HIDE_FROM_ABI task<io_result<size_t>> __receive_from_op(_Seq __seq, _Ep& __source, message_flags __flags) {
     mutable_buffer __bufs[__sock_max_buffers];
     size_t __n = io::__collect_buffers(__seq, __bufs);
+#  if _LIBCPP_HAS_IO_URING
+    if (__ring_active()) {
+      __ring_outcome __o = co_await __sock_ring_awaiter(
+          *this, __uring_opcode::__recvmsg, __bufs, __n, io::__msg_cmsg_cloexec | io::__to_native_msg_flags(static_cast<int>(__flags)), true, nullptr);
+      if (!__o.__fallback_) {
+        if (__o.__ec_)
+          co_return io_result<size_t>(__o.__ec_, 0);
+        __source = __to_endpoint(__o.__from_);
+        co_return io_result<size_t>(error_code(), __o.__n_);
+      }
+    }
+#  endif
     for (;;) {
       size_t __got = 0;
       __sockaddr_buf __from;
@@ -111,6 +145,17 @@ class __datagram_socket_base : public __socket_core {
   _LIBCPP_HIDE_FROM_ABI task<io_result<size_t>> __receive_op(_Seq __seq, message_flags __flags) {
     mutable_buffer __bufs[__sock_max_buffers];
     size_t __n = io::__collect_buffers(__seq, __bufs);
+#  if _LIBCPP_HAS_IO_URING
+    if (__ring_active()) {
+      __ring_outcome __o = co_await __sock_ring_awaiter(
+          *this, __uring_opcode::__recvmsg, __bufs, __n, io::__msg_cmsg_cloexec | io::__to_native_msg_flags(static_cast<int>(__flags)), false, nullptr);
+      if (!__o.__fallback_) {
+        if (__o.__ec_)
+          co_return io_result<size_t>(__o.__ec_, 0);
+        co_return io_result<size_t>(error_code(), __o.__n_);
+      }
+    }
+#  endif
     for (;;) {
       size_t __got = 0;
       __sockaddr_buf __from;

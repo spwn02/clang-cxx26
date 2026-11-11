@@ -18,6 +18,7 @@
 #include <__cstddef/size_t.h>
 #include <__io/execution_context.h>
 #include <__io/support/config.h>
+#include <__memory/unique_ptr.h>
 #include <__mutex/lock_guard.h>
 #include <__mutex/mutex.h>
 #include <__mutex/unique_lock.h>
@@ -26,6 +27,9 @@
 #include <__utility/move.h>
 #include <__utility/swap.h>
 #include <__vector/vector.h>
+#include <cerrno>
+#include <cstdint>
+#include <cstdlib>
 #include <unordered_map>
 
 #if _LIBCPP_HAS_IO_REACTOR
@@ -68,6 +72,28 @@ struct __fd_op : __op_base {
   // NOLINTEND(bugprone-use-after-move)
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
 };
+
+#  if _LIBCPP_HAS_IO_URING
+// A transfer that the kernel runs to completion on the ring (see __uring): the request is submitted, the operation
+// completes when its completion arrives. The buffers, the message header and the address it refers to live in the
+// awaiter that derives from it, which stays alive until the completion has been reaped (a cancellation only asks the
+// kernel to finish the request early; the operation completes when the kernel reports the result, so the kernel never
+// touches memory of a coroutine that has been resumed).
+struct __ring_op : __op_base {
+  __reactor_service* __svc_;
+  __uring_request __rq_{};
+  int __res_           = 0;
+  bool __fallback_     = false; // the ring did not do the transfer (refused, full, EAGAIN): use the readiness path
+  bool __cancel_sent_  = false;
+
+  _LIBCPP_HIDE_FROM_ABI explicit __ring_op(__reactor_service* __s) noexcept : __svc_(__s) { __cancel_ = &__cancel_cb; }
+  _LIBCPP_HIDE_FROM_ABI __ring_op(__ring_op&& __o) noexcept
+      : __op_base(std::move(__o)), __svc_(__o.__svc_) { // NOLINT(bugprone-use-after-move)
+    __cancel_ = &__cancel_cb;
+  }
+  _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
+};
+#  endif // _LIBCPP_HAS_IO_URING
 
 // A wait for a point in time. The deadline is a copy of the expiry of the timer at the time of the wait.
 struct __timer_op : __op_base {
@@ -117,8 +143,18 @@ class __reactor_service final : public execution_context::service {
     bool __registered_           = false;
   };
 
+  // A tag that is no descriptor (the descriptors are the tags of the others): the event of the ring descriptor.
+  static constexpr uintptr_t __ring_tag_ = ~uintptr_t(1);
+
   mutex __m_;
   __poller __poller_;
+#  if _LIBCPP_HAS_IO_URING
+  unique_ptr<__uring> __ring_; // null: the context runs on epoll alone
+  __op_list __ring_ops_;
+  size_t __ring_inflight_ = 0;
+  atomic<size_t> __ring_transfers_{0}; // completions of the ring that carried a result (for the tests)
+  error_code __ring_refusal_;
+#  endif
   unordered_map<int, __fd_slot> __slots_;
   vector<__timer_op*> __heap_;
   size_t __seq_ = 0;
@@ -211,8 +247,149 @@ class __reactor_service final : public execution_context::service {
       __poller_.__wakeup();
   }
 
+#  if _LIBCPP_HAS_IO_URING
+  // The ring is opened when the environment variable _LIBCPP_IO_BACKEND is "io_uring" or "auto" (or not set or
+  // unknown: auto) and the kernel allows it; any failure leaves the context on epoll. _LIBCPP_IO_URING_REFUSE (a test
+  // hook) makes the open fail with the errno it holds (EPERM if it is not a number), the way a seccomp filter does.
+  _LIBCPP_HIDE_FROM_ABI void __open_ring() {
+    const char* __mode = std::getenv("_LIBCPP_IO_BACKEND");
+    if (__mode && __mode[0] == 'e') // "epoll"
+      return;
+    if (const char* __refuse = std::getenv("_LIBCPP_IO_URING_REFUSE"); __refuse && __refuse[0] != '\0') {
+      int __e = 0;
+      for (const char* __c = __refuse; *__c >= '0' && *__c <= '9'; ++__c)
+        __e = __e * 10 + (*__c - '0');
+      __ring_refusal_ = error_code(__e != 0 ? __e : EPERM, generic_category());
+      return;
+    }
+    unique_ptr<__uring> __r(new __uring);
+    if (error_code __ec = __r->__open(512)) {
+      __ring_refusal_ = __ec;
+      return;
+    }
+    if (error_code __ec = __poller_.__register(__r->__fd(), __poll_read, __ring_tag_, false)) {
+      __ring_refusal_ = __ec;
+      return;
+    }
+    __ring_ = std::move(__r);
+  }
+
+  // Completes the operation of a reaped completion (the caller holds __m_).
+  _LIBCPP_HIDE_FROM_ABI void __finish_ring_op(__ring_op* __op, int __res) noexcept {
+    __ring_ops_.__remove(__op);
+    --__ring_inflight_;
+    __op->__state_ = __op_base::__done;
+    __op->__ec_    = error_code();
+    if (__res >= 0) {
+      __op->__res_ = __res;
+      __ring_transfers_.fetch_add(1, memory_order_relaxed);
+    } else if (-__res == EAGAIN || -__res == EINTR) {
+      __op->__fallback_ = true;
+    } else if (-__res == ECANCELED) {
+      // Asked for by cancel(); otherwise the kernel canceled the request because the thread that submitted it has
+      // exited (the requests of a task do not outlive it): the readiness path takes over.
+      if (__op->__cancel_sent_)
+        __op->__ec_ = make_error_code(error::canceled);
+      else
+        __op->__fallback_ = true;
+    } else {
+      __op->__ec_ = error_code(-__res, generic_category());
+    }
+  }
+
+  // Reaps the completions that are ready into __done (the caller holds __m_).
+  _LIBCPP_HIDE_FROM_ABI void __reap_ring(vector<__op_base*>& __done) {
+    __uring_completion __cs[64];
+    for (;;) {
+      int __n = __ring_->__reap(__cs, 64);
+      for (int __i = 0; __i != __n; ++__i) {
+        if (__cs[__i].__user_data_ == 0) // the completion of a cancellation request
+          continue;
+        auto* __op = reinterpret_cast<__ring_op*>(static_cast<uintptr_t>(__cs[__i].__user_data_));
+        __finish_ring_op(__op, __cs[__i].__res_);
+        __done.push_back(__op);
+      }
+      if (__n < 64)
+        return;
+    }
+  }
+
+  // Cancels everything that is in flight and waits for the kernel to report it, so that it no longer refers to the
+  // memory of the coroutines (the caller holds __m_). The operations are abandoned, not completed.
+  _LIBCPP_HIDE_FROM_ABI void __drain_ring() noexcept {
+    for (__op_base* __b = __ring_ops_.__front(); __b; __b = __b->__next_) {
+      auto* __op = static_cast<__ring_op*>(__b);
+      if (!__op->__cancel_sent_) {
+        __op->__cancel_sent_ = true;
+        (void)__ring_->__prepare_cancel(static_cast<uint64_t>(reinterpret_cast<uintptr_t>(__op)));
+      }
+    }
+    (void)__ring_->__submit();
+    __uring_completion __cs[64];
+    for (int __rounds = 0; !__ring_ops_.__empty() && __rounds != 500; ++__rounds) {
+      int __n = __ring_->__reap(__cs, 64);
+      for (int __i = 0; __i != __n; ++__i) {
+        if (__cs[__i].__user_data_ == 0)
+          continue;
+        auto* __op = reinterpret_cast<__ring_op*>(static_cast<uintptr_t>(__cs[__i].__user_data_));
+        __ring_ops_.__remove(__op);
+        --__ring_inflight_;
+        __op->__state_ = __op_base::__done;
+      }
+      if (__n == 0)
+        __ring_->__wait_readable(10);
+    }
+    while (__op_base* __b = __ring_ops_.__front()) { // the kernel did not answer: give them up
+      __ring_ops_.__remove(__b);
+      __b->__state_ = __op_base::__done;
+    }
+    __ring_inflight_ = 0;
+  }
+#  endif // _LIBCPP_HAS_IO_URING
+
 public:
-  _LIBCPP_HIDE_FROM_ABI explicit __reactor_service(execution_context&) {}
+  _LIBCPP_HIDE_FROM_ABI explicit __reactor_service(execution_context&) {
+#  if _LIBCPP_HAS_IO_URING
+    __open_ring();
+#  endif
+  }
+
+  // The backend this context runs on, for diagnostics and tests: "io_uring" when a ring is open (the transfers of the
+  // sockets run on it; waits, timers and signals use the poller), otherwise the name of the poller.
+  _LIBCPP_HIDE_FROM_ABI const char* __backend() const noexcept {
+#  if _LIBCPP_HAS_IO_URING
+    if (__ring_)
+      return "io_uring";
+#  endif
+#  if _LIBCPP_HAS_IO_EPOLL
+    return "epoll";
+#  else
+    return "kqueue";
+#  endif
+  }
+  // Why the ring is not used (empty if it is, or if epoll was requested).
+  _LIBCPP_HIDE_FROM_ABI error_code __ring_refusal() const noexcept {
+#  if _LIBCPP_HAS_IO_URING
+    return __ring_refusal_;
+#  else
+    return error_code();
+#  endif
+  }
+  // How many requests the ring has completed successfully (tests use it to prove that the ring did the transfers).
+  _LIBCPP_HIDE_FROM_ABI size_t __ring_transfers() const noexcept {
+#  if _LIBCPP_HAS_IO_URING
+    return __ring_transfers_.load(memory_order_relaxed);
+#  else
+    return 0;
+#  endif
+  }
+  _LIBCPP_HIDE_FROM_ABI bool __has_ring() const noexcept {
+#  if _LIBCPP_HAS_IO_URING
+    return __ring_ != nullptr;
+#  else
+    return false;
+#  endif
+  }
 
   // Abandons everything that is still pending: the operations are dropped, the coroutines that wait are not resumed
   // (like the queued work of an io_context). They are not destroyed here either: they belong to chains, whose roots the
@@ -233,6 +410,10 @@ public:
       __op->__state_ = __op_base::__done;
     }
     __heap_.clear();
+#  if _LIBCPP_HAS_IO_URING
+    if (__ring_)
+      __drain_ring();
+#  endif
     __pending_.store(0, memory_order_release);
   }
 
@@ -304,6 +485,82 @@ public:
     }
     __complete(__op);
   }
+
+#  if _LIBCPP_HAS_IO_URING
+  // Submits the request of the operation. True: queued (the caller suspends). False: completed at once (canceled, with
+  // __ec_) or not done by the ring (__fallback_: the caller uses the readiness path).
+  _LIBCPP_HIDE_FROM_ABI bool __start_ring(__ring_op& __op) {
+    lock_guard<mutex> __lk(__m_);
+    if (__shut_down_ || __op.__cancel_requested_) {
+      __op.__ec_    = make_error_code(error::canceled);
+      __op.__state_ = __op_base::__done;
+      return false;
+    }
+    // Every request in flight can produce a completion (and a cancellation another): never more than the queue holds.
+    if (__ring_inflight_ * 2 >= __ring_->__completion_capacity()) {
+      __op.__fallback_ = true;
+      __op.__state_    = __op_base::__done;
+      return false;
+    }
+    __op.__rq_.__user_data_ = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(&__op));
+    if (!__ring_->__prepare(__op.__rq_) || __ring_->__submit() != 0) {
+      __ring_->__discard_unsubmitted();
+      __op.__fallback_ = true;
+      __op.__state_    = __op_base::__done;
+      return false;
+    }
+    __ring_ops_.__push_back(&__op);
+    ++__ring_inflight_;
+    __op.__state_ = __op_base::__pending;
+    __pending_.fetch_add(1, memory_order_acq_rel);
+    return true;
+  }
+
+  // Asks the kernel to finish the request and waits (a few milliseconds in practice, two seconds at most) until the
+  // completion has been reaped, by this thread or by the one that polls, so that the operation has completed (its
+  // continuation is posted) when cancel() returns, like a cancellation on the readiness path. The operation is valid
+  // for the whole call: the socket's cancel() and the stop callback both keep it alive until their call returns.
+  // A completion that this thread reaped is posted with no lock held, and nothing touches the operation after that.
+  _LIBCPP_HIDE_FROM_ABI void __cancel_ring(__ring_op* __op) noexcept {
+    vector<__op_base*> __done;
+    unique_lock<mutex> __lk(__m_);
+    if (__op->__state_ == __op_base::__idle) {
+      __op->__cancel_requested_ = true;
+      return;
+    }
+    if (__op->__state_ == __op_base::__done || __op->__cancel_sent_)
+      return;
+    __op->__cancel_sent_ = true;
+    if (!__ring_->__prepare_cancel(static_cast<uint64_t>(reinterpret_cast<uintptr_t>(__op))))
+      return;
+    (void)__ring_->__submit();
+    auto __deadline = chrono::steady_clock::now() + chrono::seconds(2);
+    for (;;) {
+      __ring_->__flush_events();
+      __reap_ring(__done);
+      if (__op->__state_ != __op_base::__pending) // reaped here (it is in __done) or by the polling thread
+        break;
+      if (chrono::steady_clock::now() >= __deadline)
+        break;
+      if (!__done.empty()) { // others completed by the way: post them before waiting on
+        __lk.unlock();
+        for (__op_base* __d : __done)
+          __complete(__d);
+        __done.clear();
+        __lk.lock();
+        continue;
+      }
+      __lk.unlock();
+      __ring_->__wait_readable(1);
+      __lk.lock();
+      if (__op->__state_ != __op_base::__pending)
+        break;
+    }
+    __lk.unlock();
+    for (__op_base* __d : __done)
+      __complete(__d);
+  }
+#  endif // _LIBCPP_HAS_IO_URING
 
   _LIBCPP_HIDE_FROM_ABI bool __start_timer(__timer_op& __op, __op_list& __waiters) {
     lock_guard<mutex> __lk(__m_);
@@ -421,6 +678,10 @@ public:
     {
       lock_guard<mutex> __lk(__m_);
       for (int __i = 0; __i != __n; ++__i) {
+#  if _LIBCPP_HAS_IO_URING
+        if (__evs[__i].__tag_ == __ring_tag_)
+          continue;
+#  endif
         int __fd  = static_cast<int>(__evs[__i].__tag_);
         auto __it = __slots_.find(__fd);
         if (__it == __slots_.end())
@@ -449,6 +710,10 @@ public:
         else
           (void)__arm(__fd, __s);
       }
+#  if _LIBCPP_HAS_IO_URING
+      if (__ring_)
+        __reap_ring(__done);
+#  endif
       auto __now = chrono::steady_clock::now();
       while (!__heap_.empty() && __heap_.front()->__deadline_ <= __now) {
         __timer_op* __op = __heap_.front();
@@ -471,6 +736,12 @@ inline void __fd_op::__cancel_cb(__op_base* __b) noexcept {
   __fd_op* __op = static_cast<__fd_op*>(__b);
   __op->__svc_->__cancel_fd(__op);
 }
+#  if _LIBCPP_HAS_IO_URING
+inline void __ring_op::__cancel_cb(__op_base* __b) noexcept {
+  __ring_op* __op = static_cast<__ring_op*>(__b);
+  __op->__svc_->__cancel_ring(__op);
+}
+#  endif
 inline void __timer_op::__cancel_cb(__op_base* __b) noexcept {
   __timer_op* __op = static_cast<__timer_op*>(__b);
   __op->__svc_->__cancel_timer_op(__op);

@@ -3004,6 +3004,10 @@ module std [system] {
       header "__io/support/posix_signal.h"
       export *
     }
+    module support_uring {
+      header "__io/support/uring.h"
+      export *
+    }
     module task {
       header "__io/task.h"
       export *
