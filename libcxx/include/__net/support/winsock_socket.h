@@ -290,17 +290,17 @@ inline constexpr size_t __sock_max_buffers = 16;
 
 // The buffers as WSABUF (a length is a ULONG, so a larger buffer is shortened: the caller sees a short transfer).
 template <class _Buf, class _Ptr>
-_LIBCPP_HIDE_FROM_ABI DWORD __to_wsabuf(const _Buf* __bufs, size_t __n, WSABUF* __out, _Ptr) noexcept {
+_LIBCPP_HIDE_FROM_ABI DWORD __to_wsabuf(const _Buf* __bufs, size_t __n, WSABUF* __dst, _Ptr) noexcept {
   if (__n > __sock_max_buffers)
     __n = __sock_max_buffers;
   for (size_t __i = 0; __i != __n; ++__i) {
     size_t __sz     = __bufs[__i].size();
-    __out[__i].len  = __sz > 0x7fffffffu ? 0x7fffffffu : static_cast<ULONG>(__sz);
-    __out[__i].buf  = reinterpret_cast<CHAR*>(const_cast<_Ptr*>(static_cast<const _Ptr*>(__bufs[__i].data())));
+    __dst[__i].len  = __sz > 0x7fffffffu ? 0x7fffffffu : static_cast<ULONG>(__sz);
+    __dst[__i].buf  = reinterpret_cast<CHAR*>(const_cast<_Ptr*>(static_cast<const _Ptr*>(__bufs[__i].data())));
   }
   if (__n == 0) {
-    __out[0].len = 0;
-    __out[0].buf = nullptr;
+    __dst[0].len = 0;
+    __dst[0].buf = nullptr;
     __n          = 1;
   }
   return static_cast<DWORD>(__n);

@@ -439,7 +439,7 @@ class __reactor_service final : public execution_context::service {
           __werr = 0;
         }
       }
-      bool __post;
+      bool __do_post;
       {
         lock_guard<mutex> __lk(__m_);
         __iocp_ops_.__remove(__op);
@@ -461,10 +461,10 @@ class __reactor_service final : public execution_context::service {
         } else {
           __op->__ec_ = io::__wsa_error_code(__werr);
         }
-        __post             = !__shut_down_ && !__op->__handoff_; // a canceller that waits posts the completion itself
-        __iocp_completing_ = __post ? __op : nullptr;
+        __do_post             = !__shut_down_ && !__op->__handoff_; // a canceller that waits posts the completion itself
+        __iocp_completing_ = __do_post ? __op : nullptr;
       }
-      if (__post)
+      if (__do_post)
         __complete(__op); // the operation must not be touched afterwards
       {
         lock_guard<mutex> __lk(__m_);
