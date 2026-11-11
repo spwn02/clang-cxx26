@@ -97,35 +97,41 @@ struct __blocking_op : __op_base {
 // reactor. The two share the threads of the context. The threads are started lazily
 // (one more per request, up to __max_threads, when no thread is idle) and joined by shutdown(). Completions are posted
 // to the executor of the awaiting coroutine through the reactor of the context, which counts the request as work.
+// The two users do not share threads, though: the file operations (which can block for as long as a FIFO or a device
+// has nothing to deliver) have a pool of their own, the lookups of the resolver another, so that blocked file reads
+// cannot starve the lookups.
 // Shutting down the context abandons the requests that wait for a thread and those that have completed after the
 // shutdown (their coroutines are dropped, not resumed; the context destroys their chains, see
 // execution_context::shutdown), and waits for the calls in progress.
 _LIBCPP_DIAGNOSTIC_PUSH
 _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class __blocking_service final : public execution_context::service {
-  static constexpr size_t __max_threads = 4;
+  static constexpr size_t __max_threads = 4; // per lane
+  static constexpr size_t __lanes       = 2; // 0: the file operations, 1: the detachable operations (the resolver)
+
+  static _LIBCPP_HIDE_FROM_ABI size_t __lane_of(const __blocking_op& __op) noexcept;
 
   __reactor_service* __reactor_;
   mutex __m_;
-  condition_variable __cv_;
-  __op_list __queue_;   // the requests that wait for a thread
-  size_t __queued_ = 0; // their number
-  vector<thread> __threads_;
-  __blocking_op* __running_[__max_threads] = {}; // the detachable operation that each thread runs, if any
-  size_t __idle_                           = 0;
-  bool __shut_down_                        = false;
+  condition_variable __cv_[__lanes];
+  __op_list __queue_[__lanes];    // the requests that wait for a thread
+  size_t __queued_[__lanes] = {}; // their number
+  vector<thread> __threads_[__lanes];
+  __blocking_op* __running_[__lanes][__max_threads] = {}; // the detachable operation that each thread runs, if any
+  size_t __idle_[__lanes]                           = {};
+  bool __shut_down_                                 = false;
 
-  _LIBCPP_HIDE_FROM_ABI void __worker(size_t __index) {
+  _LIBCPP_HIDE_FROM_ABI void __worker(size_t __lane, size_t __index) {
     unique_lock<mutex> __lk(__m_);
     for (;;) {
-      ++__idle_;
-      __cv_.wait(__lk, [this] { return __shut_down_ || __queued_ != 0; });
-      --__idle_;
+      ++__idle_[__lane];
+      __cv_[__lane].wait(__lk, [this, __lane] { return __shut_down_ || __queued_[__lane] != 0; });
+      --__idle_[__lane];
       if (__shut_down_)
         return;
-      auto* __op = static_cast<__blocking_op*>(__queue_.__front());
-      __queue_.__remove(__op);
-      --__queued_;
+      auto* __op = static_cast<__blocking_op*>(__queue_[__lane].__front());
+      __queue_[__lane].__remove(__op);
+      --__queued_[__lane];
       __op->__running_ = true;
       if (__op->__detached_work_) {
         // The operation may be cancelled (and its coroutine resumed, even destroyed) while the call is in progress,
@@ -133,14 +139,14 @@ class __blocking_service final : public execution_context::service {
         // __running_ still names it (a cancellation clears the slot).
         void (*__fn)(void*) noexcept = __op->__detached_work_;
         shared_ptr<void> __data      = __op->__data_;
-        __running_[__index]          = __op;
+        __running_[__lane][__index]  = __op;
         __lk.unlock();
         __fn(__data.get());
         __data.reset();
         __lk.lock();
-        if (__running_[__index] != __op) // detached: it has been completed, the result is dropped
+        if (__running_[__lane][__index] != __op) // detached: it has been completed, the result is dropped
           continue;
-        __running_[__index] = nullptr;
+        __running_[__lane][__index] = nullptr;
       } else {
         __lk.unlock();
         __op->__work_(__op);
@@ -164,14 +170,19 @@ public:
     {
       lock_guard<mutex> __lk(__m_);
       __shut_down_ = true;
-      while (__op_base* __op = __queue_.__front()) {
-        __queue_.__remove(__op);
-        __op->__state_ = __op_base::__done;
+      for (size_t __l = 0; __l != __lanes; ++__l) {
+        while (__op_base* __op = __queue_[__l].__front()) {
+          __queue_[__l].__remove(__op);
+          __op->__state_ = __op_base::__done;
+        }
+        __queued_[__l] = 0;
+        for (thread& __t : __threads_[__l])
+          __threads.push_back(std::move(__t));
+        __threads_[__l].clear();
       }
-      __queued_ = 0;
-      __threads = std::move(__threads_);
     }
-    __cv_.notify_all();
+    for (condition_variable& __cv : __cv_)
+      __cv.notify_all();
     for (thread& __t : __threads)
       if (__t.joinable())
         __t.join();
@@ -189,28 +200,29 @@ public:
         __op.__state_ = __op_base::__done;
         return false;
       }
-      // Another thread when every thread has work and the pool is not full.
-      if (__idle_ < __queued_ + 1 && __threads_.size() < __max_threads) {
+      const size_t __lane = __lane_of(__op);
+      // Another thread when every thread of the lane has work and the pool is not full.
+      if (__idle_[__lane] < __queued_[__lane] + 1 && __threads_[__lane].size() < __max_threads) {
 #  if _LIBCPP_HAS_EXCEPTIONS
         try {
-          __threads_.emplace_back([this, __i = __threads_.size()] { __worker(__i); });
+          __threads_[__lane].emplace_back([this, __lane, __i = __threads_[__lane].size()] { __worker(__lane, __i); });
         } catch (...) {
-          if (__threads_.empty()) {
+          if (__threads_[__lane].empty()) {
             __op.__ec_    = make_error_code(errc::resource_unavailable_try_again);
             __op.__state_ = __op_base::__done;
             return false;
           }
         }
 #  else
-        __threads_.emplace_back([this, __i = __threads_.size()] { __worker(__i); });
+        __threads_[__lane].emplace_back([this, __lane, __i = __threads_[__lane].size()] { __worker(__lane, __i); });
 #  endif
       }
-      __queue_.__push_back(std::addressof(__op));
-      ++__queued_;
+      __queue_[__lane].__push_back(std::addressof(__op));
+      ++__queued_[__lane];
       __op.__state_ = __op_base::__pending;
       __reactor_->__op_started();
     }
-    __cv_.notify_one();
+    __cv_[__lane_of(__op)].notify_one();
     return true;
   }
 
@@ -239,19 +251,21 @@ public:
     vector<__blocking_op*> __ops;
     {
       lock_guard<mutex> __lk(__m_);
-      for (__op_base* __b = __queue_.__front(); __b;) {
-        auto* __op = static_cast<__blocking_op*>(__b);
-        __b        = __b->__next_;
-        if (__op->__owner_ == __owner) {
-          __finish_canceled_locked(__op);
-          __ops.push_back(__op);
-        }
-      }
-      for (__blocking_op*& __slot : __running_) {
-        if (__slot && __slot->__owner_ == __owner) {
-          __blocking_op* __op = __slot;
-          if (__detach_locked(__op))
+      for (size_t __l = 0; __l != __lanes; ++__l) {
+        for (__op_base* __b = __queue_[__l].__front(); __b;) {
+          auto* __op = static_cast<__blocking_op*>(__b);
+          __b        = __b->__next_;
+          if (__op->__owner_ == __owner) {
+            __finish_canceled_locked(__op);
             __ops.push_back(__op);
+          }
+        }
+        for (__blocking_op*& __slot : __running_[__l]) {
+          if (__slot && __slot->__owner_ == __owner) {
+            __blocking_op* __op = __slot;
+            if (__detach_locked(__op))
+              __ops.push_back(__op);
+          }
         }
       }
     }
@@ -265,7 +279,7 @@ private:
   _LIBCPP_HIDE_FROM_ABI bool __detach_locked(__blocking_op* __op) noexcept {
     if (!__op->__detached_work_)
       return false;
-    for (__blocking_op*& __slot : __running_) {
+    for (__blocking_op*& __slot : __running_[__lane_of(*__op)]) {
       if (__slot == __op) {
         __slot = nullptr;
         break;
@@ -277,13 +291,18 @@ private:
   }
 
   _LIBCPP_HIDE_FROM_ABI void __finish_canceled_locked(__blocking_op* __op) noexcept {
-    __queue_.__remove(__op);
-    --__queued_;
+    const size_t __lane = __lane_of(*__op);
+    __queue_[__lane].__remove(__op);
+    --__queued_[__lane];
     __op->__state_ = __op_base::__done;
     __op->__ec_    = make_error_code(error::canceled);
   }
 };
 _LIBCPP_DIAGNOSTIC_POP
+
+_LIBCPP_HIDE_FROM_ABI inline size_t __blocking_service::__lane_of(const __blocking_op& __op) noexcept {
+  return __op.__detached_work_ ? 1 : 0;
+}
 
 _LIBCPP_HIDE_FROM_ABI inline void __blocking_op::__cancel_cb(__op_base* __b) noexcept {
   auto* __self = static_cast<__blocking_op*>(__b);

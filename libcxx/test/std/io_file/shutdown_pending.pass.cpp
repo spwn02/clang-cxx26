@@ -14,9 +14,11 @@
 // <io_file>
 
 // An io_context that is destroyed while file operations are pending destroys the chains of the coroutines that wait.
-// The helper threads are blocked in read() of FIFOs; another thread writes to the FIFOs shortly after the destruction
-// has started, so that the calls in progress return and the destructor, which waits for them, can finish. The
-// operations that wait for a thread are dropped without ever calling the system.
+// The helper threads are blocked in read() of FIFOs; another thread writes to the FIFOs once the destruction has
+// started (it is told by an object that is destroyed just before the context, not by a delay) and keeps writing until
+// the context is gone, so that the calls in progress return and the destructor, which waits for them, can finish. The
+// operations that wait for a thread are dropped without ever calling the system. The test does not depend on timing:
+// the destruction is started arbitrarily late (DELAY_MS, under a loaded machine it can be) and the result is the same.
 
 #include <io_file>
 
@@ -50,6 +52,21 @@ io::task<void> read_one(io::stream_file& f, std::atomic<int>* reads_done, sentin
   ++*reads_done;
 }
 
+// Destroyed right before the context (it is declared after it): the destruction of the context starts now.
+struct destruction_starts {
+  std::atomic<bool>* flag;
+  int delay_ms;
+  ~destruction_starts() {
+    if (delay_ms)
+      std::this_thread::sleep_for(ms(delay_ms));
+    flag->store(true);
+  }
+};
+
+#ifndef DELAY_MS
+#  define DELAY_MS 300
+#endif
+
 int main(int, char**) {
   test_file::ignore_sigpipe();
   temp_dir dir;
@@ -57,6 +74,7 @@ int main(int, char**) {
   int raw[K];
   std::atomic<int> d{0}, reads_done{0};
   std::thread writer;
+  std::atomic<bool> destroying{false}, finished{false};
   {
     io::io_context ctx;
     std::vector<io::stream_file> fifo;
@@ -77,14 +95,22 @@ int main(int, char**) {
     ctx.poll();
     assert(d == 0 && reads_done == 0);
     writer = std::thread([&] {
-      std::this_thread::sleep_for(ms(150)); // after the destruction has started and waits for the threads
+      while (!destroying.load())
+        std::this_thread::sleep_for(ms(1));
       // The last two FIFOs have no reader once the destructor has dropped the requests that waited for a thread, so the
       // write may legitimately fail with EPIPE: it must not kill the process (SIGPIPE is ignored) nor be asserted on.
-      for (int i = 0; i != K; ++i)
-        (void)::write(raw[i], "x", 1);
+      // Write again until the context is gone: a write that arrives before a thread has started its read is not lost
+      // (the FIFO keeps the byte), and one that arrives early cannot release a thread that is not yet blocked.
+      while (!finished.load()) {
+        for (int i = 0; i != K; ++i)
+          (void)::write(raw[i], "x", 1);
+        std::this_thread::sleep_for(ms(2));
+      }
     });
-    // the files go first, then the context, which waits for the calls in progress
+    destruction_starts starts{&destroying, DELAY_MS};
+    // the starter and the files go first, then the context, which waits for the calls in progress
   }
+  finished.store(true);
   writer.join();
   assert(reads_done == 0); // no coroutine was resumed
   assert(d == K);          // every chain was destroyed

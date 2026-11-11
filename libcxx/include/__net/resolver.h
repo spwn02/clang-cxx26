@@ -189,9 +189,9 @@ _LIBCPP_HIDE_FROM_ABI inline void __run_resolve_job(void* __p) noexcept {
 }
 
 // An operation of a resolver: the base of the two awaitables. It lives in the frame of the awaiting coroutine. The
-// lookups run on the helper threads of the __blocking_service of the context (shared with the file operations, up to
-// four threads, started lazily) as detachable operations: a lookup that is cancelled completes at once with
-// error::canceled, even while its call is in progress (the result of that call is discarded).
+// lookups run on the helper threads of the __blocking_service of the context (a pool of its own, apart from the file
+// operations, up to four threads, started lazily) as detachable operations: a lookup that is cancelled completes at
+// once with error::canceled, even while its call is in progress (the result of that call is discarded).
 class __resolve_op : public __blocking_op {
 protected:
   shared_ptr<__resolve_job> __job_;
