@@ -42,7 +42,7 @@ struct proxy : repl::receiver_proxy {
   void set_value() noexcept override {}
   void set_stopped() noexcept override {}
   void set_error(std::exception_ptr) noexcept override {}
-  bool __query_env(const std::type_info&, const std::type_info&, const void*, void*) const noexcept override {
+  bool __query_env(const void*, const void*, const void*, void*) const noexcept override {
     return false;
   }
 };

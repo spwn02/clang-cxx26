@@ -83,7 +83,7 @@ public:
   }
 
 protected:
-  bool __query_env(const std::type_info&, const std::type_info&, const void*, void*) const noexcept override {
+  bool __query_env(const void*, const void*, const void*, void*) const noexcept override {
     return false; // this test never checks for a stop request
   }
 
@@ -103,7 +103,7 @@ public:
   std::atomic<bool> value_called_ = false;
 
 protected:
-  bool __query_env(const std::type_info&, const std::type_info&, const void*, void*) const noexcept override {
+  bool __query_env(const void*, const void*, const void*, void*) const noexcept override {
     return false;
   }
 };
