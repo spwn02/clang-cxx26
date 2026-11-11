@@ -41,7 +41,6 @@
 #    include <__thread/id.h>
 #    include <__thread/thread.h>
 #    include <cstring>
-#    include <cstdio> // TRACE-TMP
 #  endif
 #endif
 
@@ -115,6 +114,7 @@ struct __iocp_op : __op_base {
   int __res_                            = 0;
   bool __fallback_                      = false; // the port did not do the transfer: use the readiness path
   bool __cancel_sent_                   = false;
+  int __resubmits_                      = 0;     // times the call was issued again after an abort nobody asked for
   bool __is_send_                       = false; // a send: a connection that the system aborted reports a reset
   bool __handoff_                       = false; // the canceller completes the operation, not the thread of the port
 
@@ -441,9 +441,20 @@ class __reactor_service final : public execution_context::service {
           __werr = 0;
         }
       }
+      if (__werr == WSA_OPERATION_ABORTED) {
+        // An abort that cancel() did not ask for: the system canceled the call (the cancellation of a sibling call of the
+        // socket, or the exit of the thread that issued it). The operation stays pending: the call is issued again (by this
+        // thread, which lives as long as the port), so that cancel() of the socket still reaches it. A call that cannot be
+        // issued again, or that keeps being aborted, goes to the readiness path.
+        lock_guard<mutex> __lk(__m_);
+        if (!__op->__cancel_sent_ && !__shut_down_ && __op->__resubmits_ < 8) {
+          ++__op->__resubmits_;
+          ::memset(&__op->__ov_.__ov_, 0, sizeof(__op->__ov_.__ov_));
+          if (__op->__submit_(__op) == 0)
+            continue;
+        }
+      }
       bool __do_post;
-      if (std::getenv("_LIBCPP_IO_TRACE")) // TRACE-TMP
-        std::fprintf(stderr, "iocp packet op=%p ok=%d werr=%d bytes=%d\n", (void*)__op, (int)__p.__ok_, __werr, __res);
       {
         lock_guard<mutex> __lk(__m_);
         __iocp_ops_.__remove(__op);
@@ -795,8 +806,6 @@ public:
       __op->__cancel_requested_ = true;
       return;
     }
-    if (std::getenv("_LIBCPP_IO_TRACE")) // TRACE-TMP
-      std::fprintf(stderr, "cancel_iocp op=%p state=%d sent=%d\n", (void*)__op, (int)__op->__state_, (int)__op->__cancel_sent_);
     if (__op->__state_ != __op_base::__pending || __op->__cancel_sent_)
       return;
     __op->__cancel_sent_ = true;
@@ -806,8 +815,6 @@ public:
     __op->__handoff_ = true;
     __iocp_cv_.wait_for(__lk, chrono::seconds(2), [__op] { return __op->__state_ != __op_base::__pending; });
     bool __mine      = __op->__state_ == __op_base::__done && __op->__handoff_ && !__shut_down_;
-    if (std::getenv("_LIBCPP_IO_TRACE")) // TRACE-TMP
-      std::fprintf(stderr, "cancel_iocp done op=%p state=%d mine=%d\n", (void*)__op, (int)__op->__state_, (int)__mine);
     __op->__handoff_ = false; // after a timeout the thread of the port posts the completion
     __lk.unlock();
     if (__mine)

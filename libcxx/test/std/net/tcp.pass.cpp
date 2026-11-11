@@ -318,8 +318,13 @@ io::task<void> options_body(io::io_context& ctx) {
   assert(static_cast<bool>(std::get<1>(s.get_option<so::keep_alive>())));
   assert(!s.set_option(so::reuse_address(true)));
   assert(std::get<1>(s.get_option<so::reuse_address>()).value());
+#ifdef _WIN32
+  // Windows has no SO_REUSEPORT.
+  assert(s.set_option(so::reuse_port(true)) == std::errc::no_protocol_option);
+#else
   assert(!s.set_option(so::reuse_port(true)));
   assert(std::get<1>(s.get_option<so::reuse_port>()).value());
+#endif
   assert(!s.set_option(so::receive_buffer_size(65536)));
   assert(std::get<1>(s.get_option<so::receive_buffer_size>()).value() >= 65536); // the kernel doubles it
   assert(!s.set_option(so::send_buffer_size(65536)));
