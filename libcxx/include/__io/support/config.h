@@ -62,6 +62,15 @@
 #  define _LIBCPP_HAS_IO_WINSOCK 0
 #endif
 
+// _LIBCPP_HAS_IO_IOCP: the Windows completion backend (an I/O completion port), an addition to the readiness poller. The
+// reactor opens a port when the environment variable _LIBCPP_IO_BACKEND is "iocp" or "auto" (the default) and the open
+// succeeds, and runs the transfers of the sockets on it; "winsock" selects the readiness poller alone.
+#if _LIBCPP_HAS_IO_WINSOCK
+#  define _LIBCPP_HAS_IO_IOCP 1
+#else
+#  define _LIBCPP_HAS_IO_IOCP 0
+#endif
+
 #if _LIBCPP_HAS_IO_EPOLL || _LIBCPP_HAS_IO_KQUEUE || _LIBCPP_HAS_IO_WINSOCK
 #  define _LIBCPP_HAS_IO_REACTOR 1
 #else

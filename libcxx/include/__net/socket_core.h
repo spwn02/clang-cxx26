@@ -72,8 +72,8 @@ struct __sock_xfer {
   __sockaddr_buf __from_{};
 };
 
-#  if _LIBCPP_HAS_IO_URING
-// What a transfer on the ring reports. __fallback_: the ring did not do it (the request was refused, the queue was
+#  if _LIBCPP_HAS_IO_URING || _LIBCPP_HAS_IO_IOCP
+// What a transfer on the ring (or the completion port) reports. __fallback_: the ring did not do it (the request was refused, the queue was
 // full, or the kernel answered EAGAIN), the caller continues with the readiness path.
 struct __ring_outcome {
   error_code __ec_;
@@ -173,6 +173,60 @@ public:
 };
 #  endif // _LIBCPP_HAS_IO_URING
 
+#  if _LIBCPP_HAS_IO_IOCP
+// A transfer that is issued as an overlapped call on the completion port of the context (see __iocp_op), registered at
+// the socket like a wait so that cancel() and close() reach it. It owns the gather list, the flags and the sender
+// address that the system refers to until the completion.
+class __sock_iocp_awaiter : public __iocp_op {
+  __socket_core* __core_;
+  __wait_node __node_;
+  WSABUF __wb_[__sock_max_buffers];
+  DWORD __cnt_   = 0;
+  DWORD __flags_ = 0;
+  bool __recv_;
+  bool __want_from_;
+  bool __has_to_;
+  __sockaddr_buf __name_;
+  INT __namelen_ = 0;
+
+  _LIBCPP_HIDE_FROM_ABI static int __submit_cb(__iocp_op* __o) noexcept {
+    auto* __s = static_cast<__sock_iocp_awaiter*>(__o);
+    SOCKET __fd = static_cast<SOCKET>(static_cast<intptr_t>(__s->__fd_));
+    OVERLAPPED* __ov = &__s->__ov_.__ov_;
+    int __rc;
+    if (__s->__recv_) {
+      if (__s->__want_from_)
+        __rc = ::WSARecvFrom(__fd, __s->__wb_, __s->__cnt_, nullptr, &__s->__flags_,
+                             reinterpret_cast<sockaddr*>(&__s->__name_.__ss_), &__s->__namelen_, __ov, nullptr);
+      else
+        __rc = ::WSARecv(__fd, __s->__wb_, __s->__cnt_, nullptr, &__s->__flags_, __ov, nullptr);
+    } else if (__s->__has_to_) {
+      __rc = ::WSASendTo(__fd, __s->__wb_, __s->__cnt_, nullptr, __s->__flags_,
+                         reinterpret_cast<const sockaddr*>(&__s->__name_.__ss_), __s->__name_.__len_, __ov, nullptr);
+    } else {
+      __rc = ::WSASend(__fd, __s->__wb_, __s->__cnt_, nullptr, __s->__flags_, __ov, nullptr);
+    }
+    if (__rc == 0)
+      return 0; // completed at once: the packet is queued all the same
+    int __e = ::WSAGetLastError();
+    return __e == WSA_IO_PENDING ? 0 : __e;
+  }
+
+public:
+  // A receive (__want_from: also the address of the sender) or a send (__to: the destination or null).
+  template <class _Buf>
+  _LIBCPP_HIDE_FROM_ABI __sock_iocp_awaiter(
+      __socket_core& __c, bool __recv, const _Buf* __bufs, size_t __n, int __flags, bool __want_from, const __sockaddr_buf* __to) noexcept;
+  __sock_iocp_awaiter(__sock_iocp_awaiter&&) = delete;
+
+  _LIBCPP_HIDE_FROM_ABI bool await_ready() const noexcept { return false; }
+  _LIBCPP_HIDE_FROM_ABI bool await_suspend(coroutine_handle<> __h, const io_env* __env);
+  _LIBCPP_HIDE_FROM_ABI __ring_outcome await_resume() noexcept;
+  _LIBCPP_HIDE_FROM_ABI void __unregister_node() noexcept;
+  _LIBCPP_HIDE_FROM_ABI ~__sock_iocp_awaiter();
+};
+#  endif // _LIBCPP_HAS_IO_IOCP
+
 // The state shared by every socket and acceptor: the context, the descriptor and the registry of the pending waits.
 // Not copyable; the move constructor and move assignment have the precondition that no operation is pending.
 //
@@ -184,6 +238,9 @@ class __socket_core {
   friend class __sock_wait_awaiter;
 #  if _LIBCPP_HAS_IO_URING
   friend class __sock_ring_awaiter;
+#  endif
+#  if _LIBCPP_HAS_IO_IOCP
+  friend class __sock_iocp_awaiter;
 #  endif
 
   execution_context* __ctx_;
@@ -295,8 +352,9 @@ protected:
     return __sock_wait_awaiter(*this, __events);
   }
 
-#  if _LIBCPP_HAS_IO_URING
-  // True if the transfers of this socket run on the ring of its context (decided when the context was created).
+#  if _LIBCPP_HAS_IO_URING || _LIBCPP_HAS_IO_IOCP
+  // True if the transfers of this socket run on the ring (the completion port) of its context (decided when the context
+  // was created).
   _LIBCPP_HIDE_FROM_ABI bool __ring_active() {
     return __ctx_->template use_service<__reactor_service>().__has_ring();
   }
@@ -312,6 +370,18 @@ protected:
   // sender is reported (datagrams). Zero bytes from a stream mean the end of the stream; the caller decides.
   _LIBCPP_HIDE_FROM_ABI task<__sock_xfer>
   __io_receive(const mutable_buffer* __bufs, size_t __n, int __flags, bool __want_from) {
+#  if _LIBCPP_HAS_IO_IOCP
+    if (__ring_active()) {
+      __ring_outcome __o = co_await __sock_iocp_awaiter(*this, true, __bufs, __n, io::__to_native_msg_flags(__flags), __want_from, nullptr);
+      if (!__o.__fallback_) {
+        __sock_xfer __x;
+        __x.__ec_   = __o.__ec_;
+        __x.__n_    = __o.__n_;
+        __x.__from_ = __o.__from_;
+        co_return __x;
+      }
+    }
+#  endif
 #  if _LIBCPP_HAS_IO_URING
     if (__ring_active()) {
       __ring_outcome __o = co_await __sock_ring_awaiter(
@@ -351,6 +421,17 @@ protected:
   // Sends the buffers (gather) as one message to __to, or to the connected peer if __to is null.
   _LIBCPP_HIDE_FROM_ABI task<__sock_xfer>
   __io_send(const const_buffer* __bufs, size_t __n, int __flags, const __sockaddr_buf* __to) {
+#  if _LIBCPP_HAS_IO_IOCP
+    if (__ring_active()) {
+      __ring_outcome __o = co_await __sock_iocp_awaiter(*this, false, __bufs, __n, io::__to_native_msg_flags(__flags), false, __to);
+      if (!__o.__fallback_) {
+        __sock_xfer __x;
+        __x.__ec_ = __o.__ec_;
+        __x.__n_  = __o.__n_;
+        co_return __x;
+      }
+    }
+#  endif
 #  if _LIBCPP_HAS_IO_URING
     if (__ring_active()) {
       __ring_outcome __o = co_await __sock_ring_awaiter(
@@ -623,6 +704,71 @@ _LIBCPP_HIDE_FROM_ABI inline __sock_ring_awaiter::~__sock_ring_awaiter() {
   __unregister_node(); // the frame can be destroyed while the transfer is pending
 }
 #  endif // _LIBCPP_HAS_IO_URING
+
+#  if _LIBCPP_HAS_IO_IOCP
+template <class _Buf>
+_LIBCPP_HIDE_FROM_ABI __sock_iocp_awaiter::__sock_iocp_awaiter(
+    __socket_core& __c,
+    bool __recv,
+    const _Buf* __bufs,
+    size_t __n,
+    int __flags,
+    bool __want_from,
+    const __sockaddr_buf* __to) noexcept
+    : __iocp_op(&__c.__context().template use_service<__reactor_service>()),
+      __core_(std::addressof(__c)),
+      __flags_(static_cast<DWORD>(__flags)),
+      __recv_(__recv),
+      __want_from_(__want_from),
+      __has_to_(__to != nullptr) {
+  __cnt_ = io::__to_wsabuf(__bufs, __n, __wb_, char());
+  ::memset(&__name_, 0, sizeof(__name_));
+  if (__want_from) {
+    __namelen_ = sizeof(__name_.__ss_);
+  } else if (__to) {
+    __name_ = *__to;
+  }
+  __fd_     = __c.__fd_;
+  __submit_ = &__submit_cb;
+}
+
+_LIBCPP_HIDE_FROM_ABI inline bool __sock_iocp_awaiter::await_suspend(coroutine_handle<> __h, const io_env* __env) {
+  __bind(__h, __env);
+  if (__env->stop_token.stop_requested()) {
+    __ec_ = make_error_code(error::canceled);
+    return false;
+  }
+  __node_.__op_ = this;
+  __core_->__register(std::addressof(__node_));
+  __arm_stop(__env);
+  return __svc_->__start_iocp(*this);
+}
+
+_LIBCPP_HIDE_FROM_ABI inline void __sock_iocp_awaiter::__unregister_node() noexcept {
+  if (__node_.__linked_ && __node_.__core_) // an unlinked node is only touched under the lock of its socket
+    __node_.__core_->__unregister(std::addressof(__node_));
+}
+
+_LIBCPP_HIDE_FROM_ABI inline __ring_outcome __sock_iocp_awaiter::await_resume() noexcept {
+  __finish();
+  __unregister_node();
+  __ring_outcome __o;
+  __o.__ec_       = __ec_;
+  __o.__fallback_ = __fallback_;
+  if (!__ec_ && !__fallback_) {
+    __o.__n_ = static_cast<size_t>(__res_);
+    if (__want_from_) {
+      __o.__from_        = __name_;
+      __o.__from_.__len_ = __namelen_;
+    }
+  }
+  return __o;
+}
+
+_LIBCPP_HIDE_FROM_ABI inline __sock_iocp_awaiter::~__sock_iocp_awaiter() {
+  __unregister_node(); // the frame can be destroyed while the transfer is pending
+}
+#  endif // _LIBCPP_HAS_IO_IOCP
 
 // What both kinds of stream socket have in common: reading, writing, shutdown.
 class __stream_socket_base : public __socket_core {

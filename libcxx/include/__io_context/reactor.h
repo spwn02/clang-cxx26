@@ -13,6 +13,7 @@
 #include <__atomic/memory_order.h>
 #include <__chrono/duration.h>
 #include <__chrono/steady_clock.h>
+#include <__condition_variable/condition_variable.h>
 #include <__config>
 #include <__coroutine/coroutine_handle.h>
 #include <__cstddef/size_t.h>
@@ -23,6 +24,8 @@
 #include <__mutex/unique_lock.h>
 #include <__system_error/errc.h>
 #include <__system_error/error_code.h>
+#include <__thread/id.h>
+#include <__thread/thread.h>
 #include <__utility/move.h>
 #include <__utility/swap.h>
 #include <__vector/vector.h>
@@ -36,6 +39,7 @@
 #  include <cerrno>
 #  include <cstdint>
 #  include <cstdlib>
+#  include <cstring>
 #endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -94,6 +98,35 @@ struct __ring_op : __op_base {
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
 };
 #  endif // _LIBCPP_HAS_IO_URING
+
+#  if _LIBCPP_HAS_IO_IOCP
+// A transfer that the completion port runs to completion (see __iocp): the overlapped call is issued by __submit_ when
+// the operation is started, and the operation completes when its packet is dequeued by the thread of the reactor. The
+// buffers, the address and the flags the call refers to live in the awaiter that derives from it, which stays alive
+// until the completion has been processed (a cancellation only asks the system to finish the call early, and waits).
+struct __iocp_op : __op_base {
+  __iocp_ov __ov_;
+  __reactor_service* __svc_;
+  int __fd_                             = -1;
+  int (*__submit_)(__iocp_op*) noexcept = nullptr; // issues the overlapped call: 0 (it is pending) or a WSAE* number
+  int __res_                            = 0;
+  bool __fallback_                      = false; // the port did not do the transfer: use the readiness path
+  bool __cancel_sent_                   = false;
+
+  _LIBCPP_HIDE_FROM_ABI explicit __iocp_op(__reactor_service* __s) noexcept : __svc_(__s) {
+    ::memset(&__ov_.__ov_, 0, sizeof(__ov_.__ov_));
+    __ov_.__op_ = this;
+    __cancel_   = &__cancel_cb;
+  }
+  _LIBCPP_HIDE_FROM_ABI __iocp_op(__iocp_op&& __o) noexcept
+      : __op_base(std::move(__o)), __svc_(__o.__svc_) { // NOLINT(bugprone-use-after-move)
+    ::memset(&__ov_.__ov_, 0, sizeof(__ov_.__ov_));
+    __ov_.__op_ = this;
+    __cancel_   = &__cancel_cb;
+  }
+  _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
+};
+#  endif // _LIBCPP_HAS_IO_IOCP
 
 // A wait for a point in time. The deadline is a copy of the expiry of the timer at the time of the wait.
 struct __timer_op : __op_base {
@@ -155,6 +188,18 @@ class __reactor_service final : public execution_context::service {
   atomic<size_t> __ring_transfers_{0}; // completions of the ring that carried a result (for the tests)
   atomic<size_t> __ring_fallbacks_{0}; // requests the ring did not do, which the readiness path took over (for the tests)
   error_code __ring_refusal_;
+#  endif
+#  if _LIBCPP_HAS_IO_IOCP
+  unique_ptr<__iocp> __iocp_; // null: the context runs on the readiness poller alone
+  __op_list __iocp_ops_;
+  size_t __iocp_inflight_ = 0;
+  thread __iocp_thread_;
+  thread::id __iocp_thread_id_;
+  condition_variable __iocp_cv_;
+  __op_base* __iocp_completing_ = nullptr; // the operation whose completion the thread of the port is posting
+  atomic<size_t> __iocp_transfers_{0};
+  atomic<size_t> __iocp_fallbacks_{0};
+  error_code __iocp_refusal_;
 #  endif
   unordered_map<int, __fd_slot> __slots_;
   vector<__timer_op*> __heap_;
@@ -351,12 +396,105 @@ class __reactor_service final : public execution_context::service {
   }
 #  endif // _LIBCPP_HAS_IO_URING
 
+#  if _LIBCPP_HAS_IO_IOCP
+  // The port is opened when the environment variable _LIBCPP_IO_BACKEND is "iocp" or "auto" (or not set or unknown:
+  // auto); "winsock" (or "epoll") keeps the context on the readiness poller. Any failure leaves the context on it.
+  _LIBCPP_HIDE_FROM_ABI void __open_iocp() {
+    const char* __mode = std::getenv("_LIBCPP_IO_BACKEND");
+    if (__mode && (__mode[0] == 'e' || __mode[0] == 'w'))
+      return;
+    unique_ptr<__iocp> __p(new __iocp);
+    if (error_code __ec = __p->__open()) {
+      __iocp_refusal_ = __ec;
+      return;
+    }
+    __iocp_.swap(__p);
+    __iocp_thread_    = thread([this] { __iocp_loop(); });
+    __iocp_thread_id_ = __iocp_thread_.get_id();
+  }
+
+  // The thread of the port: dequeues the packets and completes the operations they belong to.
+  _LIBCPP_HIDE_FROM_ABI void __iocp_loop() noexcept {
+    for (;;) {
+      __iocp_packet __p;
+      if (!__iocp_->__dequeue(__p) || !__p.__ov_)
+        return;
+      auto* __op = static_cast<__iocp_op*>(__p.__ov_->__op_);
+      int __res  = 0;
+      int __werr = 0;
+      if (__p.__ok_) {
+        __res = static_cast<int>(__p.__bytes_);
+      } else {
+        DWORD __bytes = 0, __fl = 0;
+        if (::WSAGetOverlappedResult(
+                static_cast<SOCKET>(static_cast<intptr_t>(__op->__fd_)), &__p.__ov_->__ov_, &__bytes, FALSE, &__fl))
+          __res = static_cast<int>(__bytes);
+        else
+          __werr = ::WSAGetLastError();
+        if (__werr == WSAEMSGSIZE) { // a datagram that was larger than the buffers: truncated, like MSG_TRUNC elsewhere
+          __res  = static_cast<int>(__bytes);
+          __werr = 0;
+        }
+      }
+      bool __post;
+      {
+        lock_guard<mutex> __lk(__m_);
+        __iocp_ops_.__remove(__op);
+        --__iocp_inflight_;
+        __op->__state_ = __op_base::__done;
+        __op->__ec_    = error_code();
+        if (__werr == 0) {
+          __op->__res_ = __res;
+          __iocp_transfers_.fetch_add(1, memory_order_relaxed);
+        } else if (__werr == WSA_OPERATION_ABORTED) {
+          // Asked for by cancel(); otherwise the system canceled the call (the thread that issued it has exited): the
+          // readiness path takes over.
+          if (__op->__cancel_sent_)
+            __op->__ec_ = make_error_code(error::canceled);
+          else {
+            __op->__fallback_ = true;
+            __iocp_fallbacks_.fetch_add(1, memory_order_relaxed);
+          }
+        } else {
+          __op->__ec_ = io::__wsa_error_code(__werr);
+        }
+        __post             = !__shut_down_;
+        __iocp_completing_ = __op;
+      }
+      if (__post)
+        __complete(__op); // the operation must not be touched afterwards
+      {
+        lock_guard<mutex> __lk(__m_);
+        __iocp_completing_ = nullptr;
+      }
+      __iocp_cv_.notify_all();
+    }
+  }
+
+  // Stops the thread of the port (the caller holds no lock).
+  _LIBCPP_HIDE_FROM_ABI void __stop_iocp_thread() noexcept {
+    if (!__iocp_thread_.joinable())
+      return;
+    __iocp_->__post_stop();
+    if (this_thread::get_id() == __iocp_thread_id_)
+      __iocp_thread_.detach();
+    else
+      __iocp_thread_.join();
+  }
+#  endif // _LIBCPP_HAS_IO_IOCP
+
 public:
   _LIBCPP_HIDE_FROM_ABI explicit __reactor_service(execution_context&) {
 #  if _LIBCPP_HAS_IO_URING
     __open_ring();
 #  endif
+#  if _LIBCPP_HAS_IO_IOCP
+    __open_iocp();
+#  endif
   }
+#  if _LIBCPP_HAS_IO_IOCP
+  _LIBCPP_HIDE_FROM_ABI ~__reactor_service() { __stop_iocp_thread(); }
+#  endif
 
   // The backend this context runs on, for diagnostics and tests: "io_uring" when a ring is open (the transfers of the
   // sockets run on it; waits, timers and signals use the poller), otherwise the name of the poller.
@@ -364,6 +502,10 @@ public:
 #  if _LIBCPP_HAS_IO_URING
     if (__ring_)
       return "io_uring";
+#  endif
+#  if _LIBCPP_HAS_IO_IOCP
+    if (__iocp_)
+      return "iocp";
 #  endif
 #  if _LIBCPP_HAS_IO_EPOLL
     return "epoll";
@@ -377,6 +519,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI error_code __ring_refusal() const noexcept {
 #  if _LIBCPP_HAS_IO_URING
     return __ring_refusal_;
+#  elif _LIBCPP_HAS_IO_IOCP
+    return __iocp_refusal_;
 #  else
     return error_code();
 #  endif
@@ -385,6 +529,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI size_t __ring_transfers() const noexcept {
 #  if _LIBCPP_HAS_IO_URING
     return __ring_transfers_.load(memory_order_relaxed);
+#  elif _LIBCPP_HAS_IO_IOCP
+    return __iocp_transfers_.load(memory_order_relaxed);
 #  else
     return 0;
 #  endif
@@ -392,6 +538,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI size_t __ring_fallbacks() const noexcept {
 #  if _LIBCPP_HAS_IO_URING
     return __ring_fallbacks_.load(memory_order_relaxed);
+#  elif _LIBCPP_HAS_IO_IOCP
+    return __iocp_fallbacks_.load(memory_order_relaxed);
 #  else
     return 0;
 #  endif
@@ -399,6 +547,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI bool __has_ring() const noexcept {
 #  if _LIBCPP_HAS_IO_URING
     return __ring_ != nullptr;
+#  elif _LIBCPP_HAS_IO_IOCP
+    return __iocp_ != nullptr;
 #  else
     return false;
 #  endif
@@ -409,6 +559,29 @@ public:
   // execution_context destroys after every service has been shut down (see execution_context::shutdown). Operations
   // started afterwards complete with an error.
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL void shutdown() override {
+    __shutdown_poller_state();
+#  if _LIBCPP_HAS_IO_IOCP
+    if (__iocp_) {
+      unique_lock<mutex> __lk(__m_);
+      for (__op_base* __b = __iocp_ops_.__front(); __b; __b = __b->__next_) {
+        auto* __op = static_cast<__iocp_op*>(__b);
+        __op->__cancel_sent_ = true;
+        (void)::CancelIoEx(reinterpret_cast<HANDLE>(static_cast<SOCKET>(static_cast<intptr_t>(__op->__fd_))), &__op->__ov_.__ov_);
+      }
+      if (this_thread::get_id() != __iocp_thread_id_)
+        __iocp_cv_.wait_for(__lk, chrono::seconds(2), [this] { return __iocp_ops_.__empty() && !__iocp_completing_; });
+      while (__op_base* __b = __iocp_ops_.__front()) { // the system did not answer: give them up
+        __iocp_ops_.__remove(__b);
+        __b->__state_ = __op_base::__done;
+      }
+      __iocp_inflight_ = 0;
+      __lk.unlock();
+      __stop_iocp_thread();
+    }
+#  endif
+  }
+
+  _LIBCPP_HIDE_FROM_ABI void __shutdown_poller_state() {
     lock_guard<mutex> __lk(__m_);
     __shut_down_ = true;
     for (auto& __kv : __slots_) {
@@ -574,6 +747,57 @@ public:
       __complete(__d);
   }
 #  endif // _LIBCPP_HAS_IO_URING
+
+#  if _LIBCPP_HAS_IO_IOCP
+  // Issues the overlapped call of the operation. True: queued (the caller suspends). False: completed at once (canceled,
+  // with __ec_) or not done by the port (__fallback_: the caller uses the readiness path).
+  _LIBCPP_HIDE_FROM_ABI bool __start_iocp(__iocp_op& __op) {
+    lock_guard<mutex> __lk(__m_);
+    if (__shut_down_ || __op.__cancel_requested_) {
+      __op.__ec_    = make_error_code(error::canceled);
+      __op.__state_ = __op_base::__done;
+      return false;
+    }
+    __iocp_->__associate(static_cast<intptr_t>(__op.__fd_));
+    ::memset(&__op.__ov_.__ov_, 0, sizeof(__op.__ov_.__ov_));
+    __op.__ov_.__op_ = &__op;
+    __iocp_ops_.__push_back(&__op);
+    ++__iocp_inflight_;
+    __op.__state_ = __op_base::__pending;
+    int __e       = __op.__submit_(&__op);
+    if (__e != 0) { // refused: the readiness path does the transfer and reports what is wrong
+      __iocp_ops_.__remove(&__op);
+      --__iocp_inflight_;
+      __op.__state_    = __op_base::__done;
+      __op.__fallback_ = true;
+      __iocp_fallbacks_.fetch_add(1, memory_order_relaxed);
+      return false;
+    }
+    __pending_.fetch_add(1, memory_order_acq_rel);
+    return true;
+  }
+
+  // Asks the system to finish the call and waits (a few milliseconds in practice, two seconds at most) until the thread
+  // of the port has posted the completion, so that the operation has completed when cancel() returns, like a
+  // cancellation on the readiness path. The operation is valid for the whole call: the socket's cancel() and the stop
+  // callback both keep it alive until their call returns.
+  _LIBCPP_HIDE_FROM_ABI void __cancel_iocp(__iocp_op* __op) noexcept {
+    unique_lock<mutex> __lk(__m_);
+    if (__op->__state_ == __op_base::__idle) {
+      __op->__cancel_requested_ = true;
+      return;
+    }
+    if (__op->__state_ == __op_base::__pending && !__op->__cancel_sent_) {
+      __op->__cancel_sent_ = true;
+      (void)::CancelIoEx(reinterpret_cast<HANDLE>(static_cast<SOCKET>(static_cast<intptr_t>(__op->__fd_))), &__op->__ov_.__ov_);
+    }
+    if (this_thread::get_id() == __iocp_thread_id_) // an inline executor runs the continuation on the thread that would answer
+      return;
+    __iocp_cv_.wait_for(__lk, chrono::seconds(2), [this, __op] {
+      return __op->__state_ != __op_base::__pending && __iocp_completing_ != __op;
+    });
+  }
+#  endif // _LIBCPP_HAS_IO_IOCP
 
   _LIBCPP_HIDE_FROM_ABI bool __start_timer(__timer_op& __op, __op_list& __waiters) {
     lock_guard<mutex> __lk(__m_);
@@ -753,6 +977,12 @@ inline void __fd_op::__cancel_cb(__op_base* __b) noexcept {
 inline void __ring_op::__cancel_cb(__op_base* __b) noexcept {
   __ring_op* __op = static_cast<__ring_op*>(__b);
   __op->__svc_->__cancel_ring(__op);
+}
+#  endif
+#  if _LIBCPP_HAS_IO_IOCP
+inline void __iocp_op::__cancel_cb(__op_base* __b) noexcept {
+  __iocp_op* __op = static_cast<__iocp_op*>(__b);
+  __op->__svc_->__cancel_iocp(__op);
 }
 #  endif
 inline void __timer_op::__cancel_cb(__op_base* __b) noexcept {
