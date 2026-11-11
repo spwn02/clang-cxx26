@@ -18,7 +18,11 @@
 #  pragma GCC system_header
 #endif
 
-#if _LIBCPP_HAS_IO_POSIX_SIGNALS
+#if _LIBCPP_HAS_IO_POSIX_SIGNALS && _LIBCPP_HAS_IO_WINSOCK
+
+#  include <__io/support/win32_signal.h>
+
+#elif _LIBCPP_HAS_IO_POSIX_SIGNALS
 
 #  include <__system_error/error_category.h>
 #  include <__system_error/error_code.h>

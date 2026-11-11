@@ -3008,6 +3008,10 @@ module std [system] {
       header "__io/support/uring.h"
       export *
     }
+    module support_win32_signal {
+      header "__io/support/win32_signal.h"
+      export *
+    }
     module support_winsock {
       header "__io/support/winsock.h"
       export *

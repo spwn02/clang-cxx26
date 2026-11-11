@@ -102,7 +102,8 @@
 #  define _LIBCPP_HAS_IO_TLS 0
 #endif
 
-// sigaction() plus a self-pipe. Defined together with a backend that is also available on a POSIX system.
-#define _LIBCPP_HAS_IO_POSIX_SIGNALS (_LIBCPP_HAS_IO_EPOLL || _LIBCPP_HAS_IO_KQUEUE)
+// signal_set: sigaction() plus a self-pipe on POSIX systems, the C library's signal() plus a self-pipe on Windows
+// (libcxx/include/__io/support/win32_signal.h). Defined together with a backend.
+#define _LIBCPP_HAS_IO_POSIX_SIGNALS _LIBCPP_HAS_IO_REACTOR
 
 #endif // _LIBCPP___IO_SUPPORT_CONFIG_H

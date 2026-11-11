@@ -570,6 +570,7 @@ set(files
   __io/support/poller_types.h
   __io/support/posix_signal.h
   __io/support/uring.h
+  __io/support/win32_signal.h
   __io/support/winsock.h
   __io/support/winsock_poller.h
   __io/task.h
