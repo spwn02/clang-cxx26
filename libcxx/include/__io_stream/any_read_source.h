@@ -32,8 +32,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 namespace io {
 
 // P4100R1 [8.6]: a non-owning, type-erased ReadSource. read is a complete operation: a sequence of up to 16 non-empty
-// buffers is one read of the wrapped source, a longer one is read in windows of 16 buffers (this takes allocations, and the
-// wrapped source sees one read per window).
+// buffers is one read of the wrapped source, a longer one is read in windows of 16 buffers (this takes allocations, and
+// the wrapped source sees one read per window).
 class any_read_source {
   using _Res _LIBCPP_NODEBUG = io_result<size_t>;
 

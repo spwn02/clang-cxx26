@@ -88,21 +88,21 @@ static_assert(sizeof(__uring_cqe) == 16, "the kernel's io_uring_cqe is 16 bytes"
 static_assert(sizeof(__uring_params) == 120, "the kernel's io_uring_params is 120 bytes");
 static_assert(sizeof(__uring_probe_op) == 8, "the kernel's io_uring_probe_op is 8 bytes");
 
-inline constexpr uint32_t __uring_setup_clamp         = 1u << 4;
-inline constexpr uint32_t __uring_feat_single_mmap    = 1u << 0;
-inline constexpr uint32_t __uring_feat_nodrop         = 1u << 1;
-inline constexpr uint32_t __uring_sq_cq_overflow      = 1u << 1;
-inline constexpr uint32_t __uring_enter_getevents     = 1u << 0;
-inline constexpr uint32_t __uring_probe_supported     = 1u << 0;
-inline constexpr unsigned __uring_register_probe      = 8;
-inline constexpr uint64_t __uring_off_sq_ring         = 0;
-inline constexpr uint64_t __uring_off_sqes            = 0x10000000ull;
-inline constexpr uint8_t __uring_op_readv             = 1;
-inline constexpr uint8_t __uring_op_writev            = 2;
-inline constexpr uint8_t __uring_op_sendmsg           = 9;
-inline constexpr uint8_t __uring_op_recvmsg           = 10;
-inline constexpr uint8_t __uring_op_accept            = 13;
-inline constexpr uint8_t __uring_op_async_cancel      = 14;
+inline constexpr uint32_t __uring_setup_clamp      = 1u << 4;
+inline constexpr uint32_t __uring_feat_single_mmap = 1u << 0;
+inline constexpr uint32_t __uring_feat_nodrop      = 1u << 1;
+inline constexpr uint32_t __uring_sq_cq_overflow   = 1u << 1;
+inline constexpr uint32_t __uring_enter_getevents  = 1u << 0;
+inline constexpr uint32_t __uring_probe_supported  = 1u << 0;
+inline constexpr unsigned __uring_register_probe   = 8;
+inline constexpr uint64_t __uring_off_sq_ring      = 0;
+inline constexpr uint64_t __uring_off_sqes         = 0x10000000ull;
+inline constexpr uint8_t __uring_op_readv          = 1;
+inline constexpr uint8_t __uring_op_writev         = 2;
+inline constexpr uint8_t __uring_op_sendmsg        = 9;
+inline constexpr uint8_t __uring_op_recvmsg        = 10;
+inline constexpr uint8_t __uring_op_accept         = 13;
+inline constexpr uint8_t __uring_op_async_cancel   = 14;
 
 // The completion backend of Linux (io_uring), called with raw system calls: there is no build or link dependency on
 // liburing, the same way the TLS engine loads OpenSSL with dlopen. It is an addition to the epoll poller, not a
@@ -122,10 +122,10 @@ enum class __uring_opcode : unsigned char { __recvmsg, __sendmsg, __accept, __re
 struct __uring_request {
   __uring_opcode __op_;
   int __fd_;
-  uint64_t __addr_;     // msghdr*, iovec*, or the sockaddr* of an accept
-  uint32_t __len_;      // number of iovecs of a vectored transfer
-  uint32_t __flags_;    // msg flags, or accept flags
-  uint64_t __offset_;   // file offset of a vectored transfer (accept: the address of the socklen_t)
+  uint64_t __addr_;   // msghdr*, iovec*, or the sockaddr* of an accept
+  uint32_t __len_;    // number of iovecs of a vectored transfer
+  uint32_t __flags_;  // msg flags, or accept flags
+  uint64_t __offset_; // file offset of a vectored transfer (accept: the address of the socklen_t)
   uint64_t __user_data_;
 };
 
@@ -161,7 +161,7 @@ class __uring {
   static constexpr long __nr_setup_    = SYS_io_uring_setup;
   static constexpr long __nr_enter_    = SYS_io_uring_enter;
   static constexpr long __nr_register_ = SYS_io_uring_register;
-#  elif defined(__x86_64__) || defined(__i386__) || defined(__aarch64__) || defined(__arm__) || defined(__riscv) ||     \
+#  elif defined(__x86_64__) || defined(__i386__) || defined(__aarch64__) || defined(__arm__) || defined(__riscv) ||    \
       defined(__s390x__) || defined(__powerpc64__) || defined(__loongarch__)
   static constexpr long __nr_setup_    = 425;
   static constexpr long __nr_enter_    = 426;
@@ -228,10 +228,12 @@ class __uring {
            __has(__uring_op_async_cancel) && __has(__uring_op_readv) && __has(__uring_op_writev);
   }
 
-  _LIBCPP_HIDE_FROM_ABI bool __sq_full() const noexcept { return *__sq_tail_ - __load_acquire(__sq_head_) >= __sq_entries_; }
+  _LIBCPP_HIDE_FROM_ABI bool __sq_full() const noexcept {
+    return *__sq_tail_ - __load_acquire(__sq_head_) >= __sq_entries_;
+  }
 
   _LIBCPP_HIDE_FROM_ABI __uring_sqe* __next_sqe() noexcept {
-    unsigned __idx = *__sq_tail_ & __sq_mask_;
+    unsigned __idx   = *__sq_tail_ & __sq_mask_;
     __uring_sqe* __s = &__sqes_[__idx];
     ::memset(__s, 0, sizeof(*__s));
     __sq_array_[__idx] = __idx;
@@ -268,8 +270,13 @@ public:
     size_t __sq_sz = __p.__sq_off_.__array_ + __p.__sq_entries_ * sizeof(unsigned);
     size_t __cq_sz = __p.__cq_off_.__cqes_ + __p.__cq_entries_ * sizeof(__uring_cqe);
     __ring_size_   = __sq_sz > __cq_sz ? __sq_sz : __cq_sz;
-    __ring_ptr_    = ::mmap(nullptr, __ring_size_, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, __fd_,
-                            static_cast<off_t>(__uring_off_sq_ring));
+    __ring_ptr_    = ::mmap(
+        nullptr,
+        __ring_size_,
+        PROT_READ | PROT_WRITE,
+        MAP_SHARED | MAP_POPULATE,
+        __fd_,
+        static_cast<off_t>(__uring_off_sq_ring));
     if (__ring_ptr_ == MAP_FAILED) {
       __ring_ptr_ = nullptr;
       int __e     = errno;
@@ -277,8 +284,13 @@ public:
       return error_code(__e, generic_category());
     }
     __sqes_size_ = __p.__sq_entries_ * sizeof(__uring_sqe);
-    __sqes_ptr_  = ::mmap(nullptr, __sqes_size_, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, __fd_,
-                          static_cast<off_t>(__uring_off_sqes));
+    __sqes_ptr_  = ::mmap(
+        nullptr,
+        __sqes_size_,
+        PROT_READ | PROT_WRITE,
+        MAP_SHARED | MAP_POPULATE,
+        __fd_,
+        static_cast<off_t>(__uring_off_sqes));
     if (__sqes_ptr_ == MAP_FAILED) {
       __sqes_ptr_ = nullptr;
       int __e     = errno;
@@ -304,7 +316,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI bool __prepare(const __uring_request& __rq) noexcept {
     if (__sq_full())
       return false;
-    __uring_sqe* __s = __next_sqe();
+    __uring_sqe* __s  = __next_sqe();
     __s->__fd_        = __rq.__fd_;
     __s->__addr_      = __rq.__addr_;
     __s->__len_       = __rq.__len_;
@@ -375,8 +387,8 @@ public:
   // that they are in the completion queue when it returns.
   _LIBCPP_HIDE_FROM_ABI void __flush_events() noexcept { (void)__sys_enter(__fd_, 0, 0, __uring_enter_getevents); }
 
-  // Copies up to __limit completions into __dst and releases them; returns the number. Also asks the kernel to flush its
-  // overflow list when the completion queue overflowed.
+  // Copies up to __limit completions into __dst and releases them; returns the number. Also asks the kernel to flush
+  // its overflow list when the completion queue overflowed.
   _LIBCPP_HIDE_FROM_ABI int __reap(__uring_completion* __dst, int __limit) noexcept {
     if (__load_acquire(__sq_flags_) & __uring_sq_cq_overflow)
       (void)__sys_enter(__fd_, 0, 0, __uring_enter_getevents);

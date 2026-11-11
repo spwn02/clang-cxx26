@@ -49,9 +49,9 @@ class __iocp {
   HANDLE __port_ = nullptr;
 
 public:
-  __iocp() noexcept                        = default;
-  __iocp(const __iocp&)                    = delete;
-  __iocp& operator=(const __iocp&)         = delete;
+  __iocp() noexcept                = default;
+  __iocp(const __iocp&)            = delete;
+  __iocp& operator=(const __iocp&) = delete;
   _LIBCPP_HIDE_FROM_ABI ~__iocp() { __close(); }
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code __open() noexcept {
@@ -74,10 +74,10 @@ public:
 
   // Blocks for the next packet. False: the port is closed or broken.
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI bool __dequeue(__iocp_packet& __p) noexcept {
-    DWORD __bytes = 0;
-    ULONG_PTR __key = 0;
+    DWORD __bytes    = 0;
+    ULONG_PTR __key  = 0;
     OVERLAPPED* __ov = nullptr;
-    BOOL __ok = ::GetQueuedCompletionStatus(__port_, &__bytes, &__key, &__ov, INFINITE);
+    BOOL __ok        = ::GetQueuedCompletionStatus(__port_, &__bytes, &__key, &__ov, INFINITE);
     if (!__ov) {
       if (!__ok)
         return false;

@@ -93,9 +93,11 @@ using v6_only _LIBCPP_NODEBUG             = __boolean_option<__sockopt_id::__v6_
 using receive_buffer_size _LIBCPP_NODEBUG = __integer_option<__sockopt_id::__receive_buffer_size>; // SO_RCVBUF
 using send_buffer_size _LIBCPP_NODEBUG    = __integer_option<__sockopt_id::__send_buffer_size>;    // SO_SNDBUF
 
-using broadcast _LIBCPP_NODEBUG      = __boolean_option<__sockopt_id::__broadcast>;      // SO_BROADCAST
-using multicast_loop _LIBCPP_NODEBUG = __boolean_option<__sockopt_id::__multicast_loop>; // IP_MULTICAST_LOOP, IPV6_MULTICAST_LOOP
-using multicast_hops _LIBCPP_NODEBUG = __integer_option<__sockopt_id::__multicast_hops>; // IP_MULTICAST_TTL, IPV6_MULTICAST_HOPS
+using broadcast _LIBCPP_NODEBUG = __boolean_option<__sockopt_id::__broadcast>; // SO_BROADCAST
+using multicast_loop _LIBCPP_NODEBUG =
+    __boolean_option<__sockopt_id::__multicast_loop>; // IP_MULTICAST_LOOP, IPV6_MULTICAST_LOOP
+using multicast_hops _LIBCPP_NODEBUG =
+    __integer_option<__sockopt_id::__multicast_hops>; // IP_MULTICAST_TTL, IPV6_MULTICAST_HOPS
 
 // SO_LINGER: whether close() blocks for the unsent data and for how many seconds.
 class linger {
@@ -134,7 +136,8 @@ public:
   // The group; the interface is chosen by the system (for an IPv6 group by its zone).
   _LIBCPP_HIDE_FROM_ABI explicit __group_membership(const ip_address& __g) noexcept : __group_(__g) {}
   // An IPv4 group and the address of the local interface (any by default).
-  _LIBCPP_HIDE_FROM_ABI __group_membership(const ipv4_address& __g, const ipv4_address& __iface = ipv4_address()) noexcept
+  _LIBCPP_HIDE_FROM_ABI
+  __group_membership(const ipv4_address& __g, const ipv4_address& __iface = ipv4_address()) noexcept
       : __group_(__g), __iface_(__iface) {}
   // An IPv6 group and the index of the interface (0: the zone of the group, then the choice of the system).
   _LIBCPP_HIDE_FROM_ABI __group_membership(const ipv6_address& __g, unsigned __if_index = 0) noexcept

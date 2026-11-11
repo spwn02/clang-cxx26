@@ -108,8 +108,8 @@ namespace io {
   return __r;
 }
 
-// The portable flags (reverse_flags: numeric_host 1, numeric_service 2, name_required 4, datagram_service 8) in the NI_*
-// values of the platform.
+// The portable flags (reverse_flags: numeric_host 1, numeric_service 2, name_required 4, datagram_service 8) in the
+// NI_* values of the platform.
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline int __to_native_ni_flags(unsigned __f) noexcept {
   int __r = 0;
   if (__f & 0x01)
@@ -135,10 +135,8 @@ __sys_resolve(const string& __host, const string& __service, unsigned __flags, v
   __hints.ai_socktype = SOCK_STREAM;
   __hints.ai_flags    = io::__to_native_ai_flags(__flags);
   addrinfo* __res     = nullptr;
-  int __r = ::getaddrinfo(__host.empty() ? nullptr : __host.c_str(),
-                          __service.empty() ? nullptr : __service.c_str(),
-                          &__hints,
-                          &__res);
+  int __r             = ::getaddrinfo(
+      __host.empty() ? nullptr : __host.c_str(), __service.empty() ? nullptr : __service.c_str(), &__hints, &__res);
   if (__r != 0)
     return io::__gai_error(__r);
   for (addrinfo* __p = __res; __p; __p = __p->ai_next) {

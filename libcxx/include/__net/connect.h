@@ -102,7 +102,8 @@ template <class _Socket, class _Iter, class _Condition>
   requires __connectable_socket<_Socket> && input_iterator<_Iter> &&
            convertible_to<iter_reference_t<_Iter>, typename _Socket::endpoint_type> &&
            predicate<_Condition&, const error_code&, const typename _Socket::endpoint_type&>
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI task<io_result<_Iter>> connect(_Socket& __s, _Iter __first, _Iter __last, _Condition __cond) {
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI task<io_result<_Iter>>
+connect(_Socket& __s, _Iter __first, _Iter __last, _Condition __cond) {
   using _Ep = typename _Socket::endpoint_type;
   error_code __lasterr;
   for (_Iter __it = __first; __it != __last; ++__it) {

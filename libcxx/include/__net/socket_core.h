@@ -73,12 +73,12 @@ struct __sock_xfer {
 };
 
 #  if _LIBCPP_HAS_IO_URING || _LIBCPP_HAS_IO_IOCP
-// What a transfer on the ring (or the completion port) reports. __fallback_: the ring did not do it (the request was refused, the queue was
-// full, or the kernel answered EAGAIN), the caller continues with the readiness path.
+// What a transfer on the ring (or the completion port) reports. __fallback_: the ring did not do it (the request was
+// refused, the queue was full, or the kernel answered EAGAIN), the caller continues with the readiness path.
 struct __ring_outcome {
   error_code __ec_;
-  size_t __n_        = 0;
-  bool __fallback_   = false;
+  size_t __n_      = 0;
+  bool __fallback_ = false;
   __sockaddr_buf __from_{};
 };
 #  endif
@@ -91,15 +91,15 @@ struct __ring_outcome {
 // unregistration waits for the call to end, except when it is made from the very call (an executor whose post()
 // resumes the coroutine inline), where the cancelling loop is told that the node is gone.
 struct __wait_node {
-  __wait_node* __prev_    = nullptr;
-  __wait_node* __next_    = nullptr;
-  __op_base* __op_        = nullptr;
-  __socket_core* __core_  = nullptr; // null once the socket is destroyed while the wait is still registered
-  size_t __seq_           = 0;
-  bool __linked_          = false;
-  bool __cancelled_       = false; // cancel() has taken this node
-  bool __active_          = false; // the cancel function of the operation is being called by __active_thread_
-  bool* __gone_           = nullptr; // set by an unregistration that is made from the call itself
+  __wait_node* __prev_   = nullptr;
+  __wait_node* __next_   = nullptr;
+  __op_base* __op_       = nullptr;
+  __socket_core* __core_ = nullptr; // null once the socket is destroyed while the wait is still registered
+  size_t __seq_          = 0;
+  bool __linked_         = false;
+  bool __cancelled_      = false;   // cancel() has taken this node
+  bool __active_         = false;   // the cancel function of the operation is being called by __active_thread_
+  bool* __gone_          = nullptr; // set by an unregistration that is made from the call itself
   __thread_id __active_thread_;
 };
 
@@ -190,19 +190,35 @@ class __sock_iocp_awaiter : public __iocp_op {
   INT __namelen_ = 0;
 
   _LIBCPP_HIDE_FROM_ABI static int __submit_cb(__iocp_op* __o) noexcept {
-    auto* __s = static_cast<__sock_iocp_awaiter*>(__o);
-    SOCKET __fd = static_cast<SOCKET>(static_cast<intptr_t>(__s->__fd_));
+    auto* __s        = static_cast<__sock_iocp_awaiter*>(__o);
+    SOCKET __fd      = static_cast<SOCKET>(static_cast<intptr_t>(__s->__fd_));
     OVERLAPPED* __ov = &__s->__ov_.__ov_;
     int __rc;
     if (__s->__recv_) {
       if (__s->__want_from_)
-        __rc = ::WSARecvFrom(__fd, __s->__wb_, __s->__cnt_, nullptr, &__s->__flags_,
-                             reinterpret_cast<sockaddr*>(&__s->__name_.__ss_), &__s->__namelen_, __ov, nullptr);
+        __rc = ::WSARecvFrom(
+            __fd,
+            __s->__wb_,
+            __s->__cnt_,
+            nullptr,
+            &__s->__flags_,
+            reinterpret_cast<sockaddr*>(&__s->__name_.__ss_),
+            &__s->__namelen_,
+            __ov,
+            nullptr);
       else
         __rc = ::WSARecv(__fd, __s->__wb_, __s->__cnt_, nullptr, &__s->__flags_, __ov, nullptr);
     } else if (__s->__has_to_) {
-      __rc = ::WSASendTo(__fd, __s->__wb_, __s->__cnt_, nullptr, __s->__flags_,
-                         reinterpret_cast<const sockaddr*>(&__s->__name_.__ss_), __s->__name_.__len_, __ov, nullptr);
+      __rc = ::WSASendTo(
+          __fd,
+          __s->__wb_,
+          __s->__cnt_,
+          nullptr,
+          __s->__flags_,
+          reinterpret_cast<const sockaddr*>(&__s->__name_.__ss_),
+          __s->__name_.__len_,
+          __ov,
+          nullptr);
     } else {
       __rc = ::WSASend(__fd, __s->__wb_, __s->__cnt_, nullptr, __s->__flags_, __ov, nullptr);
     }
@@ -216,7 +232,13 @@ public:
   // A receive (__want_from: also the address of the sender) or a send (__to: the destination or null).
   template <class _Buf>
   _LIBCPP_HIDE_FROM_ABI __sock_iocp_awaiter(
-      __socket_core& __c, bool __recv, const _Buf* __bufs, size_t __n, int __flags, bool __want_from, const __sockaddr_buf* __to) noexcept;
+      __socket_core& __c,
+      bool __recv,
+      const _Buf* __bufs,
+      size_t __n,
+      int __flags,
+      bool __want_from,
+      const __sockaddr_buf* __to) noexcept;
   __sock_iocp_awaiter(__sock_iocp_awaiter&&) = delete;
 
   _LIBCPP_HIDE_FROM_ABI bool await_ready() const noexcept { return false; }
@@ -259,8 +281,8 @@ class __socket_core {
     __n->__cancelled_ = false;
     __n->__active_    = false;
     __n->__gone_      = nullptr;
-    __n->__prev_ = nullptr;
-    __n->__next_ = __head_;
+    __n->__prev_      = nullptr;
+    __n->__next_      = __head_;
     if (__head_)
       __head_->__prev_ = __n;
     __head_ = __n;
@@ -273,7 +295,7 @@ class __socket_core {
       return;
     if (__n->__active_) {
       if (__n->__active_thread_ == this_thread::get_id()) {
-        *__n->__gone_ = true; // the cancelling loop must not touch the node any more
+        *__n->__gone_  = true; // the cancelling loop must not touch the node any more
         __n->__active_ = false;
       } else {
         __cv_.wait(__lk, [__n] { return !__n->__active_; });
@@ -355,9 +377,7 @@ protected:
 #  if _LIBCPP_HAS_IO_URING || _LIBCPP_HAS_IO_IOCP
   // True if the transfers of this socket run on the ring (the completion port) of its context (decided when the context
   // was created).
-  _LIBCPP_HIDE_FROM_ABI bool __ring_active() {
-    return __ctx_->template use_service<__reactor_service>().__has_ring();
-  }
+  _LIBCPP_HIDE_FROM_ABI bool __ring_active() { return __ctx_->template use_service<__reactor_service>().__has_ring(); }
 #  endif
 
   // The operation set of the backend. Each of these is one operation of the platform layer: the transfer or accept is
@@ -372,7 +392,8 @@ protected:
   __io_receive(const mutable_buffer* __bufs, size_t __n, int __flags, bool __want_from) {
 #  if _LIBCPP_HAS_IO_IOCP
     if (__ring_active()) {
-      __ring_outcome __o = co_await __sock_iocp_awaiter(*this, true, __bufs, __n, io::__to_native_msg_flags(__flags), __want_from, nullptr);
+      __ring_outcome __o = co_await __sock_iocp_awaiter(
+          *this, true, __bufs, __n, io::__to_native_msg_flags(__flags), __want_from, nullptr);
       if (!__o.__fallback_) {
         __sock_xfer __x;
         __x.__ec_   = __o.__ec_;
@@ -423,7 +444,8 @@ protected:
   __io_send(const const_buffer* __bufs, size_t __n, int __flags, const __sockaddr_buf* __to) {
 #  if _LIBCPP_HAS_IO_IOCP
     if (__ring_active()) {
-      __ring_outcome __o = co_await __sock_iocp_awaiter(*this, false, __bufs, __n, io::__to_native_msg_flags(__flags), false, __to);
+      __ring_outcome __o =
+          co_await __sock_iocp_awaiter(*this, false, __bufs, __n, io::__to_native_msg_flags(__flags), false, __to);
       if (!__o.__fallback_) {
         __sock_xfer __x;
         __x.__ec_ = __o.__ec_;
@@ -560,12 +582,12 @@ public:
         __n = __n->__next_;
       if (!__n)
         return;
-      bool __gone            = false;
-      __n->__cancelled_      = true;
-      __n->__active_         = true;
-      __n->__active_thread_  = this_thread::get_id();
-      __n->__gone_           = std::addressof(__gone);
-      __op_base* __op        = __n->__op_;
+      bool __gone           = false;
+      __n->__cancelled_     = true;
+      __n->__active_        = true;
+      __n->__active_thread_ = this_thread::get_id();
+      __n->__gone_          = std::addressof(__gone);
+      __op_base* __op       = __n->__op_;
       __lk.unlock();
       __op->__cancel_(__op);
       __lk.lock();
@@ -693,7 +715,7 @@ _LIBCPP_HIDE_FROM_ABI inline __ring_outcome __sock_ring_awaiter::await_resume() 
   if (!__ec_ && !__fallback_) {
     __o.__n_ = static_cast<size_t>(__res_);
     if (__msg_.msg_name == &__name_.__ss_) {
-      __o.__from_       = __name_;
+      __o.__from_        = __name_;
       __o.__from_.__len_ = __msg_.msg_namelen;
     }
   }

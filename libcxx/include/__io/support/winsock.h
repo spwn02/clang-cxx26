@@ -122,8 +122,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace io {
 
-// Winsock reports its errors in its own number space (WSAE*). They are translated to the POSIX values of <cerrno> (which
-// the Microsoft C library defines), so that every layer above compares the same errc values on every system.
+// Winsock reports its errors in its own number space (WSAE*). They are translated to the POSIX values of <cerrno>
+// (which the Microsoft C library defines), so that every layer above compares the same errc values on every system.
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __wsa_error_code(int __e) noexcept {
   switch (__e) {
   case 0:
@@ -209,8 +209,8 @@ namespace io {
 }
 
 // WSAStartup, once per process (a process that uses a socket has loaded the library for good: there is no matching
-// WSACleanup, a later socket of a static object could not be closed after it). Every function that is the first to touch
-// the Winsock API calls this.
+// WSACleanup, a later socket of a static object could not be closed after it). Every function that is the first to
+// touch the Winsock API calls this.
 _LIBCPP_HIDE_FROM_ABI inline error_code __winsock_init() noexcept {
   static const int __r = [] {
     WSADATA __d;

@@ -36,17 +36,17 @@ namespace io {
 // code is equivalent to the generic condition Corosio reports, so that
 // `ec == errc::no_such_device_or_address` is still true for host_not_found.
 enum class resolver_error {
-  host_not_found = 1,      // EAI_NONAME: the host or the service is not known (equivalent to no_such_device_or_address)
-  no_data,                 // EAI_NODATA, EAI_ADDRFAMILY: the host exists but has no address of the requested kind
-  try_again,               // EAI_AGAIN: a temporary failure of the name service (resource_unavailable_try_again)
-  no_recovery,             // EAI_FAIL: a permanent failure of the name service (io_error)
-  service_not_found,       // EAI_SERVICE: the service is not known for the socket type (invalid_argument)
-  family_not_supported,    // EAI_FAMILY (address_family_not_supported)
-  socktype_not_supported,  // EAI_SOCKTYPE (not_supported)
-  bad_flags,               // EAI_BADFLAGS: an invalid combination of flags (invalid_argument)
-  out_of_memory,           // EAI_MEMORY (not_enough_memory)
-  overflow,                // EAI_OVERFLOW: a result did not fit (value_too_large)
-  unknown                  // any other value
+  host_not_found = 1,     // EAI_NONAME: the host or the service is not known (equivalent to no_such_device_or_address)
+  no_data,                // EAI_NODATA, EAI_ADDRFAMILY: the host exists but has no address of the requested kind
+  try_again,              // EAI_AGAIN: a temporary failure of the name service (resource_unavailable_try_again)
+  no_recovery,            // EAI_FAIL: a permanent failure of the name service (io_error)
+  service_not_found,      // EAI_SERVICE: the service is not known for the socket type (invalid_argument)
+  family_not_supported,   // EAI_FAMILY (address_family_not_supported)
+  socktype_not_supported, // EAI_SOCKTYPE (not_supported)
+  bad_flags,              // EAI_BADFLAGS: an invalid combination of flags (invalid_argument)
+  out_of_memory,          // EAI_MEMORY (not_enough_memory)
+  overflow,               // EAI_OVERFLOW: a result did not fit (value_too_large)
+  unknown                 // any other value
 };
 
 _LIBCPP_HIDE_FROM_ABI inline const error_category& resolver_category() noexcept;

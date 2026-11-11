@@ -67,10 +67,10 @@ enum class __tls_io {
   __error      // see __error() and __error_detail()
 };
 
-// The interface between the stream and a cryptographic engine (OpenSSL through dlopen today; Secure Transport, SChannel or
-// a test double later). The engine is driven by memory buffers: the stream gives it ciphertext read from the transport
-// with __feed() and takes the ciphertext it wants to send with __take_output(); it never touches the transport. Nothing
-// here blocks. The stream serializes the calls.
+// The interface between the stream and a cryptographic engine (OpenSSL through dlopen today; Secure Transport, SChannel
+// or a test double later). The engine is driven by memory buffers: the stream gives it ciphertext read from the
+// transport with __feed() and takes the ciphertext it wants to send with __take_output(); it never touches the
+// transport. Nothing here blocks. The stream serializes the calls.
 _LIBCPP_DIAGNOSTIC_PUSH
 _LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wweak-vtables")
 class __tls_engine {
@@ -85,11 +85,11 @@ public:
   // Sends our close_notify; __ok once the peer's has also been received, __want_read while it is outstanding.
   virtual __tls_io __shutdown() noexcept = 0;
 
-  virtual void __feed(const void*, size_t) noexcept         = 0;
-  virtual size_t __take_output(void*, size_t) noexcept      = 0;
-  virtual error_code __error() const noexcept               = 0;
-  virtual string __error_detail() const                     = 0;
-  virtual string_view __alpn() const noexcept               = 0;
+  virtual void __feed(const void*, size_t) noexcept    = 0;
+  virtual size_t __take_output(void*, size_t) noexcept = 0;
+  virtual error_code __error() const noexcept          = 0;
+  virtual string __error_detail() const                = 0;
+  virtual string_view __alpn() const noexcept          = 0;
 };
 _LIBCPP_DIAGNOSTIC_POP
 

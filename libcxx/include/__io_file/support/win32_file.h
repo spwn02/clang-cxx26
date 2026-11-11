@@ -37,11 +37,11 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace io {
 
-// The platform layer of <io_file> for Windows: the same functions with the same meaning as posix_file.h, which describes
-// the contract. The handles are synchronous (the helper threads of the context block in them, like on POSIX systems);
-// a positioned transfer passes the offset in an OVERLAPPED structure, which a synchronous handle honors, so that it
-// does not depend on the file position. The handle is kept in an int, the way the sockets are (the value of a handle is
-// small); -1 is INVALID_HANDLE_VALUE. There is no vectored transfer on a synchronous handle: the buffers are
+// The platform layer of <io_file> for Windows: the same functions with the same meaning as posix_file.h, which
+// describes the contract. The handles are synchronous (the helper threads of the context block in them, like on POSIX
+// systems); a positioned transfer passes the offset in an OVERLAPPED structure, which a synchronous handle honors, so
+// that it does not depend on the file position. The handle is kept in an int, the way the sockets are (the value of a
+// handle is small); -1 is INVALID_HANDLE_VALUE. There is no vectored transfer on a synchronous handle: the buffers are
 // transferred one after the other, up to the first short transfer.
 
 using __native_file _LIBCPP_NODEBUG           = int;
@@ -138,11 +138,11 @@ __file_open(const char* __path, file_base::flags __f, __native_file& __fd) noexc
     __access = GENERIC_READ;
     break;
   }
-  bool __create    = (__f & file_base::create) != file_base::flags(0);
-  bool __excl      = (__f & file_base::exclusive) != file_base::flags(0);
-  bool __trunc     = (__f & file_base::truncate) != file_base::flags(0);
-  bool __append    = (__f & file_base::append) != file_base::flags(0);
-  DWORD __disp     = OPEN_EXISTING;
+  bool __create = (__f & file_base::create) != file_base::flags(0);
+  bool __excl   = (__f & file_base::exclusive) != file_base::flags(0);
+  bool __trunc  = (__f & file_base::truncate) != file_base::flags(0);
+  bool __append = (__f & file_base::append) != file_base::flags(0);
+  DWORD __disp  = OPEN_EXISTING;
   if (__create && __excl)
     __disp = CREATE_NEW;
   else if (__create && __trunc)
@@ -152,7 +152,7 @@ __file_open(const char* __path, file_base::flags __f, __native_file& __fd) noexc
   else if (__trunc)
     __disp = TRUNCATE_EXISTING;
   if (__trunc)
-    __access |= GENERIC_WRITE; // TRUNCATE_EXISTING and CREATE_ALWAYS need write access
+    __access |= GENERIC_WRITE;                // TRUNCATE_EXISTING and CREATE_ALWAYS need write access
   if (__append && (__access & GENERIC_WRITE)) // every write goes to the end: append access without write access
     __access = (__access & ~DWORD(GENERIC_WRITE)) | FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_GENERIC_WRITE;
   if (__append && (__access & FILE_GENERIC_WRITE) == FILE_GENERIC_WRITE)
@@ -180,8 +180,8 @@ _LIBCPP_HIDE_FROM_ABI inline void __file_close(__native_file __fd) noexcept {
 
 // One transfer of at most 1 GiB (the length of ReadFile and WriteFile is a DWORD). __off null: at the position of the
 // handle.
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code
-__file_xfer1(bool __read, __native_file __fd, const void* __buf, size_t __len, const uint64_t* __off, size_t& __got) noexcept {
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __file_xfer1(
+    bool __read, __native_file __fd, const void* __buf, size_t __len, const uint64_t* __off, size_t& __got) noexcept {
   DWORD __chunk = __len > 0x40000000u ? 0x40000000u : static_cast<DWORD>(__len);
   DWORD __n     = 0;
   OVERLAPPED __ov;
@@ -209,14 +209,20 @@ __file_xfer1(bool __read, __native_file __fd, const void* __buf, size_t __len, c
 }
 
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code __file_xfer(
-    bool __read, __native_file __fd, const __file_iovec* __v, size_t __n, const uint64_t* __off, size_t& __got) noexcept {
+    bool __read,
+    __native_file __fd,
+    const __file_iovec* __v,
+    size_t __n,
+    const uint64_t* __off,
+    size_t& __got) noexcept {
   size_t __total = 0;
   for (size_t __i = 0; __i != __n; ++__i) {
     if (__v[__i].__len_ == 0)
       continue;
     uint64_t __o = __off ? *__off + __total : 0;
     size_t __r   = 0;
-    if (error_code __ec = io::__file_xfer1(__read, __fd, __v[__i].__base_, __v[__i].__len_, __off ? &__o : nullptr, __r)) {
+    if (error_code __ec =
+            io::__file_xfer1(__read, __fd, __v[__i].__base_, __v[__i].__len_, __off ? &__o : nullptr, __r)) {
       if (__total != 0)
         break;
       return __ec;

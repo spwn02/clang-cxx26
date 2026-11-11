@@ -32,8 +32,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 namespace io {
 
 // P4100R1 [8.6]: a non-owning, type-erased WriteSink. write is a complete operation: a sequence of up to 16 non-empty
-// buffers is one write of the wrapped sink, a longer one is written in windows of 16 buffers (this takes allocations, and the
-// wrapped sink sees one write per window; the end of the stream is signalled with the last window).
+// buffers is one write of the wrapped sink, a longer one is written in windows of 16 buffers (this takes allocations,
+// and the wrapped sink sees one write per window; the end of the stream is signalled with the last window).
 class any_write_sink {
   using _Res _LIBCPP_NODEBUG    = io_result<size_t>;
   using _EofRes _LIBCPP_NODEBUG = io_result<>;

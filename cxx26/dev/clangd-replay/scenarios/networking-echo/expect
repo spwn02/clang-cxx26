@@ -1,0 +1,9 @@
+diag-clean         must-contain  0 diagnostics
+hover-read-some    must-contain  read_some
+hover-timer        must-contain  timer
+refs-echo-session  must-contain  39:
+members-stream     must-contain  read_some
+members-timer      must-contain  expires_after
+members-acceptor   must-contain  local_endpoint
+members-socket    must-contain  connect
+diag-bad           must-contain  nosuch

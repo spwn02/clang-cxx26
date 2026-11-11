@@ -68,13 +68,13 @@ struct __fd_op : __op_base {
 
   _LIBCPP_HIDE_FROM_ABI __fd_op(__reactor_service* __s, int __fd, unsigned __want) noexcept
       : __svc_(__s), __fd_(__fd), __want_(__want) {
-    __cancel_ = &__cancel_cb;
+    __cancel_  = &__cancel_cb;
     __abandon_ = &__abandon_cb;
   }
   // NOLINTBEGIN(bugprone-use-after-move): only the __op_base subobject is moved from
   _LIBCPP_HIDE_FROM_ABI __fd_op(__fd_op&& __o) noexcept
       : __op_base(std::move(__o)), __svc_(__o.__svc_), __fd_(__o.__fd_), __want_(__o.__want_) {
-    __cancel_ = &__cancel_cb;
+    __cancel_  = &__cancel_cb;
     __abandon_ = &__abandon_cb;
   }
   // NOLINTEND(bugprone-use-after-move)
@@ -91,9 +91,9 @@ struct __fd_op : __op_base {
 struct __ring_op : __op_base {
   __reactor_service* __svc_;
   __uring_request __rq_{};
-  int __res_           = 0;
-  bool __fallback_     = false; // the ring did not do the transfer (refused, full, EAGAIN): use the readiness path
-  bool __cancel_sent_  = false;
+  int __res_          = 0;
+  bool __fallback_    = false; // the ring did not do the transfer (refused, full, EAGAIN): use the readiness path
+  bool __cancel_sent_ = false;
 
   _LIBCPP_HIDE_FROM_ABI explicit __ring_op(__reactor_service* __s) noexcept : __svc_(__s) {
     __cancel_  = &__cancel_cb;
@@ -101,7 +101,7 @@ struct __ring_op : __op_base {
   }
   _LIBCPP_HIDE_FROM_ABI __ring_op(__ring_op&& __o) noexcept
       : __op_base(std::move(__o)), __svc_(__o.__svc_) { // NOLINT(bugprone-use-after-move)
-    __cancel_ = &__cancel_cb;
+    __cancel_  = &__cancel_cb;
     __abandon_ = &__abandon_cb;
   }
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
@@ -155,7 +155,7 @@ struct __timer_op : __op_base {
   }
   _LIBCPP_HIDE_FROM_ABI __timer_op(__timer_op&& __o) noexcept
       : __op_base(std::move(__o)), __svc_(__o.__svc_) { // NOLINT(bugprone-use-after-move)
-    __cancel_ = &__cancel_cb;
+    __cancel_  = &__cancel_cb;
     __abandon_ = &__abandon_cb;
   }
   _LIBCPP_HIDE_FROM_ABI static void __cancel_cb(__op_base*) noexcept;
@@ -204,7 +204,8 @@ class __reactor_service final : public execution_context::service {
   __op_list __ring_ops_;
   size_t __ring_inflight_ = 0;
   atomic<size_t> __ring_transfers_{0}; // completions of the ring that carried a result (for the tests)
-  atomic<size_t> __ring_fallbacks_{0}; // requests the ring did not do, which the readiness path took over (for the tests)
+  atomic<size_t> __ring_fallbacks_{
+      0}; // requests the ring did not do, which the readiness path took over (for the tests)
   error_code __ring_refusal_;
 #  endif
 #  if _LIBCPP_HAS_IO_IOCP
@@ -458,10 +459,10 @@ class __reactor_service final : public execution_context::service {
         }
       }
       if (__werr == WSA_OPERATION_ABORTED) {
-        // An abort that cancel() did not ask for: the system canceled the call (the cancellation of a sibling call of the
-        // socket, or the exit of the thread that issued it). The operation stays pending: the call is issued again (by this
-        // thread, which lives as long as the port), so that cancel() of the socket still reaches it. A call that cannot be
-        // issued again, or that keeps being aborted, goes to the readiness path.
+        // An abort that cancel() did not ask for: the system canceled the call (the cancellation of a sibling call of
+        // the socket, or the exit of the thread that issued it). The operation stays pending: the call is issued again
+        // (by this thread, which lives as long as the port), so that cancel() of the socket still reaches it. A call
+        // that cannot be issued again, or that keeps being aborted, goes to the readiness path.
         lock_guard<mutex> __lk(__m_);
         if (!__op->__cancel_sent_ && !__shut_down_ && __op->__resubmits_ < 8) {
           ++__op->__resubmits_;
@@ -492,7 +493,7 @@ class __reactor_service final : public execution_context::service {
         } else {
           __op->__ec_ = io::__wsa_error_code(__werr == WSAECONNABORTED && __op->__is_send_ ? WSAECONNRESET : __werr);
         }
-        __do_post             = !__shut_down_ && !__op->__handoff_; // a canceller that waits posts the completion itself
+        __do_post          = !__shut_down_ && !__op->__handoff_; // a canceller that waits posts the completion itself
         __iocp_completing_ = __do_post ? __op : nullptr;
       }
       if (__do_post)
@@ -598,9 +599,10 @@ public:
     if (__iocp_) {
       unique_lock<mutex> __lk(__m_);
       for (__op_base* __b = __iocp_ops_.__front(); __b; __b = __b->__next_) {
-        auto* __op = static_cast<__iocp_op*>(__b);
+        auto* __op           = static_cast<__iocp_op*>(__b);
         __op->__cancel_sent_ = true;
-        (void)::CancelIoEx(reinterpret_cast<HANDLE>(static_cast<SOCKET>(static_cast<intptr_t>(__op->__fd_))), &__op->__ov_.__ov_);
+        (void)::CancelIoEx(
+            reinterpret_cast<HANDLE>(static_cast<SOCKET>(static_cast<intptr_t>(__op->__fd_))), &__op->__ov_.__ov_);
       }
       if (this_thread::get_id() != __iocp_thread_id_)
         __iocp_cv_.wait_for(__lk, chrono::seconds(2), [this] { return __iocp_ops_.__empty() && !__iocp_completing_; });
@@ -840,8 +842,8 @@ public:
 #  endif // _LIBCPP_HAS_IO_URING
 
 #  if _LIBCPP_HAS_IO_IOCP
-  // Issues the overlapped call of the operation. True: queued (the caller suspends). False: completed at once (canceled,
-  // with __ec_) or not done by the port (__fallback_: the caller uses the readiness path).
+  // Issues the overlapped call of the operation. True: queued (the caller suspends). False: completed at once
+  // (canceled, with __ec_) or not done by the port (__fallback_: the caller uses the readiness path).
   _LIBCPP_HIDE_FROM_ABI bool __start_iocp(__iocp_op& __op) {
     lock_guard<mutex> __lk(__m_);
     if (__shut_down_ || __op.__cancel_requested_) {
@@ -868,10 +870,10 @@ public:
     return true;
   }
 
-  // Asks the system to finish the call and waits (a few milliseconds in practice, two seconds at most) for the thread of
-  // the port to dequeue the packet, then posts the completion itself, so that the operation has completed (its
-  // continuation is posted) when cancel() returns, like a cancellation on the readiness path. The operation is valid for
-  // the whole call: the socket's cancel() and the stop callback both keep it alive until their call returns. A
+  // Asks the system to finish the call and waits (a few milliseconds in practice, two seconds at most) for the thread
+  // of the port to dequeue the packet, then posts the completion itself, so that the operation has completed (its
+  // continuation is posted) when cancel() returns, like a cancellation on the readiness path. The operation is valid
+  // for the whole call: the socket's cancel() and the stop callback both keep it alive until their call returns. A
   // completion that this thread posts is posted with no lock held, and nothing touches the operation after that.
   _LIBCPP_HIDE_FROM_ABI void __cancel_iocp(__iocp_op* __op) noexcept {
     unique_lock<mutex> __lk(__m_);
@@ -882,8 +884,10 @@ public:
     if (__op->__state_ != __op_base::__pending || __op->__cancel_sent_)
       return;
     __op->__cancel_sent_ = true;
-    (void)::CancelIoEx(reinterpret_cast<HANDLE>(static_cast<SOCKET>(static_cast<intptr_t>(__op->__fd_))), &__op->__ov_.__ov_);
-    if (this_thread::get_id() == __iocp_thread_id_) // an inline executor runs the continuation on the thread that would answer
+    (void)::CancelIoEx(
+        reinterpret_cast<HANDLE>(static_cast<SOCKET>(static_cast<intptr_t>(__op->__fd_))), &__op->__ov_.__ov_);
+    if (this_thread::get_id() ==
+        __iocp_thread_id_) // an inline executor runs the continuation on the thread that would answer
       return;
     __op->__handoff_ = true;
     __iocp_cv_.wait_for(__lk, chrono::seconds(2), [__op] { return __op->__state_ != __op_base::__pending; });

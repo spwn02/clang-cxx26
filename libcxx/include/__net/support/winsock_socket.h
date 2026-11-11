@@ -41,8 +41,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace io {
 
-// The platform layer of <net> for Winsock 2: the same functions with the same meaning as posix_socket.h, which describes
-// the contract. What differs on Windows:
+// The platform layer of <net> for Winsock 2: the same functions with the same meaning as posix_socket.h, which
+// describes the contract. What differs on Windows:
 //   - a SOCKET is a handle (a pointer-sized integer whose value is small in practice); the rest of the library keeps
 //     descriptors in an int, so a socket is kept as the int that holds the same value (INVALID_SOCKET is -1 in both);
 //   - the sockets are created overlapped and not inheritable, and made non-blocking with ioctlsocket (FIONBIO);
@@ -188,8 +188,8 @@ struct __sockaddr_buf {
 __sock_open(__sock_domain __d, __native_socket& __fd, __sock_type __t = __sock_type::__stream) noexcept {
   if (error_code __ec = io::__winsock_init())
     return __ec;
-  int __af = __d == __sock_domain::__v4 ? AF_INET : (__d == __sock_domain::__v6 ? AF_INET6 : AF_UNIX);
-  int __ty = __t == __sock_type::__stream ? SOCK_STREAM : SOCK_DGRAM;
+  int __af   = __d == __sock_domain::__v4 ? AF_INET : (__d == __sock_domain::__v6 ? AF_INET6 : AF_UNIX);
+  int __ty   = __t == __sock_type::__stream ? SOCK_STREAM : SOCK_DGRAM;
   SOCKET __s = ::WSASocketW(__af, __ty, 0, nullptr, 0, WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
   if (__s == INVALID_SOCKET)
     return __last_error();
@@ -299,9 +299,9 @@ _LIBCPP_HIDE_FROM_ABI DWORD __to_wsabuf(const _Buf* __bufs, size_t __n, WSABUF* 
   if (__n > __sock_max_buffers)
     __n = __sock_max_buffers;
   for (size_t __i = 0; __i != __n; ++__i) {
-    size_t __sz     = __bufs[__i].size();
-    __dst[__i].len  = __sz > 0x7fffffffu ? 0x7fffffffu : static_cast<ULONG>(__sz);
-    __dst[__i].buf  = reinterpret_cast<CHAR*>(const_cast<_Ptr*>(static_cast<const _Ptr*>(__bufs[__i].data())));
+    size_t __sz    = __bufs[__i].size();
+    __dst[__i].len = __sz > 0x7fffffffu ? 0x7fffffffu : static_cast<ULONG>(__sz);
+    __dst[__i].buf = reinterpret_cast<CHAR*>(const_cast<_Ptr*>(static_cast<const _Ptr*>(__bufs[__i].data())));
   }
   if (__n == 0) {
     __dst[0].len = 0;
@@ -415,8 +415,16 @@ __sock_pair(__sock_type __t, __native_socket& __a, __native_socket& __b) noexcep
   ::memset(&__from.__ss_, 0, sizeof(__from.__ss_));
   DWORD __bytes = 0, __fl = static_cast<DWORD>(io::__to_native_msg_flags(__flags));
   INT __flen = sizeof(__from.__ss_);
-  if (::WSARecvFrom(io::__to_win_socket(__fd), __wb, __cnt, &__bytes, &__fl,
-                    reinterpret_cast<sockaddr*>(&__from.__ss_), &__flen, nullptr, nullptr) != 0) {
+  if (::WSARecvFrom(
+          io::__to_win_socket(__fd),
+          __wb,
+          __cnt,
+          &__bytes,
+          &__fl,
+          reinterpret_cast<sockaddr*>(&__from.__ss_),
+          &__flen,
+          nullptr,
+          nullptr) != 0) {
     int __e = ::WSAGetLastError();
     if (__e != WSAEMSGSIZE)
       return io::__wsa_error_code(__e);
@@ -441,11 +449,25 @@ __sock_pair(__sock_type __t, __native_socket& __a, __native_socket& __b) noexcep
   DWORD __bytes = 0;
   int __rc;
   if (__to)
-    __rc = ::WSASendTo(io::__to_win_socket(__fd), __wb, __cnt, &__bytes, static_cast<DWORD>(io::__to_native_msg_flags(__flags)),
-                       reinterpret_cast<const sockaddr*>(&__to->__ss_), __to->__len_, nullptr, nullptr);
+    __rc = ::WSASendTo(
+        io::__to_win_socket(__fd),
+        __wb,
+        __cnt,
+        &__bytes,
+        static_cast<DWORD>(io::__to_native_msg_flags(__flags)),
+        reinterpret_cast<const sockaddr*>(&__to->__ss_),
+        __to->__len_,
+        nullptr,
+        nullptr);
   else
-    __rc = ::WSASend(io::__to_win_socket(__fd), __wb, __cnt, &__bytes, static_cast<DWORD>(io::__to_native_msg_flags(__flags)),
-                     nullptr, nullptr);
+    __rc = ::WSASend(
+        io::__to_win_socket(__fd),
+        __wb,
+        __cnt,
+        &__bytes,
+        static_cast<DWORD>(io::__to_native_msg_flags(__flags)),
+        nullptr,
+        nullptr);
   if (__rc != 0)
     return io::__send_error(::WSAGetLastError());
   __got = __bytes;
@@ -465,8 +487,11 @@ __sock_pair(__sock_type __t, __native_socket& __a, __native_socket& __b) noexcep
     ::memset(&__r, 0, sizeof(__r));
     __r.imr_multiaddr.s_addr = htonl(__group.to_v4().to_uint());
     __r.imr_interface.s_addr = htonl(__iface.to_uint());
-    return ::setsockopt(__s, IPPROTO_IP, __join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,
-                        reinterpret_cast<const char*>(&__r), sizeof(__r)) == 0
+    return ::setsockopt(__s,
+                        IPPROTO_IP,
+                        __join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,
+                        reinterpret_cast<const char*>(&__r),
+                        sizeof(__r)) == 0
              ? error_code()
              : __last_error();
   }
@@ -476,8 +501,11 @@ __sock_pair(__sock_type __t, __native_socket& __a, __native_socket& __b) noexcep
   auto __bytes = __g.to_bytes();
   ::memcpy(&__r.ipv6mr_multiaddr, __bytes.data(), 16);
   __r.ipv6mr_interface = __if_index != 0 ? __if_index : __g.scope_id();
-  return ::setsockopt(__s, IPPROTO_IPV6, __join ? IPV6_ADD_MEMBERSHIP : IPV6_DROP_MEMBERSHIP,
-                      reinterpret_cast<const char*>(&__r), sizeof(__r)) == 0
+  return ::setsockopt(__s,
+                      IPPROTO_IPV6,
+                      __join ? IPV6_ADD_MEMBERSHIP : IPV6_DROP_MEMBERSHIP,
+                      reinterpret_cast<const char*>(&__r),
+                      sizeof(__r)) == 0
            ? error_code()
            : __last_error();
 }
@@ -501,7 +529,8 @@ enum class __sockopt_id {
 _LIBCPP_HIDE_FROM_ABI inline bool __sock_is_v6(__native_socket __fd) noexcept {
   WSAPROTOCOL_INFOW __pi;
   int __len = sizeof(__pi);
-  return ::getsockopt(io::__to_win_socket(__fd), SOL_SOCKET, SO_PROTOCOL_INFOW, reinterpret_cast<char*>(&__pi), &__len) == 0 &&
+  return ::getsockopt(
+             io::__to_win_socket(__fd), SOL_SOCKET, SO_PROTOCOL_INFOW, reinterpret_cast<char*>(&__pi), &__len) == 0 &&
          __pi.iAddressFamily == AF_INET6;
 }
 
@@ -576,7 +605,8 @@ __sock_set_linger(__native_socket __fd, bool __on, int __seconds) noexcept {
   ::linger __l;
   __l.l_onoff  = __on ? 1 : 0;
   __l.l_linger = static_cast<u_short>(__seconds);
-  return ::setsockopt(io::__to_win_socket(__fd), SOL_SOCKET, SO_LINGER, reinterpret_cast<const char*>(&__l), sizeof(__l)) == 0
+  return ::setsockopt(
+             io::__to_win_socket(__fd), SOL_SOCKET, SO_LINGER, reinterpret_cast<const char*>(&__l), sizeof(__l)) == 0
            ? error_code()
            : __last_error();
 }

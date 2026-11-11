@@ -391,7 +391,8 @@ __sock_receive(__native_socket __fd, const mutable_buffer* __bufs, size_t __n, s
     __iov[__i].iov_base = __bufs[__i].data();
     __iov[__i].iov_len  = __bufs[__i].size();
   }
-  if (__n == 0) { // macOS rejects a message with no iovec (EMSGSIZE): an empty one transfers nothing, as zero buffers do
+  if (__n ==
+      0) { // macOS rejects a message with no iovec (EMSGSIZE): an empty one transfers nothing, as zero buffers do
     __iov[0].iov_base = nullptr;
     __iov[0].iov_len  = 0;
     __n               = 1;
@@ -421,7 +422,8 @@ __sock_send(__native_socket __fd, const const_buffer* __bufs, size_t __n, size_t
     __iov[__i].iov_base = const_cast<void*>(__bufs[__i].data());
     __iov[__i].iov_len  = __bufs[__i].size();
   }
-  if (__n == 0) { // macOS rejects a message with no iovec (EMSGSIZE): an empty one transfers nothing, as zero buffers do
+  if (__n ==
+      0) { // macOS rejects a message with no iovec (EMSGSIZE): an empty one transfers nothing, as zero buffers do
     __iov[0].iov_base = nullptr;
     __iov[0].iov_len  = 0;
     __n               = 1;
@@ -488,7 +490,8 @@ __sock_pair(__sock_type __t, __native_socket& __a, __native_socket& __b) noexcep
     __iov[__i].iov_base = __bufs[__i].data();
     __iov[__i].iov_len  = __bufs[__i].size();
   }
-  if (__n == 0) { // macOS rejects a message with no iovec (EMSGSIZE): an empty one transfers nothing, as zero buffers do
+  if (__n ==
+      0) { // macOS rejects a message with no iovec (EMSGSIZE): an empty one transfers nothing, as zero buffers do
     __iov[0].iov_base = nullptr;
     __iov[0].iov_len  = 0;
     __n               = 1;
@@ -528,7 +531,8 @@ __sock_pair(__sock_type __t, __native_socket& __a, __native_socket& __b) noexcep
     __iov[__i].iov_base = const_cast<void*>(__bufs[__i].data());
     __iov[__i].iov_len  = __bufs[__i].size();
   }
-  if (__n == 0) { // macOS rejects a message with no iovec (EMSGSIZE): an empty one transfers nothing, as zero buffers do
+  if (__n ==
+      0) { // macOS rejects a message with no iovec (EMSGSIZE): an empty one transfers nothing, as zero buffers do
     __iov[0].iov_base = nullptr;
     __iov[0].iov_len  = 0;
     __n               = 1;

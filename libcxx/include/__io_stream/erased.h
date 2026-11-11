@@ -49,9 +49,10 @@ namespace io {
 // The type-erasing wrappers copy the caller's buffer sequence into a fixed array inside the wrapper (the operation may
 // outlive the call that created it, and the wrapped stream sees a span over this array). A partial operation
 // (read_some, write_some) simply sees the first __erased_max_buffers non-empty buffers, which it is allowed to do; a
-// complete operation (read, write) with that many or fewer buffers is a single operation of the wrapped object; a larger
-// sequence takes the slow path, a vector and a coroutine frame per operation: the buffers are collected into a vector and the wrapped
-// object is given successive windows of __erased_max_buffers of them (see __erased_complete_windows).
+// complete operation (read, write) with that many or fewer buffers is a single operation of the wrapped object; a
+// larger sequence takes the slow path, a vector and a coroutine frame per operation: the buffers are collected into a
+// vector and the wrapped object is given successive windows of __erased_max_buffers of them (see
+// __erased_complete_windows).
 inline constexpr size_t __erased_max_buffers = 16;
 
 // Copies up to __erased_max_buffers non-empty buffers of the sequence into __dst, after skipping __skip bytes. Returns
@@ -298,13 +299,13 @@ public:
 template <class... _Ts>
 inline constexpr size_t __max_sizeof = 0;
 template <class _T0, class... _Ts>
-inline constexpr size_t __max_sizeof<_T0, _Ts...> =
-    sizeof(_T0) > __max_sizeof<_Ts...> ? sizeof(_T0) : __max_sizeof<_Ts...>;
+inline constexpr size_t
+    __max_sizeof<_T0, _Ts...> = sizeof(_T0) > __max_sizeof<_Ts...> ? sizeof(_T0) : __max_sizeof<_Ts...>;
 template <class... _Ts>
 inline constexpr size_t __max_alignof = 1;
 template <class _T0, class... _Ts>
-inline constexpr size_t __max_alignof<_T0, _Ts...> =
-    alignof(_T0) > __max_alignof<_Ts...> ? alignof(_T0) : __max_alignof<_Ts...>;
+inline constexpr size_t
+    __max_alignof<_T0, _Ts...> = alignof(_T0) > __max_alignof<_Ts...> ? alignof(_T0) : __max_alignof<_Ts...>;
 
 } // namespace io
 

@@ -35,11 +35,11 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 namespace io {
 
 // P4100R1 [8.10]; provisional specification: Corosio's udp_socket. A UDP datagram socket in two modes: connectionless
-// (send_to() names the destination of each datagram, receive_from() reports the sender) and connected (connect() sets the
-// peer, send() and receive() need no endpoint, and the system discards the datagrams of other senders). The operations
-// are IoAwaitables with the rules of tcp_socket (completion on the executor of the awaiting coroutine, cancellation
-// through the stop token or cancel(), one operation of each direction at a time). Options: broadcast, multicast_loop,
-// multicast_hops, join_group and leave_group in socket_option, besides those of the stream sockets.
+// (send_to() names the destination of each datagram, receive_from() reports the sender) and connected (connect() sets
+// the peer, send() and receive() need no endpoint, and the system discards the datagrams of other senders). The
+// operations are IoAwaitables with the rules of tcp_socket (completion on the executor of the awaiting coroutine,
+// cancellation through the stop token or cancel(), one operation of each direction at a time). Options: broadcast,
+// multicast_loop, multicast_hops, join_group and leave_group in socket_option, besides those of the stream sockets.
 //
 // Deviations from Corosio: receive_from()/receive() are the names of P4100R1, recv_from()/recv() are kept as aliases;
 // a datagram that is larger than the buffers is truncated without an indication (as in Corosio); there is no wait().

@@ -21,8 +21,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace io {
 
-// P4100R1 [8.9]; provisional specification: Corosio's message_flags. Platform-independent flags of the datagram send and
-// receive operations; the platform layer maps them to MSG_PEEK, MSG_OOB and MSG_DONTROUTE. The values (1, 2, 4) are
+// P4100R1 [8.9]; provisional specification: Corosio's message_flags. Platform-independent flags of the datagram send
+// and receive operations; the platform layer maps them to MSG_PEEK, MSG_OOB and MSG_DONTROUTE. The values (1, 2, 4) are
 // those of the platform layer's translation and are not otherwise meaningful.
 enum class message_flags : int { none = 0, peek = 1, out_of_band = 2, do_not_route = 4 };
 

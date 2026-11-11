@@ -20,6 +20,18 @@ local function run_step(i)
     if s.show then require("blink.cmp").show() end
     vim.defer_fn(function()
       if s.report then items(s.report) end
+      if s.dump then
+        -- {"dump": label}: the last lines of the buffer, to check what the typed keys produced
+        local n = vim.api.nvim_buf_line_count(0)
+        log(s.dump .. " [buffer, " .. n .. " lines]: " .. table.concat(vim.api.nvim_buf_get_lines(0, math.max(0, n - 4), n, false), " ⏎ "))
+      end
+      if s.diagnostics then
+        -- {"diagnostics": label}: the diagnostics of the buffer as "severity:line:message"
+        local ds, parts = vim.diagnostic.get(0), {}
+        table.insert(parts, #ds .. " diagnostics")
+        for _, d in ipairs(ds) do table.insert(parts, d.severity .. ":" .. (d.lnum + 1) .. ":" .. (d.message:gsub("%s+", " "))) end
+        log(s.diagnostics .. " [diagnostics]: " .. table.concat(parts, " | "))
+      end
       if s.request then
         -- {"request": "textDocument/hover|references|documentHighlight", "report": label}: the answer of the server
         local pos = vim.lsp.util.make_position_params(0, "utf-16")

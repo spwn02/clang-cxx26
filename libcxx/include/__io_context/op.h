@@ -57,13 +57,13 @@ struct __op_base {
   continuation __cont_;
   executor_ref __ex_;
   error_code __ec_;
-  __op_base* __prev_                     = nullptr;
-  __op_base* __next_                     = nullptr;
-  void (*__cancel_)(__op_base*) noexcept = nullptr; // asks the owner to cancel this operation
-  __state_t __state_                     = __idle;
+  __op_base* __prev_                      = nullptr;
+  __op_base* __next_                      = nullptr;
+  void (*__cancel_)(__op_base*) noexcept  = nullptr; // asks the owner to cancel this operation
+  __state_t __state_                      = __idle;
   void (*__abandon_)(__op_base*) noexcept = nullptr; // unlinks this operation if it is pending, see above
-  bool __cancel_requested_               = false;
-  bool __orphaned_                       = false; // the destructor waits for the owner, which must not complete it
+  bool __cancel_requested_                = false;
+  bool __orphaned_                        = false; // the destructor waits for the owner, which must not complete it
 
   struct __canceler {
     __op_base* __op_;

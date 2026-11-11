@@ -62,9 +62,9 @@
 #  define _LIBCPP_HAS_IO_WINSOCK 0
 #endif
 
-// _LIBCPP_HAS_IO_IOCP: the Windows completion backend (an I/O completion port), an addition to the readiness poller. The
-// reactor opens a port when the environment variable _LIBCPP_IO_BACKEND is "iocp" or "auto" (the default) and the open
-// succeeds, and runs the transfers of the sockets on it; "winsock" selects the readiness poller alone.
+// _LIBCPP_HAS_IO_IOCP: the Windows completion backend (an I/O completion port), an addition to the readiness poller.
+// The reactor opens a port when the environment variable _LIBCPP_IO_BACKEND is "iocp" or "auto" (the default) and the
+// open succeeds, and runs the transfers of the sockets on it; "winsock" selects the readiness poller alone.
 #if _LIBCPP_HAS_IO_WINSOCK
 #  define _LIBCPP_HAS_IO_IOCP 1
 #else
@@ -92,7 +92,8 @@
 // POSIX file I/O (<fcntl.h>, <sys/uio.h>, <sys/stat.h>) on top of a backend: <io_file>. Regular files cannot be waited
 // for with epoll (kqueue could, but the behaviour differs between systems), so the operations run on helper threads.
 // The platform specifics are in libcxx/include/__io_file/support/.
-#if (_LIBCPP_HAS_IO_EPOLL || _LIBCPP_HAS_IO_KQUEUE) && __has_include(<fcntl.h>) && __has_include(<sys/uio.h>) && __has_include(<sys/stat.h>) && \
+#if (_LIBCPP_HAS_IO_EPOLL || _LIBCPP_HAS_IO_KQUEUE) &&                                                                 \
+    __has_include(<fcntl.h>) && __has_include(<sys/uio.h>) && __has_include(<sys/stat.h>) && \
     __has_include(<unistd.h>)
 #  define _LIBCPP_HAS_IO_FILES 1
 #elif _LIBCPP_HAS_IO_WINSOCK

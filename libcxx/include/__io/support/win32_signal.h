@@ -34,8 +34,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 namespace io {
 
 // The Windows half of signal_set, with the names and the meaning of posix_signal.h (which describes the contract): the
-// C library's signal() and a self-pipe, which is a datagram socket that is bound to the loopback address and connected to
-// itself (the reactor polls sockets only). The C library has SIGINT, SIGBREAK, SIGTERM, SIGABRT, SIGFPE, SIGILL and
+// C library's signal() and a self-pipe, which is a datagram socket that is bound to the loopback address and connected
+// to itself (the reactor polls sockets only). The C library has SIGINT, SIGBREAK, SIGTERM, SIGABRT, SIGFPE, SIGILL and
 // SIGSEGV; the others fail with invalid_argument. The handler is reset to the default after every delivery by the
 // library, so the handler arms itself again. None of the sigaction flags exists.
 
@@ -84,7 +84,8 @@ _LIBCPP_HIDE_FROM_ABI inline error_code __posix_signal_ensure_pipe(int& __fd) no
   if (__st.__socket_ == INVALID_SOCKET) {
     if (error_code __ec = io::__winsock_init())
       return __ec;
-    SOCKET __s = ::WSASocketW(AF_INET, SOCK_DGRAM, IPPROTO_UDP, nullptr, 0, WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
+    SOCKET __s =
+        ::WSASocketW(AF_INET, SOCK_DGRAM, IPPROTO_UDP, nullptr, 0, WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
     if (__s == INVALID_SOCKET)
       return io::__last_wsa_error();
     sockaddr_in __a;
@@ -95,7 +96,8 @@ _LIBCPP_HIDE_FROM_ABI inline error_code __posix_signal_ensure_pipe(int& __fd) no
     u_long __nb         = 1;
     if (::bind(__s, reinterpret_cast<sockaddr*>(&__a), sizeof(__a)) != 0 ||
         ::getsockname(__s, reinterpret_cast<sockaddr*>(&__a), &__len) != 0 ||
-        ::connect(__s, reinterpret_cast<sockaddr*>(&__a), sizeof(__a)) != 0 || ::ioctlsocket(__s, FIONBIO, &__nb) != 0) {
+        ::connect(__s, reinterpret_cast<sockaddr*>(&__a), sizeof(__a)) != 0 ||
+        ::ioctlsocket(__s, FIONBIO, &__nb) != 0) {
       error_code __ec = io::__last_wsa_error();
       ::closesocket(__s);
       return __ec;

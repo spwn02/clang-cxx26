@@ -60,8 +60,8 @@ namespace io {
 // Thread safety: distinct objects are independent. One read and one write may be in flight at the same time (the
 // engine calls are serialized internally, never across a suspension); shutdown() may overlap a pending read (it then
 // sends the close_notify and returns without waiting for the one of the peer, which the pending read reports as
-// io::error::eof). A cancelled operation can leave the TLS stream unusable: cancel the handshake and discard the stream.
-// The stream and the wrapped stream must outlive their operations.
+// io::error::eof). A cancelled operation can leave the TLS stream unusable: cancel the handshake and discard the
+// stream. The stream and the wrapped stream must outlive their operations.
 class tls_stream {
   struct __state {
     any_stream __own_; // the wrapper made by the pointer constructor
@@ -191,7 +191,8 @@ class tls_stream {
     template <class _Seq>
     _LIBCPP_HIDE_FROM_ABI task<io_result<size_t>> __read_some(_Seq __seq) {
       mutable_buffer __b;
-      for (auto __it = io::buffer_sequence_begin(__seq), __last = io::buffer_sequence_end(__seq); __it != __last; ++__it) {
+      for (auto __it = io::buffer_sequence_begin(__seq), __last = io::buffer_sequence_end(__seq); __it != __last;
+           ++__it) {
         mutable_buffer __c = static_cast<mutable_buffer>(*__it);
         if (__c.size() != 0) {
           __b = __c;
@@ -238,7 +239,8 @@ class tls_stream {
     template <class _Seq>
     _LIBCPP_HIDE_FROM_ABI task<io_result<size_t>> __write_some(_Seq __seq) {
       const_buffer __b;
-      for (auto __it = io::buffer_sequence_begin(__seq), __last = io::buffer_sequence_end(__seq); __it != __last; ++__it) {
+      for (auto __it = io::buffer_sequence_begin(__seq), __last = io::buffer_sequence_end(__seq); __it != __last;
+           ++__it) {
         const_buffer __c = static_cast<const_buffer>(*__it);
         if (__c.size() != 0) {
           __b = __c;
@@ -304,8 +306,8 @@ class tls_stream {
   unique_ptr<__state> __s_;
 
   _LIBCPP_HIDE_FROM_ABI static unique_ptr<__state> __make(const tls_context& __ctx) {
-    auto __p     = make_unique<__state>();
-    __p->__ctx_  = __ctx.__data();
+    auto __p    = make_unique<__state>();
+    __p->__ctx_ = __ctx.__data();
     return __p;
   }
 
@@ -325,8 +327,8 @@ public:
   _LIBCPP_HIDE_FROM_ABI tls_stream(any_stream& __stream, const tls_context& __ctx) : __s_(__make(__ctx)) {
     __s_->__next_ = std::addressof(__stream);
   }
-  tls_stream(const tls_stream&)            = delete;
-  tls_stream& operator=(const tls_stream&) = delete;
+  tls_stream(const tls_stream&)                                      = delete;
+  tls_stream& operator=(const tls_stream&)                           = delete;
   _LIBCPP_HIDE_FROM_ABI tls_stream(tls_stream&&) noexcept            = default;
   _LIBCPP_HIDE_FROM_ABI tls_stream& operator=(tls_stream&&) noexcept = default;
   _LIBCPP_HIDE_FROM_ABI ~tls_stream()                                = default;

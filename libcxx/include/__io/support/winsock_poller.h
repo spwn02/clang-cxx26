@@ -159,9 +159,9 @@ public:
         if (!__e.__armed_)
           continue;
         WSAPOLLFD __p;
-        __p.fd      = __e.__s_;
-        __p.events  = static_cast<SHORT>(((__e.__events_ & __poll_read) ? POLLRDNORM : 0) |
-                                         ((__e.__events_ & __poll_write) ? POLLWRNORM : 0));
+        __p.fd     = __e.__s_;
+        __p.events = static_cast<SHORT>(
+            ((__e.__events_ & __poll_read) ? POLLRDNORM : 0) | ((__e.__events_ & __poll_write) ? POLLWRNORM : 0));
         __p.revents = 0;
         __fds.push_back(__p);
       }

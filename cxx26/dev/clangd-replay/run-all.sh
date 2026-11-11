@@ -7,10 +7,11 @@ set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 clangd="${1:-$here/../../../build-nyx/bin/clangd}"
 status=0
+repo="$(cd "$here/../../.." && pwd)"
 for dir in "$here"/scenarios/*/; do
   name="$(basename "$dir")"
   extra_env=(); [[ -f "$dir/env" ]] && mapfile -t extra_env < "$dir/env"
-  out="$(env "${extra_env[@]}" "$here/replay.sh" "$clangd" "$dir/t.cpp" "$(cat "$dir/steps.json")" $(cat "$dir/flags"))"
+  out="$(env "${extra_env[@]}" "$here/replay.sh" "$clangd" "$dir/t.cpp" "$(cat "$dir/steps.json")" $(sed "s|@REPO@|$repo|g" "$dir/flags"))"
   while read -r label verb text; do
     [[ -z "${label:-}" || "$label" == \#* ]] && continue
     raw="$(grep -F "$label [" <<<"$out" | head -1)"

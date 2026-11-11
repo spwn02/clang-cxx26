@@ -118,8 +118,8 @@ class __blocking_service final : public execution_context::service {
   mutex __m_;
   condition_variable __cv_[__lanes];
   condition_variable __abandon_cv_; // an abandoning thread waits for a call in progress
-  __op_list __queue_[__lanes];    // the requests that wait for a thread
-  size_t __queued_[__lanes] = {}; // their number
+  __op_list __queue_[__lanes];      // the requests that wait for a thread
+  size_t __queued_[__lanes] = {};   // their number
   vector<thread> __threads_[__lanes];
   __blocking_op* __running_[__lanes][__max_threads] = {}; // the detachable operation that each thread runs, if any
   size_t __idle_[__lanes]                           = {};

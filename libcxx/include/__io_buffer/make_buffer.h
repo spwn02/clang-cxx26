@@ -55,7 +55,8 @@ make_buffer(const void* __p, size_t __n, size_t __max) noexcept {
   return __b;
 }
 
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr mutable_buffer make_buffer(const mutable_buffer& __b, size_t __max) noexcept {
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr mutable_buffer
+make_buffer(const mutable_buffer& __b, size_t __max) noexcept {
   return mutable_buffer(__b.data(), __b.size() < __max ? __b.size() : __max);
 }
 

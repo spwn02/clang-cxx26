@@ -27,7 +27,7 @@ namespace io {
 // the pointer is void*. A buffer is deliberately not a std::ranges::range; the buffer sequence customization points
 // (buffer_sequence_begin/end) treat it as a sequence of one element.
 class mutable_buffer {
-  void* __data_ = nullptr;
+  void* __data_  = nullptr;
   size_t __size_ = 0;
 
 public:

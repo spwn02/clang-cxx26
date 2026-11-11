@@ -55,8 +55,8 @@ _LIBCPP_HIDE_FROM_ABI inline error_code __tls_read_file(string_view __path, stri
 }
 
 // P4100R1 [8.10]; provisional specification: Corosio's tls_context. The portable configuration of TLS connections:
-// credentials, trust anchors, verification, protocol window, cipher suites and ALPN. A tls_context is a shared handle to
-// its state (copies share it); the settings are recorded here and applied to the engine when the first stream is
+// credentials, trust anchors, verification, protocol window, cipher suites and ALPN. A tls_context is a shared handle
+// to its state (copies share it); the settings are recorded here and applied to the engine when the first stream is
 // created from the context, so a context must not be modified once a stream has been created from it (later changes do
 // not apply). Setters return an error_code for the faults that can be seen immediately (an unreadable file, an invalid
 // argument); a malformed certificate, key or cipher string surfaces as tls_error::bad_configuration when the first
@@ -78,7 +78,9 @@ public:
     __d_->__cfg_.__certificate_pem_.assign(__pem);
     return error_code();
   }
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code use_certificate_chain(string_view __pem) { return use_certificate(__pem); }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code use_certificate_chain(string_view __pem) {
+    return use_certificate(__pem);
+  }
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code use_certificate_file(string_view __path) {
     string __s;
     error_code __ec = io::__tls_read_file(__path, __s);
@@ -104,8 +106,8 @@ public:
   }
 
   // Trust anchors: certificates (PEM, any number) from memory or a file, a directory of hashed certificates (as made by
-  // `openssl rehash`), or the default store of the engine (the CA file and directory OpenSSL was built with, or named by
-  // SSL_CERT_FILE and SSL_CERT_DIR; not the Keychain or the Windows store).
+  // `openssl rehash`), or the default store of the engine (the CA file and directory OpenSSL was built with, or named
+  // by SSL_CERT_FILE and SSL_CERT_DIR; not the Keychain or the Windows store).
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code add_certificate_authority(string_view __pem) {
     __d_->__cfg_.__trust_anchors_pem_.append(__pem);
     if (!__pem.empty() && __pem.back() != '\n')
@@ -164,9 +166,9 @@ public:
     return error_code();
   }
 
-  // Verification of the peer certificate. The default is tls_verify_mode::peer (Corosio defaults to none, which accepts any
-  // certificate; a deviation for a secure default): a client verifies the server certificate, a server requests but does not
-  // require a client certificate. Pass tls_verify_mode::none to accept any certificate.
+  // Verification of the peer certificate. The default is tls_verify_mode::peer (Corosio defaults to none, which accepts
+  // any certificate; a deviation for a secure default): a client verifies the server certificate, a server requests but
+  // does not require a client certificate. Pass tls_verify_mode::none to accept any certificate.
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code set_verify_mode(tls_verify_mode __m) {
     __d_->__cfg_.__verify_ = __m;
     return error_code();

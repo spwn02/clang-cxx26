@@ -81,7 +81,11 @@ _LIBCPP_HIDE_FROM_ABI inline int __ossl_no_password(char*, int, int, void*) { re
 // Server side ALPN: the first protocol of the server list that the client also offers (the server's preference wins);
 // no overlap is a fatal no_application_protocol alert (RFC 7301).
 _LIBCPP_HIDE_FROM_ABI inline int __ossl_alpn_select(
-    __ossl_ssl*, const unsigned char** __selected, unsigned char* __outlen, const unsigned char* __offered, unsigned int __inlen,
+    __ossl_ssl*,
+    const unsigned char** __selected,
+    unsigned char* __outlen,
+    const unsigned char* __offered,
+    unsigned int __inlen,
     void* __arg) {
   const __ossl_api* __a = io::__ossl_get();
   auto* __wire          = static_cast<const string*>(__arg);
@@ -99,7 +103,7 @@ _LIBCPP_HIDE_FROM_ABI inline int __ossl_alpn_select(
   if (__r != __ossl_npn_negotiated)
     return __ossl_tlsext_err_alert_fatal;
   *__selected = __sel;
-  *__outlen = __sel_len;
+  *__outlen   = __sel_len;
   return __ossl_tlsext_err_ok;
 }
 
@@ -163,7 +167,9 @@ _LIBCPP_HIDE_FROM_ABI inline void __ossl_build_native(__tls_ctx_data& __d, const
       __ctx, __ossl_ctrl_mode, __ossl_mode_enable_partial_write | __ossl_mode_accept_moving_write_buffer, nullptr);
   if (__c.__min_version_ > __c.__max_version_)
     return __bad("the minimum protocol version is newer than the maximum");
-  auto __ver = [](tls_version __v) { return __v == tls_version::tls_1_3 ? __ossl_tls1_3_version : __ossl_tls1_2_version; };
+  auto __ver = [](tls_version __v) {
+    return __v == tls_version::tls_1_3 ? __ossl_tls1_3_version : __ossl_tls1_2_version;
+  };
   if (__a.__SSL_CTX_ctrl(__ctx, __ossl_ctrl_set_min_proto_version, __ver(__c.__min_version_), nullptr) != 1 ||
       __a.__SSL_CTX_ctrl(__ctx, __ossl_ctrl_set_max_proto_version, __ver(__c.__max_version_), nullptr) != 1)
     return __bad("cannot set the protocol versions");
@@ -192,10 +198,11 @@ _LIBCPP_HIDE_FROM_ABI inline void __ossl_build_native(__tls_ctx_data& __d, const
       return __bad("cannot use the certificate chain");
   }
   if (!__c.__private_key_pem_.empty()) {
-    __ossl_bio* __bio = __a.__BIO_new_mem_buf(__c.__private_key_pem_.data(), static_cast<int>(__c.__private_key_pem_.size()));
-    __ossl_pkey* __k  = __bio ? __a.__PEM_read_bio_PrivateKey(
-                                   __bio, nullptr, reinterpret_cast<void*>(&io::__ossl_no_password), nullptr)
-                              : nullptr;
+    __ossl_bio* __bio =
+        __a.__BIO_new_mem_buf(__c.__private_key_pem_.data(), static_cast<int>(__c.__private_key_pem_.size()));
+    __ossl_pkey* __k =
+        __bio ? __a.__PEM_read_bio_PrivateKey(__bio, nullptr, reinterpret_cast<void*>(&io::__ossl_no_password), nullptr)
+              : nullptr;
     if (__bio)
       __a.__BIO_free(__bio);
     if (!__k)
@@ -205,8 +212,7 @@ _LIBCPP_HIDE_FROM_ABI inline void __ossl_build_native(__tls_ctx_data& __d, const
     if (__ok != 1)
       return __bad("cannot use the private key");
   }
-  if (!__c.__certificate_pem_.empty() && !__c.__private_key_pem_.empty() &&
-      __a.__SSL_CTX_check_private_key(__ctx) != 1)
+  if (!__c.__certificate_pem_.empty() && !__c.__private_key_pem_.empty() && __a.__SSL_CTX_check_private_key(__ctx) != 1)
     return __bad("the private key does not match the certificate");
 
   if (!__c.__trust_anchors_pem_.empty()) {
@@ -232,7 +238,8 @@ _LIBCPP_HIDE_FROM_ABI inline void __ossl_build_native(__tls_ctx_data& __d, const
 
   if (!__c.__ciphers_.empty() && __a.__SSL_CTX_set_cipher_list(__ctx, __c.__ciphers_.c_str()) != 1)
     return __bad("invalid cipher list");
-  if (!__c.__ciphersuites_tls13_.empty() && __a.__SSL_CTX_set_ciphersuites(__ctx, __c.__ciphersuites_tls13_.c_str()) != 1)
+  if (!__c.__ciphersuites_tls13_.empty() &&
+      __a.__SSL_CTX_set_ciphersuites(__ctx, __c.__ciphersuites_tls13_.c_str()) != 1)
     return __bad("invalid TLS 1.3 cipher suites");
   if (!__c.__alpn_wire_.empty())
     __a.__SSL_CTX_set_alpn_select_cb(__ctx, &io::__ossl_alpn_select, const_cast<string*>(&__c.__alpn_wire_));
@@ -274,11 +281,12 @@ class __openssl_engine final : public __tls_engine {
     unsigned __reason     = static_cast<unsigned>(__first & 0x7FFFFF);
     // The alerts of the peer that mean it rejected our certificate (1000 + the alert number: bad_certificate 42,
     // certificate_revoked 44, certificate_expired 45, certificate_unknown 46, unknown_ca 48).
-    bool __peer_rejected_cert = __lib == 20 && (__reason == 1042 || __reason == 1044 || __reason == 1045 ||
-                                                __reason == 1046 || __reason == 1048);
+    bool __peer_rejected_cert =
+        __lib == 20 &&
+        (__reason == 1042 || __reason == 1044 || __reason == 1045 || __reason == 1046 || __reason == 1048);
     tls_error __code;
     if (__vr != __ossl_x509_v_ok) {
-      __code = tls_error::certificate_verify_failed;
+      __code          = tls_error::certificate_verify_failed;
       const char* __s = __a.__X509_verify_cert_error_string(__vr);
       string __msg(__s ? __s : "certificate verification failed");
       if (!__d.empty()) {
@@ -329,7 +337,8 @@ public:
       __ssl_ = nullptr;
       string __d;
       io::__ossl_drain_errors(__a, __d);
-      return io::__ossl_fail(__ec_, __detail_, tls_error::bad_configuration, string("cannot create the TLS session ").append(__d));
+      return io::__ossl_fail(
+          __ec_, __detail_, tls_error::bad_configuration, string("cannot create the TLS session ").append(__d));
     }
     __a.__SSL_set_bio(__ssl_, __rbio_, __wbio_);
     if (__role == tls_role::client) {
@@ -342,8 +351,10 @@ public:
           // RFC 6066: no SNI for an address; it is matched against the iPAddress entries of the certificate.
           __ok = __a.__X509_VERIFY_PARAM_set1_ip_asc(__param, __name.c_str()) == 1;
         } else if (__ok) {
-          __ok = __a.__SSL_ctrl(
-                     __ssl_, __ossl_ctrl_set_tlsext_hostname, __ossl_tlsext_nametype_host_name, const_cast<char*>(__name.c_str())) == 1 &&
+          __ok = __a.__SSL_ctrl(__ssl_,
+                                __ossl_ctrl_set_tlsext_hostname,
+                                __ossl_tlsext_nametype_host_name,
+                                const_cast<char*>(__name.c_str())) == 1 &&
                  __a.__X509_VERIFY_PARAM_set1_host(__param, __name.c_str(), 0) == 1;
         }
         if (!__ok)
@@ -365,16 +376,19 @@ public:
     __a.__ERR_clear_error();
     int __r = __a.__SSL_do_handshake(__ssl_);
     if (__r == 1) {
-      __handshaking_                  = false;
-      const unsigned char* __proto    = nullptr;
-      unsigned int __len              = 0;
+      __handshaking_               = false;
+      const unsigned char* __proto = nullptr;
+      unsigned int __len           = 0;
       __a.__SSL_get0_alpn_selected(__ssl_, &__proto, &__len);
       if (__proto)
         __alpn_.assign(reinterpret_cast<const char*>(__proto), __len);
       return __tls_io::__ok;
     }
     __tls_io __s = __classify(__r);
-    return __s == __tls_io::__closed ? (io::__ossl_fail(__ec_, __detail_, tls_error::handshake_failed, "closed during the handshake"), __tls_io::__error) : __s;
+    return __s == __tls_io::__closed
+             ? (io::__ossl_fail(__ec_, __detail_, tls_error::handshake_failed, "closed during the handshake"),
+                __tls_io::__error)
+             : __s;
   }
 
   _LIBCPP_HIDE_FROM_ABI_VIRTUAL __tls_io __read(void* __buf, size_t __n, size_t& __got) noexcept override {
@@ -393,7 +407,8 @@ public:
     const __ossl_api& __a = *__api_;
     __put                 = 0;
     __a.__ERR_clear_error();
-    int __r = __a.__SSL_write(__ssl_, __buf, __n > __tls_record_size ? static_cast<int>(__tls_record_size) : static_cast<int>(__n));
+    int __r = __a.__SSL_write(
+        __ssl_, __buf, __n > __tls_record_size ? static_cast<int>(__tls_record_size) : static_cast<int>(__n));
     if (__r > 0) {
       __put = static_cast<size_t>(__r);
       return __tls_io::__ok;

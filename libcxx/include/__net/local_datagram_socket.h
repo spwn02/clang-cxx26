@@ -36,8 +36,8 @@ namespace io {
 
 // P4100R1 [8.9]; provisional specification: Corosio's local_datagram_socket. A Unix domain datagram socket (AF_UNIX,
 // SOCK_DGRAM) with the interface and the rules of udp_socket, addressed by local_endpoint. A socket that sends without
-// being bound has no address: the sender of such a datagram is reported as the empty local_endpoint. The path of a bound
-// socket is not removed by the library.
+// being bound has no address: the sender of such a datagram is reported as the empty local_endpoint. The path of a
+// bound socket is not removed by the library.
 class local_datagram_socket : public __datagram_socket_base<io::local_endpoint> {
 public:
   _LIBCPP_HIDE_FROM_ABI explicit local_datagram_socket(execution_context& __ctx) noexcept
@@ -79,7 +79,8 @@ public:
 // P4100R1 [8.9]; provisional specification: Corosio's connect_pair. Synchronously connects two closed sockets of a kind
 // to each other (socketpair); the sockets may belong to any context. Fails with errc::already_connected if either is
 // open (Corosio: error::already_open; both stay untouched), otherwise with the error of the system.
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code connect_pair(local_datagram_socket& __a, local_datagram_socket& __b) noexcept {
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code
+connect_pair(local_datagram_socket& __a, local_datagram_socket& __b) noexcept {
   if (__a.is_open() || __b.is_open())
     return make_error_code(errc::already_connected);
   __native_socket __x, __y;
@@ -90,7 +91,8 @@ public:
   return error_code();
 }
 
-[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code connect_pair(local_stream_socket& __a, local_stream_socket& __b) noexcept {
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI inline error_code
+connect_pair(local_stream_socket& __a, local_stream_socket& __b) noexcept {
   if (__a.is_open() || __b.is_open())
     return make_error_code(errc::already_connected);
   __native_socket __x, __y;

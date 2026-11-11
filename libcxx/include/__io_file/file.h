@@ -222,10 +222,12 @@ public:
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code open(const _Path& __path, file_base::flags __f = read_only) noexcept {
     return open(string_view(__path.native()), __f);
   }
-  // A path whose native() is not a narrow string (std::filesystem::path on Windows holds wide characters): its UTF-8 form.
+  // A path whose native() is not a narrow string (std::filesystem::path on Windows holds wide characters): its UTF-8
+  // form.
   template <class _Path>
-    requires(!is_convertible_v<const _Path&, string_view> && !requires(const _Path& __p) { string_view(__p.native()); } &&
-             requires(const _Path& __p) { __p.u8string().data(); })
+    requires(
+        !is_convertible_v<const _Path&, string_view> && !requires(const _Path& __p) { string_view(__p.native()); } &&
+        requires(const _Path& __p) { __p.u8string().data(); })
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI error_code open(const _Path& __path, file_base::flags __f = read_only) noexcept {
     auto __u = __path.u8string();
     string __s(reinterpret_cast<const char*>(__u.data()), __u.size());

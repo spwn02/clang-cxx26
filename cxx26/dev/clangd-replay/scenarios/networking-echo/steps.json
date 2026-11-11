@@ -1,0 +1,12 @@
+[
+ {"line":1,"col":0,"diagnostics":"diag-clean","pre":20000,"wait":300},
+ {"line":24,"col":30,"request":"textDocument/hover","label":"hover-read-some","pre":300,"wait":300},
+ {"line":57,"col":8,"request":"textDocument/hover","label":"hover-timer","pre":300,"wait":300},
+ {"line":21,"col":12,"request":"textDocument/references","label":"refs-echo-session","pre":300,"wait":300},
+ {"input":"Go<Esc>","pre":200,"wait":300},
+ {"input":"itask<lt>> zz1(any_stream& s) { s.rea","request":"textDocument/completion","match":"read_some","label":"members-stream","pre":1500,"wait":300},
+ {"input":"<Esc>0Dtask<lt>> zz2(io_context& c) { timer t(c, std::chrono::milliseconds(1)); t.exp","request":"textDocument/completion","match":"expires_after","label":"members-timer","pre":1500,"wait":300},
+ {"input":"<Esc>0Dtask<lt>> zz3(tcp_acceptor& a) { a.loc","request":"textDocument/completion","match":"local_endpoint","label":"members-acceptor","pre":1500,"wait":300},
+ {"input":"<Esc>0Dtask<lt>> zz4(io_context& c) { tcp_socket k(c); k.conn","request":"textDocument/completion","match":"connect","label":"members-socket","pre":1500,"wait":300},
+ {"input":"<Esc>0Dtask<lt>> bad(any_stream& s) { co_await s.nosuch(); }","diagnostics":"diag-bad","pre":200,"wait":6000}
+]

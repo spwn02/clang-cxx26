@@ -51,7 +51,7 @@ public:
   _LIBCPP_HIDE_FROM_ABI circular_dynamic_buffer(void* __storage, size_t __capacity, size_t __initial_size = 0) noexcept
       : __base_(static_cast<unsigned char*>(__storage)), __capacity_(__capacity), __in_(__initial_size) {}
 
-  _LIBCPP_HIDE_FROM_ABI circular_dynamic_buffer(circular_dynamic_buffer&&) noexcept = default;
+  _LIBCPP_HIDE_FROM_ABI circular_dynamic_buffer(circular_dynamic_buffer&&) noexcept            = default;
   _LIBCPP_HIDE_FROM_ABI circular_dynamic_buffer& operator=(circular_dynamic_buffer&&) noexcept = default;
 
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI size_t size() const noexcept { return __in_; }

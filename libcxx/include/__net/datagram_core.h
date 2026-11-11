@@ -116,7 +116,8 @@ public:
 
   // The connected mode (after connect()): the datagrams go to the peer, and only the peer's datagrams are received.
   template <ConstBufferSequence _Seq>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI task<io_result<size_t>> send(_Seq __seq, message_flags __flags = message_flags::none) {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI task<io_result<size_t>>
+  send(_Seq __seq, message_flags __flags = message_flags::none) {
     return this->template __send_op<_Seq>(std::move(__seq), __flags);
   }
   template <MutableBufferSequence _Seq>
@@ -126,15 +127,14 @@ public:
   }
   // Corosio's name for receive.
   template <MutableBufferSequence _Seq>
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI task<io_result<size_t>> recv(_Seq __seq, message_flags __flags = message_flags::none) {
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI task<io_result<size_t>>
+  recv(_Seq __seq, message_flags __flags = message_flags::none) {
     return this->template __receive_op<_Seq>(std::move(__seq), __flags);
   }
 
   // Sets the default peer (opening the socket with the family of the endpoint if necessary). Datagrams from other
   // senders are discarded by the system from then on. For UDP and Unix domain sockets this completes at once.
-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI task<io_result<>> connect(_Ep __ep) {
-    return __connect_dgram(__ep);
-  }
+  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI task<io_result<>> connect(_Ep __ep) { return __connect_dgram(__ep); }
 
   // Adopts a datagram socket created elsewhere (inherited, received, socketpair). The descriptor must already be
   // non-blocking and close-on-exec; the object must be closed (errc::already_connected otherwise, and the descriptor

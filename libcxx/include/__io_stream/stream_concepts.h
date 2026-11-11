@@ -33,19 +33,19 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace io {
 
-// Satisfy the buffer-sequence concepts but cannot be default-constructed; used only as unevaluated function arguments to
-// check that an operation accepts any buffer sequence.
+// Satisfy the buffer-sequence concepts but cannot be default-constructed; used only as unevaluated function arguments
+// to check that an operation accepts any buffer sequence.
 struct __const_buffer_archetype {
-  __const_buffer_archetype()                                              = delete;
-  __const_buffer_archetype(const __const_buffer_archetype&)               = default;
-  __const_buffer_archetype& operator=(const __const_buffer_archetype&)    = default;
+  __const_buffer_archetype()                                           = delete;
+  __const_buffer_archetype(const __const_buffer_archetype&)            = default;
+  __const_buffer_archetype& operator=(const __const_buffer_archetype&) = default;
   _LIBCPP_HIDE_FROM_ABI operator const_buffer() const noexcept { return {}; }
 };
 
 struct __mutable_buffer_archetype {
-  __mutable_buffer_archetype()                                              = delete;
-  __mutable_buffer_archetype(const __mutable_buffer_archetype&)             = default;
-  __mutable_buffer_archetype& operator=(const __mutable_buffer_archetype&)  = default;
+  __mutable_buffer_archetype()                                             = delete;
+  __mutable_buffer_archetype(const __mutable_buffer_archetype&)            = default;
+  __mutable_buffer_archetype& operator=(const __mutable_buffer_archetype&) = default;
   _LIBCPP_HIDE_FROM_ABI operator const_buffer() const noexcept { return {}; }
   _LIBCPP_HIDE_FROM_ABI operator mutable_buffer() const noexcept { return {}; }
 };
@@ -101,8 +101,8 @@ concept WriteSink = requires(_Tp& __s, __const_buffer_archetype __b, bool __eof)
   { __s.write_eof() } -> __awaitable_decomposes_to<error_code>;
 };
 
-// Callee-owned buffers: pull fills an array of descriptors from internal storage (count 0 and no error means the source is
-// exhausted), consume advances the read position.
+// Callee-owned buffers: pull fills an array of descriptors from internal storage (count 0 and no error means the source
+// is exhausted), consume advances the read position.
 template <class _Tp>
 concept BufferSource = requires(_Tp& __s, const_buffer* __arr, size_t __n) {
   { __s.pull(__arr, __n) } -> __awaitable_decomposes_to<error_code, size_t>;
