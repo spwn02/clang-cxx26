@@ -97,10 +97,18 @@ All names are in ``std::io``. The headers and what they hold:
   ``tls_context`` and ``tls_stream``. The engine is OpenSSL 3 loaded with ``dlopen`` at run time: nothing is linked and
   no OpenSSL header is included. Peer certificates are verified by default.
 
-Linux (epoll) is supported; a kqueue backend for macOS and FreeBSD is implemented but not verified yet; the platform specifics sit behind small internal interfaces
+Linux (epoll, with io_uring for the socket transfers where the kernel allows it) is supported; a kqueue backend for macOS and FreeBSD is implemented but not verified yet; the platform specifics sit behind small internal interfaces
 (``__io/support/``, ``__net/support/``, ``__io_file/support/``, ``__net_tls/support/``). Coroutines that use this library
 are ``io::task`` coroutines: they cannot ``co_await`` a sender directly (use ``await_sender``) and a
 ``std::execution::task`` cannot ``co_await`` an I/O awaitable (use ``as_sender``).
+
+On Linux an ``io_context`` opens an io_uring ring (raw system calls, no liburing, nothing to link) when the kernel
+allows it, and the receive, send and accept operations of the sockets then run as one submission each; the readiness
+waits, the timers and the signals stay on epoll, and the context runs on epoll alone when the ring is refused (a kernel
+before 5.6, ``kernel.io_uring_disabled``, a seccomp filter, a container runtime). The choice is made when the context is
+created. The environment variable ``_LIBCPP_IO_BACKEND`` set to ``epoll``, ``io_uring`` or ``auto`` (the default)
+selects it for a diagnosis or a test; ``io_uring`` still falls back to epoll when the kernel refuses. The public API is
+the same on every backend. The test suite takes ``--param io_backend=epoll|io_uring|auto`` to run on one of them.
 
 
 .. _libcxx-configuration-macros:
