@@ -1,0 +1,4 @@
+# A member splice on an undeclared base in an injected member function used to crash clangd (SIGSEGV) as soon as the file was open; the server must stay alive and answer.
+hover-other must-contain Other
+hover-point must-contain Point
+refs-other  must-contain 23:8

@@ -1,0 +1,5 @@
+[
+ {"line":23,"col":8,"request":"textDocument/hover","label":"hover-other","pre":2500,"wait":300},
+ {"line":32,"col":24,"request":"textDocument/hover","label":"hover-point","pre":300,"wait":300},
+ {"line":23,"col":8,"request":"textDocument/references","label":"refs-other","pre":300,"wait":300}
+]

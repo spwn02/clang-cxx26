@@ -1330,6 +1330,12 @@ Sema::BuildMemberReferenceExpr(Expr *BaseExpr, QualType BaseExprType,
 ExprResult
 Sema::BuildMemberReferenceExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
                                tok::TokenKind OpKind, CXXSpliceExpr *RHS) {
+  // The base of a member access is null when it was an error that has been
+  // diagnosed already (an undeclared identifier, for instance): there is
+  // nothing to access a member of.
+  if (!Base)
+    return ExprError();
+
   bool IsRHSDependent = (RHS->isValueDependent() || RHS->isTypeDependent());
   bool IsArrow = (OpKind == tok::arrow);
   if (Base) {
@@ -1359,6 +1365,17 @@ Sema::BuildMemberReferenceExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
   }
 
   if (IsRHSDependent) {
+    return BuildDependentMemberSpliceExpr(Base, OpLoc, IsArrow, RHS);
+  }
+
+  // The reflected member is checked against the class of the base below, which
+  // needs a base of known type. A base with errors (an undeclared identifier
+  // becomes a RecoveryExpr of dependent type) was diagnosed already; a base that
+  // is merely type-dependent is resolved when the enclosing template is
+  // instantiated.
+  if (Base->isTypeDependent()) {
+    if (Base->containsErrors())
+      return ExprError();
     return BuildDependentMemberSpliceExpr(Base, OpLoc, IsArrow, RHS);
   }
 
@@ -1452,8 +1469,16 @@ Sema::BuildMemberReferenceExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
     CXXRecordDecl *DerivedRecord = [](QualType QT) {
       if (QualType PT = QT->getPointeeType(); !PT.isNull())
         QT = PT;
-      return QT->getAsCXXRecordDecl()->getCanonicalDecl();
+      CXXRecordDecl *RD = QT->getAsCXXRecordDecl();
+      return RD ? RD->getCanonicalDecl() : nullptr;
     }(Base->getType());
+    if (!DerivedRecord) {
+      // Not a class type (this is also reached through error recovery): there
+      // is no member to splice.
+      Diag(OpLoc, diag::err_typecheck_member_reference_struct_union)
+          << Base->getType() << Base->getSourceRange() << RHS->getSourceRange();
+      return ExprError();
+    }
     CXXRecordDecl *BaseRecord = [](NamedDecl *ND) {
       DeclContext *DC = ND->getDeclContext();
       while (!isa<CXXRecordDecl>(DC)) {

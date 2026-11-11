@@ -2296,15 +2296,20 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
           }
         }
         if (!Res.isInvalid()) {
-          LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(), OpLoc,
-                                              OpKind,
-                                              cast<CXXSpliceExpr>(Res.get()));
-          if (LHS.isInvalid())
+          // A base that was an error (an undeclared identifier, say) has been
+          // diagnosed: there is no object to access a member of.
+          if (!LHS.isInvalid())
+            LHS = Actions.ActOnMemberAccessExpr(
+                getCurScope(), LHS.get(), OpLoc, OpKind,
+                cast<CXXSpliceExpr>(Res.get()));
+          if (!LHS.isInvalid()) {
+            if (Tok.is(tok::less))
+              checkPotentialAngleBracket(LHS);
+          } else if (OrigLHS) {
             // Preserve the LHS if the RHS is an invalid member.
             LHS = Actions.CreateRecoveryExpr(OrigLHS->getBeginLoc(),
                                              Name.getEndLoc(), {OrigLHS});
-          else if (Tok.is(tok::less))
-            checkPotentialAngleBracket(LHS);
+          }
         } else {
           LHS = ExprError();
         }
