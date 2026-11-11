@@ -200,6 +200,8 @@ __file_xfer1(bool __read, __native_file __fd, const void* __buf, size_t __len, c
       __got = 0;
       return error_code();
     }
+    if (__e == ERROR_ACCESS_DENIED) // a transfer the access mode of the handle does not allow
+      return error_code(EBADF, generic_category());
     return io::__file_error(__e);
   }
   __got = __n;

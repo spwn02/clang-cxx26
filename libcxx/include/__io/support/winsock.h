@@ -131,8 +131,8 @@ namespace io {
   case WSAEINTR:
     return error_code(EINTR, generic_category());
   case WSAEBADF:
-  case WSAENOTSOCK:
-    return error_code(ENOTSOCK, generic_category());
+  case WSAENOTSOCK: // a closed or never opened socket: the descriptor is bad, like on the POSIX systems
+    return error_code(EBADF, generic_category());
   case WSAEACCES:
     return error_code(EACCES, generic_category());
   case WSAEFAULT:
