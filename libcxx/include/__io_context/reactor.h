@@ -153,6 +153,7 @@ class __reactor_service final : public execution_context::service {
   __op_list __ring_ops_;
   size_t __ring_inflight_ = 0;
   atomic<size_t> __ring_transfers_{0}; // completions of the ring that carried a result (for the tests)
+  atomic<size_t> __ring_fallbacks_{0}; // requests the ring did not do, which the readiness path took over (for the tests)
   error_code __ring_refusal_;
 #  endif
   unordered_map<int, __fd_slot> __slots_;
@@ -285,13 +286,16 @@ class __reactor_service final : public execution_context::service {
       __ring_transfers_.fetch_add(1, memory_order_relaxed);
     } else if (-__res == EAGAIN || -__res == EINTR) {
       __op->__fallback_ = true;
+      __ring_fallbacks_.fetch_add(1, memory_order_relaxed);
     } else if (-__res == ECANCELED) {
       // Asked for by cancel(); otherwise the kernel canceled the request because the thread that submitted it has
       // exited (the requests of a task do not outlive it): the readiness path takes over.
       if (__op->__cancel_sent_)
         __op->__ec_ = make_error_code(error::canceled);
-      else
+      else {
         __op->__fallback_ = true;
+        __ring_fallbacks_.fetch_add(1, memory_order_relaxed);
+      }
     } else {
       __op->__ec_ = error_code(-__res, generic_category());
     }
@@ -379,6 +383,13 @@ public:
   _LIBCPP_HIDE_FROM_ABI size_t __ring_transfers() const noexcept {
 #  if _LIBCPP_HAS_IO_URING
     return __ring_transfers_.load(memory_order_relaxed);
+#  else
+    return 0;
+#  endif
+  }
+  _LIBCPP_HIDE_FROM_ABI size_t __ring_fallbacks() const noexcept {
+#  if _LIBCPP_HAS_IO_URING
+    return __ring_fallbacks_.load(memory_order_relaxed);
 #  else
     return 0;
 #  endif
