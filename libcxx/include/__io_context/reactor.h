@@ -18,7 +18,6 @@
 #include <__cstddef/size_t.h>
 #include <__io/execution_context.h>
 #include <__io/support/config.h>
-#include <__memory/unique_ptr.h>
 #include <__mutex/lock_guard.h>
 #include <__mutex/mutex.h>
 #include <__mutex/unique_lock.h>
@@ -27,15 +26,16 @@
 #include <__utility/move.h>
 #include <__utility/swap.h>
 #include <__vector/vector.h>
-#include <cerrno>
-#include <cstdint>
-#include <cstdlib>
 #include <unordered_map>
 
 #if _LIBCPP_HAS_IO_REACTOR
 #  include <__io/support/poller.h>
 #  include <__io_context/op.h>
 #  include <__io_stream/error.h>
+#  include <__memory/unique_ptr.h>
+#  include <cerrno>
+#  include <cstdint>
+#  include <cstdlib>
 #endif
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -271,7 +271,7 @@ class __reactor_service final : public execution_context::service {
       __ring_refusal_ = __ec;
       return;
     }
-    __ring_ = std::move(__r);
+    __ring_.swap(__r);
   }
 
   // Completes the operation of a reaped completion (the caller holds __m_).

@@ -604,6 +604,23 @@ class AddSubstitution(ConfigAction):
         return "add substitution {} = {}".format(self._key, self._getSub(config))
 
 
+class AddEnvironment(ConfigAction):
+    """
+    This action sets an environment variable of the tests (of Lit and of the processes it starts; the executor
+    forwards it to the test program when it is one that the library reads, see run.py).
+    """
+
+    def __init__(self, name, value):
+        self._name = name
+        self._value = value
+
+    def applyTo(self, config):
+        config.environment[self._name] = self._value
+
+    def pretty(self, config, litParams):
+        return "set the environment variable {}={}".format(self._name, self._value)
+
+
 class Feature(object):
     """
     Represents a Lit available feature that is enabled whenever it is supported.

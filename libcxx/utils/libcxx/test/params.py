@@ -445,6 +445,19 @@ DEFAULT_PARAMETERS = [
         actions=lambda executor: [AddSubstitution("%{executor}", executor)],
     ),
     Parameter(
+        name="io_backend",
+        choices=["auto", "epoll", "io_uring"],
+        type=str,
+        default="auto",
+        help="The backend of the networking io_context (_LIBCPP_IO_BACKEND) the tests run on: epoll, io_uring (with "
+        "automatic fallback to epoll when the kernel refuses it) or auto. The Lit feature io-backend=<value> is set so "
+        "that the tests of the selection itself can check that the request arrived.",
+        actions=lambda backend: [
+            AddFeature("io-backend={}".format(backend)),
+            AddEnvironment("_LIBCPP_IO_BACKEND", backend),
+        ],
+    ),
+    Parameter(
         name='clang-tidy-executable',
         type=str,
         default=lambda cfg: getSuitableClangTidy(cfg),

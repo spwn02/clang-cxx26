@@ -65,6 +65,13 @@ _LIBCPP_HIDE_FROM_ABI size_t __collect_buffers(const _Seq& __seq, _Buf* __dst) n
 
 class __socket_core;
 
+// What an operation of the backend reports: the error, the bytes transferred and (receive) the address of the sender.
+struct __sock_xfer {
+  error_code __ec_;
+  size_t __n_ = 0;
+  __sockaddr_buf __from_{};
+};
+
 #  if _LIBCPP_HAS_IO_URING
 // What a transfer on the ring reports. __fallback_: the ring did not do it (the request was refused, the queue was
 // full, or the kernel answered EAGAIN), the caller continues with the readiness path.
@@ -293,12 +300,91 @@ protected:
   _LIBCPP_HIDE_FROM_ABI bool __ring_active() {
     return __ctx_->template use_service<__reactor_service>().__has_ring();
   }
-  template <class _Buf>
-  _LIBCPP_HIDE_FROM_ABI __sock_ring_awaiter
-  __ring_msg(__uring_opcode __op, const _Buf* __bufs, size_t __n, int __flags, bool __want_from, const __sockaddr_buf* __to) noexcept {
-    return __sock_ring_awaiter(*this, __op, __bufs, __n, __flags, __want_from, __to);
-  }
 #  endif
+
+  // The operation set of the backend. Each of these is one operation of the platform layer: the transfer or accept is
+  // done by the completion backend (the ring of the context, see __ring_op) when the context has one, and by the
+  // readiness backend otherwise (try the system call, wait for readiness through the reactor on EAGAIN, retry), which
+  // is also what a transfer that the ring declined continues with. Everything above (the stream and datagram sockets)
+  // is written against them and does not know which backend is in use.
+
+  // Receives into the buffers (scatter). __flags are the portable message flags. With __want_from the address of the
+  // sender is reported (datagrams). Zero bytes from a stream mean the end of the stream; the caller decides.
+  _LIBCPP_HIDE_FROM_ABI task<__sock_xfer>
+  __io_receive(const mutable_buffer* __bufs, size_t __n, int __flags, bool __want_from) {
+#  if _LIBCPP_HAS_IO_URING
+    if (__ring_active()) {
+      __ring_outcome __o = co_await __sock_ring_awaiter(
+          *this,
+          __uring_opcode::__recvmsg,
+          __bufs,
+          __n,
+          io::__msg_cmsg_cloexec | io::__to_native_msg_flags(__flags),
+          __want_from,
+          nullptr);
+      if (!__o.__fallback_) {
+        __sock_xfer __x;
+        __x.__ec_   = __o.__ec_;
+        __x.__n_    = __o.__n_;
+        __x.__from_ = __o.__from_;
+        co_return __x;
+      }
+    }
+#  endif
+    for (;;) {
+      __sock_xfer __x;
+      if (!__want_from && __flags == 0)
+        __x.__ec_ = io::__sock_receive(__fd_, __bufs, __n, __x.__n_);
+      else
+        __x.__ec_ = io::__sock_receive_from(__fd_, __bufs, __n, __flags, __x.__from_, __x.__n_);
+      if (!__x.__ec_ || !io::__is_would_block(__x.__ec_))
+        co_return __x;
+      auto [__wec, __ev] = co_await __wait_for(__poll_read);
+      if (__wec) {
+        __x.__ec_ = __wec;
+        __x.__n_  = 0;
+        co_return __x;
+      }
+    }
+  }
+
+  // Sends the buffers (gather) as one message to __to, or to the connected peer if __to is null.
+  _LIBCPP_HIDE_FROM_ABI task<__sock_xfer>
+  __io_send(const const_buffer* __bufs, size_t __n, int __flags, const __sockaddr_buf* __to) {
+#  if _LIBCPP_HAS_IO_URING
+    if (__ring_active()) {
+      __ring_outcome __o = co_await __sock_ring_awaiter(
+          *this,
+          __uring_opcode::__sendmsg,
+          __bufs,
+          __n,
+          io::__msg_nosignal | io::__to_native_msg_flags(__flags),
+          false,
+          __to);
+      if (!__o.__fallback_) {
+        __sock_xfer __x;
+        __x.__ec_ = __o.__ec_;
+        __x.__n_  = __o.__n_;
+        co_return __x;
+      }
+    }
+#  endif
+    for (;;) {
+      __sock_xfer __x;
+      if (!__to && __flags == 0)
+        __x.__ec_ = io::__sock_send(__fd_, __bufs, __n, __x.__n_);
+      else
+        __x.__ec_ = io::__sock_send_to(__fd_, __bufs, __n, __flags, __to, __x.__n_);
+      if (!__x.__ec_ || !io::__is_would_block(__x.__ec_))
+        co_return __x;
+      auto [__wec, __ev] = co_await __wait_for(__poll_write);
+      if (__wec) {
+        __x.__ec_ = __wec;
+        __x.__n_  = 0;
+        co_return __x;
+      }
+    }
+  }
 
   // The stream operations: read into the first buffers of the sequence (error::eof at the end of the stream), write the
   // first buffers; both complete with the bytes transferred.
@@ -308,32 +394,12 @@ protected:
     size_t __n = io::__collect_buffers(__seq, __bufs);
     if (__n == 0)
       co_return io_result<size_t>(error_code(), 0);
-#  if _LIBCPP_HAS_IO_URING
-    if (__ring_active()) {
-      __ring_outcome __o = co_await __sock_ring_awaiter(*this, __uring_opcode::__recvmsg, __bufs, __n, io::__msg_cmsg_cloexec, false, nullptr);
-      if (!__o.__fallback_) {
-        if (__o.__ec_)
-          co_return io_result<size_t>(__o.__ec_, 0);
-        if (__o.__n_ == 0)
-          co_return io_result<size_t>(make_error_code(error::eof), 0);
-        co_return io_result<size_t>(error_code(), __o.__n_);
-      }
-    }
-#  endif
-    for (;;) {
-      size_t __got    = 0;
-      error_code __ec = io::__sock_receive(__fd_, __bufs, __n, __got);
-      if (!__ec) {
-        if (__got == 0)
-          co_return io_result<size_t>(make_error_code(error::eof), 0);
-        co_return io_result<size_t>(error_code(), __got);
-      }
-      if (!io::__is_would_block(__ec))
-        co_return io_result<size_t>(__ec, 0);
-      auto [__wec, __ev] = co_await __wait_for(__poll_read);
-      if (__wec)
-        co_return io_result<size_t>(__wec, 0);
-    }
+    __sock_xfer __x = co_await __io_receive(__bufs, __n, 0, false);
+    if (__x.__ec_)
+      co_return io_result<size_t>(__x.__ec_, 0);
+    if (__x.__n_ == 0)
+      co_return io_result<size_t>(make_error_code(error::eof), 0);
+    co_return io_result<size_t>(error_code(), __x.__n_);
   }
 
   template <class _Seq>
@@ -342,27 +408,10 @@ protected:
     size_t __n = io::__collect_buffers(__seq, __bufs);
     if (__n == 0)
       co_return io_result<size_t>(error_code(), 0);
-#  if _LIBCPP_HAS_IO_URING
-    if (__ring_active()) {
-      __ring_outcome __o = co_await __sock_ring_awaiter(*this, __uring_opcode::__sendmsg, __bufs, __n, io::__msg_nosignal, false, nullptr);
-      if (!__o.__fallback_) {
-        if (__o.__ec_)
-          co_return io_result<size_t>(__o.__ec_, 0);
-        co_return io_result<size_t>(error_code(), __o.__n_);
-      }
-    }
-#  endif
-    for (;;) {
-      size_t __got    = 0;
-      error_code __ec = io::__sock_send(__fd_, __bufs, __n, __got);
-      if (!__ec)
-        co_return io_result<size_t>(error_code(), __got);
-      if (!io::__is_would_block(__ec))
-        co_return io_result<size_t>(__ec, 0);
-      auto [__wec, __ev] = co_await __wait_for(__poll_write);
-      if (__wec)
-        co_return io_result<size_t>(__wec, 0);
-    }
+    __sock_xfer __x = co_await __io_send(__bufs, __n, 0, nullptr);
+    if (__x.__ec_)
+      co_return io_result<size_t>(__x.__ec_, 0);
+    co_return io_result<size_t>(error_code(), __x.__n_);
   }
 
   // Accepts one connection: the new descriptor and its address.

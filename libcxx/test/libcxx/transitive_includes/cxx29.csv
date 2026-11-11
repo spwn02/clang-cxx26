@@ -715,6 +715,7 @@ io_context climits
 io_context compare
 io_context cstdint
 io_context cstdio
+io_context cstdlib
 io_context cstring
 io_context ctime
 io_context cwchar
@@ -771,6 +772,7 @@ io_signal compare
 io_signal csignal
 io_signal cstdint
 io_signal cstdio
+io_signal cstdlib
 io_signal cstring
 io_signal ctime
 io_signal cwchar
@@ -817,6 +819,7 @@ io_timer climits
 io_timer compare
 io_timer cstdint
 io_timer cstdio
+io_timer cstdlib
 io_timer cstring
 io_timer ctime
 io_timer cwchar

@@ -43,8 +43,8 @@
 // addition to epoll, chosen at run time: the reactor opens a ring when the kernel allows it and runs on epoll alone
 // otherwise (kernel before 5.6, kernel.io_uring_disabled, a seccomp filter, a container runtime). The environment
 // variable _LIBCPP_IO_BACKEND selects "epoll", "io_uring" or "auto" (the default) for a test or a diagnosis.
-#if _LIBCPP_HAS_IO_EPOLL && defined(__linux__) && __has_include(<linux/io_uring.h>) && __has_include(<sys/syscall.h>) && \
-    __has_include(<sys/mman.h>) && __has_include(<poll.h>)
+#if _LIBCPP_HAS_IO_EPOLL && defined(__linux__) && __has_include(<sys/syscall.h>) && __has_include(<sys/mman.h>) &&   \
+    __has_include(<poll.h>)
 #  define _LIBCPP_HAS_IO_URING 1
 #else
 #  define _LIBCPP_HAS_IO_URING 0

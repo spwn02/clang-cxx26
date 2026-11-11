@@ -64,6 +64,12 @@ def main():
         if "TEMP" in os.environ:
             env["TEMP"] = os.environ.get("TEMP")
 
+    # The networking tests choose the backend of the io_context (and simulate a refusal of io_uring) through the
+    # environment of the test program.
+    for k in ("_LIBCPP_IO_BACKEND", "_LIBCPP_IO_URING_REFUSE"):
+        if k in os.environ:
+            env[k] = os.environ[k]
+
     # Run the command line with the given environment in the execution directory.
     return subprocess.call(commandLine, cwd=args.execdir, env=env, shell=False)
 
