@@ -57,67 +57,23 @@ _LIBCPP_AVAILABILITY_TO_CHARS_FLOATING_POINT _LIBCPP_EXPORTED_FROM_ABI to_chars_
 to_chars(char* __first, char* __last, long double __value, chars_format __fmt, int __precision);
 
 #  if _LIBCPP_STD_VER >= 23
-#    if !defined(__SIZEOF_INT128__)
-template <class _Fp>
-_LIBCPP_HIDE_FROM_ABI to_chars_result
-__to_chars_narrow_float(char* __first, char* __last, _Fp __value, float __lower, float __upper) {
-  // Binary16 and bfloat16 need at most five significant decimal digits. Try
-  // each precision and retain the first decimal that rounds back to the value.
-  // The float conversion is exact on promotion; parsing it and narrowing once
-  // checks the target format's rounding interval.
-  // P3505R4: the notation is fixed if the magnitude is in [lower, upper), where lower is the smallest value of the
-  // type that is at least 1e-4 and upper the largest power of ten at most radix^(digits + 1) (1e3 for binary16, 1e2
-  // for bfloat16), and scientific otherwise; the caller passes the two bounds.
-  const float __abs = __builtin_fabsf(static_cast<float>(__value));
-  const bool __fixed = __abs == 0.0f || (__lower <= __abs && __abs < __upper);
-
-  char __buffer[64];
-  for (int __digits = 1; __digits <= 5; ++__digits) {
-    // The scientific form with __digits significant digits; its exponent tells how many decimals the fixed form needs.
-    to_chars_result __candidate = std::to_chars(
-        __buffer, __buffer + sizeof(__buffer), static_cast<float>(__value), chars_format::scientific, __digits - 1);
-    if (__candidate.ec != errc{})
-      return {__last, __candidate.ec};
-    float __parsed = 0;
-    from_chars_result __parsed_result = std::from_chars(__buffer, __candidate.ptr, __parsed, chars_format::general);
-    if (__parsed_result.ec == errc{} && static_cast<_Fp>(__parsed) == __value) {
-      if (__fixed) {
-        // decimal exponent of the scientific form: the characters after 'e'
-        const char* __e = __buffer;
-        while (__e != __candidate.ptr && *__e != 'e')
-          ++__e;
-        int __exponent = 0;
-        if (__e != __candidate.ptr)
-          std::from_chars(__e + 1 + (__e[1] == '+'), __candidate.ptr, __exponent);
-        int __decimals = __digits - 1 - __exponent;
-        if (__decimals < 0)
-          __decimals = 0;
-        __candidate = std::to_chars(
-            __buffer, __buffer + sizeof(__buffer), static_cast<float>(__value), chars_format::fixed, __decimals);
-        if (__candidate.ec != errc{})
-          return {__last, __candidate.ec};
-      }
-      ptrdiff_t __length = __candidate.ptr - __buffer;
-      if (__last - __first < __length)
-        return {__last, errc::value_too_large};
-      for (ptrdiff_t __index = 0; __index != __length; ++__index)
-        __first[__index] = __buffer[__index];
-      return {__first + __length, errc{}};
-    }
-  }
-  return std::to_chars(__first, __last, static_cast<float>(__value));
-}
-#    endif
-
-#    if defined(__SIZEOF_INT128__)
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result __to_chars_narrow(
     char* __first, char* __last, unsigned short __bits, __f128::__fmt_kind __kind, const __f128::__fp_format& __format) {
   __f128::__to_chars_out __r = __f128::__to_chars_narrow(__first, __last, __bits, __kind, __format);
   return {__r.__ptr, __r.__too_large ? errc::value_too_large : errc{}};
 }
+
+#    if !defined(__SIZEOF_INT128__)
+template <class _Fp>
+_LIBCPP_HIDE_FROM_ABI to_chars_result
+__to_chars_narrow_float(
+    char* __first, char* __last, _Fp __value, __f128::__fmt_kind __kind, const __f128::__fp_format& __format) {
+  // The portable 128-bit integer in float128.h lets the narrow fallback use the
+  // same exact shortest-digit selection as the primary binary16/bfloat16 path.
+  return __to_chars_narrow(__first, __last, __builtin_bit_cast(unsigned short, __value), __kind, __format);
+}
 #    endif
 
-#    if defined(__SIZEOF_INT128__)
 _LIBCPP_HIDE_FROM_ABI inline __f128::__fmt_kind __to_chars_narrow_kind(chars_format __fmt) {
   switch (__fmt) {
   case chars_format::scientific:
@@ -130,7 +86,6 @@ _LIBCPP_HIDE_FROM_ABI inline __f128::__fmt_kind __to_chars_narrow_kind(chars_for
     return __f128::__fmt_kind::__general;
   }
 }
-#    endif
 
 // P1467R9: the same-format types can use the existing conversion routines.
 #    if defined(__STDCPP_FLOAT32_T__)
@@ -160,8 +115,8 @@ _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __las
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, float16_t __value) { return std::__to_chars_narrow(__first, __last, __builtin_bit_cast(unsigned short, __value), __f128::__fmt_kind::__plain, __f128::__binary16); }
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, float16_t __value, chars_format __fmt) { return __fmt == chars_format::hex ? std::to_chars(__first, __last, static_cast<float>(__value), __fmt) : std::__to_chars_narrow(__first, __last, __builtin_bit_cast(unsigned short, __value), std::__to_chars_narrow_kind(__fmt), __f128::__binary16); }
 #      else
-_LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, float16_t __value) { return std::__to_chars_narrow_float(__first, __last, __value, 0x1.a38p-14f, 1e3f); }
-_LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, float16_t __value, chars_format __fmt) { return std::to_chars(__first, __last, static_cast<float>(__value), __fmt); }
+_LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, float16_t __value) { return std::__to_chars_narrow_float(__first, __last, __value, __f128::__fmt_kind::__plain, __f128::__binary16); }
+_LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, float16_t __value, chars_format __fmt) { return __fmt == chars_format::hex ? std::to_chars(__first, __last, static_cast<float>(__value), __fmt) : std::__to_chars_narrow_float(__first, __last, __value, std::__to_chars_narrow_kind(__fmt), __f128::__binary16); }
 #      endif
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, float16_t __value, chars_format __fmt, int __precision) { return std::to_chars(__first, __last, static_cast<float>(__value), __fmt, __precision); }
 #    endif
@@ -170,8 +125,8 @@ _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __las
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value) { return std::__to_chars_narrow(__first, __last, __builtin_bit_cast(unsigned short, __value), __f128::__fmt_kind::__plain, __f128::__bfloat16); }
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value, chars_format __fmt) { return __fmt == chars_format::hex ? std::to_chars(__first, __last, static_cast<float>(__value), __fmt) : std::__to_chars_narrow(__first, __last, __builtin_bit_cast(unsigned short, __value), std::__to_chars_narrow_kind(__fmt), __f128::__bfloat16); }
 #      else
-_LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value) { return std::__to_chars_narrow_float(__first, __last, __value, 0x1.a4p-14f, 1e2f); }
-_LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value, chars_format __fmt) { return std::to_chars(__first, __last, static_cast<float>(__value), __fmt); }
+_LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value) { return std::__to_chars_narrow_float(__first, __last, __value, __f128::__fmt_kind::__plain, __f128::__bfloat16); }
+_LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value, chars_format __fmt) { return __fmt == chars_format::hex ? std::to_chars(__first, __last, static_cast<float>(__value), __fmt) : std::__to_chars_narrow_float(__first, __last, __value, std::__to_chars_narrow_kind(__fmt), __f128::__bfloat16); }
 #      endif
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value, chars_format __fmt, int __precision) { return std::to_chars(__first, __last, static_cast<float>(__value), __fmt, __precision); }
 #    endif
