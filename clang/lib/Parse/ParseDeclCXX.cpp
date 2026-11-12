@@ -1344,8 +1344,13 @@ void Parser::ProcessTokenInjections(
     Eof.setLocation(Loc);
     Toks.push_back(Eof);
 
-    // Save the current token and enter the token stream.
+    // Save the current token and enter the token stream. The location of the
+    // previous token is saved with it: parsing the injected tokens moves it
+    // into the injected text, and diagnostics anchored there (such as
+    // "expected ';' after struct" for the declaration the injection follows)
+    // would otherwise point into the injected tokens.
     Token SavedTok = Tok;
+    SourceLocation SavedPrevTokLocation = PrevTokLocation;
     PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
                         /*IsReinject=*/true);
     ConsumeAnyToken();
@@ -1551,6 +1556,7 @@ void Parser::ProcessTokenInjections(
 
     // Consume the eof sentinel and restore the saved token.
     Tok = SavedTok;
+    PrevTokLocation = SavedPrevTokLocation;
   }
 
   // Recursively process any injections produced by parsing the injected code.
