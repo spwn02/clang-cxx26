@@ -811,6 +811,13 @@ ExprResult Sema::ActOnCXXExpansionInitList(SourceLocation LBraceLoc,
 ExprResult Sema::BuildCXXExpansionInitList(SourceLocation LBraceLoc,
                                            MultiExprArg SubExprs,
                                            SourceLocation RBraceLoc) {
+  // The elements are substituted eagerly when the enclosing expansion
+  // statement is finished, so a parameter pack that is named without being
+  // expanded must be diagnosed here rather than reach the instantiator.
+  for (Expr *E : SubExprs)
+    if (DiagnoseUnexpandedParameterPack(E, UPPC_Expression))
+      return ExprError();
+
   Expr **SubExprList = new (Context) Expr *[SubExprs.size()];
   std::memcpy(SubExprList, SubExprs.data(), SubExprs.size() * sizeof(Expr *));
 

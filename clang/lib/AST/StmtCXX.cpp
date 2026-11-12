@@ -268,7 +268,11 @@ CXXInitListExpansionStmt *CXXInitListExpansionStmt::Create(const ASTContext &C,
 bool CXXInitListExpansionStmt::hasDependentSize() const {
   const auto *Init = cast<CXXExpansionInitListSelectExpr>(
       ignoreExpansionCleanups(getExpansionVariable()->getInit()));
-  return cast<CXXExpansionInitListExpr>(Init->getRangeExpr())->containsPack();
+  const auto *Range = cast<CXXExpansionInitListExpr>(Init->getRangeExpr());
+  // An element that names a pack declared outside an enclosing lambda carries
+  // it as an unexpanded pack until the lambda itself is expanded; the
+  // statement cannot be instantiated before then.
+  return Range->containsPack() || Range->containsUnexpandedParameterPack();
 }
 
 unsigned CXXInitListExpansionStmt::getNumInstantiations() const {
