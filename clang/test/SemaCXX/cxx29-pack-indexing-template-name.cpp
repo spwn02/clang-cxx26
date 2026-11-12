@@ -112,6 +112,13 @@ void S<CC...>::h(CC...[0] auto) {}
 void use() { S<Any>().f(1); S<Any>().g(1); S<Any>().h(1); }
 }
 
+// A type-constraint may be expanded over a type template parameter pack.
+template <class T> concept Any = true;
+template <template <class> concept... CC>
+struct ExpandedConcepts {
+  template <CC... Ts> struct Expanded {};
+};
+
 namespace in_expression {
 // Parsing regression: a pack-index-template-name used as the head of an
 // expression ('T...[N]<args>{}', '()' or '::name') asserted in the parser.

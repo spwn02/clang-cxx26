@@ -1283,6 +1283,11 @@ bool Sema::AttachTypeConstraint(NestedNameSpecifierLoc NS,
                                 const TemplateArgumentListInfo *TemplateArgs,
                                 TemplateTypeParmDecl *ConstrainedParameter,
                                 SourceLocation EllipsisLoc) {
+  if (EllipsisLoc.isInvalid() &&
+      DiagnoseUnexpandedParameterPack(NameInfo.getLoc(), NamedConcept,
+                                      UPPC_TypeConstraint))
+    return true;
+
   // C++2a [temp.param]p4:
   //     [...] If Q is of the form C<A1, ..., An>, then let E' be
   //     C<T, A1, ..., An>. Otherwise, let E' be C<T>. [...]
@@ -1322,6 +1327,11 @@ bool Sema::AttachTypeConstraint(AutoTypeLoc TL,
                                 NonTypeTemplateParmDecl *NewConstrainedParm,
                                 NonTypeTemplateParmDecl *OrigConstrainedParm,
                                 SourceLocation EllipsisLoc) {
+  if (EllipsisLoc.isInvalid() &&
+      DiagnoseUnexpandedParameterPack(TL.getConceptNameInfo().getLoc(),
+                                      TL.getNamedConcept(), UPPC_TypeConstraint))
+    return true;
+
   if (NewConstrainedParm->getType().getNonPackExpansionType() != TL.getType() ||
       TL.getAutoKeyword() != AutoTypeKeyword::Auto) {
     Diag(NewConstrainedParm->getTypeSourceInfo()->getTypeLoc().getBeginLoc(),
