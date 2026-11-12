@@ -1316,35 +1316,16 @@ void DeclPrinter::printTemplateParameters(const TemplateParameterList *Params,
 
 void DeclPrinter::printTemplateArguments(ArrayRef<TemplateArgument> Args,
                                          const TemplateParameterList *Params) {
-  Out << "<";
-  for (size_t I = 0, E = Args.size(); I < E; ++I) {
-    if (I)
-      Out << ", ";
-    if (!Params)
-      Args[I].print(Policy, Out, /*IncludeType*/ true);
-    else
-      Args[I].print(Policy, Out,
-                    TemplateParameterList::shouldIncludeTypeForArgument(
-                        Policy, Params, I));
-  }
-  Out << ">";
+  PrintingPolicy ArgPolicy(Policy);
+  ArgPolicy.SuppressDefaultTemplateArgs = false;
+  printTemplateArgumentList(Out, Args, ArgPolicy, Params);
 }
 
 void DeclPrinter::printTemplateArguments(ArrayRef<TemplateArgumentLoc> Args,
                                          const TemplateParameterList *Params) {
-  Out << "<";
-  for (size_t I = 0, E = Args.size(); I < E; ++I) {
-    if (I)
-      Out << ", ";
-    if (!Params)
-      Args[I].getArgument().print(Policy, Out, /*IncludeType*/ true);
-    else
-      Args[I].getArgument().print(
-          Policy, Out,
-          TemplateParameterList::shouldIncludeTypeForArgument(Policy, Params,
-                                                              I));
-  }
-  Out << ">";
+  PrintingPolicy ArgPolicy(Policy);
+  ArgPolicy.SuppressDefaultTemplateArgs = false;
+  printTemplateArgumentList(Out, Args, ArgPolicy, Params);
 }
 
 void DeclPrinter::VisitTemplateDecl(const TemplateDecl *D) {
