@@ -38,10 +38,33 @@ struct [[=undeclared_arrow_base{}]] A2 {};
 struct int_base {
   consteval auto inject_members(info) const -> token_sequence {
     constexpr info m = ^^Other::x;
-    return ^^{ int get(int i) const { return i.\(m); } }; // expected-error {{member reference base type 'int' is not a structure or union}}
+    return ^^{
+      int get(int i) const { return i.\(m); } // expected-error {{member reference base type 'int' is not a structure or union}}
+      int get(int *i) const { return i->\(m); } // expected-error {{member reference base type 'int *' is not a structure or union}}
+    };
   }
 };
 struct [[=int_base{}]] A3 {};
+
+// A failed splice used as the base of another splice is already diagnosed.
+struct failed_splice_base {
+  consteval auto inject_members(info) const -> token_sequence {
+    constexpr info m = ^^Other::x;
+    return ^^{ int get() const { return (object.\(m)).\(m); } }; // expected-error {{use of undeclared identifier 'object'}}
+  }
+};
+struct [[=failed_splice_base{}]] A4 {};
+
+// A dependent base is resolved at instantiation; substitution to a non-class
+// type must diagnose the base without entering the non-dependent member path.
+struct dependent_base {
+  consteval auto inject_members(info) const -> token_sequence {
+    constexpr info m = ^^Other::x;
+    return ^^{ template <class T> int get(T t) const { return t.\(m); } }; // expected-error {{member reference base type 'int' is not a structure or union}}
+  }
+};
+struct [[=dependent_base{}]] A5 {};
+template int A5::get<int>(int) const; // expected-note {{in instantiation of function template specialization 'A5::get<int>' requested here}}
 
 // A valid base still works.
 struct good_base {
@@ -50,5 +73,5 @@ struct good_base {
     return ^^{ static constexpr int get(Other o) { return o.\(m); } };
   }
 };
-struct [[=good_base{}]] A4 {};
-static_assert(A4::get(Other{7}) == 7);
+struct [[=good_base{}]] A6 {};
+static_assert(A6::get(Other{7}) == 7);
