@@ -890,6 +890,24 @@ TEST(ParameterHints, DeducingThis) {
                        ExpectedHint{"Param: ", "3"}, ExpectedHint{"C: ", "4"});
 }
 
+TEST(ParameterHints, DeducingThisDependentMemberCall) {
+  // In dependent code `obj.f(args)` keeps the object in the callee, so the
+  // arguments do not start with the explicit object (used to assert on a call
+  // without arguments and to misalign the hints of the others).
+  assertParameterHints(R"cpp(
+    template <class T> struct Box {
+      T v;
+      template <class Self> T first(this Self &&self) { return self.v; }
+      template <class Self> T two(this Self &&self, int a) { return self.v; }
+    };
+    template <class T> void dep(Box<T> b) {
+      b.first();
+      b.two($1[[1]]);
+    }
+  )cpp",
+                       ExpectedHint{"a: ", "1"});
+}
+
 TEST(ParameterHints, Macros) {
   // Handling of macros depends on where the call's argument list comes from.
 

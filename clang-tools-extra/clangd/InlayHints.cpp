@@ -490,9 +490,19 @@ public:
     // We don't have the implied object argument through a function pointer
     // either.
     if (const CXXMethodDecl *Method =
-            dyn_cast_or_null<CXXMethodDecl>(Callee.Decl))
-      if (IsFunctor || Method->hasCXXExplicitFunctionObjectParameter())
+            dyn_cast_or_null<CXXMethodDecl>(Callee.Decl)) {
+      bool ObjectIsArg = IsFunctor;
+      if (Method->hasCXXExplicitFunctionObjectParameter()) {
+        // A resolved call passes the object as the first argument. In
+        // dependent code `obj.f(args)` keeps the object in the callee
+        // expression and the arguments are only the written ones.
+        ObjectIsArg = !isa<MemberExpr, CXXDependentScopeMemberExpr,
+                           UnresolvedMemberExpr>(
+            E->getCallee()->IgnoreParenImpCasts());
+      }
+      if (ObjectIsArg && !Args.empty())
         Args = Args.drop_front(1);
+    }
     processCall(Callee, E->getRParenLoc(), Args);
     return true;
   }
