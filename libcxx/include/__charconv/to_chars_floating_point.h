@@ -116,6 +116,7 @@ _LIBCPP_HIDE_FROM_ABI inline to_chars_result __to_chars_narrow(
 }
 #    endif
 
+#    if defined(__SIZEOF_INT128__)
 _LIBCPP_HIDE_FROM_ABI inline __f128::__fmt_kind __to_chars_narrow_kind(chars_format __fmt) {
   switch (__fmt) {
   case chars_format::scientific:
@@ -128,6 +129,7 @@ _LIBCPP_HIDE_FROM_ABI inline __f128::__fmt_kind __to_chars_narrow_kind(chars_for
     return __f128::__fmt_kind::__general;
   }
 }
+#    endif
 
 // P1467R9: the same-format types can use the existing conversion routines.
 #    if defined(__STDCPP_FLOAT32_T__)
@@ -172,7 +174,7 @@ _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __las
 #      endif
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value, chars_format __fmt, int __precision) { return std::to_chars(__first, __last, static_cast<float>(__value), __fmt, __precision); }
 #    endif
-#    if defined(__STDCPP_FLOAT128_T__)
+#    if defined(__STDCPP_FLOAT128_T__) && defined(__SIZEOF_INT128__)
 // binary128 has no hardware or library support to build on: exact conversions with a small big integer
 // (<__charconv/float128.h>) produce the shortest representation and the correctly rounded precision forms.
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result __to_chars_float128(
