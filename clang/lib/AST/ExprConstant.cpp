@@ -1047,6 +1047,9 @@ namespace {
       SmallVector<PartialDiagnosticAt, 4> CallStackNotes;
       /// For an exception thrown by a failing metafunction: the reason.
       std::string MetaReason;
+      /// The message of the exception, as what() returns it, once read.
+      std::string What;
+      bool WhatRead = false;
     };
     std::optional<PendingExceptionInfo> PendingException;
 
@@ -3319,14 +3322,28 @@ static APValue ExtractCaughtSubobject(QualType ExceptionTy, QualType CatchTy,
 /// the enclosing expression. Unlike CheckMemoryLeaks, this is not optional:
 /// an uncaught exception unconditionally makes the evaluation ill-formed.
 static std::string ReadMetaExceptionReason(EvalInfo &Info);
+static std::string ReadExceptionWhat(EvalInfo &Info);
 
 static bool CheckUncaughtException(EvalInfo &Info) {
   if (Info.PendingException) {
     if (Info.PendingException->MetaReason.empty())
       Info.PendingException->MetaReason = ReadMetaExceptionReason(Info);
-    Info.FFDiag(Info.PendingException->ThrowExpr,
-               diag::note_constexpr_uncaught_exception)
-        << Info.PendingException->ThrowExpr->getSourceRange();
+    // Not a deviation the standard asks for: show what() of the exception in
+    // the note, so the message the author wrote is visible in the diagnostic.
+    if (Info.PendingException->MetaReason.empty() &&
+        !Info.PendingException->WhatRead) {
+      Info.PendingException->WhatRead = true;
+      Info.PendingException->What = ReadExceptionWhat(Info);
+    }
+    if (!Info.PendingException->What.empty())
+      Info.FFDiag(Info.PendingException->ThrowExpr,
+                  diag::note_constexpr_uncaught_exception_what)
+          << Info.PendingException->What
+          << Info.PendingException->ThrowExpr->getSourceRange();
+    else
+      Info.FFDiag(Info.PendingException->ThrowExpr,
+                  diag::note_constexpr_uncaught_exception)
+          << Info.PendingException->ThrowExpr->getSourceRange();
     // By now, every CallStackFrame that was live at throw time has already
     // unwound off the native stack, so FFDiag's own (empty) backtrace walk
     // found nothing -- replay the backtrace captured back when the throw
@@ -8791,6 +8808,94 @@ static std::string ReadMetaExceptionReason(EvalInfo &Info) {
   }
   Info.PendingException = std::move(Pending);
   return Reason;
+}
+
+/// The message of the pending exception: the result of calling its what()
+/// member, found in the exception's class or in a base class (std::runtime_error
+/// and friends declare it there). Evaluated speculatively; returns an empty
+/// string when the class has no usable what() or evaluating it fails (for
+/// instance because it is not constexpr).
+static std::string ReadExceptionWhat(EvalInfo &Info) {
+  const auto &Exc = *Info.PendingException;
+  const auto *RD = Exc.Ty->getAsCXXRecordDecl();
+  if (!RD || !RD->hasDefinition())
+    return {};
+
+  // Most-derived declaration first, so an override wins over what it overrides.
+  const CXXMethodDecl *What = nullptr;
+  SmallVector<const CXXBaseSpecifier *, 4> Path;
+  const std::function<bool(const CXXRecordDecl *)> Find =
+      [&](const CXXRecordDecl *Cur) {
+        for (const auto *MD : Cur->methods())
+          if (MD->getIdentifier() && MD->getName() == "what" &&
+              !MD->isStatic() && MD->getNumParams() == 0 && MD->isConst() &&
+              MD->hasBody()) {
+            What = MD;
+            return true;
+          }
+        if (!Cur->hasDefinition())
+          return false;
+        for (const CXXBaseSpecifier &B : Cur->bases()) {
+          const auto *Base = B.getType()->getAsCXXRecordDecl();
+          if (!Base || B.isVirtual())
+            continue;
+          Path.push_back(&B);
+          if (Find(Base))
+            return true;
+          Path.pop_back();
+        }
+        return false;
+      };
+  if (!Find(RD) || !What)
+    return {};
+  QualType RetTy = What->getReturnType();
+  if (!RetTy->isPointerType() ||
+      !RetTy->getPointeeType().getUnqualifiedType()->isCharType())
+    return {};
+
+  auto Pending = std::move(Info.PendingException);
+  Info.PendingException.reset();
+  SpeculativeEvaluationRAII Speculate(Info);
+  LValue This;
+  This.set(APValue::LValueBase::getDynamicAlloc(Pending->ObjectAlloc,
+                                                Pending->Ty));
+  const Expr *E = Pending->ThrowExpr;
+  const CXXRecordDecl *Cur = RD;
+  bool Ok = true;
+  for (const CXXBaseSpecifier *B : Path) {
+    if (!HandleLValueBase(Info, E, This, Cur, B)) {
+      Ok = false;
+      break;
+    }
+    Cur = B->getType()->getAsCXXRecordDecl();
+  }
+
+  std::string Message;
+  APValue Result;
+  if (Ok && HandleFunctionCall(E->getExprLoc(), What, &This, E, {}, CallRef(),
+                               What->getBody(), Info, Result, nullptr) &&
+      Result.isLValue()) {
+    LValue String;
+    String.setFrom(Info.Ctx, Result);
+    for (;;) {
+      APValue Char;
+      if (!handleLValueToRValueConversion(Info, E, Info.Ctx.CharTy, String,
+                                          Char) ||
+          !Char.isInt()) {
+        Message.clear();
+        break;
+      }
+      if (!Char.getInt())
+        break;
+      Message.push_back(static_cast<char>(Char.getInt().getExtValue()));
+      if (!HandleLValueArrayAdjustment(Info, E, String, Info.Ctx.CharTy, 1)) {
+        Message.clear();
+        break;
+      }
+    }
+  }
+  Info.PendingException = std::move(Pending);
+  return Message;
 }
 
 /// Does the constructor call \p E construct a complete object (as opposed to
