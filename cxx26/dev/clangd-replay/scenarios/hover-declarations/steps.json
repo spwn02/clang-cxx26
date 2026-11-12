@@ -1,0 +1,10 @@
+[
+ {"hover":true,"line":0,"col":12,"label":"parameter-declaration"},
+ {"hover":true,"line":0,"col":23,"label":"parameter-use"},
+ {"hover":true,"line":1,"col":5,"label":"deduced-return-function"},
+ {"hover":true,"line":2,"col":5,"label":"written-return-function"},
+ {"hover":true,"line":3,"col":15,"label":"nttp-declaration"},
+ {"hover":true,"line":3,"col":28,"label":"requires-clause"},
+ {"hover":true,"line":4,"col":40,"label":"function-requires-clause"},
+ {"hover":true,"line":5,"col":30,"label":"concept-body"}
+]

@@ -7,6 +7,20 @@ local function items(label)
   if ok and its then for _, it in ipairs(its) do if it.source_id == "lsp" then table.insert(names, it.label) end end end
   log(label .. " [" .. #names .. " lsp items]: " .. table.concat(vim.list_slice(names, 1, 14), " | "))
 end
+local function hover_contents(result)
+  local c = result and result.contents
+  if type(c) == "string" then return c end
+  if type(c) == "table" and c.kind and c.value then return c.value end
+  if type(c) == "table" then
+    local parts = {}
+    for _, x in ipairs(c) do
+      if type(x) == "string" then table.insert(parts, x)
+      elseif type(x) == "table" then table.insert(parts, x.value or x.language or vim.inspect(x)) end
+    end
+    return table.concat(parts, " ")
+  end
+  return "NOTHING"
+end
 local steps = vim.env.REPLAY_STEPS and vim.json.decode(vim.env.REPLAY_STEPS) or {}
 vim.cmd("edit " .. vim.env.REPLAY_FILE)
 local attached = false
@@ -14,7 +28,19 @@ vim.api.nvim_create_autocmd("DiagnosticChanged", { once = true, callback = funct
 local function run_step(i)
   local s = steps[i]
   if not s then return finish() end
-  if s.line then vim.api.nvim_win_set_cursor(0, { s.line, s.col or 0 }) end
+  if s.line then
+    if s.hover then
+      -- Exercise the same normal-mode line/column movement used by an editor user.
+      -- Neovim buffer columns are 0-based bytes; make_position_params below
+      -- converts the cursor to the negotiated LSP encoding (UTF-16 here).
+      local line = vim.api.nvim_buf_get_lines(0, s.line, s.line + 1, false)[1] or ""
+      local prefix = string.sub(line, 1, s.col or 0)
+      local screen_col = vim.fn.strdisplaywidth(prefix)
+      vim.api.nvim_input(tostring(s.line + 1) .. "G" .. tostring(screen_col + 1) .. "|")
+    else
+      vim.api.nvim_win_set_cursor(0, { s.line, s.col or 0 })
+    end
+  end
   if s.input then vim.api.nvim_input(s.input) end
   vim.defer_fn(function()
     if s.show then require("blink.cmp").show() end
@@ -31,6 +57,38 @@ local function run_step(i)
         table.insert(parts, #ds .. " diagnostics")
         for _, d in ipairs(ds) do table.insert(parts, d.severity .. ":" .. (d.lnum + 1) .. ":" .. (d.message:gsub("%s+", " "))) end
         log(s.diagnostics .. " [diagnostics]: " .. table.concat(parts, " | "))
+      end
+      if s.hover then
+        local old_request_all = vim.lsp.buf_request_all
+        local captured = false
+        vim.lsp.buf_request_all = function(bufnr, method, params, handler)
+          if method ~= "textDocument/hover" then
+            return old_request_all(bufnr, method, params, handler)
+          end
+          return old_request_all(bufnr, method, params, function(results, ctx, config)
+            captured = true
+            local parts = {}
+            for _, response in pairs(results or {}) do
+              if response.err then table.insert(parts, "ERROR " .. vim.inspect(response.err))
+              elseif response.result then table.insert(parts, hover_contents(response.result)) end
+            end
+            local value = #parts > 0 and table.concat(parts, " | ") or "NOTHING"
+            log((s.label or s.hover) .. " [hover]: " .. value:gsub("%s+", " "))
+            vim.lsp.buf_request_all = old_request_all
+            return handler(results, ctx, config)
+          end)
+        end
+        vim.lsp.buf.hover()
+        local function wait_hover(tries)
+          if captured then return run_step(i + 1) end
+          if tries >= 100 then
+            vim.lsp.buf_request_all = old_request_all
+            log((s.label or s.hover) .. " [hover]: NOTHING (timeout)")
+            return run_step(i + 1)
+          end
+          vim.defer_fn(function() wait_hover(tries + 1) end, 50)
+        end
+        return vim.defer_fn(function() wait_hover(0) end, 50)
       end
       if s.request then
         -- {"request": "textDocument/hover|references|documentHighlight", "report": label}: the answer of the server
