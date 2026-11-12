@@ -146,7 +146,7 @@ _LIBCPP_HIDE_FROM_ABI inline from_chars_result from_chars(const char* __first, c
 #      endif
 }
 #    endif
-#    if defined(__STDCPP_FLOAT128_T__) && defined(__SIZEOF_INT128__)
+#    if defined(__STDCPP_FLOAT128_T__)
 _LIBCPP_HIDE_FROM_ABI inline from_chars_result
 from_chars(const char* __first, const char* __last, float128_t& __value, chars_format __fmt = chars_format::general) {
   __f128::__fmt_kind __kind = __f128::__fmt_kind::__general;

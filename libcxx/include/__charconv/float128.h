@@ -18,7 +18,7 @@
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-#if _LIBCPP_STD_VER >= 23 && defined(__SIZEOF_INT128__)
+#if _LIBCPP_STD_VER >= 23
 
 // Conversions between IEEE binary128 bit patterns and text (P1467R9: std::to_chars and std::from_chars for the
 // extended floating-point types). Everything is exact: a small arbitrary precision integer replaces the table driven
@@ -29,7 +29,97 @@ namespace __f128 {
 
 using __u32 _LIBCPP_NODEBUG = unsigned int;
 using __u64 _LIBCPP_NODEBUG = unsigned long long;
+#if defined(__SIZEOF_INT128__)
 using __u128 _LIBCPP_NODEBUG = unsigned __int128;
+#else
+// A two-limb integer for platforms where the compiler does not expose a native
+// 128-bit integer type. Keep the object representation compatible with
+// __builtin_bit_cast between this type and float128_t.
+struct __u128 {
+#  if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+  __u64 __hi;
+  __u64 __lo;
+#  else
+  __u64 __lo;
+  __u64 __hi;
+#  endif
+
+  _LIBCPP_HIDE_FROM_ABI constexpr __u128(unsigned long long __value = 0) : __u128(0, __value) {}
+#  if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+  _LIBCPP_HIDE_FROM_ABI constexpr __u128(__u64 __hi_value, __u64 __lo_value) : __hi(__hi_value), __lo(__lo_value) {}
+#  else
+  _LIBCPP_HIDE_FROM_ABI constexpr __u128(__u64 __hi_value, __u64 __lo_value) : __lo(__lo_value), __hi(__hi_value) {}
+#  endif
+
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit operator bool() const { return __lo != 0 || __hi != 0; }
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit operator __u32() const { return static_cast<__u32>(__lo); }
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit operator int() const { return static_cast<int>(__lo); }
+
+  _LIBCPP_HIDE_FROM_ABI constexpr __u128 operator<<(int __shift) const {
+    if (__shift >= 128)
+      return 0;
+    if (__shift == 0)
+      return *this;
+    if (__shift >= 64)
+      return __u128(__lo << (__shift - 64), 0);
+    return __u128((__hi << __shift) | (__lo >> (64 - __shift)), __lo << __shift);
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __u128 operator>>(int __shift) const {
+    if (__shift >= 128)
+      return 0;
+    if (__shift == 0)
+      return *this;
+    if (__shift >= 64)
+      return __u128(0, __hi >> (__shift - 64));
+    return __u128(__hi >> __shift, (__lo >> __shift) | (__hi << (64 - __shift)));
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __u128& operator>>=(int __shift) {
+    *this = *this >> __shift;
+    return *this;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __u128& operator<<=(int __shift) {
+    *this = *this << __shift;
+    return *this;
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __u128& operator|=(__u128 __other) {
+    __lo |= __other.__lo;
+    __hi |= __other.__hi;
+    return *this;
+  }
+
+  _LIBCPP_HIDE_FROM_ABI friend constexpr __u128 operator+(__u128 __left, __u128 __right) {
+    __u64 __sum = __left.__lo + __right.__lo;
+    return __u128(__left.__hi + __right.__hi + (__sum < __left.__lo), __sum);
+  }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr __u128 operator-(__u128 __left, __u128 __right) {
+    return __u128(__left.__hi - __right.__hi - (__left.__lo < __right.__lo), __left.__lo - __right.__lo);
+  }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr __u128 operator&(__u128 __left, __u128 __right) {
+    return __u128(__left.__hi & __right.__hi, __left.__lo & __right.__lo);
+  }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr __u128 operator|(__u128 __left, __u128 __right) {
+    return __u128(__left.__hi | __right.__hi, __left.__lo | __right.__lo);
+  }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr __u128 operator~(__u128 __value) {
+    return __u128(~__value.__hi, ~__value.__lo);
+  }
+  _LIBCPP_HIDE_FROM_ABI constexpr __u128& operator++() {
+    ++__lo;
+    if (__lo == 0)
+      ++__hi;
+    return *this;
+  }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(__u128 __left, __u128 __right) {
+    return __left.__lo == __right.__lo && __left.__hi == __right.__hi;
+  }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator!=(__u128 __left, __u128 __right) { return !(__left == __right); }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<(__u128 __left, __u128 __right) {
+    return __left.__hi < __right.__hi || (__left.__hi == __right.__hi && __left.__lo < __right.__lo);
+  }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator>(__u128 __left, __u128 __right) { return __right < __left; }
+  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<=(__u128 __left, __u128 __right) { return !(__right < __left); }
+};
+#endif
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Fixed capacity unsigned big integer (little endian 32-bit limbs).
@@ -1300,7 +1390,7 @@ __from_chars(const char* __first, const char* __last, __fmt_kind __kind, const _
 
 } // namespace __f128
 
-#endif // _LIBCPP_STD_VER >= 23 && defined(__SIZEOF_INT128__)
+#endif // _LIBCPP_STD_VER >= 23
 
 _LIBCPP_END_NAMESPACE_STD
 

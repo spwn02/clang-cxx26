@@ -12,6 +12,7 @@
 
 #include <__charconv/chars_format.h>
 #include <__charconv/float128.h>
+#include <__charconv/from_chars_integral.h>
 #include <__charconv/from_chars_floating_point.h>
 #include <__charconv/to_chars_result.h>
 #include <__config>
@@ -174,7 +175,7 @@ _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __las
 #      endif
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result to_chars(char* __first, char* __last, bfloat16_t __value, chars_format __fmt, int __precision) { return std::to_chars(__first, __last, static_cast<float>(__value), __fmt, __precision); }
 #    endif
-#    if defined(__STDCPP_FLOAT128_T__) && defined(__SIZEOF_INT128__)
+#    if defined(__STDCPP_FLOAT128_T__)
 // binary128 has no hardware or library support to build on: exact conversions with a small big integer
 // (<__charconv/float128.h>) produce the shortest representation and the correctly rounded precision forms.
 _LIBCPP_HIDE_FROM_ABI inline to_chars_result __to_chars_float128(
