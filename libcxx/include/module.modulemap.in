@@ -46,7 +46,7 @@ module std_core [system] {
 
   module cstdlib {
     module callbacks {
-      header "__cstdlib/callbacks.h"
+      textual header "__cstdlib/callbacks.h"
       export *
     }
   }
