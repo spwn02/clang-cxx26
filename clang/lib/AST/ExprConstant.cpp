@@ -10380,6 +10380,10 @@ public:
     // [except.throw] removes top-level cv-qualification from the exception
     // object type even when the thrown operand is a const lvalue.
     QualType Ty = SubExpr->getType().getUnqualifiedType();
+    // An operand that failed to build (e.g. a RecoveryExpr from a constructor
+    // call that did not resolve) is value-dependent and cannot be evaluated.
+    if (SubExpr->isValueDependent())
+      return Error(E);
     if (!Evaluate(Val, Info, SubExpr))
       return false;
     // Ownership of the completed throw operand moves into PendingException.
