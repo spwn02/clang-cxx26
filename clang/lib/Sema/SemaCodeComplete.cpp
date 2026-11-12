@@ -2723,9 +2723,12 @@ AddOrdinaryNameResults(SemaCodeCompletion::ParserCompletionContext CCC,
 
     // "return expression ;" or "return ;", depending on the return type.
     QualType ReturnType;
-    if (const auto *Function = dyn_cast<FunctionDecl>(SemaRef.CurContext))
-      ReturnType = Function->getReturnType();
-    else if (const auto *Method = dyn_cast<ObjCMethodDecl>(SemaRef.CurContext))
+    if (const auto *Function = dyn_cast<FunctionDecl>(SemaRef.CurContext)) {
+      // The call operator of a lambda has no type yet while its trailing
+      // return type is being parsed; there is no return type to offer then.
+      if (!Function->getType().isNull())
+        ReturnType = Function->getReturnType();
+    } else if (const auto *Method = dyn_cast<ObjCMethodDecl>(SemaRef.CurContext))
       ReturnType = Method->getReturnType();
     else if (SemaRef.getCurBlock() &&
              !SemaRef.getCurBlock()->ReturnType.isNull())
