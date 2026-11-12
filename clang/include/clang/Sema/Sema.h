@@ -17505,6 +17505,29 @@ public:
   // Token sequences pending injection from consteval block evaluation.
   SmallVector<Expr::EvalStatus::TokenInjection> PendingInjections;
 
+  /// The first HeldInjectionCount entries of PendingInjections were queued by
+  /// the inject_members callbacks of HeldInjectionOwner, a class the parser is
+  /// still completing. They must not be processed before that class is
+  /// complete: an injection that mentions the class would see it incomplete.
+  /// Instantiating a class or function template in the meantime (declaring the
+  /// implicit special members of the class can do that) drains the queue, and
+  /// has to leave these entries alone.
+  unsigned HeldInjectionCount = 0;
+  const Decl *HeldInjectionOwner = nullptr;
+
+  /// Are there injections that may be processed now?
+  bool hasReadyInjections() const {
+    return PendingInjections.size() > HeldInjectionCount;
+  }
+  /// Move the injections that may be processed now into \p Out; held ones
+  /// stay queued.
+  void takeReadyInjections(
+      SmallVectorImpl<Expr::EvalStatus::TokenInjection> &Out);
+  /// Hold everything queued so far until \p Owner is complete.
+  void holdPendingInjections(const Decl *Owner);
+  /// \p Owner is complete (or abandoned): its held injections may be processed.
+  void releaseHeldInjections(const Decl *Owner);
+
   // Statements parsed from injected token sequences that need to be added
   // to the enclosing compound statement.
   SmallVector<Stmt *> PendingInjectedStmts;
@@ -17535,7 +17558,8 @@ public:
   /// empty sequence. The parser interleaves evaluation and parsing so each
   /// callback sees the members injected by the previous ones.
   bool EvaluateInjectMembersAnnotation(Decl *TagDecl, unsigned Index,
-                                       TokenSequenceData &Out);
+                                       TokenSequenceData &Out,
+                                       bool HoldInjections = false);
 
 private:
   SemaParserBridge ParserBridge;

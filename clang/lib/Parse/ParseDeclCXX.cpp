@@ -1186,9 +1186,9 @@ Decl *Parser::ParseConstevalBlockDeclaration(SourceLocation &DeclEnd) {
 }
 
 void Parser::DrainPendingTokenInjections() {
-  while (!Actions.PendingInjections.empty()) {
+  while (Actions.hasReadyInjections()) {
     SmallVector<Expr::EvalStatus::TokenInjection, 4> Injections;
-    Injections.swap(Actions.PendingInjections);
+    Actions.takeReadyInjections(Injections);
     ProcessTokenInjections(Injections);
   }
 }
@@ -4285,6 +4285,12 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
           TagType == DeclSpec::TST_union || TagType == DeclSpec::TST_class) &&
          "Invalid TagType!");
 
+  // Injections queued by this class's inject_members callbacks are held until
+  // the class is complete (released after ActOnTagFinishDefinition below); on
+  // any other way out of this function they must not stay held forever.
+  auto ReleaseHeldInjections =
+      llvm::make_scope_exit([&] { Actions.releaseHeldInjections(TagDecl); });
+
   llvm::TimeTraceScope TimeScope("ParseClass", [&]() {
     if (auto *TD = dyn_cast_or_null<NamedDecl>(TagDecl))
       return TD->getQualifiedNameAsString();
@@ -4483,7 +4489,9 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
     if (getLangOpts().CPlusPlus29) {
       TokenSequenceData TSD;
       for (unsigned I = 0;
-           Actions.EvaluateInjectMembersAnnotation(TagDecl, I, TSD); ++I) {
+           Actions.EvaluateInjectMembersAnnotation(TagDecl, I, TSD,
+                                                   /*HoldInjections=*/true);
+           ++I) {
         if (TSD.empty())
           continue;
         SmallVector<Token, 16> Toks(TSD.begin(), TSD.end());
@@ -4551,6 +4559,11 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
   if (TagDecl)
     Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, T.getRange());
 
+  // The class is complete: the injections its inject_members callbacks queued
+  // may be processed now (they drain below, with on_complete's).
+  if (TagDecl)
+    Actions.releaseHeldInjections(TagDecl);
+
   // Handle annotation on_complete callbacks. At this point, the class is
   // fully complete; a unary queue_injection in a callback injects into the
   // nearest enclosing namespace (see HandleAnnotationOnComplete).
@@ -4560,9 +4573,9 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
     // elevated, so injected declarations would be parsed at the wrong depth.
     // Leave the injections pending; ParseDeclaration drains them once the
     // enclosing template declaration is complete.
-    while (TemplateParameterDepth == 0 && !Actions.PendingInjections.empty()) {
-      auto Injections = std::move(Actions.PendingInjections);
-      Actions.PendingInjections.clear();
+    while (TemplateParameterDepth == 0 && Actions.hasReadyInjections()) {
+      SmallVector<Expr::EvalStatus::TokenInjection, 4> Injections;
+      Actions.takeReadyInjections(Injections);
       ProcessTokenInjections(Injections);
     }
   }

@@ -3317,13 +3317,33 @@ bool Sema::mayHaveInjectedMembers(const CXXRecordDecl *RD) {
   return false;
 }
 
-void Sema::ProcessPendingTokenInjections() {
-  if (PendingInjections.empty() || !CanProcessTokenInjections())
+void Sema::takeReadyInjections(
+    SmallVectorImpl<Expr::EvalStatus::TokenInjection> &Out) {
+  unsigned Held = std::min<size_t>(HeldInjectionCount, PendingInjections.size());
+  Out.append(std::make_move_iterator(PendingInjections.begin() + Held),
+             std::make_move_iterator(PendingInjections.end()));
+  PendingInjections.truncate(Held);
+}
+
+void Sema::holdPendingInjections(const Decl *Owner) {
+  HeldInjectionOwner = Owner;
+  HeldInjectionCount = PendingInjections.size();
+}
+
+void Sema::releaseHeldInjections(const Decl *Owner) {
+  if (HeldInjectionOwner != Owner)
     return;
-  // Move the injections out so the callback doesn't re-process them.
-  SmallVector<Expr::EvalStatus::TokenInjection, 4>
-      Injections = std::move(PendingInjections);
-  PendingInjections.clear();
+  HeldInjectionOwner = nullptr;
+  HeldInjectionCount = 0;
+}
+
+void Sema::ProcessPendingTokenInjections() {
+  if (!hasReadyInjections() || !CanProcessTokenInjections())
+    return;
+  // Move the injections out so the callback doesn't re-process them. Those
+  // held until a class being completed is complete stay queued.
+  SmallVector<Expr::EvalStatus::TokenInjection, 4> Injections;
+  takeReadyInjections(Injections);
   DiagnosticErrorTrap Trap(Diags);
   ProcessTokenInjectionsFromParserBridge(Injections);
   // The parser's diagnostics do not show the instantiation context.
@@ -3332,7 +3352,8 @@ void Sema::ProcessPendingTokenInjections() {
 }
 
 bool Sema::EvaluateInjectMembersAnnotation(Decl *TagDecl, unsigned Index,
-                                           TokenSequenceData &Out) {
+                                           TokenSequenceData &Out,
+                                           bool HoldInjections) {
   Out = TokenSequenceData();
 
   // inject_members always runs on a non-dependent, being-completed class:
@@ -3424,9 +3445,13 @@ bool Sema::EvaluateInjectMembersAnnotation(Decl *TagDecl, unsigned Index,
   Out = ER.Val.getTokenSequence();
 
   // Injections queued by the callback target scopes outside the class; they
-  // drain after the class completes, like on_complete's.
+  // drain after the class completes, like on_complete's. When the parser is
+  // completing the class, hold them until it says the class is complete, so
+  // that instantiations in between do not process them early.
   PendingInjections.append(ER.PendingInjections.begin(),
                            ER.PendingInjections.end());
+  if (HoldInjections && !ER.PendingInjections.empty())
+    holdPendingInjections(TagDecl);
   return true;
 }
 

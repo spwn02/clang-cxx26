@@ -1899,7 +1899,7 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(DeclaratorContext Context,
     // injections while the template's definition was being parsed; they were
     // deferred so injected declarations are not parsed at an elevated
     // template parameter depth.
-    if (TemplateParameterDepth == 0 && !Actions.PendingInjections.empty() &&
+    if (TemplateParameterDepth == 0 && Actions.hasReadyInjections() &&
         Actions.CurContext->isFileContext())
       DrainPendingTokenInjections();
     return Result;
@@ -5603,9 +5603,9 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
   // while we are inside a template declaration (see the class case).
   if (TUK == TagUseKind::Definition || TUK == TagUseKind::Declaration) {
     Actions.HandleAnnotationOnComplete(TagDecl);
-    while (TemplateParameterDepth == 0 && !Actions.PendingInjections.empty()) {
-      auto Injections = std::move(Actions.PendingInjections);
-      Actions.PendingInjections.clear();
+    while (TemplateParameterDepth == 0 && Actions.hasReadyInjections()) {
+      SmallVector<Expr::EvalStatus::TokenInjection, 4> Injections;
+      Actions.takeReadyInjections(Injections);
       ProcessTokenInjections(Injections);
     }
   }
