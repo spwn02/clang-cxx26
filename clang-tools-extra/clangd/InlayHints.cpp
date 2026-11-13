@@ -1087,6 +1087,9 @@ private:
   // Get the range of the main file that *exactly* corresponds to R.
   std::optional<Range> getHintRange(SourceRange R) {
     const auto &SM = AST.getSourceManager();
+    // Always map through TokenBuffer: locations from injected tokens are body
+    // expansion locations, not user-visible positions. If TokenBuffer cannot
+    // recover a spelled main-file range, suppress the hint.
     auto Spelled = Tokens.spelledForExpanded(Tokens.expandedTokens(R));
     // TokenBuffer will return null if e.g. R corresponds to only part of a
     // macro expansion.
@@ -1096,6 +1099,7 @@ private:
     if (SM.getFileID(Spelled->front().location()) != SM.getMainFileID() ||
         SM.getFileID(Spelled->back().location()) != SM.getMainFileID())
       return std::nullopt;
+
     return Range{sourceLocToPosition(SM, Spelled->front().location()),
                  sourceLocToPosition(SM, Spelled->back().endLocation())};
   }

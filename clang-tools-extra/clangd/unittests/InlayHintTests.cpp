@@ -1351,6 +1351,53 @@ TEST(TypeHints, DoExpression) {
   )cpp");
 }
 
+TEST(InlayHints, TokenInjectionLocations) {
+  const char *Code = R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = $token_type[[decltype(id("x"))]];
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+  $token_close[[};]]
+} // namespace std::meta
+using std::meta::token_sequence;
+int takes(int named) { return named; }
+__macro declare(token_sequence n) { return @@{ auto \(n) = takes(1); }; }
+__macro call() { return @@{ takes(1) }; }
+__macro block() { return @@{ if (true) { takes(1); } }; }
+declare!($arg[[value]]);
+void f() { call!(); block!(); }
+)cpp";
+  Annotations Source(Code);
+  TestTU TU = TestTU::withCode(withReflectionOperator(Source.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+
+  Config Cfg;
+  Cfg.InlayHints.Parameters = true;
+  Cfg.InlayHints.DeducedTypes = true;
+  Cfg.InlayHints.BlockEnd = true;
+  WithContextValue WithCfg(Config::Key, std::move(Cfg));
+
+  auto AST = TU.build();
+  EXPECT_THAT(
+      hintsOfKind(AST, InlayHintKind::Type, DefaultOptsForTests),
+      ElementsAre(
+          HintMatcher(ExpectedHint{": meta::token", "token_type", Right},
+                      Source),
+          HintMatcher(ExpectedHint{": int", "arg", Right}, Source)));
+  EXPECT_THAT(hintsOfKind(AST, InlayHintKind::Parameter, DefaultOptsForTests),
+              IsEmpty());
+  EXPECT_THAT(hintsOfKind(AST, InlayHintKind::BlockEnd, DefaultOptsForTests),
+              ElementsAre(HintMatcher(ExpectedHint{" // class token_sequence",
+                                                   "token_close", Right},
+                                      Source)));
+}
+
 // Structured bindings tests.
 // Note, we hint the individual bindings, not the aggregate.
 

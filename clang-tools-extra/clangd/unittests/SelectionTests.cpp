@@ -721,6 +721,155 @@ __macro nested(token_sequence name) { return name; }
   }
 }
 
+// Exercise SelectionTree at every token boundary of injected-code macro
+// invocations. Punctuation does not necessarily select an AST node, but any
+// resulting selection must form one valid ancestor path; in particular, the
+// macro's body-expansion locations must not select unrelated sibling nodes.
+TEST(SelectionTest, InjectedMacroInvocationTokenPositions) {
+  llvm::StringRef Prelude = R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+int g;
+)cpp";
+  struct Case {
+    llvm::StringRef Name;
+    llvm::StringRef Before;
+    llvm::StringRef Invocation;
+    llvm::StringRef MacroName;
+    llvm::StringRef After;
+  };
+  const Case Cases[] = {
+      {"expression typed", R"cpp(
+__macro add(int x) { return @@{ (\(x) + 1) }; }
+int f() { return )cpp",
+       "add!(1 + 2);", "add", " }"},
+      {"expression raw", R"cpp(
+__macro identity(token_sequence x) { return x; }
+int f() { return )cpp",
+       "identity!(1 + 2);", "identity", " }"},
+      {"statement typed", R"cpp(
+__macro update(bool x) { return @@{ if (\(x)) ++g; }; }
+void f() { )cpp",
+       "update!(true);", "update", " }"},
+      {"statement raw", R"cpp(
+__macro statements(token_sequence body) { return body; }
+void f() { int value = 0; )cpp",
+       "statements!({ value += 1; value += 2; });", "statements", " }"},
+      {"declaration typed", R"cpp(
+__macro declare(int x) { return @@{ int generated = \(x); }; }
+void f() { )cpp",
+       "declare!(1 + 2);", "declare", " }"},
+      {"declaration raw", R"cpp(
+__macro declare(token_sequence name) { return @@{ int \(name) = 1; }; }
+int f() { )cpp",
+       "declare!(generated);", "declare", " return generated; }"},
+      {"mem-initializer typed", R"cpp(
+__macro initialize(int x) { return @@{ value(\(x)) }; }
+struct S { int value; S() : )cpp",
+       "initialize!(1 + 2)", "initialize", " {} };"},
+      {"mem-initializer raw", R"cpp(
+__macro initialize(token_sequence init) { return init; }
+struct S { int value; S() : )cpp",
+       "initialize!(value(1 + 2))", "initialize", " {} };"},
+      {"nested", R"cpp(
+__macro inner(int x) { return @@{ (\(x) + 1) }; }
+__macro outer(int x) { return @@{ inner!(\(x)) }; }
+int f() { return )cpp",
+       "outer!(1 + 2);", "outer", " }"},
+      {"template instantiated later", R"cpp(
+__macro add(token_sequence x) { return @@{ (\(x) + 1) }; }
+template <class T> int f(T value) { return )cpp",
+       "add!(value + 2);", "add", " }\nint use() { return f(1); }"},
+      {"explicit-object member", R"cpp(
+struct S {
+  int value;
+  __macro get(this S const &self, int n) {
+    return @@{ (\(self).value + \(n)) };
+  }
+};
+int f(S object) { return )cpp",
+       "object.get!(1 + 2);", "get", " }"},
+  };
+
+  auto IsIdent = [](char C) {
+    return (C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z') ||
+           (C >= '0' && C <= '9') || C == '_';
+  };
+  for (const Case &C : Cases) {
+    std::string Source =
+        Prelude.str() + C.Before.str() + C.Invocation.str() + C.After.str();
+    TestTU TU = TestTU::withCode(withReflectionOperator(Source));
+    TU.ExtraArgs.push_back("-std=c++29");
+    auto AST = TU.build();
+
+    // Probe the macro-name-through-terminator token starts, including nested
+    // argument tokens, then one byte immediately after the invocation.
+    size_t Begin = C.Invocation.find(C.MacroName);
+    ASSERT_NE(Begin, std::string::npos) << C.Name;
+    size_t Open = C.Invocation.find('(', C.Invocation.find('!', Begin));
+    ASSERT_NE(Open, std::string::npos) << C.Name;
+    size_t End = Open + 1;
+    unsigned ParenDepth = 1;
+    for (; End < C.Invocation.size() && ParenDepth; ++End) {
+      if (C.Invocation[End] == '(')
+        ++ParenDepth;
+      else if (C.Invocation[End] == ')')
+        --ParenDepth;
+    }
+    ASSERT_EQ(ParenDepth, 0u) << C.Name;
+    // Include a terminator where the surrounding syntax spells one. A
+    // mem-initializer invocation is followed by the constructor body instead.
+    if (End < C.Invocation.size() && C.Invocation[End] == ';')
+      ++End;
+    std::vector<size_t> Positions;
+    for (size_t I = Begin; I < End;) {
+      if (C.Invocation[I] == ' ' || C.Invocation[I] == '\t' ||
+          C.Invocation[I] == '\n' || C.Invocation[I] == '\r') {
+        ++I;
+        continue;
+      }
+      Positions.push_back(I);
+      if (IsIdent(C.Invocation[I])) {
+        do {
+          ++I;
+        } while (I < End && IsIdent(C.Invocation[I]));
+      } else {
+        ++I;
+      }
+    }
+    Positions.push_back(C.Invocation.size()); // Immediately after invocation.
+
+    const size_t InvocationOffset = Prelude.size() + C.Before.size();
+    for (size_t Position : Positions) {
+      SelectionTree ST = SelectionTree::createRight(
+          AST.getASTContext(), AST.getTokens(), InvocationOffset + Position,
+          InvocationOffset + Position);
+      ASSERT_EQ("TranslationUnitDecl", nodeKind(&ST.root())) << C.Name;
+      if (const SelectionTree::Node *Common = ST.commonAncestor()) {
+        EXPECT_TRUE(verifyCommonAncestor(ST.root(), Common, C.Invocation))
+            << C.Name << " at invocation offset " << Position << "\n"
+            << ST;
+      } else {
+        EXPECT_FALSE(llvm::any_of(allNodes(ST),
+                                  [](const auto *N) { return N->Selected; }))
+            << C.Name << " at invocation offset " << Position << "\n"
+            << ST;
+      }
+    }
+  }
+}
+
 // The raw-macro-argument rule must not change how ordinary preprocessor macros
 // are selected: a declaration whose name is a file-located token between macro
 // locations (the shape the rule looks for) is selected exactly as before.
