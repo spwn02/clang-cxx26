@@ -1781,6 +1781,7 @@ bool Parser::ParseMemInitMacroExpansion(
     SmallVectorImpl<CXXCtorInitializer *> &Out) {
   SmallVector<Token, 16> Toks(TSD.begin(), TSD.end());
   relocateExpansionTokens(PP.getSourceManager(), Toks, Invocation);
+  SourceLocation CompletionTokenLoc = getCodeCompletionTokenLoc(Toks);
   Token Eof;
   Eof.startToken();
   Eof.setKind(tok::eof);
@@ -1807,6 +1808,7 @@ bool Parser::ParseMemInitMacroExpansion(
   while (Tok.isNot(tok::eof))
     ConsumeAnyToken();
 
+  DrainCodeCompletionTokens(PP, Tok, CompletionTokenLoc);
   Tok = SavedTok;
   return Invalid;
 }
