@@ -9,4 +9,6 @@ module;
 export module M;
 
 export constexpr std::meta::token_sequence exported = ^^{ x . y ( 1 , "s" ) };
+export constexpr std::meta::token_sequence nested =
+    ^^{ outer + ^^{ inner * \(2) } + \(42) + "text"; };
 export consteval std::meta::token_sequence make() { return ^^{ return 42 ; } + ^^{ ; }; }

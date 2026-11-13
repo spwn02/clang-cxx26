@@ -12,6 +12,8 @@
 static_assert(expression_form(1) == 2);
 static_assert(instantiated() == 2);
 int use(Holder h, int k) { return member_form(h) + (statement_forms(h, k), declared); }
+static_assert(DeferredDeclaration<DeferredMacros>{}.added == 1);
+static_assert(deferred_statement<DeferredMacros>(3) == 3);
 
 // CHECK: FunctionDecl {{.*}} expression_form
 // CHECK: CXXMacroInvocationExpr {{.*}} 'int'

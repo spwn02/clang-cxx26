@@ -18,3 +18,4 @@ static_assert(with_value == ^^{ x = \(42) });
 // (Two namespace interpolations compare unequal even without a PCH: splice
 // identity, not spelling.) The token and its splice survive being written.
 static_assert(!(with_namespace == empty_ts));
+static_assert(nested_quote == ^^{ outer + ^^{ inner * \(2) } + \(42) + "text"; });

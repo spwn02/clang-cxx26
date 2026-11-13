@@ -17,3 +17,6 @@ constexpr std::meta::token_sequence with_template = ^^{ \(^^Box)<int> b };
 constexpr std::meta::token_sequence with_value = ^^{ x = \(42) };
 namespace ns { constexpr int q = 5; }
 constexpr std::meta::token_sequence with_namespace = ^^{ \(^^ns)::q };
+// A nested quote with an interpolation in each quoted token sequence.
+constexpr std::meta::token_sequence nested_quote =
+    ^^{ outer + ^^{ inner * \(2) } + \(42) + "text"; };

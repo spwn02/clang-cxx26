@@ -22,6 +22,17 @@ export constexpr int expression_form(int k) { return inc!(k); }
 export inline int member_form(Holder h) { return h.bump!(1); }
 export inline void statement_form(int k) { inc!(k); }
 export template <class T> constexpr T dependent_form(T t) { return inc!(t); }
+export struct DeferredMacros {
+  static __macro declare(std::meta::token_sequence name) {
+    return ^^{ int \(name) = 1; };
+  }
+  static __macro statement(int n) { return ^^{ (void)\(n); }; }
+};
+export template <class H> struct DeferredDeclaration { H::declare!(added); };
+export template <class H> constexpr int deferred_statement(int n) {
+  H::statement!(n);
+  return n;
+}
 
 // CHECK: FunctionDecl {{.*}} expression_form
 // CHECK: CXXMacroInvocationExpr {{.*}} 'int'
@@ -36,4 +47,6 @@ export template <class T> constexpr T dependent_form(T t) { return inc!(t); }
 import forms;
 static_assert(expression_form(41) == 42);
 static_assert(dependent_form(1) == 2);
+static_assert(DeferredDeclaration<DeferredMacros>{}.added == 1);
+static_assert(deferred_statement<DeferredMacros>(3) == 3);
 int use(Holder h) { statement_form(1); return member_form(h); }

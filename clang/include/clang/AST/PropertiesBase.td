@@ -455,7 +455,7 @@ let Class = PropertyTypeCase<APValue, "TokenSequence"> in {
       tok::TokenKind K = T.getKind();
       unsigned Flags = T.getFlags();
       SourceLocation EndLoc;
-      unsigned Len = 0;
+      unsigned Len = T.isAnnotation() ? 0 : T.getLength();
       const IdentifierInfo *II = nullptr;
       if (T.isAnnotation()) {
         EndLoc = T.getAnnotationEndLoc();
@@ -481,7 +481,6 @@ let Class = PropertyTypeCase<APValue, "TokenSequence"> in {
           break;
         }
       } else if (T.isLiteral() || K == tok::raw_identifier) {
-        Len = T.getLength();
         const char *P = T.isLiteral() ? T.getLiteralData() : T.getRawIdentifier().data();
         bufSpelling.append(P, P + Len);
       } else {
@@ -526,6 +525,8 @@ let Class = PropertyTypeCase<APValue, "TokenSequence"> in {
       T.startToken();
       T.setKind(static_cast<tok::TokenKind>(tokKinds[i]));
       T.setLocation(tokLocs[i]);
+      if (!T.isAnnotation())
+        T.setLength(tokLens[i]);
       if (T.isAnnotation()) {
         T.setAnnotationEndLoc(tokEndLocs[i]);
         switch (T.getKind()) {
@@ -543,7 +544,6 @@ let Class = PropertyTypeCase<APValue, "TokenSequence"> in {
           break;
         }
       } else if (T.isLiteral() || T.is(tok::raw_identifier)) {
-        T.setLength(tokLens[i]);
         if (T.is(tok::raw_identifier))
           T.setRawIdentifierData(spell + nSpell);
         else

@@ -18,3 +18,17 @@ inline void statement_forms(Holder h, int k) {
 template <class T> constexpr T dependent_form(T t) { return inc!(t); }
 constexpr int instantiated() { return dependent_form(1); }
 declare_it!(declared);
+
+// A dependent macro lookup defers declaration, statement and mem-initializer
+// arguments until the importer instantiates each template.
+struct DeferredMacros {
+  static __macro declare(std::meta::token_sequence name) {
+    return ^^{ int \(name) = 1; };
+  }
+  static __macro statement(int n) { return ^^{ (void)\(n); }; }
+};
+template <class H> struct DeferredDeclaration { H::declare!(added); };
+template <class H> constexpr int deferred_statement(int n) {
+  H::statement!(n);
+  return n;
+}
