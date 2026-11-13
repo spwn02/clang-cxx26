@@ -129,6 +129,8 @@ public:
     DynTypedNode ASTNode;
     // The extent to which this node is covered by the selection.
     Selection Selected;
+    // The selection matched this node's raw file-located macro argument name.
+    bool SelectedViaRawArgument = false;
     // Walk up the AST to get the lexical DeclContext of this Node, which is not
     // the node itself.
     const DeclContext &getDeclContext() const;
@@ -141,9 +143,11 @@ public:
     // return that wrapper. (If multiple are present, unwraps all of them).
     const Node &outerImplicit() const;
   };
-  // The most specific common ancestor of all the selected nodes.
-  // Returns nullptr if the common ancestor is the root.
-  // (This is to avoid accidentally traversing the TUDecl and thus preamble).
+  // The most specific common ancestor of all the selected nodes. For a raw
+  // macro-argument name on a synthesized declaration, returns that declaration
+  // even when the AST places it outside the macro invocation node.
+  // Otherwise returns nullptr if the common ancestor is the root. (This is to
+  // avoid accidentally traversing the TUDecl and thus preamble).
   const Node *commonAncestor() const;
   // The selection node corresponding to TranslationUnitDecl.
   const Node &root() const { return *Root; }

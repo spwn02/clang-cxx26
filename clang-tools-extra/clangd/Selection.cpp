@@ -361,6 +361,12 @@ public:
     return true;
   }
 
+  SelectionTree::Selection testSpelledLocation(SourceLocation Loc) const {
+    if (auto Offset = offsetInSelFile(Loc))
+      return testToken(*Offset);
+    return NoTokens;
+  }
+
 private:
   // Plausible expanded tokens that might be affected by the selection.
   // This is an overestimate, it may contain tokens that are not selected.
@@ -808,7 +814,9 @@ private:
     if (llvm::any_of(getAttributes(N),
                      [](const Attr *A) { return !A->isImplicit(); }))
       return false;
-    if (!SelChecker.mayHit(S)) {
+    SourceRange Early = earlySourceRange(N);
+    if (!SelChecker.mayHit(S) &&
+        !(isRawArgumentName(N, Early) && SelChecker.mayHit(Early))) {
       dlog("{2}skip: {0} {1}", printNodeToString(N, PrintPolicy),
            S.printToString(SM), indent());
       return true;
@@ -829,13 +837,21 @@ private:
   // Performs early hit detection for some nodes (on the earlySourceRange).
   void push(DynTypedNode Node) {
     SourceRange Early = earlySourceRange(Node);
+    bool RawArgumentName =
+        isRawArgumentName(Node, Early) &&
+        SelChecker.testSpelledLocation(Early.getBegin()) ==
+            SelectionTree::Complete;
     dlog("{2}push: {0} {1}", printNodeToString(Node, PrintPolicy),
          Node.getSourceRange().printToString(SM), indent());
     Nodes.emplace_back();
     Nodes.back().ASTNode = std::move(Node);
     Nodes.back().Parent = Stack.top();
     Nodes.back().Selected = NoTokens;
+    Nodes.back().SelectedViaRawArgument = RawArgumentName;
     Stack.push(&Nodes.back());
+    if (RawArgumentName)
+      update(Nodes.back().Selected,
+             SelChecker.testSpelledLocation(Early.getBegin()));
     claimRange(Early, Nodes.back().Selected);
   }
 
@@ -888,6 +904,14 @@ private:
     }
 
     return SourceRange();
+  }
+
+  bool isRawArgumentName(const DynTypedNode &N, SourceRange Early) const {
+    const auto *D = N.get<NamedDecl>();
+    SourceRange Full = N.getSourceRange();
+    return D && Early.isValid() && Early.getBegin() == Early.getEnd() &&
+           Early.getBegin().isFileID() && Full.getBegin().isMacroID() &&
+           Full.getEnd().isMacroID();
   }
 
   // Claim tokens for N, after processing its children.
@@ -1104,6 +1128,24 @@ const Node *SelectionTree::commonAncestor() const {
   const Node *Ancestor = Root;
   while (Ancestor->Children.size() == 1 && !Ancestor->Selected)
     Ancestor = Ancestor->Children.front();
+  if (Ancestor == Root) {
+    // A declaration produced by a token-sequence macro can be a separate AST
+    // root from the invocation marker. If its name is a raw argument token,
+    // that declaration is selected directly even though the invocation node
+    // is also partially selected.
+    const Node *DirectDecl = nullptr;
+    for (const Node &N : Nodes) {
+      const auto *D = N.ASTNode.get<NamedDecl>();
+      if (!D || !N.SelectedViaRawArgument ||
+          N.Selected != SelectionTree::Complete)
+        continue;
+      if (DirectDecl)
+        return nullptr;
+      DirectDecl = &N;
+    }
+    if (DirectDecl)
+      return DirectDecl;
+  }
   // Returning nullptr here is a bit unprincipled, but it makes the API safer:
   // the TranslationUnitDecl contains all of the preamble, so traversing it is a
   // performance cliff. Callers can check for null and use root() if they want.

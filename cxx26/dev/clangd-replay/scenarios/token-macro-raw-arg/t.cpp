@@ -18,9 +18,6 @@ public:
 
 using std::meta::token_sequence;
 
-// TODO(#534): hover, definition, references, and rename with the cursor on
-// the argument token inside declare_it!(zz).
-// TODO(#535): completion inside the raw macro argument.
 __macro declare_it(token_sequence name) { return ^^{ int \(name) = 1; }; }
 declare_it!(zz);
 int use_zz() { return zz; }

@@ -1,8 +1,15 @@
 [
- {"line":26,"col":22,"request":"textDocument/hover","label":"hover-use-zz","pre":2500,"wait":300},
- {"line":26,"col":22,"request":"textDocument/definition","label":"def-use-zz","pre":300,"wait":300},
- {"line":26,"col":22,"request":"textDocument/references","label":"refs-use-zz","pre":300,"wait":300},
- {"line":26,"col":22,"request":"textDocument/rename","newName":"renamed_zz","label":"rename-use-zz","pre":300,"wait":300},
+ {"line":21,"col":12,"hover":"hover-arg-zz","pre":300,"wait":300},
+ {"line":22,"col":12,"request":"textDocument/definition","label":"def-arg-zz","pre":300,"wait":300},
+ {"line":22,"col":12,"request":"textDocument/references","label":"refs-arg-zz","pre":300,"wait":300},
+ {"line":22,"col":12,"request":"textDocument/rename","newName":"renamed_zz","label":"rename-arg-zz","pre":300,"wait":300},
+ {"line":20,"col":8,"hover":"hover-macro-name","pre":300,"wait":300},
+ {"line":20,"col":18,"hover":"hover-macro-bang","pre":300,"wait":300},
+ {"line":20,"col":19,"hover":"hover-macro-paren","pre":300,"wait":300},
+ {"line":23,"col":22,"request":"textDocument/hover","label":"hover-use-zz","pre":2500,"wait":300},
+ {"line":23,"col":22,"request":"textDocument/definition","label":"def-use-zz","pre":300,"wait":300},
+ {"line":23,"col":22,"request":"textDocument/references","label":"refs-use-zz","pre":300,"wait":300},
+ {"line":23,"col":22,"request":"textDocument/rename","newName":"renamed_zz","label":"rename-use-zz","pre":300,"wait":300},
  {"line":1,"col":0,"request":"textDocument/semanticTokens/full","label":"sem-raw-arg","pre":300,"wait":500},
  {"line":1,"col":0,"diagnostics":"diag-raw-arg","pre":300,"wait":300}
 ]

@@ -2228,6 +2228,63 @@ using std::meta::token_sequence;
                                    rangeIs(Code.range("use"))));
 }
 
+TEST(TokenSequenceNavigation, DeclMacroRawArgumentDefinition) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+  friend consteval bool operator==(const token_sequence &,
+                                   const token_sequence &);
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+__macro declare_it(token_sequence name) { return @@{ int \(name) = 1; }; }
+declare_it!($arg[[z^z]]);
+int use_zz() { return zz; }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  EXPECT_THAT(locateSymbolAt(AST, Code.point(), TU.index().get()),
+              ElementsAre(sym("zz", Code.range("arg"), Code.range("arg"))));
+}
+
+TEST(TokenSequenceNavigation, DeclMacroRawArgumentReferences) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+  friend consteval bool operator==(const token_sequence &,
+                                   const token_sequence &);
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+__macro declare_it(token_sequence name) { return @@{ int \(name) = 1; }; }
+declare_it!($arg[[z^z]]);
+int use_zz() { return $use[[zz]]; }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  EXPECT_THAT(findReferences(AST, Code.point(), 0, nullptr).References,
+              UnorderedElementsAre(rangeIs(Code.range("arg")),
+                                   rangeIs(Code.range("use"))));
+}
+
 TEST(DoExpressionNavigation, GoToTypeOfDoReturn) {
   Annotations HeaderA(R"cpp(
     struct $Target[[Target]] {};

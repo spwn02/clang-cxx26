@@ -972,6 +972,40 @@ TEST(RenameTest, DoExpressions) {
   }
 }
 
+TEST(RenameTest, DeclMacroRawArgument) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+  friend consteval bool operator==(const token_sequence &,
+                                   const token_sequence &);
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+__macro declare_it(token_sequence name) { return @@{ int \(name) = 1; }; }
+declare_it!([[z^z]]);
+int use_zz() { return [[zz]]; }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  auto Index = TU.index();
+  auto Results = rename({Code.point(), "renamed_zz", AST,
+                         testPath(TU.Filename), getVFSFromAST(AST),
+                         Index.get()});
+  ASSERT_TRUE(bool(Results)) << llvm::toString(Results.takeError());
+  ASSERT_EQ(1u, Results->GlobalChanges.size());
+  EXPECT_EQ(applyEdits(std::move(Results->GlobalChanges)).front().second,
+            withReflectionOperator(expectedResult(Code, "renamed_zz")));
+}
+
 TEST(RenameTest, PatternMatching) {
   // The variables a pattern declares are renamed with all their uses.
   llvm::StringRef Tests[] = {

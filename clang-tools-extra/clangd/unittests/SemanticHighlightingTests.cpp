@@ -123,6 +123,7 @@ using std::meta::token_sequence;
 consteval token_sequence f(int $param[[count]]) {
   return @@{ $raw[[foo]] = \($use[[count]]) };
 }
+
   )cpp");
   TestTU TU = TestTU::withCode(withReflectionOperator(Test.code()));
   TU.ExtraArgs.push_back("-std=c++2d");
@@ -142,6 +143,40 @@ consteval token_sequence f(int $param[[count]]) {
   // variable or a function.)
   EXPECT_NE(KindAt("raw"), HighlightingKind::Variable);
   EXPECT_NE(KindAt("raw"), HighlightingKind::Function);
+}
+
+TEST(SemanticHighlighting, DeclMacroRawArgument) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+  friend consteval bool operator==(const token_sequence &,
+                                   const token_sequence &);
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+__macro declare_it(token_sequence name) { return @@{ int \(name) = 1; }; }
+declare_it!($arg[[zz]]);
+int use_zz() { return zz; }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  auto Tokens =
+      getSemanticHighlightings(AST, /*IncludeInactiveRegionTokens=*/true);
+  auto It = llvm::find_if(Tokens, [&](const HighlightingToken &Token) {
+    return Token.R == Code.range("arg");
+  });
+  ASSERT_NE(It, Tokens.end());
+  EXPECT_EQ(It->Kind, HighlightingKind::Variable);
+  EXPECT_TRUE(It->Modifiers & (1 << unsigned(HighlightingModifier::Definition)));
 }
 
 TEST(SemanticHighlighting, DoExpressions) {
