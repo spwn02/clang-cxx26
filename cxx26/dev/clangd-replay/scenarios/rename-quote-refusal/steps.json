@@ -1,0 +1,4 @@
+[
+ {"line":16,"col":5,"request":"textDocument/prepareRename","label":"prepare-quote-refusal","pre":300,"wait":300},
+ {"line":16,"col":5,"request":"textDocument/rename","newName":"renamed_target","label":"rename-quote-refusal","pre":300,"wait":300}
+]

@@ -120,6 +120,9 @@ local function run_step(i)
         end
         local parts = {}
         for _, r in pairs(res) do
+          if r.err then
+            table.insert(parts, "error: " .. ((r.err.message or ""):gsub("%s+", " ")))
+          end
           local v = r.result
           if s.request == "textDocument/rename" and type(v) == "table" then
             -- the edits as line:col of each replaced range

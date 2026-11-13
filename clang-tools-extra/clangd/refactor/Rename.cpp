@@ -23,19 +23,23 @@
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DeclarationName.h"
+#include "clang/AST/ExprCXX.h"
 #include "clang/AST/ParentMapContext.h"
+#include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/AST/Stmt.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Tooling/Syntax/Tokens.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/JSON.h"
 #include <algorithm>
+#include <cctype>
 #include <optional>
 
 namespace clang {
@@ -279,6 +283,187 @@ llvm::Error makeError(ReasonToReject Reason) {
     llvm_unreachable("unhandled reason kind");
   };
   return error("Cannot rename symbol: {0}", Message(Reason));
+}
+
+struct QuoteTokenOccurrence {
+  size_t Offset;
+  unsigned Line;
+  unsigned Column;
+};
+
+class QuoteTokenVisitor : public RecursiveASTVisitor<QuoteTokenVisitor> {
+public:
+  QuoteTokenVisitor(const SourceManager &SM, llvm::StringRef Name,
+                    const FunctionDecl *LocalFunction)
+      : SM(SM), Name(Name), LocalFunction(LocalFunction) {}
+
+  bool VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
+    if (LocalFunction && !isInLocalFunction(E->getOperatorLoc()))
+      return true;
+    auto Tokens = E->getTokenSequence();
+    llvm::SmallDenseSet<unsigned, 4> ParamIndices;
+    for (const TokenSequenceParamBinding &Binding : E->getParamBindings())
+      ParamIndices.insert(Binding.TokenIndex);
+    for (unsigned I = 0; I < Tokens.size(); ++I) {
+      const Token &Tok = Tokens[I];
+      // Interpolation nodes are ordinary AST expressions. Their tokens must
+      // not be mistaken for text captured by the quote.
+      if (Tok.is(tok::annot_token_seq_expr) || ParamIndices.contains(I) ||
+          !Tok.is(tok::identifier) || !Tok.getIdentifierInfo() ||
+          Tok.getIdentifierInfo()->getName() != Name)
+        continue;
+      SourceLocation Loc = Tok.getLocation();
+      if (Loc.isInvalid() || !Loc.isFileID() || !isInsideMainFile(Loc, SM))
+        continue;
+      PresumedLoc PLoc = SM.getPresumedLoc(Loc);
+      if (PLoc.isInvalid())
+        continue;
+      size_t Offset = SM.getFileOffset(Loc);
+      if (!First || Offset < First->Offset)
+        First = QuoteTokenOccurrence{Offset, PLoc.getLine(), PLoc.getColumn()};
+      break;
+    }
+    return true;
+  }
+
+  std::optional<QuoteTokenOccurrence> first() const { return First; }
+
+private:
+  bool isInLocalFunction(SourceLocation Loc) const {
+    if (!LocalFunction || !LocalFunction->hasBody())
+      return false;
+    SourceLocation Begin =
+        SM.getSpellingLoc(LocalFunction->getBody()->getBeginLoc());
+    SourceLocation End =
+        SM.getSpellingLoc(LocalFunction->getBody()->getEndLoc());
+    Loc = SM.getSpellingLoc(Loc);
+    if (Begin.isInvalid() || End.isInvalid() || Loc.isInvalid() ||
+        SM.getFileID(Begin) != SM.getFileID(End) ||
+        SM.getFileID(Begin) != SM.getFileID(Loc))
+      return false;
+    unsigned Offset = SM.getFileOffset(Loc);
+    return SM.getFileOffset(Begin) <= Offset && Offset <= SM.getFileOffset(End);
+  }
+
+  const SourceManager &SM;
+  llvm::StringRef Name;
+  const FunctionDecl *LocalFunction;
+  std::optional<QuoteTokenOccurrence> First;
+};
+
+std::optional<QuoteTokenOccurrence>
+findQuoteTokenInAST(ParsedAST &AST, llvm::StringRef Name,
+                    const FunctionDecl *LocalFunction = nullptr) {
+  QuoteTokenVisitor Visitor(AST.getSourceManager(), Name, LocalFunction);
+  for (Decl *D : AST.getLocalTopLevelDecls())
+    Visitor.TraverseDecl(D);
+  return Visitor.first();
+}
+
+// Cross-file rename deliberately does not build ASTs for every affected file.
+// Conservatively scan quote bodies in their current buffers, skipping
+// interpolation holes because those identifiers are normal C++ references.
+std::optional<QuoteTokenOccurrence> findQuoteTokenInText(llvm::StringRef Code,
+                                                         llvm::StringRef Name) {
+  auto IsIdentStart = [](char C) {
+    return std::isalpha(static_cast<unsigned char>(C)) || C == '_';
+  };
+  auto IsIdentContinue = [&](char C) {
+    return IsIdentStart(C) || std::isdigit(static_cast<unsigned char>(C));
+  };
+  auto SkipQuoted = [&](size_t &Pos, char Quote) {
+    ++Pos;
+    while (Pos < Code.size()) {
+      if (Code[Pos] == '\\') {
+        Pos = std::min(Pos + 2, Code.size());
+        continue;
+      }
+      if (Code[Pos++] == Quote)
+        break;
+    }
+  };
+  auto SkipCommentOrLiteral = [&](size_t &Pos) {
+    if (Code.substr(Pos).starts_with("//")) {
+      Pos = Code.find('\n', Pos);
+      if (Pos == llvm::StringRef::npos)
+        Pos = Code.size();
+      return true;
+    }
+    if (Code.substr(Pos).starts_with("/*")) {
+      size_t End = Code.find("*/", Pos + 2);
+      Pos = End == llvm::StringRef::npos ? Code.size() : End + 2;
+      return true;
+    }
+    if (Code[Pos] == '"' || Code[Pos] == '\'') {
+      SkipQuoted(Pos, Code[Pos]);
+      return true;
+    }
+    return false;
+  };
+  auto SkipInterpolation = [&](size_t &Pos) {
+    Pos += 2; // \\(
+    unsigned Depth = 1;
+    while (Pos < Code.size() && Depth) {
+      if (SkipCommentOrLiteral(Pos))
+        continue;
+      if (Code[Pos] == '(')
+        ++Depth;
+      else if (Code[Pos] == ')')
+        --Depth;
+      ++Pos;
+    }
+  };
+
+  size_t Pos = 0;
+  while (Pos < Code.size()) {
+    if (SkipCommentOrLiteral(Pos))
+      continue;
+    if (!Code.substr(Pos).starts_with("^^{")) {
+      ++Pos;
+      continue;
+    }
+    size_t I = Pos + 3;
+    unsigned BraceDepth = 1;
+    while (I < Code.size() && BraceDepth) {
+      if (SkipCommentOrLiteral(I))
+        continue;
+      if (Code[I] == '\\' && I + 1 < Code.size() && Code[I + 1] == '(') {
+        SkipInterpolation(I);
+        continue;
+      }
+      if (Code[I] == '{')
+        ++BraceDepth;
+      else if (Code[I] == '}')
+        --BraceDepth;
+      else if (IsIdentStart(Code[I])) {
+        size_t Begin = I++;
+        while (I < Code.size() && IsIdentContinue(Code[I]))
+          ++I;
+        if (Code.substr(Begin, I - Begin) == Name) {
+          size_t Line = 1, LineStart = 0;
+          for (size_t J = 0; J < Begin; ++J)
+            if (Code[J] == '\n') {
+              ++Line;
+              LineStart = J + 1;
+            }
+          return QuoteTokenOccurrence{
+              Begin, static_cast<unsigned>(Line),
+              static_cast<unsigned>(Begin - LineStart + 1)};
+        }
+        continue;
+      }
+      ++I;
+    }
+    Pos = I;
+  }
+  return std::nullopt;
+}
+
+llvm::Error quoteRenameError(llvm::StringRef FilePath,
+                             const QuoteTokenOccurrence &Occurrence) {
+  return error("Cannot rename symbol: quote would not be updated in file {0} "
+               "at {1}:{2}",
+               FilePath, Occurrence.Line, Occurrence.Column);
 }
 
 // Return all rename occurrences in the main file.
@@ -933,6 +1118,8 @@ renameOutsideFile(const NamedDecl &RenameDecl, llvm::StringRef MainFilePath,
   if (!AffectedFiles)
     return AffectedFiles.takeError();
   FileEdits Results;
+  const IdentifierInfo *OldIdentifier = RenameDecl.getIdentifier();
+  llvm::StringRef OldName = OldIdentifier ? OldIdentifier->getName() : "";
   for (auto &FileAndOccurrences : *AffectedFiles) {
     llvm::StringRef FilePath = FileAndOccurrences.first();
 
@@ -963,6 +1150,9 @@ renameOutsideFile(const NamedDecl &RenameDecl, llvm::StringRef MainFilePath,
     if (!RenameEdit)
       return error("failed to rename in file {0}: {1}", FilePath,
                    RenameEdit.takeError());
+    if (!OldName.empty() && !RenameEdit->Replacements.empty())
+      if (auto Occurrence = findQuoteTokenInText(AffectedFileCode, OldName))
+        return quoteRenameError(FilePath, *Occurrence);
     if (!RenameEdit->Replacements.empty())
       Results.insert({FilePath, std::move(*RenameEdit)});
   }
@@ -1131,6 +1321,12 @@ llvm::Expected<RenameResult> rename(const RenameInputs &RInputs) {
   auto MainFileRenameEdit = renameWithinFile(AST, RenameDecl, RInputs.NewName);
   if (!MainFileRenameEdit)
     return MainFileRenameEdit.takeError();
+  if (!MainFileRenameEdit->empty() && RenameDecl.getIdentifier())
+    if (auto Occurrence =
+            findQuoteTokenInAST(AST, RenameDecl.getIdentifier()->getName(),
+                                dyn_cast_or_null<FunctionDecl>(
+                                    RenameDecl.getParentFunctionOrMethod())))
+      return quoteRenameError(RInputs.MainFilePath, *Occurrence);
 
   llvm::DenseSet<Range> RenamedRanges;
   if (!isa<ObjCMethodDecl>(RenameDecl)) {

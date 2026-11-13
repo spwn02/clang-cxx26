@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Annotations.h"
+#include "AST.h"
 #include "ClangdServer.h"
 #include "SyncAPI.h"
 #include "TestFS.h"
@@ -1006,6 +1007,128 @@ int use_zz() { return [[zz]]; }
             withReflectionOperator(expectedResult(Code, "renamed_zz")));
 }
 
+TEST(RenameTest, TokenSequenceQuoteRenameSafety) {
+  struct TestCase {
+    llvm::StringRef Code;
+    bool Refuse;
+  };
+  const TestCase Tests[] = {
+      {R"cpp(
+        namespace std::meta {
+        template <class... Ts> consteval auto id(Ts const &...) -> int;
+        using token = decltype(id("x"));
+        class token_sequence { public:
+          constexpr token_sequence() noexcept = default;
+          friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+          friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+          friend consteval bool operator==(const token_sequence &, const token_sequence &);
+        };
+        }
+        using std::meta::token_sequence;
+        void target^();
+        int use() { target(); return 0; }
+        constexpr auto quote = @@{ target(); };
+      )cpp",
+       true},
+      {R"cpp(
+        namespace std::meta {
+        template <class... Ts> consteval auto id(Ts const &...) -> int;
+        using token = decltype(id("x"));
+        class token_sequence { public:
+          constexpr token_sequence() noexcept = default;
+          friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+          friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+          friend consteval bool operator==(const token_sequence &, const token_sequence &);
+        };
+        }
+        using std::meta::token_sequence;
+        void target^();
+        int use() { target(); return 0; }
+      )cpp",
+       false},
+      {R"cpp(
+        namespace std::meta {
+        template <class... Ts> consteval auto id(Ts const &...) -> int;
+        using token = decltype(id("x"));
+        class token_sequence { public:
+          constexpr token_sequence() noexcept = default;
+          friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+          friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+          friend consteval bool operator==(const token_sequence &, const token_sequence &);
+        };
+        }
+        using std::meta::token_sequence;
+        consteval int target^() { return 0; }
+        constexpr auto quote = @@{ \(target()); };
+      )cpp",
+       false},
+      {R"cpp(
+        namespace std::meta {
+        template <class... Ts> consteval auto id(Ts const &...) -> int;
+        using token = decltype(id("x"));
+        class token_sequence { public:
+          constexpr token_sequence() noexcept = default;
+          friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+          friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+          friend consteval bool operator==(const token_sequence &, const token_sequence &);
+        };
+        }
+        using std::meta::token_sequence;
+        void f() { int local^ = 1; }
+        constexpr auto quote = @@{ local };
+      )cpp",
+       false},
+      {R"cpp(
+        namespace std::meta {
+        template <class... Ts> consteval auto id(Ts const &...) -> int;
+        using token = decltype(id("x"));
+        class token_sequence { public:
+          constexpr token_sequence() noexcept = default;
+          friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+          friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+          friend consteval bool operator==(const token_sequence &, const token_sequence &);
+        };
+        }
+        using std::meta::token_sequence;
+        void f() { int local^ = 1; constexpr auto quote = @@{ local }; }
+      )cpp",
+       true},
+      {R"cpp(
+        namespace std::meta {
+        template <class... Ts> consteval auto id(Ts const &...) -> int;
+        using token = decltype(id("x"));
+        class token_sequence { public:
+          constexpr token_sequence() noexcept = default;
+          friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+          friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+          friend consteval bool operator==(const token_sequence &, const token_sequence &);
+        };
+        }
+        using std::meta::token_sequence;
+        template <typename target^> auto f() { return @@{ target }; }
+      )cpp",
+       false},
+  };
+
+  for (const TestCase &T : Tests) {
+    Annotations Code(T.Code);
+    TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+    TU.ExtraArgs.push_back("-std=c++29");
+    auto AST = TU.build();
+    auto Results =
+        rename({Code.point(), "renamed_target", AST, testPath(TU.Filename)});
+    if (T.Refuse) {
+      ASSERT_FALSE(Results) << "rename should refuse to leave quote text stale";
+      std::string Message = llvm::toString(Results.takeError());
+      EXPECT_THAT(Message, testing::HasSubstr(testPath(TU.Filename)));
+      EXPECT_THAT(Message, testing::HasSubstr("quote would not be updated"));
+      EXPECT_THAT(Message, testing::MatchesRegex(".*at [0-9]+:[0-9]+.*"));
+    } else {
+      ASSERT_TRUE(bool(Results)) << llvm::toString(Results.takeError());
+    }
+  }
+}
+
 TEST(RenameTest, PatternMatching) {
   // The variables a pattern declares are renamed with all their uses.
   llvm::StringRef Tests[] = {
@@ -1838,6 +1961,48 @@ TEST(CrossFileRenameTests, DirtyBuffer) {
   EXPECT_FALSE(Results);
   EXPECT_THAT(llvm::toString(Results.takeError()),
               testing::HasSubstr("too many occurrences"));
+}
+
+TEST(CrossFileRenameTests, TokenSequenceQuoteRefusesRename) {
+  Annotations MainCode("void target^(); int use() { target(); return 0; }");
+  Annotations OtherCode(R"cpp(
+    void target() {}
+    void other() { [[target]](); }
+    constexpr auto quote = @@{ target(); };
+  )cpp");
+  std::string MainPath = testPath("main.cc");
+  std::string OtherPath = testPath("other.cc");
+  TestTU TU = TestTU::withCode(MainCode.code());
+  TU.AdditionalFiles["other.cc"] = withReflectionOperator(OtherCode.code());
+  auto AST = TU.build();
+
+  const FunctionDecl *Target = nullptr;
+  for (Decl *D : AST.getLocalTopLevelDecls())
+    if (const auto *FD = dyn_cast<FunctionDecl>(D))
+      if (FD->getName() == "target")
+        Target = FD;
+  ASSERT_NE(Target, nullptr);
+  RefSlab::Builder Refs;
+  std::string OtherURI = URI::create(OtherPath).toString();
+  Refs.insert(getSymbolID(Target),
+              refWithRange(OtherCode.ranges().front(), OtherURI));
+  FileSymbols Symbols(IndexContents::All, true);
+  Symbols.update(OtherPath, nullptr,
+                 std::make_unique<RefSlab>(std::move(Refs).build()), nullptr,
+                 false);
+  auto Index = Symbols.buildIndex(IndexType::Light);
+  RefsRequest Req;
+  Req.IDs.insert(getSymbolID(Target));
+  size_t RefCount = 0;
+  Index->refs(Req, [&](const Ref &) { ++RefCount; });
+  ASSERT_EQ(RefCount, 1u);
+  auto Results = rename({MainCode.point(), "renamed", AST, MainPath,
+                         getVFSFromAST(AST), Index.get()});
+  ASSERT_FALSE(Results);
+  std::string Message = llvm::toString(Results.takeError());
+  EXPECT_THAT(Message, testing::HasSubstr(OtherPath));
+  EXPECT_THAT(Message, testing::HasSubstr("quote would not be updated"));
+  EXPECT_THAT(Message, testing::MatchesRegex(".*at [0-9]+:[0-9]+.*"));
 }
 
 TEST(CrossFileRenameTests, DeduplicateRefsFromIndex) {
