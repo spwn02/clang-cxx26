@@ -650,7 +650,7 @@ TEST(SelectionTest, CommonAncestor) {
   }
 }
 
-TEST(SelectionTest, DeclMacroRawArgumentProbe) {
+TEST(SelectionTest, DeclMacroRawArgumentSelectsDeclaration) {
   const char *MarkedCode = R"cpp(
 namespace std::meta {
 template <class... Ts> consteval auto id(Ts const &...) -> int;
@@ -676,7 +676,6 @@ int use_zz() { return zz; }
   TU.ExtraArgs.push_back("-std=c++29");
   auto AST = TU.build();
   SelectionTree ST = makeSelectionTree(MarkedCode, AST);
-  llvm::errs() << "SelectionTree at raw macro argument:\n" << ST;
   bool SelectsDeclaredZZ = llvm::any_of(
       allNodes(ST), [](const SelectionTree::Node *N) {
     const auto *VD = N->ASTNode.get<VarDecl>();
@@ -719,6 +718,21 @@ __macro nested(token_sequence name) { return name; }
     auto AST = TU.build();
     SelectionTree ST = makeSelectionTree(MarkedCode, AST);
     EXPECT_NE(&ST.root(), nullptr) << Call;
+  }
+}
+
+// The raw-macro-argument rule must not change how ordinary preprocessor macros
+// are selected: a declaration whose name is a file-located token between macro
+// locations (the shape the rule looks for) is selected exactly as before.
+TEST(SelectionTest, PreprocessorMacroDeclarationIsUnaffectedByRawArgumentRule) {
+  for (const char *Code : {
+           "#define INT int\n#define ONE 1\nINT ^x = ONE;",
+           "#define DECL(T, N) T N = 1;\nDECL(int, v^v)",
+       }) {
+    auto AST = TestTU::withCode(Annotations(Code).code()).build();
+    auto T = makeSelectionTree(Code, AST);
+    ASSERT_NE(T.commonAncestor(), nullptr) << Code;
+    EXPECT_EQ("VarDecl", nodeKind(T.commonAncestor())) << Code << "\n" << T;
   }
 }
 
