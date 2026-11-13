@@ -214,6 +214,66 @@ public:
   Parser(Preprocessor &PP, Sema &Actions, bool SkipFunctionBodies);
   ~Parser() override;
 
+  /// Enter a parser-owned token array as an injected stream and restore the
+  /// enclosing token when parsing leaves the scope. Code completion can stop
+  /// parsing before the injected stream's eof; finish() drains that remainder
+  /// while the local token array is still alive.
+  class InjectedTokenStreamScope {
+    Parser &P;
+    Token SavedTok;
+    SourceLocation CompletionTokenLoc;
+    SourceLocation SavedPrevTokLocation;
+    bool RestorePrevTokLocation;
+    bool Finished = false;
+
+  public:
+    InjectedTokenStreamScope(Parser &P, ArrayRef<Token> Toks,
+                             bool RestorePrevTokLocation = false)
+        : P(P), SavedTok(P.Tok),
+          SavedPrevTokLocation(P.PrevTokLocation),
+          RestorePrevTokLocation(RestorePrevTokLocation) {
+      for (const Token &T : Toks)
+        if (T.is(tok::code_completion)) {
+          CompletionTokenLoc = T.getLocation();
+          break;
+        }
+      P.PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
+                            /*IsReinject=*/true);
+      P.ConsumeAnyToken();
+    }
+
+    InjectedTokenStreamScope(const InjectedTokenStreamScope &) = delete;
+    InjectedTokenStreamScope &
+    operator=(const InjectedTokenStreamScope &) = delete;
+
+    ~InjectedTokenStreamScope() { finish(); }
+
+    void finish() {
+      if (Finished)
+        return;
+      Finished = true;
+
+      while (P.Tok.isNot(tok::eof))
+        P.ConsumeAnyToken();
+
+      // ConsumeCodeCompletionToken() sets Tok to eof without popping the
+      // preprocessor's injected stream. Match the relocated token's location
+      // so an ordinary eof (or completion from an enclosing stream) is left
+      // alone.
+      if (P.PP.isCodeCompletionReached() && P.Tok.is(tok::eof) &&
+          CompletionTokenLoc.isValid() &&
+          P.Tok.getLocation() == CompletionTokenLoc) {
+        do {
+          P.PP.Lex(P.Tok);
+        } while (P.Tok.isNot(tok::eof));
+      }
+
+      P.Tok = SavedTok;
+      if (RestorePrevTokLocation)
+        P.PrevTokLocation = SavedPrevTokLocation;
+    }
+  };
+
   const LangOptions &getLangOpts() const { return PP.getLangOpts(); }
   const TargetInfo &getTargetInfo() const { return PP.getTargetInfo(); }
   Preprocessor &getPreprocessor() const { return PP; }

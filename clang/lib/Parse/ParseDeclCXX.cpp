@@ -1349,11 +1349,8 @@ void Parser::ProcessTokenInjections(
     // into the injected text, and diagnostics anchored there (such as
     // "expected ';' after struct" for the declaration the injection follows)
     // would otherwise point into the injected tokens.
-    Token SavedTok = Tok;
-    SourceLocation SavedPrevTokLocation = PrevTokLocation;
-    PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
-                        /*IsReinject=*/true);
-    ConsumeAnyToken();
+    InjectedTokenStreamScope TokenStream(*this, Toks,
+                                         /*RestorePrevTokLocation=*/true);
 
     // If a target namespace was specified, switch to that context.
     // We need both ContextRAII (to set CurContext) and a ParseScope with
@@ -1554,9 +1551,7 @@ void Parser::ProcessTokenInjections(
     TargetCtx.reset();
     ScopeSwap.reset();
 
-    // Consume the eof sentinel and restore the saved token.
-    Tok = SavedTok;
-    PrevTokLocation = SavedPrevTokLocation;
+    TokenStream.finish();
   }
 
   // Recursively process any injections produced by parsing the injected code.
@@ -4501,16 +4496,13 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
         Eof.setLocation(Tok.getLocation());
         Toks.push_back(Eof);
 
-        Token SavedTok = Tok;
-        PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
-                            /*IsReinject=*/true);
-        ConsumeAnyToken();
+        InjectedTokenStreamScope TokenStream(*this, Toks);
 
         AccessSpecifier InjectedAS =
             TagType == DeclSpec::TST_class && !getLangOpts().HLSL ? AS_private
                                                                   : AS_public;
         ParseTokensAsClassMembers(InjectedAS, TagDecl);
-        Tok = SavedTok;
+        TokenStream.finish();
       }
     }
 

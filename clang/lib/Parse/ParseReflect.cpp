@@ -28,10 +28,6 @@
 #include "llvm/ADT/ScopeExit.h"
 using namespace clang;
 
-static SourceLocation getCodeCompletionTokenLoc(ArrayRef<Token> Toks);
-static void DrainCodeCompletionTokens(Preprocessor &PP, Token &Tok,
-                                     SourceLocation CompletionTokenLoc);
-
 ExprResult Parser::ParseCXXReflectExpression(SourceLocation OpLoc) {
   SourceLocation OperandLoc = Tok.getLocation();
 
@@ -787,7 +783,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclMacroInvocation(AccessSpecifier AS,
   relocateExpansionTokens(PP.getSourceManager(), Toks,
                           SourceRange(SS.isEmpty() ? NameLoc : SS.getBeginLoc(),
                                       T.getCloseLocation()));
-  SourceLocation CompletionTokenLoc = getCodeCompletionTokenLoc(Toks);
   Toks.push_back(makeInvocationTerminator(SemiLoc));
   Token Eof;
   Eof.startToken();
@@ -795,10 +790,7 @@ Parser::DeclGroupPtrTy Parser::ParseDeclMacroInvocation(AccessSpecifier AS,
   Eof.setLocation(T.getCloseLocation());
   Toks.push_back(Eof);
 
-  Token SavedTok = Tok;
-  PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
-                      /*IsReinject=*/true);
-  ConsumeAnyToken();
+  InjectedTokenStreamScope TokenStream(*this, Toks);
 
   SmallVector<Decl *, 4> Decls;
   // (At namespace scope the record is a top-level declaration; in a class it
@@ -831,8 +823,7 @@ Parser::DeclGroupPtrTy Parser::ParseDeclMacroInvocation(AccessSpecifier AS,
       }
     }
   });
-  DrainCodeCompletionTokens(PP, Tok, CompletionTokenLoc);
-  Tok = SavedTok;
+  TokenStream.finish();
 
   if (Decls.empty())
     return nullptr;
@@ -1086,7 +1077,6 @@ StmtResult Parser::ParseStmtMacroInvocation(ParsedStmtContext StmtCtx) {
   relocateExpansionTokens(PP.getSourceManager(), Toks,
                           SourceRange(SS.isEmpty() ? NameLoc : SS.getBeginLoc(),
                                       T.getCloseLocation()));
-  SourceLocation CompletionTokenLoc = getCodeCompletionTokenLoc(Toks);
   // An expansion that is a do-expression is an expression statement, as the
   // expression macro it typically comes from intends. At the start of a
   // statement 'do' would begin a do-while, so parenthesize it. (Knowing where
@@ -1107,10 +1097,7 @@ StmtResult Parser::ParseStmtMacroInvocation(ParsedStmtContext StmtCtx) {
     CompoundScope.emplace(Actions);
   }
 
-  Token SavedTok = Tok;
-  PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
-                      /*IsReinject=*/true);
-  ConsumeAnyToken();
+  InjectedTokenStreamScope TokenStream(*this, Toks);
 
   // Statements injected while parsing the expansion (by a consteval block in
   // it) belong in place among its own.
@@ -1140,8 +1127,7 @@ StmtResult Parser::ParseStmtMacroInvocation(ParsedStmtContext StmtCtx) {
       }
     });
   }
-  DrainCodeCompletionTokens(PP, Tok, CompletionTokenLoc);
-  Tok = SavedTok;
+  TokenStream.finish();
   SavedPendingInjected.swap(Actions.PendingInjectedStmts);
 
   bool Invalid = Actions.CheckMacroArgumentEvaluation(Expansion, Stmts);
@@ -1382,10 +1368,7 @@ bool Parser::ParseDeferredMacroArguments(ArrayRef<MacroParamKind> RawParams, boo
   Eof.setLocation(Loc);
   Toks.push_back(Eof);
 
-  Token SavedTok = Tok;
-  PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
-                      /*IsReinject=*/true);
-  ConsumeAnyToken();
+  InjectedTokenStreamScope TokenStream(*this, Toks);
 
   bool Invalid;
   {
@@ -1400,10 +1383,7 @@ bool Parser::ParseDeferredMacroArguments(ArrayRef<MacroParamKind> RawParams, boo
     }
     Args.append(Parsed.begin(), Parsed.end());
   }
-  while (Tok.isNot(tok::eof))
-    ConsumeAnyToken();
-
-  Tok = SavedTok;
+  TokenStream.finish();
   return Invalid;
 }
 
@@ -1508,29 +1488,6 @@ void Parser::relocateExpansionTokens(SourceManager &SM,
   }
 }
 
-/// Completion cuts parsing short by changing Tok to eof, but when the
-/// completion token came from an injected token sequence the preprocessor's
-/// token stream still has to be drained through its own eof before restoring
-/// the enclosing token. Otherwise the rest of the expansion leaks into the
-/// surrounding parse.
-static SourceLocation getCodeCompletionTokenLoc(ArrayRef<Token> Toks) {
-  for (const Token &T : Toks)
-    if (T.is(tok::code_completion))
-      return T.getLocation();
-  return SourceLocation();
-}
-
-static void DrainCodeCompletionTokens(Preprocessor &PP, Token &Tok,
-                                     SourceLocation CompletionTokenLoc) {
-  if (!PP.isCodeCompletionReached() || Tok.isNot(tok::eof) ||
-      !CompletionTokenLoc.isValid() ||
-      Tok.getLocation() != CompletionTokenLoc)
-    return;
-  do {
-    PP.Lex(Tok);
-  } while (Tok.isNot(tok::eof));
-}
-
 /// Parse the token sequence produced by an expression macro as a single
 /// expression, in place of the invocation. In speculative mode
 /// (std::meta::test_expression) all diagnostics are suppressed and validity
@@ -1566,17 +1523,13 @@ ExprResult Parser::ParseExpressionMacroExpansion(TokenSequenceData TSD,
   // at; its tokens keep their locations.
   if (!Speculative)
     relocateExpansionTokens(PP.getSourceManager(), Toks, Invocation);
-  SourceLocation CompletionTokenLoc = getCodeCompletionTokenLoc(Toks);
   Token Eof;
   Eof.startToken();
   Eof.setKind(tok::eof);
   Eof.setLocation(Loc);
   Toks.push_back(Eof);
 
-  Token SavedTok = Tok;
-  PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
-                      /*IsReinject=*/true);
-  ConsumeAnyToken();
+  InjectedTokenStreamScope TokenStream(*this, Toks);
 
   MacroExpansionLookupScope LookupScope(*this);
   Sema::MacroExpansionDepthRAII Depth(Actions);
@@ -1600,11 +1553,7 @@ ExprResult Parser::ParseExpressionMacroExpansion(TokenSequenceData TSD,
   if (Speculative && Trap->hasErrorOccurred())
     Result = ExprError();
   // Drain what is left so the enclosing token stream resumes cleanly.
-  while (Tok.isNot(tok::eof))
-    ConsumeAnyToken();
-
-  DrainCodeCompletionTokens(PP, Tok, CompletionTokenLoc);
-  Tok = SavedTok;
+  TokenStream.finish();
   return Result;
 }
 
@@ -1781,17 +1730,13 @@ bool Parser::ParseMemInitMacroExpansion(
     SmallVectorImpl<CXXCtorInitializer *> &Out) {
   SmallVector<Token, 16> Toks(TSD.begin(), TSD.end());
   relocateExpansionTokens(PP.getSourceManager(), Toks, Invocation);
-  SourceLocation CompletionTokenLoc = getCodeCompletionTokenLoc(Toks);
   Token Eof;
   Eof.startToken();
   Eof.setKind(tok::eof);
   Eof.setLocation(Invocation.getEnd());
   Toks.push_back(Eof);
 
-  Token SavedTok = Tok;
-  PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
-                      /*IsReinject=*/true);
-  ConsumeAnyToken();
+  InjectedTokenStreamScope TokenStream(*this, Toks);
 
   bool Invalid;
   {
@@ -1804,12 +1749,7 @@ bool Parser::ParseMemInitMacroExpansion(
       Invalid = ParseMemInitializersUntilEof(ConstructorDecl, Out);
     });
   }
-  // Drain what is left so the enclosing token stream resumes cleanly.
-  while (Tok.isNot(tok::eof))
-    ConsumeAnyToken();
-
-  DrainCodeCompletionTokens(PP, Tok, CompletionTokenLoc);
-  Tok = SavedTok;
+  TokenStream.finish();
   return Invalid;
 }
 
