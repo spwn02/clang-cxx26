@@ -28,6 +28,10 @@
 #include "llvm/ADT/ScopeExit.h"
 using namespace clang;
 
+static SourceLocation getCodeCompletionTokenLoc(ArrayRef<Token> Toks);
+static void DrainCodeCompletionTokens(Preprocessor &PP, Token &Tok,
+                                     SourceLocation CompletionTokenLoc);
+
 ExprResult Parser::ParseCXXReflectExpression(SourceLocation OpLoc) {
   SourceLocation OperandLoc = Tok.getLocation();
 
@@ -783,6 +787,7 @@ Parser::DeclGroupPtrTy Parser::ParseDeclMacroInvocation(AccessSpecifier AS,
   relocateExpansionTokens(PP.getSourceManager(), Toks,
                           SourceRange(SS.isEmpty() ? NameLoc : SS.getBeginLoc(),
                                       T.getCloseLocation()));
+  SourceLocation CompletionTokenLoc = getCodeCompletionTokenLoc(Toks);
   Toks.push_back(makeInvocationTerminator(SemiLoc));
   Token Eof;
   Eof.startToken();
@@ -826,6 +831,7 @@ Parser::DeclGroupPtrTy Parser::ParseDeclMacroInvocation(AccessSpecifier AS,
       }
     }
   });
+  DrainCodeCompletionTokens(PP, Tok, CompletionTokenLoc);
   Tok = SavedTok;
 
   if (Decls.empty())
@@ -1080,6 +1086,7 @@ StmtResult Parser::ParseStmtMacroInvocation(ParsedStmtContext StmtCtx) {
   relocateExpansionTokens(PP.getSourceManager(), Toks,
                           SourceRange(SS.isEmpty() ? NameLoc : SS.getBeginLoc(),
                                       T.getCloseLocation()));
+  SourceLocation CompletionTokenLoc = getCodeCompletionTokenLoc(Toks);
   // An expansion that is a do-expression is an expression statement, as the
   // expression macro it typically comes from intends. At the start of a
   // statement 'do' would begin a do-while, so parenthesize it. (Knowing where
@@ -1133,6 +1140,7 @@ StmtResult Parser::ParseStmtMacroInvocation(ParsedStmtContext StmtCtx) {
       }
     });
   }
+  DrainCodeCompletionTokens(PP, Tok, CompletionTokenLoc);
   Tok = SavedTok;
   SavedPendingInjected.swap(Actions.PendingInjectedStmts);
 
@@ -1158,7 +1166,8 @@ bool Parser::ParseMacroArguments(ArrayRef<MacroParamKind> RawParams, bool ShapeU
                                  ExprVector &Args) {
   tok::TokenKind Close = T.getCloseKind();
   if (ShapeUnknown) {
-    ExprResult Blob = ParseMacroRawArgument(Close, /*Greedy=*/true);
+    ExprResult Blob = ParseMacroRawArgument(Close, /*Greedy=*/true,
+                                            /*ArgsUnparsed=*/true);
     if (Blob.isInvalid()) {
       T.skipToEnd();
       return true;
@@ -1225,7 +1234,8 @@ bool Parser::ParseMacroArgumentList(ArrayRef<MacroParamKind> RawParams,
 /// parentheses, brackets and braces, ending at a top-level comma (unless the
 /// parameter is the last one and therefore greedy) or at \p Close, the
 /// bracket that closes the invocation's argument list.
-ExprResult Parser::ParseMacroRawArgument(tok::TokenKind Close, bool Greedy) {
+ExprResult Parser::ParseMacroRawArgument(tok::TokenKind Close, bool Greedy,
+                                         bool ArgsUnparsed) {
   SmallVector<Token, 16> Tokens;
   SourceLocation StartLoc = Tok.getLocation();
   SourceLocation EndLoc = StartLoc;
@@ -1255,9 +1265,23 @@ ExprResult Parser::ParseMacroRawArgument(tok::TokenKind Close, bool Greedy) {
       }
       Closers.pop_back();
     }
-    Tokens.push_back(Tok);
+    // A dependent qualifier means Sema stores this sequence for instantiation
+    // and reparses it later, after the completion consumer is gone. Completion
+    // there is unsupported, so omit the transient token from the deferred AST.
+    bool DeferCompletion = ArgsUnparsed && Tok.is(tok::code_completion);
+    if (!DeferCompletion)
+      Tokens.push_back(Tok);
     EndLoc = Tok.getLocation();
-    ConsumeAnyToken();
+    if (Tok.is(tok::code_completion)) {
+      // Keep completion in the token sequence and advance without completing
+      // here. It behaves as one opaque token for sequence operations (for
+      // example, identifier_of rejects it); if a macro injects it, the parser
+      // completes later in the injected token's grammatical context. The
+      // sequence is transient and is never serialized while completion runs.
+      ConsumeCodeCompletionToken();
+    } else {
+      ConsumeAnyToken();
+    }
   }
   // A raw argument stays the compiler's token array: the macro binds it as
   // such (see Sema::EvaluateMacroExpansion).
@@ -1484,6 +1508,29 @@ void Parser::relocateExpansionTokens(SourceManager &SM,
   }
 }
 
+/// Completion cuts parsing short by changing Tok to eof, but when the
+/// completion token came from an injected token sequence the preprocessor's
+/// token stream still has to be drained through its own eof before restoring
+/// the enclosing token. Otherwise the rest of the expansion leaks into the
+/// surrounding parse.
+static SourceLocation getCodeCompletionTokenLoc(ArrayRef<Token> Toks) {
+  for (const Token &T : Toks)
+    if (T.is(tok::code_completion))
+      return T.getLocation();
+  return SourceLocation();
+}
+
+static void DrainCodeCompletionTokens(Preprocessor &PP, Token &Tok,
+                                     SourceLocation CompletionTokenLoc) {
+  if (!PP.isCodeCompletionReached() || Tok.isNot(tok::eof) ||
+      !CompletionTokenLoc.isValid() ||
+      Tok.getLocation() != CompletionTokenLoc)
+    return;
+  do {
+    PP.Lex(Tok);
+  } while (Tok.isNot(tok::eof));
+}
+
 /// Parse the token sequence produced by an expression macro as a single
 /// expression, in place of the invocation. In speculative mode
 /// (std::meta::test_expression) all diagnostics are suppressed and validity
@@ -1519,6 +1566,7 @@ ExprResult Parser::ParseExpressionMacroExpansion(TokenSequenceData TSD,
   // at; its tokens keep their locations.
   if (!Speculative)
     relocateExpansionTokens(PP.getSourceManager(), Toks, Invocation);
+  SourceLocation CompletionTokenLoc = getCodeCompletionTokenLoc(Toks);
   Token Eof;
   Eof.startToken();
   Eof.setKind(tok::eof);
@@ -1555,6 +1603,7 @@ ExprResult Parser::ParseExpressionMacroExpansion(TokenSequenceData TSD,
   while (Tok.isNot(tok::eof))
     ConsumeAnyToken();
 
+  DrainCodeCompletionTokens(PP, Tok, CompletionTokenLoc);
   Tok = SavedTok;
   return Result;
 }

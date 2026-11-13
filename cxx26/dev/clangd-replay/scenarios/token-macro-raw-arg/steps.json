@@ -11,5 +11,6 @@
  {"line":23,"col":22,"request":"textDocument/references","label":"refs-use-zz","pre":300,"wait":300},
  {"line":23,"col":22,"request":"textDocument/rename","newName":"renamed_zz","label":"rename-use-zz","pre":300,"wait":300},
  {"line":1,"col":0,"request":"textDocument/semanticTokens/full","label":"sem-raw-arg","pre":300,"wait":500},
- {"line":1,"col":0,"diagnostics":"diag-raw-arg","pre":300,"wait":300}
+ {"line":1,"col":0,"diagnostics":"diag-raw-arg","pre":300,"wait":300},
+ {"line":30,"col":52,"request":"textDocument/completion","match":"partial_value","label":"completion-raw-arg-expression","pre":300,"wait":300}
 ]

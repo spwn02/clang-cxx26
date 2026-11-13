@@ -24,3 +24,7 @@ int use_zz() { return zz; }
 
 __macro bad(token_sequence t) { return ^^{ int w = \(t); }; }
 bad!(undeclared_name);
+
+__macro use_value(token_sequence value) { return ^^{ \(value) }; }
+int partial_value;
+int use_value_test() { return use_value!(1 + partial); }

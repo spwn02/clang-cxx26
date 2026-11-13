@@ -17,3 +17,4 @@ rename-use-zz must-contain 23:23
 sem-raw-arg must-contain 22:13:2
 sem-raw-arg must-contain 21:9:10
 diag-raw-arg must-contain 26:6-21:Use of undeclared identifier 'undeclared_name'
+completion-raw-arg-expression must-contain partial_value

@@ -265,6 +265,41 @@ __macro plus_one(int x) { return @@{ (\(x) + 1) }; }
               Contains(AllOf(named("plus_one"), snippetSuffix("!(${1:int x})"))));
 }
 
+TEST(CompletionTest, TokenMacroRawArgument) {
+  const char *Pre = R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+__macro use(token_sequence expr) { return @@{ \(expr) }; }
+__macro identity(token_sequence expr) { return @@{ \(expr) }; }
+__macro ignore(token_sequence expr) { return @@{ 0 }; }
+int partial_value;
+)cpp";
+  auto Complete = [&](llvm::StringRef Tail) {
+    Annotations Test((Pre + Tail).str());
+    TestTU TU = TestTU::withCode(withReflectionOperator(Test.code()));
+    TU.ExtraArgs = {"-std=c++2d"};
+    return completions(TU, Test.point("p")).Completions;
+  };
+  EXPECT_THAT(Complete("int f() { return use!(partial$p^ + 1); }"),
+              Contains(named("partial_value")));
+  EXPECT_THAT(Complete("int f() { return use!((partial$p^ + 1)); }"),
+              Contains(named("partial_value")));
+  EXPECT_THAT(Complete("int f() { return use!(identity!(partial$p^)); }"),
+              Contains(named("partial_value")));
+  EXPECT_FALSE(Complete("int f() { return use!($p^ + 1); }").empty());
+  EXPECT_TRUE(Complete("int f() { return ignore!(partial$p^); }").empty());
+  (void)Complete("template <class T> int f() { return T::use!(partial$p^); }");
+}
+
 TEST(CompletionTest, DoExpressions) {
   // P2806 do expressions (#366): the keyword in an expression, what may follow
   // it, and `do_return` only where it is legal.

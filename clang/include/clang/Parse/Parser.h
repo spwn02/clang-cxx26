@@ -8758,7 +8758,8 @@ private:
   /// Returns true on error, without skipping.
   bool ParseMacroArgumentList(ArrayRef<MacroParamKind> RawParams, tok::TokenKind Close,
                               bool Braced, ExprVector &Args);
-  ExprResult ParseMacroRawArgument(tok::TokenKind Close, bool Greedy);
+  ExprResult ParseMacroRawArgument(tok::TokenKind Close, bool Greedy,
+                                   bool ArgsUnparsed = false);
   /// Parse an argument list captured when the macro's shape was unknown
   /// (see ParseMacroArguments), now that it is known: in the context \p Ctx
   /// it was written in, with the template parameters of that context (and
