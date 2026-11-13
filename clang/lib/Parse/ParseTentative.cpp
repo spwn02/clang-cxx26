@@ -2109,6 +2109,9 @@ bool Parser::isTemplateIdBeforeScopeResolution() {
     switch (Tok.getKind()) {
     case tok::eof:
     case tok::semi:
+    case tok::code_completion:
+      // The lookahead must not consume the code-completion token: that would
+      // run ordinary-name completion for a position inside the argument list.
       return false;
     case tok::less:
       ++Depth;
