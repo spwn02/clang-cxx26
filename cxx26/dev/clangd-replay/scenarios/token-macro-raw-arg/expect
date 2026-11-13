@@ -1,0 +1,10 @@
+# Raw token_sequence macro arguments: navigation and diagnostics land on source tokens.
+hover-use-zz must-contain Type: `int`
+def-use-zz must-contain 25:13
+refs-use-zz must-contain 25:13
+refs-use-zz must-contain 26:23
+rename-use-zz must-contain 2 edits
+rename-use-zz must-contain 25:13
+rename-use-zz must-contain 26:23
+sem-raw-arg must-contain 25:13:2
+diag-raw-arg must-contain 29:6-21:Use of undeclared identifier 'undeclared_name'

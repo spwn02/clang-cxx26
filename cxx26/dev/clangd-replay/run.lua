@@ -52,10 +52,14 @@ local function run_step(i)
         log(s.dump .. " [buffer, " .. n .. " lines]: " .. table.concat(vim.api.nvim_buf_get_lines(0, math.max(0, n - 4), n, false), " ⏎ "))
       end
       if s.diagnostics then
-        -- {"diagnostics": label}: the diagnostics of the buffer as "severity:line:message"
+        -- {"diagnostics": label}: diagnostics as "severity:line:startCol-endCol:message"
         local ds, parts = vim.diagnostic.get(0), {}
         table.insert(parts, #ds .. " diagnostics")
-        for _, d in ipairs(ds) do table.insert(parts, d.severity .. ":" .. (d.lnum + 1) .. ":" .. (d.message:gsub("%s+", " "))) end
+        for _, d in ipairs(ds) do
+          local start_col = (d.col or 0) + 1
+          local end_col = (d.end_col or d.col or 0) + 1
+          table.insert(parts, d.severity .. ":" .. (d.lnum + 1) .. ":" .. start_col .. "-" .. end_col .. ":" .. (d.message:gsub("%s+", " ")))
+        end
         log(s.diagnostics .. " [diagnostics]: " .. table.concat(parts, " | "))
       end
       if s.hover then
