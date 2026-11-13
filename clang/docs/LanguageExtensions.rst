@@ -1817,6 +1817,30 @@ The raw identifiers of a literal are not names until the sequence is injected; c
 names, and the interpolated expressions as the expressions they are. There is no ``std::formatter`` for ``token_sequence``:
 P4380 defines none, and a token sequence exists only in constant evaluation.
 
+Macros in the editor (clangd)
+-----------------------------
+
+This is tooling behaviour, not language semantics; the paper says nothing about it. The raw argument tokens of an
+invocation keep their source locations, so what a macro does with them decides what the editor can show:
+
+* **Anchor references.** A macro that injects a reference built from a user token makes that token an ordinary reference.
+  With ``__macro tag(token_sequence name) { return ^^{ html::\(name)() }; }``, hover (with the documentation comment),
+  go-to-definition, find-references and rename on ``div`` in ``tag!(div)`` all work, and renaming ``html::div`` edits the
+  argument. Prefer this to parsing the argument yourself: the language and the editor then do the work.
+* **Declared names.** A raw argument that becomes the name of a declaration (``declare_it!(zz)`` with
+  ``^^{ int \(name) = 1; }``) is navigable, highlighted and renameable with the cursor on the argument as well as at the uses.
+* **Located errors.** A macro can put an error exactly on a user token by injecting that token where it is ill-formed
+  (an undeclared name, a type error): the editor and the compiler report it on the token the user wrote. One error per
+  expansion is what ``std::constexpr_error_str`` gives; it is reported at the invocation, not at a token.
+* **Completion.** The code-completion position inside a raw argument stays in the token sequence. If the macro injects
+  that token, completion happens in the expansion's real context (an expression, a statement, a declaration, a
+  mem-initializer); if the macro drops it, nothing is offered. A token position that never becomes C++ completes nothing.
+  Completion inside the arguments of a *dependent* invocation (deferred to instantiation) is not supported.
+* **Rename and quotes.** Identifiers written as plain tokens inside ``^^{ }`` are text, not references. Renaming a symbol
+  whose name occurs that way in a file the rename edits is refused with a message naming the quote; nothing is renamed.
+* **Inlay hints.** Hints inside injected code are suppressed (parameter names, block ends); a deduced-type hint for a
+  declaration a macro produces can appear on the invocation's argument.
+
 .. _do_expressions:
 
 Do Expressions (P2806)
