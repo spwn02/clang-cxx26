@@ -1836,8 +1836,10 @@ invocation keep their source locations, so what a macro does with them decides w
   that token, completion happens in the expansion's real context (an expression, a statement, a declaration, a
   mem-initializer); if the macro drops it, nothing is offered. A token position that never becomes C++ completes nothing.
   Completion inside the arguments of a *dependent* invocation (deferred to instantiation) is not supported.
-* **Rename and quotes.** Identifiers written as plain tokens inside ``^^{ }`` are text, not references. Renaming a symbol
-  whose name occurs that way in a file the rename edits is refused with a message naming the quote; nothing is renamed.
+* **Rename and quotes.** Identifiers written as plain tokens inside ``^^{ }`` are text, not references. Rename is refused
+  when an edited file contains that name as quote text, or when an expression-macro expansion references the symbol from
+  a plain token in a quote, including quotes in included headers. The message names the quote location; nothing is renamed.
+  This also applies to function-local symbols when an injection resolves a quoted token to that local declaration.
 * **Inlay hints.** Hints inside injected code are suppressed (parameter names, block ends); a deduced-type hint for a
   declaration a macro produces can appear on the invocation's argument.
 

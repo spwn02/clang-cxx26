@@ -2005,6 +2005,193 @@ TEST(CrossFileRenameTests, TokenSequenceQuoteRefusesRename) {
   EXPECT_THAT(Message, testing::MatchesRegex(".*at [0-9]+:[0-9]+.*"));
 }
 
+TEST(CrossFileRenameTests, TokenSequenceQuoteInMacroHeaderRefusesRename) {
+  Annotations MainCode(R"cpp(
+    namespace std::meta {
+    template <class... Ts> consteval auto id(Ts const &...) -> int;
+    using token = decltype(id("x"));
+    class token_sequence { public:
+      constexpr token_sequence() noexcept = default;
+      friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+      friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+      friend consteval bool operator==(const token_sequence &, const token_sequence &);
+    };
+    }
+    using std::meta::token_sequence;
+    int helper^();
+    #include "macros.h"
+    int use() { return call!() + helper(); }
+  )cpp");
+  std::string Header = R"cpp(
+    __macro call() { return ^^{ helper() }; }
+  )cpp";
+  TestTU TU = TestTU::withCode(MainCode.code());
+  TU.Filename = "a.cpp";
+  TU.ExtraArgs.push_back("-std=c++29");
+  TU.AdditionalFiles["macros.h"] = withReflectionOperator(Header);
+  auto AST = TU.build();
+
+  auto Results =
+      rename({MainCode.point(), "renamed", AST, testPath(TU.Filename)});
+  ASSERT_FALSE(Results);
+  std::string Message = llvm::toString(Results.takeError());
+  EXPECT_THAT(Message, testing::HasSubstr(testPath("macros.h")));
+  EXPECT_THAT(Message, testing::HasSubstr("quote would not be updated"));
+  EXPECT_THAT(Message, testing::MatchesRegex(".*at [0-9]+:[0-9]+.*"));
+}
+
+TEST(CrossFileRenameTests, TokenSequenceQuoteInInstantiatedMacroTemplate) {
+  Annotations MainCode(R"cpp(
+    namespace std::meta {
+    template <class... Ts> consteval auto id(Ts const &...) -> int;
+    using token = decltype(id("x"));
+    class token_sequence { public:
+      constexpr token_sequence() noexcept = default;
+      friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+      friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+      friend consteval bool operator==(const token_sequence &, const token_sequence &);
+    };
+    }
+    using std::meta::token_sequence;
+    int helper^();
+    #include "macros.h"
+    template <class T> int useT(T x) { return call!(x); }
+    int use() { return useT(1) + helper(); }
+  )cpp");
+  std::string Header = R"cpp(
+    __macro call(int x) { return ^^{ helper() + \(x) }; }
+  )cpp";
+  TestTU TU = TestTU::withCode(MainCode.code());
+  TU.Filename = "a.cpp";
+  TU.ExtraArgs.push_back("-std=c++29");
+  TU.AdditionalFiles["macros.h"] = withReflectionOperator(Header);
+  auto AST = TU.build();
+
+  auto Results =
+      rename({MainCode.point(), "renamed", AST, testPath(TU.Filename)});
+  ASSERT_FALSE(Results);
+  std::string Message = llvm::toString(Results.takeError());
+  EXPECT_THAT(Message, testing::HasSubstr(testPath("macros.h")));
+  EXPECT_THAT(Message, testing::HasSubstr("quote would not be updated"));
+}
+
+TEST(CrossFileRenameTests,
+     TokenSequenceQuoteFromIncludedInvocationRefusesRename) {
+  Annotations MainCode(R"cpp(
+    namespace std::meta {
+    template <class... Ts> consteval auto id(Ts const &...) -> int;
+    using token = decltype(id("x"));
+    class token_sequence { public:
+      constexpr token_sequence() noexcept = default;
+      friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+      friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+      friend consteval bool operator==(const token_sequence &, const token_sequence &);
+    };
+    }
+    using std::meta::token_sequence;
+    int helper^();
+    int endPreamble;
+    #include "invoker.h"
+    int use() { (void)useFromHeader(); return helper(); }
+  )cpp");
+  TestTU TU = TestTU::withCode(MainCode.code());
+  TU.Filename = "a.cpp";
+  TU.ExtraArgs.push_back("-std=c++29");
+  TU.AdditionalFiles["macros.h"] =
+      withReflectionOperator("__macro call() { return ^^{ helper() }; }");
+  TU.AdditionalFiles["invoker.h"] =
+      "#include \"macros.h\"\ninline int useFromHeader() { return call!(); }\n";
+  auto AST = TU.build();
+
+  auto Results =
+      rename({MainCode.point(), "renamed", AST, testPath(TU.Filename)});
+  ASSERT_FALSE(Results);
+  std::string Message = llvm::toString(Results.takeError());
+  EXPECT_THAT(Message, testing::HasSubstr(testPath("macros.h")));
+  EXPECT_THAT(Message, testing::HasSubstr("quote would not be updated"));
+}
+
+TEST(CrossFileRenameTests, TokenSequenceQuoteInUnexpandedMacroDoesNotRefuse) {
+  Annotations MainCode(R"cpp(
+    namespace std::meta {
+    template <class... Ts> consteval auto id(Ts const &...) -> int;
+    using token = decltype(id("x"));
+    class token_sequence { public:
+      constexpr token_sequence() noexcept = default;
+      friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+      friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+      friend consteval bool operator==(const token_sequence &, const token_sequence &);
+    };
+    }
+    using std::meta::token_sequence;
+    int helper^();
+    #include "macros.h"
+    int use() { return helper(); }
+  )cpp");
+  std::string Header = R"cpp(
+    __macro call() { return ^^{ helper() }; }
+  )cpp";
+  TestTU TU = TestTU::withCode(MainCode.code());
+  TU.Filename = "a.cpp";
+  TU.ExtraArgs.push_back("-std=c++29");
+  TU.AdditionalFiles["macros.h"] = withReflectionOperator(Header);
+  auto AST = TU.build();
+
+  auto Results =
+      rename({MainCode.point(), "renamed", AST, testPath(TU.Filename)});
+  ASSERT_TRUE(bool(Results)) << llvm::toString(Results.takeError());
+}
+
+TEST(RenameTest, TokenSequenceQuoteRefusalIgnoresCPPNumberSeparator) {
+  Annotations MainCode("void target^(); int use() { target(); return 0; }");
+  Annotations OtherCode(R"cpp(
+    void target() {}
+    void other() { [[target]](); }
+    int n = 1'000;
+    constexpr auto quote = @@{ target(); };
+  )cpp");
+  std::string MainPath = testPath("main.cc");
+  std::string OtherPath = testPath("other.cc");
+  TestTU TU = TestTU::withCode(MainCode.code());
+  TU.ExtraArgs.push_back("-std=c++29");
+  TU.AdditionalFiles["other.cc"] = withReflectionOperator(OtherCode.code());
+  auto AST = TU.build();
+
+  const FunctionDecl *Target = nullptr;
+  for (Decl *D : AST.getLocalTopLevelDecls())
+    if (const auto *FD = dyn_cast<FunctionDecl>(D))
+      if (FD->getName() == "target")
+        Target = FD;
+  ASSERT_NE(Target, nullptr);
+  RefSlab::Builder Refs;
+  std::string OtherURI = URI::create(OtherPath).toString();
+  Refs.insert(getSymbolID(Target),
+              refWithRange(OtherCode.ranges().front(), OtherURI));
+  FileSymbols Symbols(IndexContents::All, true);
+  Symbols.update(OtherPath, nullptr,
+                 std::make_unique<RefSlab>(std::move(Refs).build()), nullptr,
+                 false);
+  auto Index = Symbols.buildIndex(IndexType::Light);
+  auto Results = rename({MainCode.point(), "renamed", AST, MainPath,
+                         getVFSFromAST(AST), Index.get()});
+  ASSERT_FALSE(Results);
+  std::string Message = llvm::toString(Results.takeError());
+  EXPECT_THAT(Message, testing::HasSubstr(OtherPath));
+  EXPECT_THAT(Message, testing::HasSubstr("quote would not be updated"));
+}
+
+TEST(RenameTest, TokenSequenceQuoteRefusalDoesNotChangeCPPMacroBehavior) {
+  Annotations Code(R"cpp(
+    int target^();
+    #define CALL_TARGET target()
+    int use() { CALL_TARGET; return target(); }
+  )cpp");
+  TestTU TU = TestTU::withCode(Code.code());
+  auto AST = TU.build();
+  auto Results = rename({Code.point(), "renamed", AST, testPath(TU.Filename)});
+  ASSERT_TRUE(bool(Results)) << llvm::toString(Results.takeError());
+}
+
 TEST(CrossFileRenameTests, DeduplicateRefsFromIndex) {
   auto MainCode = Annotations("int [[^x]] = 2;");
   auto MainFilePath = testPath("main.cc");

@@ -32,6 +32,7 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Tooling/Syntax/Tokens.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Casting.h"
@@ -294,11 +295,13 @@ struct QuoteTokenOccurrence {
 class QuoteTokenVisitor : public RecursiveASTVisitor<QuoteTokenVisitor> {
 public:
   QuoteTokenVisitor(const SourceManager &SM, llvm::StringRef Name,
-                    const FunctionDecl *LocalFunction)
-      : SM(SM), Name(Name), LocalFunction(LocalFunction) {}
+                    const FunctionDecl *LocalFunction,
+                    SourceLocation MatchLoc = {})
+      : SM(SM), Name(Name), LocalFunction(LocalFunction), MatchLoc(MatchLoc) {}
 
   bool VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
-    if (LocalFunction && !isInLocalFunction(E->getOperatorLoc()))
+    if (!MatchLoc.isValid() && LocalFunction &&
+        !isInLocalFunction(E->getOperatorLoc()))
       return true;
     auto Tokens = E->getTokenSequence();
     llvm::SmallDenseSet<unsigned, 4> ParamIndices;
@@ -313,7 +316,9 @@ public:
           Tok.getIdentifierInfo()->getName() != Name)
         continue;
       SourceLocation Loc = Tok.getLocation();
-      if (Loc.isInvalid() || !Loc.isFileID() || !isInsideMainFile(Loc, SM))
+      if (Loc.isInvalid() || !Loc.isFileID())
+        continue;
+      if (MatchLoc.isValid() ? Loc != MatchLoc : !isInsideMainFile(Loc, SM))
         continue;
       PresumedLoc PLoc = SM.getPresumedLoc(Loc);
       if (PLoc.isInvalid())
@@ -348,6 +353,7 @@ private:
   const SourceManager &SM;
   llvm::StringRef Name;
   const FunctionDecl *LocalFunction;
+  SourceLocation MatchLoc;
   std::optional<QuoteTokenOccurrence> First;
 };
 
@@ -360,9 +366,10 @@ findQuoteTokenInAST(ParsedAST &AST, llvm::StringRef Name,
   return Visitor.first();
 }
 
-// Cross-file rename deliberately does not build ASTs for every affected file.
-// Conservatively scan quote bodies in their current buffers, skipping
-// interpolation holes because those identifiers are normal C++ references.
+// Cross-file rename does not build ASTs for every affected file. Scan edited
+// buffers for quote bodies, skipping interpolation holes because those
+// identifiers are normal C++ references. Injection references in available
+// ASTs are checked separately against their expression-macro definitions.
 std::optional<QuoteTokenOccurrence> findQuoteTokenInText(llvm::StringRef Code,
                                                          llvm::StringRef Name) {
   auto IsIdentStart = [](char C) {
@@ -382,6 +389,20 @@ std::optional<QuoteTokenOccurrence> findQuoteTokenInText(llvm::StringRef Code,
         break;
     }
   };
+  auto IsPPNumberSeparator = [&](size_t Pos) {
+    if (Pos == 0 || !std::isxdigit(static_cast<unsigned char>(Code[Pos - 1])))
+      return false;
+    // A pp-number starts with a digit, or with '.' followed by a digit. Walk
+    // back over the pp-number characters so digits embedded in an identifier
+    // do not make an apostrophe look like a digit separator.
+    size_t Begin = Pos - 1;
+    while (Begin > 0 && (IsIdentContinue(Code[Begin - 1]) ||
+                         Code[Begin - 1] == '.' || Code[Begin - 1] == '\''))
+      --Begin;
+    return std::isdigit(static_cast<unsigned char>(Code[Begin])) ||
+           (Code[Begin] == '.' && Begin + 1 < Pos &&
+            std::isdigit(static_cast<unsigned char>(Code[Begin + 1])));
+  };
   auto SkipCommentOrLiteral = [&](size_t &Pos) {
     if (Code.substr(Pos).starts_with("//")) {
       Pos = Code.find('\n', Pos);
@@ -394,6 +415,8 @@ std::optional<QuoteTokenOccurrence> findQuoteTokenInText(llvm::StringRef Code,
       Pos = End == llvm::StringRef::npos ? Code.size() : End + 2;
       return true;
     }
+    if (Code[Pos] == '\'' && IsPPNumberSeparator(Pos))
+      return false;
     if (Code[Pos] == '"' || Code[Pos] == '\'') {
       SkipQuoted(Pos, Code[Pos]);
       return true;
@@ -491,6 +514,83 @@ std::vector<SourceLocation> findOccurrencesWithinFile(ParsedAST &AST,
   }
 
   return Results;
+}
+
+std::optional<std::pair<SourceLocation, QuoteTokenOccurrence>>
+findInjectedQuoteReference(ParsedAST &AST, const NamedDecl &ND) {
+  // C++ expression-macro invocations have a CXXMacroInvocationExpr node,
+  // unlike preprocessor macros. Match each resolved expansion reference back
+  // to the exact token location in its macro definition's quote AST.
+  std::optional<std::pair<SourceLocation, QuoteTokenOccurrence>> Result;
+  const auto *Identifier = ND.getIdentifier();
+  if (!Identifier)
+    return std::nullopt;
+  class InvocationVisitor : public RecursiveASTVisitor<InvocationVisitor> {
+  public:
+    InvocationVisitor(
+        ParsedAST &AST, const NamedDecl &ND, llvm::StringRef Name,
+        std::optional<std::pair<SourceLocation, QuoteTokenOccurrence>> &Result)
+        : AST(AST), ND(ND), Name(Name), Result(Result),
+          SM(AST.getSourceManager()) {}
+
+    bool shouldVisitTemplateInstantiations() const { return true; }
+
+    bool VisitDeclRefExpr(DeclRefExpr *Reference) {
+      const auto *FD = dyn_cast<FunctionDecl>(Reference->getDecl());
+      if (!FD)
+        return true;
+      const FunctionDecl *Definition = FD->getDefinition();
+      if (!Definition || SM.isInMainFile(Definition->getLocation()) ||
+          !Visited.insert(Definition).second)
+        return true;
+      TraverseStmt(Definition->getBody());
+      return true;
+    }
+
+    bool VisitCXXMacroInvocationExpr(CXXMacroInvocationExpr *Invocation) {
+      if (Result || !Invocation->isResolved() || !Invocation->getCallee())
+        return true;
+      findExplicitReferences(
+          Invocation->getExpansion(),
+          [&](ReferenceLoc Ref) {
+            if (Result || Ref.Targets.empty() ||
+                !isInMacroBody(SM, Ref.NameLoc))
+              return;
+            if (!llvm::any_of(Ref.Targets, [&](const NamedDecl *Target) {
+                  return canonicalRenameDecl(Target) == &ND;
+                }))
+              return;
+            SourceLocation SpellingLoc = SM.getSpellingLoc(Ref.NameLoc);
+            for (const NamedDecl *D : Invocation->getCallee()->decls()) {
+              const auto *MacroDecl = dyn_cast<FunctionDecl>(D);
+              if (!MacroDecl || !MacroDecl->doesThisDeclarationHaveABody())
+                continue;
+              QuoteTokenVisitor QuoteVisitor(SM, Name, nullptr, SpellingLoc);
+              QuoteVisitor.TraverseStmt(MacroDecl->getBody());
+              if (auto Quote = QuoteVisitor.first()) {
+                Result.emplace(Ref.NameLoc, *Quote);
+                return;
+              }
+            }
+          },
+          AST.getHeuristicResolver());
+      return true;
+    }
+
+  private:
+    ParsedAST &AST;
+    const NamedDecl &ND;
+    llvm::StringRef Name;
+    std::optional<std::pair<SourceLocation, QuoteTokenOccurrence>> &Result;
+    const SourceManager &SM;
+    llvm::SmallPtrSet<const FunctionDecl *, 16> Visited;
+  } Visitor(AST, ND, Identifier->getName(), Result);
+  // Only the file's own declarations: an invocation that matters is written in
+  // a file this rename edits, and walking the whole translation unit would
+  // traverse every included header on each rename.
+  for (Decl *D : AST.getLocalTopLevelDecls())
+    Visitor.TraverseDecl(D);
+  return Result;
 }
 
 // Detect name conflict with othter DeclStmts in the same enclosing scope.
@@ -984,8 +1084,9 @@ renameWithinFile(ParsedAST &AST, const NamedDecl &RenameDecl,
   std::vector<SourceLocation> Locs;
   for (SourceLocation Loc : findOccurrencesWithinFile(AST, RenameDecl)) {
     SourceLocation RenameLoc = Loc;
-    // We don't rename in any macro bodies, but we allow rename the symbol
-    // spelled in a top-level macro argument in the main file.
+    // We don't rename in macro bodies, but allow renaming a symbol spelled in
+    // a top-level macro argument in the main file. Expression-macro injection
+    // references are checked separately for plain tokens in their quote.
     if (RenameLoc.isMacroID()) {
       if (isInMacroBody(SM, RenameLoc))
         continue;
@@ -1321,12 +1422,19 @@ llvm::Expected<RenameResult> rename(const RenameInputs &RInputs) {
   auto MainFileRenameEdit = renameWithinFile(AST, RenameDecl, RInputs.NewName);
   if (!MainFileRenameEdit)
     return MainFileRenameEdit.takeError();
-  if (!MainFileRenameEdit->empty() && RenameDecl.getIdentifier())
+  if (!MainFileRenameEdit->empty() && RenameDecl.getIdentifier()) {
+    if (auto InjectedQuote = findInjectedQuoteReference(AST, RenameDecl)) {
+      SourceLocation SpellingLoc =
+          AST.getSourceManager().getSpellingLoc(InjectedQuote->first);
+      return quoteRenameError(AST.getSourceManager().getFilename(SpellingLoc),
+                              InjectedQuote->second);
+    }
     if (auto Occurrence =
             findQuoteTokenInAST(AST, RenameDecl.getIdentifier()->getName(),
                                 dyn_cast_or_null<FunctionDecl>(
                                     RenameDecl.getParentFunctionOrMethod())))
       return quoteRenameError(RInputs.MainFilePath, *Occurrence);
+  }
 
   llvm::DenseSet<Range> RenamedRanges;
   if (!isa<ObjCMethodDecl>(RenameDecl)) {
