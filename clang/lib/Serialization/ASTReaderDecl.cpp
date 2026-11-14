@@ -2410,6 +2410,11 @@ void ASTDeclReader::VisitCXXConstructorDecl(CXXConstructorDecl *D) {
   }
 
   VisitCXXMethodDecl(D);
+  // A constructor from another module may have been merged into this
+  // canonical declaration while reading VisitCXXMethodDecl. The module can
+  // contain an identical copy of the deferred initializers, so keep the list
+  // from the first module that populated the canonical declaration.
+  bool ReadDeferredInits = D->getDeferredMemInitializers().empty();
   unsigned NumDeferredInits = Record.readInt();
   while (NumDeferredInits--) {
     CXXConstructorDecl::DeferredMemInitializer Init;
@@ -2419,7 +2424,8 @@ void ASTDeclReader::VisitCXXConstructorDecl(CXXConstructorDecl *D) {
     Init.NameLoc = readSourceLocation();
     Init.Init = Record.readExpr();
     Init.EllipsisLoc = readSourceLocation();
-    D->addDeferredMemInitializer(Init);
+    if (ReadDeferredInits)
+      D->addDeferredMemInitializer(Init);
   }
 }
 
