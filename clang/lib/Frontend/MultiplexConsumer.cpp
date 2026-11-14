@@ -113,6 +113,7 @@ public:
   void InstantiationRequested(const ValueDecl *D) override;
   void VariableDefinitionInstantiated(const VarDecl *D) override;
   void FunctionDefinitionInstantiated(const FunctionDecl *D) override;
+  void DeferredMemInitializerAdded(const CXXConstructorDecl *D) override;
   void DefaultArgumentInstantiated(const ParmVarDecl *D) override;
   void DefaultMemberInitializerInstantiated(const FieldDecl *D) override;
   void AddedObjCCategoryToInterface(const ObjCCategoryDecl *CatD,
@@ -209,6 +210,11 @@ void MultiplexASTMutationListener::FunctionDefinitionInstantiated(
     const FunctionDecl *D) {
   for (auto &Listener : Listeners)
     Listener->FunctionDefinitionInstantiated(D);
+}
+void MultiplexASTMutationListener::DeferredMemInitializerAdded(
+    const CXXConstructorDecl *D) {
+  for (auto *L : Listeners)
+    L->DeferredMemInitializerAdded(D);
 }
 void MultiplexASTMutationListener::DefaultArgumentInstantiated(
                                                          const ParmVarDecl *D) {

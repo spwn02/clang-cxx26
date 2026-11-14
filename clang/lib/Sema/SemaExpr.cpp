@@ -7879,6 +7879,8 @@ bool Sema::ActOnMemInitMacroInvocation(
         LParenLoc, RParenLoc);
     SetUnparsedMacroEnvironment(E, S);
     Ctor->addDeferredMemInitializer({Position, E});
+    if (ASTMutationListener *L = getASTMutationListener())
+      L->DeferredMemInitializerAdded(Ctor);
     Deferred = true;
     return false;
   }
@@ -7907,6 +7909,8 @@ bool Sema::ActOnMemInitMacroInvocation(
           Context, This.get(), /*IsArrow=*/true, NameLoc, NameInfo, Args,
           ExclaimLoc, LParenLoc, RParenLoc, TemplateArgs);
       Ctor->addDeferredMemInitializer({Position, E});
+      if (ASTMutationListener *L = getASTMutationListener())
+        L->DeferredMemInitializerAdded(Ctor);
       Deferred = true;
       return false;
     }
@@ -7930,6 +7934,8 @@ bool Sema::ActOnMemInitMacroInvocation(
     auto *E = CXXMacroInvocationExpr::Create(Context, ULE, Args, ExclaimLoc,
                                              LParenLoc, RParenLoc);
     Ctor->addDeferredMemInitializer({Position, E});
+    if (ASTMutationListener *L = getASTMutationListener())
+      L->DeferredMemInitializerAdded(Ctor);
     Deferred = true;
     return false;
   }

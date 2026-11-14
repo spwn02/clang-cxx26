@@ -4931,6 +4931,24 @@ void ASTDeclReader::UpdateDecl(Decl *D) {
       break;
     }
 
+    case DeclUpdateKind::CXXDeferredMemInitializers: {
+      auto *Ctor = cast<CXXConstructorDecl>(D);
+      bool ReadDeferredInits = Ctor->getDeferredMemInitializers().empty();
+      unsigned NumDeferredInits = Record.readInt();
+      while (NumDeferredInits--) {
+        CXXConstructorDecl::DeferredMemInitializer Init;
+        Init.Position = Record.readInt();
+        Init.Macro = dyn_cast_or_null<CXXMacroInvocationExpr>(Record.readStmt());
+        Init.Name = Record.readIdentifier();
+        Init.NameLoc = readSourceLocation();
+        Init.Init = Record.readExpr();
+        Init.EllipsisLoc = readSourceLocation();
+        if (ReadDeferredInits)
+          Ctor->addDeferredMemInitializer(Init);
+      }
+      break;
+    }
+
     case DeclUpdateKind::CXXAddedFunctionDefinition: {
       auto *FD = cast<FunctionDecl>(D);
       if (Reader.PendingBodies[FD]) {

@@ -6535,6 +6535,20 @@ void ASTWriter::WriteDeclUpdatesBlocks(ASTContext &Context,
             cast<FieldDecl>(Update.getDecl())->getInClassInitializer());
         break;
 
+      case DeclUpdateKind::CXXDeferredMemInitializers: {
+        auto Inits = cast<CXXConstructorDecl>(D)->getDeferredMemInitializers();
+        Record.push_back(Inits.size());
+        for (const auto &Init : Inits) {
+          Record.push_back(Init.Position);
+          Record.AddStmt(Init.Macro);
+          Record.AddIdentifierRef(Init.Name);
+          Record.AddSourceLocation(Init.NameLoc);
+          Record.AddStmt(Init.Init);
+          Record.AddSourceLocation(Init.EllipsisLoc);
+        }
+        break;
+      }
+
       case DeclUpdateKind::CXXInstantiatedClassDefinition: {
         auto *RD = cast<CXXRecordDecl>(D);
         UpdatedDeclContexts.insert(RD->getPrimaryContext());
@@ -7746,6 +7760,20 @@ void ASTWriter::FunctionDefinitionInstantiated(const FunctionDecl *D) {
 
   DeclUpdates[D].push_back(
       DeclUpdate(DeclUpdateKind::CXXAddedFunctionDefinition));
+}
+
+void ASTWriter::DeferredMemInitializerAdded(const CXXConstructorDecl *D) {
+  if (Chain && Chain->isProcessingUpdateRecords())
+    return;
+  assert(!WritingAST && "Already writing the AST!");
+  D = D->getCanonicalDecl();
+  if (!D->isFromASTFile() || !Chain)
+    return;
+
+  Chain->forEachImportedKeyDecl(D, [&](const Decl *KeyDecl) {
+    DeclUpdates[KeyDecl].push_back(
+        DeclUpdateKind::CXXDeferredMemInitializers);
+  });
 }
 
 void ASTWriter::InstantiationRequested(const ValueDecl *D) {

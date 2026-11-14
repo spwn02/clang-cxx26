@@ -44,7 +44,8 @@ enum class DeclUpdateKind {
   AddedAttrToRecord,
   CXXResolvedDtorGlobDelete,
   CXXResolvedDtorArrayDelete,
-  CXXResolvedDtorGlobArrayDelete
+  CXXResolvedDtorGlobArrayDelete,
+  CXXDeferredMemInitializers
 };
 
 TypeIdx TypeIdxFromBuiltin(const BuiltinType *BT);

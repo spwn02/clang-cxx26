@@ -4731,6 +4731,8 @@ Sema::BuildMemInitializer(Decl *ConstructorD,
         D.EllipsisLoc = EllipsisLoc;
         Constructor->addDeferredMemInitializer(
             {D.Position, D.Macro, D.Name, D.NameLoc, D.Init, D.EllipsisLoc});
+        if (ASTMutationListener *L = getASTMutationListener())
+          L->DeferredMemInitializerAdded(Constructor);
         return MemInitResult();
       }
 

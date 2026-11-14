@@ -18,6 +18,7 @@ namespace clang {
   class ClassTemplateSpecializationDecl;
   class ConstructorUsingShadowDecl;
   class CXXDestructorDecl;
+  class CXXConstructorDecl;
   class CXXRecordDecl;
   class Decl;
   class DeclContext;
@@ -112,6 +113,9 @@ public:
 
   /// A function template's definition was instantiated.
   virtual void FunctionDefinitionInstantiated(const FunctionDecl *D) {}
+
+  /// A deferred constructor mem-initializer was added to a constructor.
+  virtual void DeferredMemInitializerAdded(const CXXConstructorDecl *D) {}
 
   /// A default argument was instantiated.
   virtual void DefaultArgumentInstantiated(const ParmVarDecl *D) {}
