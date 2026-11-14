@@ -2652,6 +2652,22 @@ class CXXConstructorDecl final
   /// The arguments used to initialize the base or member.
   LazyCXXCtorInitializersPtr CtorInitializers;
 
+public:
+  /// Mem-initializers that must be resolved when a dependent constructor is
+  /// instantiated. Kept on the canonical declaration so they survive AST
+  /// serialization and are shared by out-of-line redeclarations.
+  struct DeferredMemInitializer {
+    unsigned Position;
+    CXXMacroInvocationExpr *Macro = nullptr;
+    IdentifierInfo *Name = nullptr;
+    SourceLocation NameLoc;
+    Expr *Init = nullptr;
+    SourceLocation EllipsisLoc;
+  };
+
+private:
+  SmallVector<DeferredMemInitializer, 1> DeferredMemInitializers;
+
   CXXConstructorDecl(ASTContext &C, CXXRecordDecl *RD, SourceLocation StartLoc,
                      const DeclarationNameInfo &NameInfo, QualType T,
                      TypeSourceInfo *TInfo, ExplicitSpecifier ES,
@@ -2795,6 +2811,14 @@ public:
 
   void setCtorInitializers(CXXCtorInitializer **Initializers) {
     CtorInitializers = Initializers;
+  }
+
+  using deferred_mem_initializer_range = llvm::ArrayRef<DeferredMemInitializer>;
+  deferred_mem_initializer_range getDeferredMemInitializers() const {
+    return getCanonicalDecl()->DeferredMemInitializers;
+  }
+  void addDeferredMemInitializer(const DeferredMemInitializer &Init) {
+    getCanonicalDecl()->DeferredMemInitializers.push_back(Init);
   }
 
   /// Determine whether this constructor is a delegating constructor.

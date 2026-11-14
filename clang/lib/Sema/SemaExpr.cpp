@@ -7878,7 +7878,7 @@ bool Sema::ActOnMemInitMacroInvocation(
         Context, cast<UnresolvedLookupExpr>(Callee.get()), Args, ExclaimLoc,
         LParenLoc, RParenLoc);
     SetUnparsedMacroEnvironment(E, S);
-    DeferredMemInitMacros[Ctor->getCanonicalDecl()].push_back({Position, E});
+    Ctor->addDeferredMemInitializer({Position, E});
     Deferred = true;
     return false;
   }
@@ -7906,7 +7906,7 @@ bool Sema::ActOnMemInitMacroInvocation(
       auto *E = CXXMacroInvocationExpr::CreateMember(
           Context, This.get(), /*IsArrow=*/true, NameLoc, NameInfo, Args,
           ExclaimLoc, LParenLoc, RParenLoc, TemplateArgs);
-      DeferredMemInitMacros[Ctor->getCanonicalDecl()].push_back({Position, E});
+      Ctor->addDeferredMemInitializer({Position, E});
       Deferred = true;
       return false;
     }
@@ -7929,7 +7929,7 @@ bool Sema::ActOnMemInitMacroInvocation(
   if (Dependent) {
     auto *E = CXXMacroInvocationExpr::Create(Context, ULE, Args, ExclaimLoc,
                                              LParenLoc, RParenLoc);
-    DeferredMemInitMacros[Ctor->getCanonicalDecl()].push_back({Position, E});
+    Ctor->addDeferredMemInitializer({Position, E});
     Deferred = true;
     return false;
   }

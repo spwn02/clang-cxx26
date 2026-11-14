@@ -7449,16 +7449,13 @@ Sema::InstantiateMemInitializers(CXXConstructorDecl *New,
   // expansion may instantiate further constructors.)
   // So were initializers of members the pattern did not have, which may have
   // been injected into the specialization.
-  SmallVector<DeferredMemInit, 1> Macros;
-  if (auto It = DeferredMemInitMacros.find(Tmpl->getCanonicalDecl());
-      It != DeferredMemInitMacros.end())
-    Macros.assign(It->second.begin(), It->second.end());
+  auto DeferredInits = Tmpl->getDeferredMemInitializers();
   unsigned NextMacro = 0;
   auto ExpandMacrosThrough = [&](unsigned Position) {
-    for (; NextMacro != Macros.size() &&
-           Macros[NextMacro].Position <= Position;
+    for (; NextMacro != DeferredInits.size() &&
+           DeferredInits[NextMacro].Position <= Position;
          ++NextMacro) {
-      const DeferredMemInit &D = Macros[NextMacro];
+      const auto &D = DeferredInits[NextMacro];
       bool Failed;
       if (D.Macro) {
         Failed = expandDeferredMemInitMacro(*this, New, D.Macro, TemplateArgs,

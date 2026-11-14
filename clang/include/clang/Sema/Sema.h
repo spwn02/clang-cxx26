@@ -17302,25 +17302,6 @@ public:
                                SourceLocation RParenLoc,
                                TokenSequenceData &Expansion);
 
-  /// A mem-initializer of a dependent constructor that waits for
-  /// instantiation: a macro invocation (Macro), or an initializer of a member
-  /// the class does not have yet (Name), which may be injected per
-  /// specialization. Position is its place among the written
-  /// mem-initializers: the number of (non-deferred) ones before it.
-  struct DeferredMemInit {
-    unsigned Position;
-    CXXMacroInvocationExpr *Macro = nullptr;
-    IdentifierInfo *Name = nullptr;
-    SourceLocation NameLoc;
-    Expr *Init = nullptr;
-    SourceLocation EllipsisLoc;
-  };
-
-  /// Deferred mem-initializers, keyed by the (canonical) constructor, in
-  /// source order. Expanded or built by InstantiateMemInitializers.
-  llvm::DenseMap<const CXXConstructorDecl *, SmallVector<DeferredMemInit, 1>>
-      DeferredMemInitMacros;
-
   /// While the parser builds a mem-initializer: its position among the
   /// written ones (see DeferredMemInit). ~0u otherwise, e.g. when
   /// instantiating, which never defers.
@@ -17330,7 +17311,7 @@ public:
   /// have been injected into the specialization \p New belongs to.
   MemInitResult
   BuildDeferredNamedMemInitializer(CXXConstructorDecl *New,
-                                   const DeferredMemInit &D,
+                                   const CXXConstructorDecl::DeferredMemInitializer &D,
                                    const MultiLevelTemplateArgumentList &Args);
 
   ExprResult ActOnCXXBuiltinInject(SourceLocation KwLoc,

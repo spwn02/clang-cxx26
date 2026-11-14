@@ -1844,6 +1844,18 @@ void ASTDeclWriter::VisitCXXConstructorDecl(CXXConstructorDecl *D) {
   }
 
   VisitCXXMethodDecl(D);
+  auto DeferredInits = D->isCanonicalDecl()
+                           ? D->getDeferredMemInitializers()
+                           : CXXConstructorDecl::deferred_mem_initializer_range();
+  Record.push_back(DeferredInits.size());
+  for (const auto &Init : DeferredInits) {
+    Record.push_back(Init.Position);
+    Record.AddStmt(Init.Macro);
+    Record.AddIdentifierRef(Init.Name);
+    Record.AddSourceLocation(Init.NameLoc);
+    Record.AddStmt(Init.Init);
+    Record.AddSourceLocation(Init.EllipsisLoc);
+  }
   Code = serialization::DECL_CXX_CONSTRUCTOR;
 }
 

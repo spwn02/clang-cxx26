@@ -2410,6 +2410,17 @@ void ASTDeclReader::VisitCXXConstructorDecl(CXXConstructorDecl *D) {
   }
 
   VisitCXXMethodDecl(D);
+  unsigned NumDeferredInits = Record.readInt();
+  while (NumDeferredInits--) {
+    CXXConstructorDecl::DeferredMemInitializer Init;
+    Init.Position = Record.readInt();
+    Init.Macro = dyn_cast_or_null<CXXMacroInvocationExpr>(Record.readStmt());
+    Init.Name = Record.readIdentifier();
+    Init.NameLoc = readSourceLocation();
+    Init.Init = Record.readExpr();
+    Init.EllipsisLoc = readSourceLocation();
+    D->addDeferredMemInitializer(Init);
+  }
 }
 
 void ASTDeclReader::VisitCXXDestructorDecl(CXXDestructorDecl *D) {

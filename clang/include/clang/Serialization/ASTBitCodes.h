@@ -54,7 +54,7 @@ const unsigned VERSION_MAJOR = 36;
 /// for the previous version could still support reading the new
 /// version by ignoring new kinds of subblocks), this number
 /// should be increased.
-const unsigned VERSION_MINOR = 0;
+const unsigned VERSION_MINOR = 1;
 
 /// An ID number that refers to an identifier in an AST file.
 ///

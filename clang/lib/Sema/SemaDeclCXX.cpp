@@ -4723,13 +4723,14 @@ Sema::BuildMemInitializer(Decl *ConstructorD,
       if (R.empty() && BaseType.isNull() && SS.isEmpty() &&
           CurrentMemInitPosition != ~0u && Constructor->isDependentContext() &&
           mayHaveInjectedMembers(ClassDecl)) {
-        DeferredMemInit D;
+        CXXConstructorDecl::DeferredMemInitializer D;
         D.Position = CurrentMemInitPosition;
         D.Name = MemberOrBase;
         D.NameLoc = IdLoc;
         D.Init = Init;
         D.EllipsisLoc = EllipsisLoc;
-        DeferredMemInitMacros[Constructor->getCanonicalDecl()].push_back(D);
+        Constructor->addDeferredMemInitializer(
+            {D.Position, D.Macro, D.Name, D.NameLoc, D.Init, D.EllipsisLoc});
         return MemInitResult();
       }
 
@@ -4820,7 +4821,8 @@ Sema::BuildMemInitializer(Decl *ConstructorD,
 }
 
 MemInitResult Sema::BuildDeferredNamedMemInitializer(
-    CXXConstructorDecl *New, const DeferredMemInit &D,
+    CXXConstructorDecl *New,
+    const CXXConstructorDecl::DeferredMemInitializer &D,
     const MultiLevelTemplateArgumentList &Args) {
   ExprResult Init = SubstInitializer(D.Init, Args, /*CXXDirectInit=*/true);
   if (Init.isInvalid())
