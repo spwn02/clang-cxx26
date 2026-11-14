@@ -124,6 +124,15 @@ def positions_for(name, code, marker):
     return list(unique.values())
 
 
+def allow_ptrace():
+    """Let sibling debuggers (eu-stack) attach under kernel.yama.ptrace_scope=1."""
+    try:
+        import ctypes
+        ctypes.CDLL(None).prctl(0x59616D61, ctypes.c_ulong(-1))  # PR_SET_PTRACER_ANY
+    except Exception:
+        pass
+
+
 class LSP:
     def __init__(self, binary, root, path, code, timeout):
         self.stderr_file = tempfile.TemporaryFile()
@@ -131,7 +140,7 @@ class LSP:
             [binary, "--enable-config", "--compile-commands-dir=" + str(root),
              "--background-index=0", "--clang-tidy=0", "--log=error"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=self.stderr_file, bufsize=0)
+            stderr=self.stderr_file, bufsize=0, preexec_fn=allow_ptrace)
         self.path = path
         self.uri = "file:" + urllib.parse.quote(str(path))
         self.timeout = timeout
@@ -209,7 +218,7 @@ class LSP:
             self.shutdown_note = "hung in %s after %.1fs (%r)" % (
                 phase, time.monotonic() - start, error)
             subprocess.run(["eu-stack", "-p", str(self.proc.pid)],
-                           stdout=sys.stderr, stderr=subprocess.DEVNULL,
+                           stdout=sys.stderr, stderr=sys.stderr,
                            timeout=60, check=False)
             self.proc.kill()
             self.proc.wait()
