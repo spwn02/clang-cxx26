@@ -190,20 +190,36 @@ class LSP:
         return self.receive(ident)
 
     def close(self):
+        """Shut clangd down; report slow or hung shutdowns instead of hiding them."""
+        phase = "shutdown-request"
+        start = time.monotonic()
+        self.shutdown_note = None
         try:
             if self.proc.poll() is None:
                 self.send({"jsonrpc": "2.0", "id": 999999, "method": "shutdown",
                            "params": {}})
                 self.receive(999999)
+                phase = "exit-wait"
                 self.send({"jsonrpc": "2.0", "method": "exit", "params": {}})
-                self.proc.wait(timeout=3)
-        except Exception:
+                self.proc.wait(timeout=EXIT_WAIT_SECONDS)
+            elapsed = time.monotonic() - start
+            if elapsed > 3:
+                self.shutdown_note = "slow shutdown %.1fs" % elapsed
+        except Exception as error:
+            self.shutdown_note = "hung in %s after %.1fs (%r)" % (
+                phase, time.monotonic() - start, error)
+            subprocess.run(["eu-stack", "-p", str(self.proc.pid)],
+                           stdout=sys.stderr, stderr=subprocess.DEVNULL,
+                           timeout=60, check=False)
             self.proc.kill()
             self.proc.wait()
         self.stderr_file.seek(0)
         stderr = self.stderr_file.read().decode(errors="replace")
         self.stderr_file.close()
         return self.proc.returncode, stderr
+
+
+EXIT_WAIT_SECONDS = 30  # generous: a kill after this is a real hang, not load
 
 
 def run_lsp(binary, repeats, timeout, only_cases=None):
@@ -289,7 +305,12 @@ def run_lsp(binary, repeats, timeout, only_cases=None):
                     if client:
                         rc, stderr = client.close()
                         if rc not in (0, -15):
-                            failures.append({"exit": rc, "stderr": stderr[-1500:]})
+                            failures.append({"exit": rc, "stderr": stderr[-1500:],
+                                             "shutdown": client.shutdown_note})
+                        elif client.shutdown_note:
+                            print(json.dumps({"case": name, "repeat": repeat,
+                                              "note": client.shutdown_note}),
+                                  flush=True)
                 results.append({"case": name, "repeat": repeat,
                                 "positions": len(locations),
                                 "completion_requests": sent,
