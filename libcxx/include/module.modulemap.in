@@ -176,6 +176,10 @@ module std_core [system] {
     export *
   }
 
+  module meta_token_locations {
+    header "__meta/token_locations.h"
+  }
+
   module type_traits {
     module add_cv_quals {
       header "__type_traits/add_cv_quals.h"

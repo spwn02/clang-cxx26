@@ -774,6 +774,7 @@ set(files
   __memory_resource/synchronized_pool_resource.h
   __memory_resource/unsynchronized_pool_resource.h
   __meta/metafunction_ids.h
+  __meta/token_locations.h
   __mutex/lock_guard.h
   __mutex/mutex.h
   __mutex/once_flag.h

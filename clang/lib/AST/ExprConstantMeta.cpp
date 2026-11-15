@@ -825,6 +825,18 @@ static bool is_constant_expression(APValue &Result, ASTContext &C,
                                    ArrayRef<Expr *> Args,
                                    Decl *ContainingDecl);
 
+static bool token_begin_location(APValue &Result, ASTContext &C,
+                                 MetaActions &Meta, EvalFn Evaluator,
+                                 DiagFn Diagnoser, bool AllowInjection,
+                                 QualType ResultTy, SourceRange Range,
+                                 ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
+static bool token_end_location(APValue &Result, ASTContext &C,
+                               MetaActions &Meta, EvalFn Evaluator,
+                               DiagFn Diagnoser, bool AllowInjection,
+                               QualType ResultTy, SourceRange Range,
+                               ArrayRef<Expr *> Args, Decl *ContainingDecl);
+
 static bool test_expression(APValue &Result, ASTContext &C, MetaActions &Meta,
                             EvalFn Evaluator, DiagFn Diagnoser,
                             bool AllowInjection, QualType ResultTy,
@@ -1128,6 +1140,8 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_tokenSequence, 3, 3, tokens_subseq },
   { Metafunction::MFRK_token, 0, 0, token_type },
   { Metafunction::MFRK_bool, 2, 2, tokens_equal },
+  { Metafunction::MFRK_sourceLoc, 1, 1, token_begin_location },
+  { Metafunction::MFRK_sourceLoc, 1, 1, token_end_location },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
                                             sizeof(Metafunction);
@@ -2622,6 +2636,76 @@ static bool getSingleToken(EvalFn Evaluator, Expr *Arg,
   if (TS.isTokenSequence() && TS.getTokenSequence().size() == 1)
     Tok = TS.getTokenSequence()[0];
   return true;
+}
+
+static SourceLocation getTokenSpellingEndLoc(const Token &Tok,
+                                            const ASTContext &C) {
+  SourceLocation Begin = Tok.getLocation();
+  if (Tok.isAnnotation() || Begin.isInvalid())
+    return Begin;
+
+  unsigned Length = Tok.getLength();
+  if (!Length) {
+    // PropertiesBase.td deliberately serializes non-literal token lengths as
+    // zero. Recover exact identifier, keyword, and punctuator spellings from
+    // the source manager when possible (including UCNs and digraphs), then
+    // fall back to their canonical spelling if the buffer is unavailable.
+    bool HasRecoverableSpelling =
+        Tok.is(tok::identifier) || tok::getKeywordSpelling(Tok.getKind()) ||
+        tok::getPunctuatorSpelling(Tok.getKind());
+    if (HasRecoverableSpelling) {
+      bool Invalid = false;
+      std::string Spelling =
+          Lexer::getSpelling(Tok, C.getSourceManager(), C.getLangOpts(),
+                             &Invalid);
+      if (!Invalid)
+        Length = Spelling.size();
+    }
+    if (!Length) {
+      if (Tok.is(tok::identifier))
+        Length = Tok.getIdentifierInfo()->getLength();
+      else if (const char *Spelling = tok::getKeywordSpelling(Tok.getKind()))
+        Length = StringRef(Spelling).size();
+      else if (const char *Spelling = tok::getPunctuatorSpelling(Tok.getKind()))
+        Length = StringRef(Spelling).size();
+    }
+  }
+  return Length ? Begin.getLocWithOffset(Length) : Begin;
+}
+
+static bool token_location(APValue &Result, ASTContext &C,
+                           EvalFn Evaluator, QualType ResultTy,
+                           ArrayRef<Expr *> Args, bool End) {
+  std::optional<Token> Tok;
+  if (!getSingleToken(Evaluator, Args[0], Tok))
+    return true;
+
+  SourceLocation Loc;
+  if (Tok)
+    Loc = End ? getTokenSpellingEndLoc(*Tok, C) : Tok->getLocation();
+
+  // SourceLocExpr's invalid-location path yields source_location{} (zero
+  // line/column and an empty file name), which is the defined result for a
+  // synthesized token or an operand that is not a single token.
+  auto *SLE = new (C) SourceLocExpr(C, SourceLocIdentKind::SourceLocStruct,
+                                   ResultTy, Loc, SourceLocation(), nullptr);
+  return !Evaluator(Result, SLE, true);
+}
+
+static bool token_begin_location(APValue &Result, ASTContext &C,
+                                 MetaActions &Meta, EvalFn Evaluator,
+                                 DiagFn Diagnoser, bool AllowInjection,
+                                 QualType ResultTy, SourceRange Range,
+                                 ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  return token_location(Result, C, Evaluator, ResultTy, Args, false);
+}
+
+static bool token_end_location(APValue &Result, ASTContext &C,
+                               MetaActions &Meta, EvalFn Evaluator,
+                               DiagFn Diagnoser, bool AllowInjection,
+                               QualType ResultTy, SourceRange Range,
+                               ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  return token_location(Result, C, Evaluator, ResultTy, Args, true);
 }
 
 /// identifier_of(token_sequence): the spelling of a single identifier token,

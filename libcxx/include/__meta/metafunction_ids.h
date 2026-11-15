@@ -193,6 +193,8 @@ enum : unsigned {
   __metafn_tokens_subseq,
   __metafn_token_type,
   __metafn_tokens_equal,
+  __metafn_token_begin_location,
+  __metafn_token_end_location,
 };
 } // namespace __detail
 
