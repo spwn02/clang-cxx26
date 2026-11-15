@@ -39,6 +39,12 @@ public:
     SourceLocation Loc;
     QuoteTokenRole Role;
   };
+  struct Token {
+    SourceLocation Loc;
+    unsigned Length;
+    bool IsExpressionMacro = false;
+    Resolution Result;
+  };
 
   /// Returns true when p Loc names a quote-body token, even if it has not
   /// expanded or its expansions disagree.
@@ -48,9 +54,12 @@ public:
   SourceLocation tokenLocation(SourceLocation Loc,
                                const SourceManager &SM) const;
   llvm::SmallVector<Reference, 4> references(const NamedDecl *D) const;
+  /// Returns every quote token in the main file, including unresolved tokens.
+  llvm::SmallVector<Token, 16> tokens() const;
 
-  void addQuotedToken(SourceLocation Loc, unsigned Offset, unsigned Length) {
-    Tokens.try_emplace(Offset, TokenInfo{Loc, Length, {}});
+  void addQuotedToken(SourceLocation Loc, unsigned Offset, unsigned Length,
+                      bool IsExpressionMacro) {
+    Tokens.try_emplace(Offset, TokenInfo{Loc, Length, IsExpressionMacro, {}});
   }
 
   static QuoteTokenTable build(ASTContext &Ctx,
@@ -60,10 +69,10 @@ private:
   struct TokenInfo {
     SourceLocation Loc;
     unsigned Length;
+    bool IsExpressionMacro;
     Resolution Result;
   };
-  const TokenInfo *findToken(SourceLocation Loc,
-                             const SourceManager &SM) const;
+  const TokenInfo *findToken(SourceLocation Loc, const SourceManager &SM) const;
   llvm::DenseMap<unsigned, TokenInfo> Tokens;
 };
 

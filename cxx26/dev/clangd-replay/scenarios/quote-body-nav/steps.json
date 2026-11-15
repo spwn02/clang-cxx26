@@ -194,5 +194,50 @@
   "label": "rename-pick",
   "pre": 300,
   "wait": 300
+ },
+ {
+  "line": 22,
+  "col": 4,
+  "request": "textDocument/rename",
+  "newName": "renamed_helper",
+  "label": "rename-helper-decl",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 50,
+  "request": "textDocument/rename",
+  "newName": "renamed_Point",
+  "label": "rename-Point",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 59,
+  "request": "textDocument/rename",
+  "newName": "renamed_x",
+  "label": "rename-x",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 26,
+  "col": 35,
+  "request": "textDocument/rename",
+  "newName": "renamed_made",
+  "label": "rename-made",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 28,
+  "col": 33,
+  "request": "textDocument/rename",
+  "newName": "renamed_helper",
+  "label": "rename-unused-helper",
+  "pre": 300,
+  "wait": 300
  }
 ]

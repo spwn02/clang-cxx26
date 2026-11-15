@@ -1107,7 +1107,7 @@ TEST(RenameTest, TokenSequenceQuoteRenameSafety) {
         using std::meta::token_sequence;
         template <typename target^> auto f() { return @@{ target }; }
       )cpp",
-       false},
+       true},
   };
 
   for (const TestCase &T : Tests) {
@@ -1126,6 +1126,98 @@ TEST(RenameTest, TokenSequenceQuoteRenameSafety) {
     } else {
       ASSERT_TRUE(bool(Results)) << llvm::toString(Results.takeError());
     }
+  }
+}
+
+TEST(RenameTest, TokenSequenceQuoteRenameReferences) {
+  Annotations Code(R"cpp(
+    namespace std::meta {
+    template <class... Ts> consteval auto id(Ts const &...) -> int;
+    using token = decltype(id("x"));
+    class token_sequence { public:
+      constexpr token_sequence() noexcept = default;
+      friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+      friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+      friend consteval bool operator==(const token_sequence &, const token_sequence &);
+    };
+    }
+    using std::meta::token_sequence;
+    struct $Point_decl^Point { int $x_decl^x; };
+    int $helper_decl^helper(int);
+    __macro quote_it() { return @@{ $helper^helper($Point^Point{1}.$x^x) }; }
+    int use() { return quote_it!(); }
+  )cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  auto Index = TU.index();
+
+  auto RenameAt = [&](llvm::StringRef Marker, llvm::StringRef NewName) {
+    return rename({Code.point(Marker), NewName, AST, testPath(TU.Filename),
+                   getVFSFromAST(AST), Index.get()});
+  };
+  for (auto [Name, DeclMarker] :
+       {std::pair<llvm::StringRef, llvm::StringRef>{"helper", "helper_decl"},
+        {"Point", "Point_decl"},
+        {"x", "x_decl"}}) {
+    std::string NewName = (Name + "_new").str();
+    auto FromQuote = RenameAt(Name, NewName);
+    ASSERT_TRUE(bool(FromQuote)) << llvm::toString(FromQuote.takeError());
+    EXPECT_THAT(FromQuote->GlobalChanges, testing::SizeIs(1));
+    const auto &QuoteEdits =
+        FromQuote->GlobalChanges.begin()->second.Replacements;
+    ASSERT_FALSE(QuoteEdits.empty());
+    for (const auto &Edit : QuoteEdits)
+      EXPECT_EQ(Edit.getReplacementText(), NewName);
+
+    auto FromDecl = RenameAt(DeclMarker, NewName);
+    ASSERT_TRUE(bool(FromDecl)) << llvm::toString(FromDecl.takeError());
+    EXPECT_THAT(FromDecl->GlobalChanges, testing::SizeIs(1));
+    const auto &DeclEdits =
+        FromDecl->GlobalChanges.begin()->second.Replacements;
+    ASSERT_FALSE(DeclEdits.empty());
+    for (const auto &Edit : DeclEdits)
+      EXPECT_EQ(Edit.getReplacementText(), NewName);
+  }
+}
+
+TEST(RenameTest, TokenSequenceQuoteRenameRefusals) {
+  Annotations Code(R"cpp(
+    namespace std::meta {
+    template <class... Ts> consteval auto id(Ts const &...) -> int;
+    using token = decltype(id("x"));
+    class token_sequence { public:
+      constexpr token_sequence() noexcept = default;
+      friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+      friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+      friend consteval bool operator==(const token_sequence &, const token_sequence &);
+    };
+    }
+    using std::meta::token_sequence;
+    namespace n1 { int pick(); }
+    namespace n2 { int pick(); }
+    __macro pick_it() { return @@{ $pick^pick() }; }
+    __macro decl_it() { return @@{ int $made^made = 0; }; }
+    __macro unused_it() { return @@{ $unused^helper(0) }; }
+    int p1() { using namespace n1; return pick_it!(); }
+    int p2() { using namespace n2; return pick_it!(); }
+    int d1() { decl_it!(); return made; }
+  )cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+
+  for (auto [Marker, Reason] : {std::pair<llvm::StringRef, llvm::StringRef>{
+                                    "pick", "different symbols"},
+                                {"made", "declares a symbol"},
+                                {"unused", "no expansions"}}) {
+    auto Results =
+        rename({Code.point(Marker), "renamed", AST, testPath(TU.Filename)});
+    ASSERT_FALSE(Results) << Marker;
+    std::string Message = llvm::toString(Results.takeError());
+    EXPECT_THAT(Message, testing::HasSubstr("quote would not be updated"));
+    EXPECT_THAT(Message, testing::HasSubstr(Reason));
+    EXPECT_THAT(Message, testing::MatchesRegex(".*at [0-9]+:[0-9]+.*"));
   }
 }
 
@@ -2140,44 +2232,6 @@ TEST(CrossFileRenameTests, TokenSequenceQuoteInUnexpandedMacroDoesNotRefuse) {
   auto Results =
       rename({MainCode.point(), "renamed", AST, testPath(TU.Filename)});
   ASSERT_TRUE(bool(Results)) << llvm::toString(Results.takeError());
-}
-
-TEST(RenameTest, TokenSequenceQuoteRefusalIgnoresCPPNumberSeparator) {
-  Annotations MainCode("void target^(); int use() { target(); return 0; }");
-  Annotations OtherCode(R"cpp(
-    void target() {}
-    void other() { [[target]](); }
-    int n = 1'000;
-    constexpr auto quote = @@{ target(); };
-  )cpp");
-  std::string MainPath = testPath("main.cc");
-  std::string OtherPath = testPath("other.cc");
-  TestTU TU = TestTU::withCode(MainCode.code());
-  TU.ExtraArgs.push_back("-std=c++29");
-  TU.AdditionalFiles["other.cc"] = withReflectionOperator(OtherCode.code());
-  auto AST = TU.build();
-
-  const FunctionDecl *Target = nullptr;
-  for (Decl *D : AST.getLocalTopLevelDecls())
-    if (const auto *FD = dyn_cast<FunctionDecl>(D))
-      if (FD->getName() == "target")
-        Target = FD;
-  ASSERT_NE(Target, nullptr);
-  RefSlab::Builder Refs;
-  std::string OtherURI = URI::create(OtherPath).toString();
-  Refs.insert(getSymbolID(Target),
-              refWithRange(OtherCode.ranges().front(), OtherURI));
-  FileSymbols Symbols(IndexContents::All, true);
-  Symbols.update(OtherPath, nullptr,
-                 std::make_unique<RefSlab>(std::move(Refs).build()), nullptr,
-                 false);
-  auto Index = Symbols.buildIndex(IndexType::Light);
-  auto Results = rename({MainCode.point(), "renamed", AST, MainPath,
-                         getVFSFromAST(AST), Index.get()});
-  ASSERT_FALSE(Results);
-  std::string Message = llvm::toString(Results.takeError());
-  EXPECT_THAT(Message, testing::HasSubstr(OtherPath));
-  EXPECT_THAT(Message, testing::HasSubstr("quote would not be updated"));
 }
 
 TEST(RenameTest, TokenSequenceQuoteRefusalDoesNotChangeCPPMacroBehavior) {

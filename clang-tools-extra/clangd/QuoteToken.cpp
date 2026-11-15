@@ -25,6 +25,14 @@ public:
   QuoteCollector(const SourceManager &SM, QuoteTokenTable &Table)
       : SM(SM), Table(Table) {}
 
+  bool TraverseFunctionDecl(FunctionDecl *FD) {
+    bool WasExpressionMacro = InExpressionMacro;
+    InExpressionMacro |= FD->isExpressionMacro();
+    bool Result = RecursiveASTVisitor::TraverseFunctionDecl(FD);
+    InExpressionMacro = WasExpressionMacro;
+    return Result;
+  }
+
   bool VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
     for (const Token &Tok : E->getValue().getTokenSequence()) {
       // Annotation tokens (e.g. \(x) holes) carry no length and no identifier.
@@ -33,7 +41,8 @@ public:
       SourceLocation Loc = SM.getSpellingLoc(Tok.getLocation());
       if (Loc.isInvalid() || SM.getFileID(Loc) != SM.getMainFileID())
         continue;
-      Table.addQuotedToken(Loc, SM.getFileOffset(Loc), Tok.getLength());
+      Table.addQuotedToken(Loc, SM.getFileOffset(Loc), Tok.getLength(),
+                           InExpressionMacro);
     }
     return true;
   }
@@ -41,6 +50,7 @@ public:
 private:
   const SourceManager &SM;
   QuoteTokenTable &Table;
+  bool InExpressionMacro = false;
 };
 
 struct ExpansionTargets {
@@ -202,6 +212,15 @@ QuoteTokenTable::references(const NamedDecl *D) const {
   return Result;
 }
 
+llvm::SmallVector<QuoteTokenTable::Token, 16> QuoteTokenTable::tokens() const {
+  llvm::SmallVector<Token, 16> Result;
+  Result.reserve(Tokens.size());
+  for (const auto &Entry : Tokens)
+    Result.push_back({Entry.second.Loc, Entry.second.Length,
+                      Entry.second.IsExpressionMacro, Entry.second.Result});
+  return Result;
+}
+
 QuoteTokenTable QuoteTokenTable::build(ASTContext &Ctx,
                                        llvm::ArrayRef<Decl *> TopLevelDecls) {
   QuoteTokenTable Table;
@@ -235,10 +254,15 @@ QuoteTokenTable QuoteTokenTable::build(ASTContext &Ctx,
         First = &Expansion.second;
       else if (!sameTargets(*First, Expansion.second))
         R.Ambiguous = true;
+      for (const auto &ExpansionTarget : Expansion.second.Targets) {
+        auto Existing = llvm::find_if(R.Targets, [&](const Target &T) {
+          return T.Decl == ExpansionTarget.first &&
+                 T.Role == ExpansionTarget.second;
+        });
+        if (Existing == R.Targets.end())
+          R.Targets.push_back({ExpansionTarget.first, ExpansionTarget.second});
+      }
     }
-    if (First)
-      for (const auto &Target : First->Targets)
-        R.Targets.push_back({Target.first, Target.second});
   }
   return Table;
 }

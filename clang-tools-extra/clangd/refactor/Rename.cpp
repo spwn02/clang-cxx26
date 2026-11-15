@@ -10,6 +10,7 @@
 #include "AST.h"
 #include "FindTarget.h"
 #include "ParsedAST.h"
+#include "QuoteToken.h"
 #include "Selection.h"
 #include "SourceCode.h"
 #include "index/SymbolCollector.h"
@@ -287,6 +288,7 @@ llvm::Error makeError(ReasonToReject Reason) {
 }
 
 struct QuoteTokenOccurrence {
+  SourceLocation Loc;
   size_t Offset;
   unsigned Line;
   unsigned Column;
@@ -325,7 +327,8 @@ public:
         continue;
       size_t Offset = SM.getFileOffset(Loc);
       if (!First || Offset < First->Offset)
-        First = QuoteTokenOccurrence{Offset, PLoc.getLine(), PLoc.getColumn()};
+        First = QuoteTokenOccurrence{Loc, Offset, PLoc.getLine(),
+                                     PLoc.getColumn()};
       break;
     }
     return true;
@@ -356,15 +359,6 @@ private:
   SourceLocation MatchLoc;
   std::optional<QuoteTokenOccurrence> First;
 };
-
-std::optional<QuoteTokenOccurrence>
-findQuoteTokenInAST(ParsedAST &AST, llvm::StringRef Name,
-                    const FunctionDecl *LocalFunction = nullptr) {
-  QuoteTokenVisitor Visitor(AST.getSourceManager(), Name, LocalFunction);
-  for (Decl *D : AST.getLocalTopLevelDecls())
-    Visitor.TraverseDecl(D);
-  return Visitor.first();
-}
 
 // Cross-file rename does not build ASTs for every affected file. Scan edited
 // buffers for quote bodies, skipping interpolation holes because those
@@ -470,7 +464,7 @@ std::optional<QuoteTokenOccurrence> findQuoteTokenInText(llvm::StringRef Code,
               LineStart = J + 1;
             }
           return QuoteTokenOccurrence{
-              Begin, static_cast<unsigned>(Line),
+              SourceLocation(), Begin, static_cast<unsigned>(Line),
               static_cast<unsigned>(Begin - LineStart + 1)};
         }
         continue;
@@ -483,10 +477,86 @@ std::optional<QuoteTokenOccurrence> findQuoteTokenInText(llvm::StringRef Code,
 }
 
 llvm::Error quoteRenameError(llvm::StringRef FilePath,
-                             const QuoteTokenOccurrence &Occurrence) {
+                             const QuoteTokenOccurrence &Occurrence,
+                             llvm::StringRef Reason) {
   return error("Cannot rename symbol: quote would not be updated in file {0} "
-               "at {1}:{2}",
-               FilePath, Occurrence.Line, Occurrence.Column);
+               "at {1}:{2} ({3})",
+               FilePath, Occurrence.Line, Occurrence.Column, Reason);
+}
+
+QuoteTokenOccurrence quoteOccurrence(const SourceManager &SM,
+                                     SourceLocation Loc) {
+  PresumedLoc PLoc = SM.getPresumedLoc(Loc);
+  return {Loc, SM.getFileOffset(Loc), PLoc.isValid() ? PLoc.getLine() : 0,
+          PLoc.isValid() ? PLoc.getColumn() : 0};
+}
+
+bool isInFunctionBody(const FunctionDecl *FD, SourceLocation Loc,
+                      const SourceManager &SM) {
+  if (!FD || !FD->hasBody())
+    return true;
+  SourceLocation Begin = SM.getSpellingLoc(FD->getBody()->getBeginLoc());
+  SourceLocation End = SM.getSpellingLoc(FD->getBody()->getEndLoc());
+  Loc = SM.getSpellingLoc(Loc);
+  if (Begin.isInvalid() || End.isInvalid() || Loc.isInvalid() ||
+      SM.getFileID(Begin) != SM.getFileID(End) ||
+      SM.getFileID(Begin) != SM.getFileID(Loc))
+    return false;
+  unsigned Offset = SM.getFileOffset(Loc);
+  return SM.getFileOffset(Begin) <= Offset && Offset <= SM.getFileOffset(End);
+}
+
+llvm::Expected<llvm::SmallVector<SourceLocation, 8>>
+quoteTokenRenameEdits(ParsedAST &AST, const NamedDecl &ND,
+                      llvm::StringRef MainFilePath) {
+  llvm::SmallVector<SourceLocation, 8> Edits;
+  const auto *Identifier = ND.getIdentifier();
+  if (!Identifier)
+    return Edits;
+  const SourceManager &SM = AST.getSourceManager();
+  const auto &LangOpts = AST.getASTContext().getLangOpts();
+  const FunctionDecl *LocalFunction =
+      dyn_cast_or_null<FunctionDecl>(ND.getParentFunctionOrMethod());
+  llvm::StringRef Buffer = SM.getBufferData(SM.getMainFileID());
+  for (const auto &Token : AST.getQuoteTokenTable().tokens()) {
+    unsigned Offset = SM.getFileOffset(Token.Loc);
+    if (Buffer.substr(Offset, Token.Length) != Identifier->getName() ||
+        !isInFunctionBody(LocalFunction, Token.Loc, SM))
+      continue;
+    QuoteTokenOccurrence Occurrence = quoteOccurrence(SM, Token.Loc);
+    if (isHeaderFile(MainFilePath, LangOpts))
+      return quoteRenameError(MainFilePath, Occurrence,
+                              "the quote is in a header");
+    if (LangOpts.isCompilingModule())
+      return quoteRenameError(MainFilePath, Occurrence,
+                              "the quote is in a module interface");
+    const auto &Resolution = Token.Result;
+    if (!Resolution.Expansions) {
+      if (!Token.IsExpressionMacro)
+        return quoteRenameError(MainFilePath, Occurrence,
+                                "the token has no expansions");
+      continue;
+    }
+    bool TargetsRenameDecl = llvm::any_of(
+        Resolution.Targets, [&](const QuoteTokenTable::Target &Target) {
+          return canonicalRenameDecl(Target.Decl) == &ND;
+        });
+    if (!TargetsRenameDecl)
+      continue;
+    if (Resolution.Ambiguous)
+      return quoteRenameError(MainFilePath, Occurrence,
+                              "expansions resolve to different symbols");
+    if (Resolution.Targets.size() != 1 ||
+        canonicalRenameDecl(Resolution.Targets.front().Decl) != &ND)
+      return quoteRenameError(
+          MainFilePath, Occurrence,
+          "the token does not resolve to the renamed symbol");
+    if (Resolution.Targets.front().Role != QuoteTokenRole::Reference)
+      return quoteRenameError(MainFilePath, Occurrence,
+                              "the token declares a symbol");
+    Edits.push_back(Token.Loc);
+  }
+  return Edits;
 }
 
 // Return all rename occurrences in the main file.
@@ -1202,6 +1272,8 @@ findOccurrencesOutsideFile(const NamedDecl &RenameDecl,
 // The cross-file rename is purely based on the index, as we don't want to
 // build all ASTs for affected files, which may cause a performance hit.
 // We choose to trade off some correctness for performance and scalability.
+// QuoteTokenTable covers only the main-file AST, so a quote token in another
+// affected file makes the rename refuse (found by a text scan).
 //
 // Clangd builds a dynamic index for all opened files on top of the static
 // index of the whole codebase. Dynamic index is up-to-date (respects dirty
@@ -1251,9 +1323,12 @@ renameOutsideFile(const NamedDecl &RenameDecl, llvm::StringRef MainFilePath,
     if (!RenameEdit)
       return error("failed to rename in file {0}: {1}", FilePath,
                    RenameEdit.takeError());
+    // Quote tokens are only known for the main-file AST: refuse rather than
+    // silently leave a quote token in another file behind.
     if (!OldName.empty() && !RenameEdit->Replacements.empty())
       if (auto Occurrence = findQuoteTokenInText(AffectedFileCode, OldName))
-        return quoteRenameError(FilePath, *Occurrence);
+        return quoteRenameError(FilePath, *Occurrence,
+                                "the quote is in another file");
     if (!RenameEdit->Replacements.empty())
       Results.insert({FilePath, std::move(*RenameEdit)});
   }
@@ -1388,7 +1463,39 @@ llvm::Expected<RenameResult> rename(const RenameInputs &RInputs) {
   if (locateMacroAt(*IdentifierToken, AST.getPreprocessor()))
     return makeError(ReasonToReject::UnsupportedSymbol);
 
-  auto DeclsUnderCursor = locateDeclAt(AST, IdentifierToken->location());
+  const QuoteTokenTable &QuoteTokens = AST.getQuoteTokenTable();
+  bool CursorInQuote = QuoteTokens.contains(IdentifierToken->location(), SM);
+  llvm::DenseSet<const NamedDecl *> DeclsUnderCursor;
+  if (CursorInQuote) {
+    SourceLocation QuoteLoc =
+        QuoteTokens.tokenLocation(IdentifierToken->location(), SM);
+    QuoteTokenOccurrence Occurrence = quoteOccurrence(SM, QuoteLoc);
+    const auto &LangOpts = AST.getASTContext().getLangOpts();
+    if (isHeaderFile(RInputs.MainFilePath, LangOpts))
+      return quoteRenameError(RInputs.MainFilePath, Occurrence,
+                              "the quote is in a header");
+    if (LangOpts.isCompilingModule())
+      return quoteRenameError(RInputs.MainFilePath, Occurrence,
+                              "the quote is in a module interface");
+    const auto *Resolution =
+        QuoteTokens.lookup(IdentifierToken->location(), SM);
+    if (!Resolution || !Resolution->Expansions)
+      return quoteRenameError(RInputs.MainFilePath, Occurrence,
+                              "the token has no expansions");
+    if (Resolution->Ambiguous)
+      return quoteRenameError(RInputs.MainFilePath, Occurrence,
+                              "expansions resolve to different symbols");
+    if (Resolution->Targets.size() != 1)
+      return quoteRenameError(RInputs.MainFilePath, Occurrence,
+                              "the token does not resolve to one symbol");
+    if (Resolution->Targets.front().Role != QuoteTokenRole::Reference)
+      return quoteRenameError(RInputs.MainFilePath, Occurrence,
+                              "the token declares a symbol");
+    DeclsUnderCursor.insert(
+        canonicalRenameDecl(Resolution->Targets.front().Decl));
+  } else {
+    DeclsUnderCursor = locateDeclAt(AST, IdentifierToken->location());
+  }
   filterRenameTargets(DeclsUnderCursor);
   if (DeclsUnderCursor.empty())
     return makeError(ReasonToReject::NoSymbolFound);
@@ -1410,6 +1517,11 @@ llvm::Expected<RenameResult> rename(const RenameInputs &RInputs) {
   if (Reject)
     return makeError(*Reject);
 
+  auto QuoteEdits =
+      quoteTokenRenameEdits(AST, RenameDecl, RInputs.MainFilePath);
+  if (!QuoteEdits)
+    return QuoteEdits.takeError();
+
   // We have two implementations of the rename:
   //   - AST-based rename: used for renaming local symbols, e.g. variables
   //     defined in a function body;
@@ -1422,18 +1534,18 @@ llvm::Expected<RenameResult> rename(const RenameInputs &RInputs) {
   auto MainFileRenameEdit = renameWithinFile(AST, RenameDecl, RInputs.NewName);
   if (!MainFileRenameEdit)
     return MainFileRenameEdit.takeError();
+  for (SourceLocation Loc : *QuoteEdits) {
+    if (auto Err = MainFileRenameEdit->add(tooling::Replacement(
+            SM, CharSourceRange::getTokenRange(Loc), RInputs.NewName)))
+      return std::move(Err);
+  }
   if (!MainFileRenameEdit->empty() && RenameDecl.getIdentifier()) {
     if (auto InjectedQuote = findInjectedQuoteReference(AST, RenameDecl)) {
-      SourceLocation SpellingLoc =
-          AST.getSourceManager().getSpellingLoc(InjectedQuote->first);
-      return quoteRenameError(AST.getSourceManager().getFilename(SpellingLoc),
-                              InjectedQuote->second);
+      SourceLocation QuoteLoc = InjectedQuote->second.Loc;
+      if (!SM.isInMainFile(QuoteLoc))
+        return quoteRenameError(SM.getFilename(QuoteLoc), InjectedQuote->second,
+                                "the quote is outside the main file");
     }
-    if (auto Occurrence =
-            findQuoteTokenInAST(AST, RenameDecl.getIdentifier()->getName(),
-                                dyn_cast_or_null<FunctionDecl>(
-                                    RenameDecl.getParentFunctionOrMethod())))
-      return quoteRenameError(RInputs.MainFilePath, *Occurrence);
   }
 
   llvm::DenseSet<Range> RenamedRanges;
