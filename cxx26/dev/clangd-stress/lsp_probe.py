@@ -18,7 +18,7 @@ MACRO_CASES = (
     "expression-raw", "expression-typed", "statement-raw", "declaration-raw",
     "nested", "statement-typed", "declaration-typed", "meminit-raw",
     "meminit-typed", "member-explicit-object", "call-injected",
-    "auto-decl-injected", "block-end-injected", "template",
+    "auto-decl-injected", "block-end-injected", "template", "quote-nav",
 )
 CONTROLS = (
     "control-deducing-this-inlay", "control-lambda-trailing",
@@ -254,6 +254,7 @@ def run_lsp(binary, repeats, timeout, only_cases=None):
             for repeat in range(1, repeats + 1):
                 failures = []
                 sent = 0
+                navigation_sent = 0
                 client = None
                 try:
                     client = LSP(binary, root, path, code, timeout)
@@ -274,10 +275,12 @@ def run_lsp(binary, repeats, timeout, only_cases=None):
                     for loc in locations:
                         try:
                             sent += 1
-                            response = client.request("textDocument/completion", {
+                            params = {
                                 "textDocument": {"uri": client.uri},
                                 "position": {"line": loc["line"],
-                                             "character": loc["character"]},
+                                             "character": loc["character"]}}
+                            response = client.request("textDocument/completion", {
+                                **params,
                                 "context": {"triggerKind": 1},
                             })
                             if "error" in response and response["error"].get("code") not in IGNORE_LSP_ERRORS:
@@ -287,6 +290,25 @@ def run_lsp(binary, repeats, timeout, only_cases=None):
                                     and "partial_value" not in json.dumps(response.get("result"))):
                                 failures.append({"position": loc,
                                                  "failure": "completion omitted partial_value"})
+                            if loc["class"] == "quote-body":
+                                for method in ("textDocument/hover",
+                                               "textDocument/definition",
+                                               "textDocument/references",
+                                               "textDocument/rename"):
+                                    navigation_sent += 1
+                                    nav_params = dict(params)
+                                    if method == "textDocument/rename":
+                                        nav_params["newName"] = "stress_renamed"
+                                    nav = client.request(method, nav_params)
+                                    if "error" in nav:
+                                        error = nav["error"]
+                                        message = str(error.get("message", ""))
+                                        if (error.get("code") not in IGNORE_LSP_ERRORS
+                                                and not (method == "textDocument/rename"
+                                                         and "Cannot rename symbol" in message)):
+                                            failures.append({"position": loc,
+                                                             "method": method,
+                                                             "error": error})
                         except Exception as exc:
                             failures.append({"position": loc, "failure": str(exc)})
                             break
@@ -323,11 +345,13 @@ def run_lsp(binary, repeats, timeout, only_cases=None):
                 results.append({"case": name, "repeat": repeat,
                                 "positions": len(locations),
                                 "completion_requests": sent,
+                                "navigation_requests": navigation_sent,
                                 "failures": failures})
                 print(json.dumps(results[-1]), flush=True)
     bad = sum(bool(r["failures"]) for r in results)
     print(json.dumps({"mode": "lsp", "cases": len(cases), "runs": len(results),
                       "completion_requests": sum(r["completion_requests"] for r in results),
+                      "navigation_requests": sum(r["navigation_requests"] for r in results),
                       "failed_runs": bad}), flush=True)
     return int(bool(bad))
 

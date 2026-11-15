@@ -239,5 +239,74 @@
   "label": "rename-unused-helper",
   "pre": 300,
   "wait": 300
+ },
+ {
+  "line": 39,
+  "col": 55,
+  "hover": "hover-template-pick",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 39,
+  "col": 55,
+  "request": "textDocument/definition",
+  "label": "def-template-pick",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 39,
+  "col": 55,
+  "request": "textDocument/references",
+  "label": "refs-template-pick",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 43,
+  "col": 45,
+  "hover": "hover-appended-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 43,
+  "col": 45,
+  "request": "textDocument/definition",
+  "label": "def-appended-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 43,
+  "col": 45,
+  "request": "textDocument/references",
+  "label": "refs-appended-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 45,
+  "col": 52,
+  "hover": "hover-consteval-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 45,
+  "col": 52,
+  "request": "textDocument/definition",
+  "label": "def-consteval-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 45,
+  "col": 52,
+  "request": "textDocument/references",
+  "label": "refs-consteval-helper",
+  "pre": 300,
+  "wait": 300
  }
 ]

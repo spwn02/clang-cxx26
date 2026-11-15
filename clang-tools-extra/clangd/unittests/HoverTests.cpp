@@ -1649,6 +1649,69 @@ int use_made() { decl_it!(); return made; }
   EXPECT_EQ(H->Name, "made");
 }
 
+TEST(Hover, TokenSequenceQuoteVariants) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence { public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+};
+}
+
+using std::meta::token_sequence;
+int helper(int);
+namespace util { int worker(int); }
+consteval token_sequence token_helper() { return @@{ $from_helper_ref[[$from_helper^helper]](1) }; }
+__macro helper_macro() { return token_helper(); }
+__macro append_macro() {
+  token_sequence s = @@{ $first_ref[[$first^util]]::};
+  s += @@{ $second_ref[[$second^worker]](1) };
+  return s;
+}
+int use1() { return helper_macro!(); }
+int use2() { return append_macro!(); }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  for (auto [Marker, Name] :
+       {std::pair<llvm::StringRef, llvm::StringRef>{"from_helper", "helper"},
+        {"first", "util"}, {"second", "worker"}}) {
+    auto H = getHover(AST, Code.point(Marker), format::getLLVMStyle(), nullptr);
+    ASSERT_TRUE(H) << Marker;
+    EXPECT_EQ(H->Name, Name);
+  }
+}
+
+TEST(Hover, TokenSequenceQuoteInHeaderMainFile) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence { public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+};
+}
+using std::meta::token_sequence;
+int helper(int value) { return value; }
+__macro call() { return @@{ $quote_ref[[$quote^helper]](1) }; }
+int use() { return call!(); }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.Filename = "quote.h";
+  TU.ExtraArgs.push_back("-std=c++29");
+  TU.ExtraArgs.push_back("-xobjective-c++-header");
+  auto AST = TU.build();
+  auto H = getHover(AST, Code.point("quote"), format::getLLVMStyle(), nullptr);
+  ASSERT_TRUE(H);
+  EXPECT_EQ(H->Name, "helper");
+}
+
 TEST(Hover, DeclMacroRawArgument) {
   Annotations Code(R"cpp(
 namespace std::meta {

@@ -4,15 +4,19 @@
 its invocation semicolon, every character boundary in each `^^{ ... }` quote
 body, and advisor control cases for dependent explicit-object hints, lambda
 trailing-return completion, a raw macro argument's first token, and a
-mem-initializer macro. The 14 macro cases cover expression, statement,
+mem-initializer macro. The 15 macro cases cover expression, statement,
 declaration, typed and raw parameters, nesting, deferred templates, explicit
-object members, injected calls, and mem-initializers.
+object members, injected calls, mem-initializers, and quote navigation.
 
 Each case/repeat starts a fresh clangd process and sends
 `textDocument/completion` with `triggerKind: Invoked` at every collected
-position. The default is three repeats. Death, timeout, malformed JSON-RPC,
-unexpected protocol errors, missing control completions, and the missing
-dependent-call hint are failures.
+position. At each quote-body position it also sends hover, definition,
+references, and rename (`newName: stress_renamed`); rename edits are discarded.
+The default is three repeats. Death, timeout, malformed JSON-RPC, unexpected
+protocol errors, missing control completions, and the missing dependent-call
+hint are failures. JSON-RPC errors with ignored codes remain ignored, as do
+clangd's expected `Cannot rename symbol` refusals. Per-run and total summaries
+report `completion_requests` and `navigation_requests` separately.
 
 The `cc1` mode runs every collected position 25 times in fresh compiler
 processes by default, grouped by invocation, quote-body, and control class. It

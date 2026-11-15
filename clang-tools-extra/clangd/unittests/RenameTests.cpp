@@ -1181,6 +1181,35 @@ TEST(RenameTest, TokenSequenceQuoteRenameReferences) {
   }
 }
 
+TEST(RenameTest, TokenSequenceQuoteInHeaderRefusesRename) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence { public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+};
+}
+using std::meta::token_sequence;
+int $helper_decl[[helper]](int);
+__macro call() { return @@{ $quoted_ref[[$quoted^helper]](1) }; }
+int use() { return call!(); }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.Filename = "quote.h";
+  TU.ExtraArgs.push_back("-std=c++29");
+  TU.ExtraArgs.push_back("-x");
+  TU.ExtraArgs.push_back("c++-header");
+  auto AST = TU.build();
+  auto Results = rename({Code.point("quoted"), "renamed_helper", AST,
+                         testPath(TU.Filename)});
+  ASSERT_FALSE(Results);
+  EXPECT_THAT(llvm::toString(Results.takeError()),
+              testing::HasSubstr("the quote is in a header"));
+}
+
 TEST(RenameTest, TokenSequenceQuoteRenameRefusals) {
   Annotations Code(R"cpp(
     namespace std::meta {

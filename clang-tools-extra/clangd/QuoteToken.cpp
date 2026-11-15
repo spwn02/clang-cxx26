@@ -10,6 +10,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/SourceManager.h"
@@ -67,17 +68,23 @@ public:
 
   bool VisitDeclRefExpr(DeclRefExpr *E) {
     add(E->getLocation(), E->getDecl(), QuoteTokenRole::Reference);
+    addQualifier(E->getQualifierLoc());
     return true;
   }
 
   bool VisitMemberExpr(MemberExpr *E) {
     add(E->getMemberLoc(), E->getMemberDecl(), QuoteTokenRole::Reference);
+    addQualifier(E->getQualifierLoc());
     return true;
   }
 
   bool VisitCallExpr(CallExpr *E) {
     if (const FunctionDecl *Callee = E->getDirectCallee())
-      add(E->getCallee()->getBeginLoc(), Callee, QuoteTokenRole::Reference);
+      // The begin location of a qualified callee can be its namespace or type
+      // qualifier (e.g. the `util` in `util::worker()`). The callee's end
+      // location identifies the name itself, which is the spelling token that
+      // should receive the resolution.
+      add(E->getCallee()->getEndLoc(), Callee, QuoteTokenRole::Reference);
     return true;
   }
 
@@ -122,6 +129,26 @@ public:
   }
 
 private:
+  void addQualifier(NestedNameSpecifierLoc Qualifier) {
+    while (Qualifier) {
+      if (auto Namespace = Qualifier.getAsNamespaceAndPrefix()) {
+        add(Qualifier.getLocalBeginLoc(), Namespace.Namespace,
+            QuoteTokenRole::Reference);
+        Qualifier = Namespace.Prefix;
+        continue;
+      }
+      if (auto TL = Qualifier.getAsTypeLoc()) {
+        if (auto RTL = TL.getAs<RecordTypeLoc>())
+          add(RTL.getNameLoc(), RTL.getDecl(), QuoteTokenRole::Reference);
+        else if (auto TSTL = TL.getAs<TemplateSpecializationTypeLoc>())
+          if (const TemplateDecl *TD =
+                  TSTL.getTypePtr()->getTemplateName().getAsTemplateDecl())
+            add(TSTL.getTemplateNameLoc(), TD, QuoteTokenRole::Reference);
+      }
+      break;
+    }
+  }
+
   void add(SourceLocation Loc, const NamedDecl *D, QuoteTokenRole Role) {
     if (!D || Loc.isInvalid())
       return;

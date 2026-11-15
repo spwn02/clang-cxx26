@@ -34,3 +34,14 @@ int p1() { using namespace n1; return pick_it!(); }
 int p2() { using namespace n2; return pick_it!(); }
 template <class T> int tpl() { return tpl_it!(); }
 int tpl_use() { return tpl<int>(); }
+namespace left { struct T {}; int pick(T); }
+namespace right { struct T {}; int pick(T); }
+__macro template_pick(token_sequence arg) { return ^^{ pick(\(arg)) }; }
+template <class T> int template_call(T value) { return template_pick!(value); }
+int left_call() { return template_call(left::T{}); }
+int right_call() { return template_call(right::T{}); }
+__macro append_it() { token_sequence s = ^^{ helper(}; s += ^^{ 1) }; return s; }
+int appended() { return append_it!(); }
+consteval token_sequence make_tokens() { return ^^{ helper(2) }; }
+__macro via_helper() { return make_tokens(); }
+int helper_use() { return via_helper!(); }

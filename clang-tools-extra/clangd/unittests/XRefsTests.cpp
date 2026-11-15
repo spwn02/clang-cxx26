@@ -2329,6 +2329,125 @@ int p2() { using namespace n2; return pick_it!(); }
               IsEmpty());
 }
 
+TEST(TokenSequenceNavigation, QuoteBodyDisagreementAcrossTemplateInstances) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence { public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+};
+}
+using std::meta::token_sequence;
+namespace left { struct T {}; int helper(T); }
+namespace right { struct T {}; int helper(T); }
+__macro invoke(token_sequence arg) { return @@{ $quoted_ref[[$quoted^helper]](\(arg)) }; }
+template <class T> int use(T value) { return invoke!(value); }
+int left_use() { return use(left::T{}); }
+int right_use() { return use(right::T{}); }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  EXPECT_THAT(locateSymbolAt(AST, Code.point("quoted"), TU.index().get()),
+              IsEmpty());
+  EXPECT_THAT(findReferences(AST, Code.point("quoted"), 0, nullptr).References,
+              IsEmpty());
+}
+
+TEST(TokenSequenceNavigation, QuoteBodyTokensFromAppendedSequences) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence { public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+};
+}
+using std::meta::token_sequence;
+namespace $util_decl[[util]] { int $helper_decl[[helper]](int value) { return value; } }
+__macro append() {
+  token_sequence s = @@{ $first_ref[[$first^util]]::};
+  s += @@{ $second_ref[[$second^helper]](1) };
+  return s;
+}
+int use() { return append!(); }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  auto QuoteLoc = sourceLocationInMainFile(AST.getSourceManager(),
+                                           Code.point("first"));
+  ASSERT_TRUE(static_cast<bool>(QuoteLoc));
+  const auto *Resolution = AST.getQuoteTokenTable().lookup(
+      *QuoteLoc, AST.getSourceManager());
+  ASSERT_TRUE(Resolution);
+  EXPECT_FALSE(Resolution->Ambiguous);
+  EXPECT_EQ(Resolution->Expansions, 1u);
+  EXPECT_THAT(locateSymbolAt(AST, Code.point("first"), TU.index().get()),
+              ElementsAre(sym("util", Code.range("util_decl"),
+                              std::nullopt)));
+  EXPECT_THAT(locateSymbolAt(AST, Code.point("second"), TU.index().get()),
+              ElementsAre(sym("helper", Code.range("helper_decl"),
+                              Code.range("helper_decl"))));
+}
+
+TEST(TokenSequenceNavigation, QuoteTokensReturnedByConstevalHelper) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence { public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+};
+}
+
+using std::meta::token_sequence;
+int $helper_decl[[helper]](int value) { return value; }
+consteval token_sequence make_tokens() { return @@{ $quoted_ref[[$quoted^helper]](1) }; }
+__macro expand() { return make_tokens(); }
+int use() { return expand!(); }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  EXPECT_THAT(locateSymbolAt(AST, Code.point("quoted"), TU.index().get()),
+              ElementsAre(sym("helper", Code.range("helper_decl"),
+                              Code.range("helper_decl"))));
+}
+
+TEST(TokenSequenceNavigation, QuoteBodyDefinitionInHeaderMainFile) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence { public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+};
+}
+using std::meta::token_sequence;
+int $helper_decl[[helper]](int value) { return value; }
+__macro call() { return @@{ $quote_ref[[$quote^helper]](1) }; }
+int use() { return call!(); }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.Filename = "quote.h";
+  TU.ExtraArgs.push_back("-std=c++29");
+  TU.ExtraArgs.push_back("-xobjective-c++-header");
+  auto AST = TU.build();
+  EXPECT_THAT(locateSymbolAt(AST, Code.point("quote"), TU.index().get()),
+              ElementsAre(sym("helper", Code.range("helper_decl"),
+                              Code.range("helper_decl"))));
+}
+
 TEST(TokenSequenceNavigation, DeclMacroRawArgumentDefinition) {
   Annotations Code(R"cpp(
 namespace std::meta {

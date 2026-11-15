@@ -11,12 +11,13 @@ clangd="$1"; src="$2"; steps="$3"; shift 3
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/state/nvim"
-cp "$src" "$work/t.cpp"
+source_name="${REPLAY_SOURCE_NAME:-t.cpp}"
+cp "$src" "$work/$source_name"
 flags="${*:--std=c++26}"
 cat > "$work/compile_commands.json" <<JSON
-[{"directory":"$work","command":"$(dirname "$clangd")/clang++ $flags -fsyntax-only $work/t.cpp","file":"$work/t.cpp"}]
+[{"directory":"$work","command":"$(dirname "$clangd")/clang++ $flags -fsyntax-only $work/$source_name","file":"$work/$source_name"}]
 JSON
 cd "$work"
-XDG_STATE_HOME="$work/state" REPLAY_CLANGD="$clangd" REPLAY_FILE="$work/t.cpp" REPLAY_OUT="$work/out.txt" REPLAY_STEPS="$steps" \
+XDG_STATE_HOME="$work/state" REPLAY_CLANGD="$clangd" REPLAY_FILE="$work/$source_name" REPLAY_OUT="$work/out.txt" REPLAY_STEPS="$steps" \
   timeout 180 nvim --headless -u "$here/init.lua" -c "luafile $here/run.lua" >/dev/null 2>&1 || true
 cat "$work/out.txt"

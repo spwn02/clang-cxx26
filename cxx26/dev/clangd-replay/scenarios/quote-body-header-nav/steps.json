@@ -1,0 +1,5 @@
+[
+  {"line": 4, "col": 28, "hover": "hover-header-helper", "pre": 300, "wait": 300},
+  {"line": 4, "col": 28, "request": "textDocument/definition", "label": "def-header-helper", "pre": 300, "wait": 300},
+  {"line": 4, "col": 28, "request": "textDocument/rename", "newName": "renamed_helper", "label": "rename-header-helper", "pre": 300, "wait": 300}
+]

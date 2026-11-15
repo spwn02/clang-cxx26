@@ -63,3 +63,13 @@ rename-x never-contain 25:1
 rename-pick must-contain expansions resolve to different symbols
 rename-made must-contain the token declares a symbol
 rename-unused-helper must-contain the token has no expansions
+hover-template-pick must-contain NOTHING
+def-template-pick must-contain 0 results
+refs-template-pick must-contain 0 results
+sem-quote-body must-contain 39:56:4
+hover-appended-helper must-contain helper
+def-appended-helper must-contain 22:5
+refs-appended-helper must-contain 43:46
+hover-consteval-helper must-contain helper
+def-consteval-helper must-contain 22:5
+refs-consteval-helper must-contain 45:53

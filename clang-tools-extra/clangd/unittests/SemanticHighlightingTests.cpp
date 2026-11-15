@@ -145,6 +145,37 @@ consteval token_sequence f(int $param[[count]]) {
   EXPECT_NE(KindAt("raw"), HighlightingKind::Function);
 }
 
+TEST(SemanticHighlighting, QuoteTokenAcrossTemplateInstantiationsStaysDependent) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence { public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+};
+}
+using std::meta::token_sequence;
+namespace left { struct T {}; int helper(T); }
+namespace right { struct T {}; int helper(T); }
+__macro invoke(token_sequence arg) { return @@{ $quoted[[helper]](\(arg)) }; }
+template <class T> int use(T value) { return invoke!(value); }
+int left_use() { return use(left::T{}); }
+int right_use() { return use(right::T{}); }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  auto Tokens = getSemanticHighlightings(AST, /*IncludeInactiveRegionTokens=*/true);
+  auto It = llvm::find_if(Tokens, [&](const HighlightingToken &Token) {
+    return Token.R == Code.range("quoted");
+  });
+  ASSERT_NE(It, Tokens.end());
+  EXPECT_TRUE(It->Modifiers &
+              (1 << unsigned(HighlightingModifier::DependentName)));
+}
+
 TEST(SemanticHighlighting, ResolvedQuoteBodyTokens) {
   Annotations Code(R"cpp(
 namespace std::meta {

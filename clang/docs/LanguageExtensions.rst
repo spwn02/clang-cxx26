@@ -1843,6 +1843,24 @@ invocation keep their source locations, so what a macro does with them decides w
 * **Inlay hints.** Hints inside injected code are suppressed (parameter names, block ends); a deduced-type hint for a
   declaration a macro produces can appear on the invocation's argument.
 
+Quote bodies in the editor (clangd)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+clangd uses the expansions already evaluated by the compiler for the current translation unit. It does not rerun a macro
+while handling an editor request. When every expansion resolves an identifier written in ``^^{ }`` to the same symbol,
+clangd provides hover, go-to-definition, in-file references and semantic highlighting for that identifier. If expansions
+disagree, clangd answers no hover, definition or references, and keeps the identifier highlighted as dependent.
+
+Rename edits quote tokens only when all expansions agree on one symbol, the token is a reference, and the quote is in the
+main file of a translation unit that is neither a header nor a module interface. The token must have at least one
+expansion. Otherwise clangd refuses the rename with a reason, such as disagreement, a declaration role, no expansions, or
+the file being a header or module interface.
+
+Cross-file references and rename use the index and do not know the resolved quote tokens in other files. If another
+affected file contains quote text matching the symbol name, rename refuses rather than risk leaving that text stale.
+Likewise, when clangd parses a header as its own translation unit, hover cannot see expansions that exist only in other
+translation units.
+
 .. _do_expressions:
 
 Do Expressions (P2806)
