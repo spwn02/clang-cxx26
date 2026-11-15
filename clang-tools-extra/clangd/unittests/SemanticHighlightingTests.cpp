@@ -145,6 +145,78 @@ consteval token_sequence f(int $param[[count]]) {
   EXPECT_NE(KindAt("raw"), HighlightingKind::Function);
 }
 
+TEST(SemanticHighlighting, ResolvedQuoteBodyTokens) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+  friend consteval bool operator==(const token_sequence &,
+                                   const token_sequence &);
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+struct Point { int x; };
+int helper(int v) { return v; }
+namespace n1 { int pick() { return 1; } }
+namespace n2 { int pick() { return 2; } }
+__macro ref_it(int v) { return @@{ $q_helper[[helper]](\(v)) + $q_point[[Point]]{1}.$q_x[[x]] }; }
+__macro decl_it() { return @@{ int $q_made[[made]] = 0; }; }
+__macro pick_it() { return @@{ $q_pick[[pick]]() }; }
+__macro unused_it() { return @@{ $q_unused[[helper]](0) }; }
+__macro tpl_it() { return @@{ $q_tpl_helper[[helper]](1) }; }
+int a1() { return ref_it!(1); }
+int a2() { return ref_it!(2); }
+int d1() { decl_it!(); return made; }
+int p1() { using namespace n1; return pick_it!(); }
+int p2() { using namespace n2; return pick_it!(); }
+template <class T> int tpl() { return tpl_it!(); }
+int tpl_use() { return tpl<int>(); }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  auto Tokens =
+      getSemanticHighlightings(AST, /*IncludeInactiveRegionTokens=*/true);
+  auto TokenAt = [&](llvm::StringRef Name) -> const HighlightingToken * {
+    for (const auto &Token : Tokens)
+      if (Token.R == Code.range(Name))
+        return &Token;
+    return nullptr;
+  };
+  auto CheckKind = [&](llvm::StringRef Name, HighlightingKind Kind) {
+    const auto *Token = TokenAt(Name);
+    EXPECT_NE(Token, nullptr) << Name;
+    if (!Token)
+      return;
+    EXPECT_EQ(Token->Kind, Kind) << Name;
+  };
+  CheckKind("q_helper", HighlightingKind::Function);
+  CheckKind("q_point", HighlightingKind::Class);
+  CheckKind("q_x", HighlightingKind::Field);
+  CheckKind("q_made", HighlightingKind::LocalVariable);
+  ASSERT_NE(TokenAt("q_made"), nullptr);
+  EXPECT_TRUE(TokenAt("q_made")->Modifiers &
+              (1 << unsigned(HighlightingModifier::Declaration)));
+  EXPECT_TRUE(TokenAt("q_made")->Modifiers &
+              (1 << unsigned(HighlightingModifier::Definition)));
+  CheckKind("q_pick", HighlightingKind::Unknown);
+  ASSERT_NE(TokenAt("q_pick"), nullptr);
+  EXPECT_TRUE(TokenAt("q_pick")->Modifiers &
+              (1 << unsigned(HighlightingModifier::DependentName)));
+  CheckKind("q_unused", HighlightingKind::Unknown);
+  ASSERT_NE(TokenAt("q_unused"), nullptr);
+  EXPECT_TRUE(TokenAt("q_unused")->Modifiers &
+              (1 << unsigned(HighlightingModifier::DependentName)));
+  CheckKind("q_tpl_helper", HighlightingKind::Function);
+}
+
 TEST(SemanticHighlighting, DeclMacroRawArgument) {
   Annotations Code(R"cpp(
 namespace std::meta {

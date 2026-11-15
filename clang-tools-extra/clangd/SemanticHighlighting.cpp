@@ -11,6 +11,7 @@
 #include "FindTarget.h"
 #include "ParsedAST.h"
 #include "Protocol.h"
+#include "QuoteToken.h"
 #include "SourceCode.h"
 #include "support/Logger.h"
 #include "clang/AST/ASTContext.h"
@@ -418,7 +419,7 @@ private:
 class HighlightingsBuilder {
 public:
   HighlightingsBuilder(const ParsedAST &AST, const HighlightingFilter &Filter)
-      : TB(AST.getTokens()), SourceMgr(AST.getSourceManager()),
+      : AST(AST), TB(AST.getTokens()), SourceMgr(AST.getSourceManager()),
         LangOpts(AST.getLangOpts()), Filter(Filter),
         Resolver(AST.getHeuristicResolver()) {}
 
@@ -569,6 +570,10 @@ public:
   }
 
   const HeuristicResolver *getResolver() const { return Resolver; }
+  const QuoteTokenTable &getQuoteTokenTable() const {
+    return AST.getQuoteTokenTable();
+  }
+  const SourceManager &getSourceManager() const { return SourceMgr; }
 
 private:
   std::optional<Range> getRangeForSourceLocation(SourceLocation Loc) {
@@ -584,6 +589,7 @@ private:
                            Tok->range(SourceMgr).toCharRange(SourceMgr));
   }
 
+  const ParsedAST &AST;
   const syntax::TokenBuffer &TB;
   const SourceManager &SourceMgr;
   const LangOptions &LangOpts;
@@ -634,6 +640,42 @@ std::optional<HighlightingModifier> scopeModifier(const Type *T) {
   if (auto *TD = T->getAsTagDecl())
     return scopeModifier(TD);
   return std::nullopt;
+}
+
+void addResolvedQuoteToken(HighlightingsBuilder &H, SourceLocation Loc,
+                           const QuoteTokenTable::Target &Target) {
+  const NamedDecl *Decl = Target.Decl;
+  auto Kind = kindForDecl(Decl, H.getResolver());
+  if (!Kind)
+    return;
+  auto &Tok = H.addToken(Loc, *Kind);
+  if (auto *TD = dyn_cast<TemplateDecl>(Decl))
+    if (auto *Templated = TD->getTemplatedDecl())
+      Decl = Templated;
+  if (auto Mod = scopeModifier(Decl))
+    Tok.addModifier(*Mod);
+  if (isConst(Decl))
+    Tok.addModifier(HighlightingModifier::Readonly);
+  if (isStatic(Decl))
+    Tok.addModifier(HighlightingModifier::Static);
+  if (isAbstract(Decl))
+    Tok.addModifier(HighlightingModifier::Abstract);
+  if (isVirtual(Decl))
+    Tok.addModifier(HighlightingModifier::Virtual);
+  if (isDependent(Decl))
+    Tok.addModifier(HighlightingModifier::DependentName);
+  if (isDefaultLibrary(Decl))
+    Tok.addModifier(HighlightingModifier::DefaultLibrary);
+  if (Decl->isDeprecated())
+    Tok.addModifier(HighlightingModifier::Deprecated);
+  if (isa<CXXConstructorDecl>(Decl))
+    Tok.addModifier(HighlightingModifier::ConstructorOrDestructor);
+  if (Target.Role == QuoteTokenRole::Declaration &&
+      !isa<UnresolvedUsingValueDecl>(Decl))
+    Tok.addModifier(HighlightingModifier::Declaration);
+  if (Target.Role == QuoteTokenRole::Declaration &&
+      !isa<UnresolvedUsingValueDecl>(Decl) && isUniqueDefinition(Decl))
+    Tok.addModifier(HighlightingModifier::Definition);
 }
 
 /// Produces highlightings, which are not captured by findExplicitReferences,
@@ -1054,10 +1096,20 @@ public:
   // interpolated expressions \(...) are ordinary expressions of the AST.
   bool VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
     APValue Value = E->getValue();
-    for (const Token &T : Value.getTokenSequence())
-      if (T.is(tok::identifier))
-        H.addToken(T.getLocation(), HighlightingKind::Unknown)
-            .addModifier(HighlightingModifier::DependentName);
+    for (const Token &T : Value.getTokenSequence()) {
+      if (!T.is(tok::identifier))
+        continue;
+      const auto *Resolution = H.getQuoteTokenTable().lookup(
+          T.getLocation(), H.getSourceManager());
+      if (Resolution && Resolution->Expansions && !Resolution->Ambiguous &&
+          !Resolution->Targets.empty()) {
+        for (const auto &Target : Resolution->Targets)
+          addResolvedQuoteToken(H, T.getLocation(), Target);
+        continue;
+      }
+      H.addToken(T.getLocation(), HighlightingKind::Unknown)
+          .addModifier(HighlightingModifier::DependentName);
+    }
     return true;
   }
 

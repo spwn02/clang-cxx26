@@ -1,5 +1,13 @@
 [
  {
+  "line": 1,
+  "col": 0,
+  "request": "textDocument/semanticTokens/full",
+  "label": "sem-quote-body",
+  "pre": 300,
+  "wait": 500
+ },
+ {
   "line": 25,
   "col": 35,
   "hover": "hover-ref-helper",

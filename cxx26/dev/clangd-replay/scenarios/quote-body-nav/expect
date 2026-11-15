@@ -1,3 +1,8 @@
+sem-quote-body must-contain 25:36:6
+sem-quote-body must-contain 25:51:5
+sem-quote-body must-contain 25:60:1
+sem-quote-body must-contain 26:36:4
+sem-quote-body must-contain 29:31:6
 hover-ref-helper must-contain helper
 def-ref-helper must-contain 22:5
 refs-ref-helper must-contain 22:5
