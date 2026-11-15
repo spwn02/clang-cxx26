@@ -41,6 +41,7 @@ namespace clang {
 class HeuristicResolver;
 class Sema;
 namespace clangd {
+class QuoteTokenTable;
 
 /// Stores and provides access to parsed AST.
 class ParsedAST {
@@ -101,6 +102,7 @@ public:
   /// Gets all macro references (definition, expansions) present in the main
   /// file, including those in the preamble region.
   const MainFileMacros &getMacros() const;
+  const QuoteTokenTable &getQuoteTokenTable() const;
   /// Gets all pragma marks in the main file.
   const std::vector<PragmaMark> &getMarks() const;
   /// Tokens recorded while parsing the main file.
@@ -167,6 +169,7 @@ private:
   IncludeStructure Includes;
   include_cleaner::PragmaIncludes PI;
   std::unique_ptr<HeuristicResolver> Resolver;
+  std::unique_ptr<QuoteTokenTable> QuoteTokens;
 };
 
 } // namespace clangd

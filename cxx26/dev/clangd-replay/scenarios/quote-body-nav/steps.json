@@ -1,0 +1,190 @@
+[
+ {
+  "line": 25,
+  "col": 35,
+  "hover": "hover-ref-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 35,
+  "request": "textDocument/definition",
+  "label": "def-ref-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 35,
+  "request": "textDocument/references",
+  "label": "refs-ref-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 50,
+  "hover": "hover-ref-Point",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 50,
+  "request": "textDocument/definition",
+  "label": "def-ref-Point",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 50,
+  "request": "textDocument/references",
+  "label": "refs-ref-Point",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 59,
+  "hover": "hover-ref-x",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 59,
+  "request": "textDocument/definition",
+  "label": "def-ref-x",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 59,
+  "request": "textDocument/references",
+  "label": "refs-ref-x",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 26,
+  "col": 35,
+  "hover": "hover-decl-made",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 26,
+  "col": 35,
+  "request": "textDocument/definition",
+  "label": "def-decl-made",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 26,
+  "col": 35,
+  "request": "textDocument/references",
+  "label": "refs-decl-made",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 27,
+  "col": 31,
+  "hover": "hover-pick",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 27,
+  "col": 31,
+  "request": "textDocument/definition",
+  "label": "def-pick",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 27,
+  "col": 31,
+  "request": "textDocument/references",
+  "label": "refs-pick",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 28,
+  "col": 33,
+  "hover": "hover-unused-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 28,
+  "col": 33,
+  "request": "textDocument/definition",
+  "label": "def-unused-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 28,
+  "col": 33,
+  "request": "textDocument/references",
+  "label": "refs-unused-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 29,
+  "col": 30,
+  "hover": "hover-tpl-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 29,
+  "col": 30,
+  "request": "textDocument/definition",
+  "label": "def-tpl-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 29,
+  "col": 30,
+  "request": "textDocument/references",
+  "label": "refs-tpl-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 35,
+  "request": "textDocument/rename",
+  "newName": "renamed_helper",
+  "label": "rename-helper",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 28,
+  "col": 33,
+  "request": "textDocument/rename",
+  "newName": "renamed_helper",
+  "label": "rename-unused",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 27,
+  "col": 31,
+  "request": "textDocument/rename",
+  "newName": "renamed_pick",
+  "label": "rename-pick",
+  "pre": 300,
+  "wait": 300
+ }
+]

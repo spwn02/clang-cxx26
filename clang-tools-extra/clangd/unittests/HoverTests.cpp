@@ -1608,6 +1608,47 @@ using std::meta::token_sequence;
   }
 }
 
+TEST(Hover, TokenSequenceQuoteBody) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+int helper(int);
+struct Point { int x; };
+__macro ref_it() { return @@{$quote^helper(1)}; }
+__macro point_it() { return @@{$point^Point{1}.$member^x}; }
+__macro decl_it() { return @@{int $made^made = 0;}; }
+int use() { return ref_it!(); }
+int use_point() { return point_it!(); }
+int use_made() { decl_it!(); return made; }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  auto H = getHover(AST, Code.point("quote"), format::getLLVMStyle(), nullptr);
+  ASSERT_TRUE(H);
+  EXPECT_EQ(H->Name, "helper");
+  H = getHover(AST, Code.point("point"), format::getLLVMStyle(), nullptr);
+  ASSERT_TRUE(H);
+  EXPECT_EQ(H->Name, "Point");
+  H = getHover(AST, Code.point("member"), format::getLLVMStyle(), nullptr);
+  ASSERT_TRUE(H);
+  EXPECT_EQ(H->Name, "x");
+  H = getHover(AST, Code.point("made"), format::getLLVMStyle(), nullptr);
+  ASSERT_TRUE(H);
+  EXPECT_EQ(H->Name, "made");
+}
+
 TEST(Hover, DeclMacroRawArgument) {
   Annotations Code(R"cpp(
 namespace std::meta {

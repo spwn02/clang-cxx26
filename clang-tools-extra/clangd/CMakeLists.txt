@@ -101,6 +101,7 @@ add_clang_library(clangDaemon STATIC
   ModulesBuilder.cpp
   PathMapping.cpp
   Protocol.cpp
+  QuoteToken.cpp
   Quality.cpp
   ParsedAST.cpp
   Preamble.cpp

@@ -22,6 +22,7 @@
 #include "IncludeCleaner.h"
 #include "IncludeFixer.h"
 #include "Preamble.h"
+#include "QuoteToken.h"
 #include "SourceCode.h"
 #include "TidyProvider.h"
 #include "clang-include-cleaner/Record.h"
@@ -760,6 +761,9 @@ ParsedAST::build(llvm::StringRef Filename, const ParseInputs &Inputs,
                    std::move(Clang), std::move(Action), std::move(Tokens),
                    std::move(Macros), std::move(Marks), std::move(ParsedDecls),
                    std::move(Diags), std::move(Includes), std::move(PI));
+  Result.QuoteTokens = std::make_unique<QuoteTokenTable>(
+      QuoteTokenTable::build(Result.getASTContext(),
+                             Result.getLocalTopLevelDecls()));
   llvm::move(getIncludeCleanerDiags(Result, Inputs.Contents, *Inputs.TFS),
              std::back_inserter(Result.Diags));
   return std::move(Result);
@@ -807,6 +811,9 @@ llvm::ArrayRef<const Decl *> ParsedAST::getLocalTopLevelDecls() const {
 }
 
 const MainFileMacros &ParsedAST::getMacros() const { return Macros; }
+const QuoteTokenTable &ParsedAST::getQuoteTokenTable() const {
+  return *QuoteTokens;
+}
 const std::vector<PragmaMark> &ParsedAST::getMarks() const { return Marks; }
 
 std::size_t ParsedAST::getUsedBytes() const {

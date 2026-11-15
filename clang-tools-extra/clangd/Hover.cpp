@@ -16,6 +16,7 @@
 #include "IncludeCleaner.h"
 #include "ParsedAST.h"
 #include "Protocol.h"
+#include "QuoteToken.h"
 #include "Selection.h"
 #include "SourceCode.h"
 #include "SymbolDocumentation.h"
@@ -1270,6 +1271,15 @@ std::optional<HoverInfo> getHover(ParsedAST &AST, Position Pos,
   // Early exit if there were no tokens around the cursor.
   if (TokensTouchingCursor.empty())
     return std::nullopt;
+
+  if (AST.getQuoteTokenTable().contains(*CurLoc, SM)) {
+    const auto *Resolution = AST.getQuoteTokenTable().lookup(*CurLoc, SM);
+    if (!Resolution || Resolution->Ambiguous || !Resolution->Expansions ||
+        Resolution->Targets.size() != 1)
+      return std::nullopt;
+    HoverCountMetric.record(1, "quote-token");
+    return getHoverContents(Resolution->Targets.front().Decl, PP, Index, TB);
+  }
 
   // Show full header file path if cursor is on include directive.
   for (const auto &Inc : AST.getIncludeStructure().MainFileIncludes) {

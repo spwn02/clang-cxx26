@@ -13,6 +13,7 @@
 #include "IncludeCleaner.h"
 #include "ParsedAST.h"
 #include "Protocol.h"
+#include "QuoteToken.h"
 #include "Quality.h"
 #include "Selection.h"
 #include "SourceCode.h"
@@ -165,6 +166,15 @@ getDeclAtPositionWithRelations(ParsedAST &AST, SourceLocation Pos,
                                ASTNodeKind *NodeKind = nullptr) {
   unsigned Offset = AST.getSourceManager().getDecomposedSpellingLoc(Pos).second;
   std::vector<std::pair<const NamedDecl *, DeclRelationSet>> Result;
+  if (AST.getQuoteTokenTable().contains(Pos, AST.getSourceManager())) {
+    const auto *Resolution =
+        AST.getQuoteTokenTable().lookup(Pos, AST.getSourceManager());
+    if (!Resolution || Resolution->Ambiguous || !Resolution->Expansions)
+      return Result;
+    for (const auto &Target : Resolution->Targets)
+      Result.emplace_back(Target.Decl, DeclRelation::TemplatePattern);
+    return Result;
+  }
   auto ResultFromTree = [&](SelectionTree ST) {
     if (const SelectionTree::Node *N = ST.commonAncestor()) {
       if (NodeKind)
@@ -788,6 +798,36 @@ std::vector<LocatedSymbol> locateSymbolAt(ParsedAST &AST, Position Pos,
     return {};
   }
 
+  const QuoteTokenTable &QuoteTokens = AST.getQuoteTokenTable();
+  if (QuoteTokens.contains(*CurLoc, SM)) {
+    const auto *Resolution = QuoteTokens.lookup(*CurLoc, SM);
+    if (!Resolution || Resolution->Ambiguous || !Resolution->Expansions)
+      return {};
+    std::vector<LocatedSymbol> Results;
+    for (const auto &Target : Resolution->Targets) {
+      const NamedDecl *D = getPreferredDecl(Target.Decl);
+      auto Loc = makeLocation(
+          AST.getASTContext(),
+          Target.Role == QuoteTokenRole::Declaration
+              ? QuoteTokens.tokenLocation(*CurLoc, SM)
+              : nameLocation(*D, SM),
+          MainFilePath);
+      if (!Loc)
+        continue;
+      LocatedSymbol Symbol;
+      Symbol.Name = printName(AST.getASTContext(), *D);
+      Symbol.PreferredDeclaration = *Loc;
+      Symbol.ID = getSymbolID(D);
+      if (Target.Role == QuoteTokenRole::Declaration)
+        Symbol.Definition = *Loc;
+      else if (const NamedDecl *Def = getDefinition(D))
+        Symbol.Definition = makeLocation(AST.getASTContext(),
+                                         nameLocation(*Def, SM), MainFilePath);
+      Results.push_back(std::move(Symbol));
+    }
+    return Results;
+  }
+
   const syntax::Token *TouchedIdentifier = nullptr;
   auto TokensTouchingCursor =
       syntax::spelledTokensTouching(*CurLoc, AST.getTokens());
@@ -993,6 +1033,11 @@ public:
       return true;
     const SourceManager &SM = AST.getSourceManager();
     if (!isInsideMainFile(Loc, SM))
+      return true;
+    // Quote-body tokens are reported once from QuoteTokenTable, at their
+    // spelling locations. Indexing every expansion here would also report
+    // each macro invocation as a reference to the quoted declaration.
+    if (AST.getQuoteTokenTable().contains(Loc, SM))
       return true;
     const auto &TB = AST.getTokens();
 
@@ -1619,6 +1664,25 @@ ReferencesResult findReferences(ParsedAST &AST, Position Pos, uint32_t Limit,
         Result.Attributes |=
             ReferencesResult::Definition | ReferencesResult::Declaration;
       Results.References.push_back(std::move(Result));
+    }
+    for (const NamedDecl *D : TargetsInMainFile) {
+      for (const auto &QuoteRef : AST.getQuoteTokenTable().references(D)) {
+        auto Loc = makeLocation(AST.getASTContext(), QuoteRef.Loc, MainFilePath);
+        if (!Loc)
+          continue;
+        if (llvm::any_of(Results.References, [&](const auto &Existing) {
+              return Existing.Loc.uri == Loc->uri &&
+                     Existing.Loc.range == Loc->range;
+            }))
+          continue;
+        ReferencesResult::Reference Result;
+        Result.Loc.uri = Loc->uri;
+        Result.Loc.range = Loc->range;
+        if (QuoteRef.Role == QuoteTokenRole::Declaration)
+          Result.Attributes |= ReferencesResult::Declaration |
+                               ReferencesResult::Definition;
+        Results.References.push_back(std::move(Result));
+      }
     }
     // Add decl/def of overridding methods.
     if (Index && !OverriddenBy.Subjects.empty()) {

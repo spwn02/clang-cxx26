@@ -33,10 +33,10 @@ local function run_step(i)
       -- Exercise the same normal-mode line/column movement used by an editor user.
       -- Neovim buffer columns are 0-based bytes; make_position_params below
       -- converts the cursor to the negotiated LSP encoding (UTF-16 here).
-      local line = vim.api.nvim_buf_get_lines(0, s.line, s.line + 1, false)[1] or ""
+      local line = vim.api.nvim_buf_get_lines(0, s.line - 1, s.line, false)[1] or ""
       local prefix = string.sub(line, 1, s.col or 0)
       local screen_col = vim.fn.strdisplaywidth(prefix)
-      vim.api.nvim_input(tostring(s.line + 1) .. "G" .. tostring(screen_col + 1) .. "|")
+      vim.api.nvim_input(tostring(s.line) .. "G" .. tostring(screen_col + 1) .. "|")
     else
       vim.api.nvim_win_set_cursor(0, { s.line, s.col or 0 })
     end

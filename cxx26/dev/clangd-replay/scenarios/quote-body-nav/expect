@@ -1,0 +1,41 @@
+hover-ref-helper must-contain helper
+def-ref-helper must-contain 22:5
+refs-ref-helper must-contain 22:5
+refs-ref-helper must-contain 25:36
+refs-ref-helper must-contain 29:31
+refs-ref-helper never-contain 30:19
+refs-ref-helper never-contain 31:19
+refs-ref-helper never-contain 35:39
+hover-ref-Point must-contain Point
+def-ref-Point must-contain 21:8
+def-ref-Point never-contain 25:
+refs-ref-Point must-contain 21:8
+refs-ref-Point must-contain 25:51
+refs-ref-Point never-contain 30:19
+refs-ref-Point never-contain 31:19
+hover-ref-x must-contain x
+def-ref-x must-contain 21:20
+def-ref-x never-contain 25:
+refs-ref-x must-contain 21:20
+refs-ref-x must-contain 25:60
+refs-ref-x never-contain 30:19
+refs-ref-x never-contain 31:19
+hover-decl-made must-contain made
+def-decl-made must-contain 26:36
+refs-decl-made must-contain 26:36
+refs-decl-made must-contain 32:31
+refs-decl-made never-contain 32:12
+hover-pick must-contain NOTHING
+def-pick must-contain 0 results
+refs-pick must-contain 0 results
+hover-unused-helper must-contain NOTHING
+def-unused-helper must-contain 0 results
+refs-unused-helper must-contain 0 results
+hover-tpl-helper must-contain helper
+def-tpl-helper must-contain 22:5
+refs-tpl-helper must-contain 22:5
+refs-tpl-helper must-contain 25:36
+refs-tpl-helper must-contain 29:31
+refs-tpl-helper never-contain 30:19
+refs-tpl-helper never-contain 31:19
+refs-tpl-helper never-contain 35:39

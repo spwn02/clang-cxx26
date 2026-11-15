@@ -8,6 +8,7 @@
 #include "AST.h"
 #include "Annotations.h"
 #include "ParsedAST.h"
+#include "QuoteToken.h"
 #include "Protocol.h"
 #include "SourceCode.h"
 #include "SyncAPI.h"
@@ -2226,6 +2227,106 @@ using std::meta::token_sequence;
   EXPECT_THAT(findReferences(AST, Code.point("call"), 0, nullptr).References,
               UnorderedElementsAre(rangeIs(Code.range("macro")),
                                    rangeIs(Code.range("use"))));
+}
+
+TEST(TokenSequenceNavigation, QuoteBodyReferences) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+struct $pointdecl[[Point]] { int $xdecl[[x]]; };
+int $decl[[helper]](int);
+__macro ref_it() { return @@{$quote_ref[[$quote^helper]](1)}; }
+__macro point_it() { return @@{$type_ref[[$type^Point]]{1}.$member_ref[[$member^x]]}; }
+__macro decl_it() { return @@{int $made_ref[[$made^made]] = 0;}; }
+int use() { return ref_it!(); }
+int use2() { return ref_it!(); }
+int use_point() { return point_it!(); }
+int use_made() { decl_it!(); return $made_use[[made]]; }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  auto QuoteLoc = sourceLocationInMainFile(AST.getSourceManager(),
+                                           Code.point("quote"));
+  ASSERT_TRUE(static_cast<bool>(QuoteLoc));
+  const auto *Resolution = AST.getQuoteTokenTable().lookup(
+      *QuoteLoc, AST.getSourceManager());
+  ASSERT_TRUE(Resolution);
+  ASSERT_FALSE(Resolution->Ambiguous);
+  EXPECT_EQ(Resolution->Expansions, 2u);
+  ASSERT_EQ(Resolution->Targets.size(), 1u);
+  EXPECT_EQ(Resolution->Targets.front().Decl->getName(), "helper");
+  EXPECT_THAT(locateSymbolAt(AST, Code.point("quote"), TU.index().get()),
+              ElementsAre(sym("helper", Code.range("decl"), std::nullopt)));
+  EXPECT_THAT(findReferences(AST, Code.point("quote"), 0, nullptr).References,
+              UnorderedElementsAre(rangeIs(Code.range("decl")),
+                                   rangeIs(Code.range("quote_ref"))));
+  EXPECT_THAT(locateSymbolAt(AST, Code.point("type"), TU.index().get()),
+              ElementsAre(sym("Point", Code.range("pointdecl"),
+                              Code.range("pointdecl"))));
+  EXPECT_THAT(findReferences(AST, Code.point("type"), 0, nullptr).References,
+              UnorderedElementsAre(rangeIs(Code.range("pointdecl")),
+                                   rangeIs(Code.range("type_ref"))));
+  EXPECT_THAT(locateSymbolAt(AST, Code.point("member"), TU.index().get()),
+              ElementsAre(sym("x", Code.range("xdecl"), Code.range("xdecl"))));
+  EXPECT_THAT(findReferences(AST, Code.point("member"), 0, nullptr).References,
+              UnorderedElementsAre(rangeIs(Code.range("xdecl")),
+                                   rangeIs(Code.range("member_ref"))));
+  EXPECT_THAT(locateSymbolAt(AST, Code.point("made"), TU.index().get()),
+              ElementsAre(sym("made", Code.range("made_ref"),
+                              Code.range("made_ref"))));
+  EXPECT_THAT(findReferences(AST, Code.point("made"), 0, nullptr).References,
+              UnorderedElementsAre(rangeIs(Code.range("made_ref")),
+                                   rangeIs(Code.range("made_use"))));
+}
+
+TEST(TokenSequenceNavigation, QuoteBodyDisagreementIsUnresolved) {
+  Annotations Code(R"cpp(
+namespace std::meta {
+template <class... Ts> consteval auto id(Ts const &...) -> int;
+using token = decltype(id("x"));
+class token_sequence {
+public:
+  constexpr token_sequence() noexcept = default;
+  friend consteval auto operator+=(token_sequence &, const token_sequence &)
+      -> token_sequence &;
+  friend consteval auto operator+(token_sequence, const token_sequence &)
+      -> token_sequence;
+};
+} // namespace std::meta
+using std::meta::token_sequence;
+namespace n1 { int pick() { return 1; } }
+namespace n2 { int pick() { return 2; } }
+__macro pick_it() { return @@{$quote_ref[[$quote^pick]]()}; }
+int p1() { using namespace n1; return pick_it!(); }
+int p2() { using namespace n2; return pick_it!(); }
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  auto QuoteLoc = sourceLocationInMainFile(AST.getSourceManager(),
+                                           Code.point("quote"));
+  ASSERT_TRUE(static_cast<bool>(QuoteLoc));
+  const auto *Resolution = AST.getQuoteTokenTable().lookup(
+      *QuoteLoc, AST.getSourceManager());
+  ASSERT_TRUE(Resolution);
+  EXPECT_TRUE(Resolution->Ambiguous);
+  EXPECT_EQ(Resolution->Expansions, 2u);
+  EXPECT_THAT(locateSymbolAt(AST, Code.point("quote"), TU.index().get()),
+              IsEmpty());
+  EXPECT_THAT(findReferences(AST, Code.point("quote"), 0, nullptr).References,
+              IsEmpty());
 }
 
 TEST(TokenSequenceNavigation, DeclMacroRawArgumentDefinition) {
