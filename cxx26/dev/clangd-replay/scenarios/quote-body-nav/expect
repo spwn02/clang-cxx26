@@ -44,16 +44,8 @@ refs-tpl-helper must-contain 29:31
 refs-tpl-helper never-contain 30:19
 refs-tpl-helper never-contain 31:19
 refs-tpl-helper never-contain 35:39
-rename-helper must-contain 22:5
-rename-helper must-contain 25:36
-rename-helper must-contain 29:31
-rename-helper never-contain 25:1
-rename-helper never-contain 30:19
-rename-helper never-contain 31:19
-rename-helper-decl must-contain 22:5
-rename-helper-decl must-contain 25:36
-rename-helper-decl must-contain 29:31
-rename-helper-decl never-contain 25:1
+rename-helper must-contain the token has no expansions
+rename-helper-decl must-contain the token has no expansions
 rename-Point must-contain 21:8
 rename-Point must-contain 25:51
 rename-Point never-contain 25:1
@@ -73,3 +65,5 @@ refs-appended-helper must-contain 43:46
 hover-consteval-helper must-contain helper
 def-consteval-helper must-contain 22:5
 refs-consteval-helper must-contain 45:53
+rn-n1pick-decl must-contain different symbols
+rn-n2pick-decl must-contain different symbols

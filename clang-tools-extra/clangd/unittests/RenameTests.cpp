@@ -1181,6 +1181,46 @@ TEST(RenameTest, TokenSequenceQuoteRenameReferences) {
   }
 }
 
+TEST(RenameTest, TokenSequenceQuoteRenameFromDeclarationRefusesStaleQuotes) {
+  Annotations Code(R"cpp(
+    namespace std::meta {
+    template <class... Ts> consteval auto id(Ts const &...) -> int;
+    using token = decltype(id("x"));
+    class token_sequence { public:
+      constexpr token_sequence() noexcept = default;
+      friend consteval auto operator+=(token_sequence &, const token_sequence &) -> token_sequence &;
+      friend consteval auto operator+(token_sequence, const token_sequence &) -> token_sequence;
+      friend consteval bool operator==(const token_sequence &, const token_sequence &);
+    };
+    }
+    using std::meta::token_sequence;
+    int $unused_decl^unused_target(int v) { return v; }
+    namespace n1 { int $n1_decl^pick() { return 1; } }
+    namespace n2 { int $n2_decl^pick() { return 2; } }
+    __macro never_expanded() { return @@{ unused_target(0) }; }
+    __macro pick_it() { return @@{ pick() }; }
+    int p1() { using namespace n1; return pick_it!(); }
+    int p2() { using namespace n2; return pick_it!(); }
+  )cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Code.code()));
+  TU.ExtraArgs.push_back("-std=c++29");
+  auto AST = TU.build();
+  auto Index = TU.index();
+  for (auto [Marker, Reason] :
+       {std::pair<llvm::StringRef, llvm::StringRef>{"unused_decl",
+                                                    "no expansions"},
+        {"n1_decl", "different symbols"},
+        {"n2_decl", "different symbols"}}) {
+    auto Results = rename({Code.point(Marker), "renamed", AST,
+                           testPath(TU.Filename), getVFSFromAST(AST),
+                           Index.get()});
+    ASSERT_FALSE(bool(Results)) << Marker.str();
+    std::string Message = llvm::toString(Results.takeError());
+    EXPECT_THAT(Message, testing::HasSubstr("quote would not be updated"));
+    EXPECT_THAT(Message, testing::HasSubstr(Reason));
+  }
+}
+
 TEST(RenameTest, TokenSequenceQuoteInHeaderRefusesRename) {
   Annotations Code(R"cpp(
 namespace std::meta {

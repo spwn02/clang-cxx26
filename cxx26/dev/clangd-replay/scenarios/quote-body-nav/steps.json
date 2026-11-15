@@ -308,5 +308,23 @@
   "label": "refs-consteval-helper",
   "pre": 300,
   "wait": 300
+ },
+ {
+  "line": 23,
+  "col": 19,
+  "request": "textDocument/rename",
+  "newName": "renamed",
+  "label": "rn-n1pick-decl",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 24,
+  "col": 19,
+  "request": "textDocument/rename",
+  "newName": "renamed",
+  "label": "rn-n2pick-decl",
+  "pre": 300,
+  "wait": 300
  }
 ]

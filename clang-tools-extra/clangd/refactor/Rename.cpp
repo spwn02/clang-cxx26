@@ -531,21 +531,20 @@ quoteTokenRenameEdits(ParsedAST &AST, const NamedDecl &ND,
       return quoteRenameError(MainFilePath, Occurrence,
                               "the quote is in a module interface");
     const auto &Resolution = Token.Result;
-    if (!Resolution.Expansions) {
-      if (!Token.IsExpressionMacro)
-        return quoteRenameError(MainFilePath, Occurrence,
-                                "the token has no expansions");
-      continue;
-    }
+    // A token with the symbol's name that we cannot prove refers to it must
+    // refuse the rename: skipping it would silently leave it stale.
+    if (!Resolution.Expansions)
+      return quoteRenameError(MainFilePath, Occurrence,
+                              "the token has no expansions");
+    if (Resolution.Ambiguous)
+      return quoteRenameError(MainFilePath, Occurrence,
+                              "expansions resolve to different symbols");
     bool TargetsRenameDecl = llvm::any_of(
         Resolution.Targets, [&](const QuoteTokenTable::Target &Target) {
           return canonicalRenameDecl(Target.Decl) == &ND;
         });
     if (!TargetsRenameDecl)
       continue;
-    if (Resolution.Ambiguous)
-      return quoteRenameError(MainFilePath, Occurrence,
-                              "expansions resolve to different symbols");
     if (Resolution.Targets.size() != 1 ||
         canonicalRenameDecl(Resolution.Targets.front().Decl) != &ND)
       return quoteRenameError(
