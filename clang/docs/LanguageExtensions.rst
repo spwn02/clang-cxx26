@@ -1856,6 +1856,10 @@ main file of a translation unit that is neither a header nor a module interface.
 expansion. Otherwise clangd refuses the rename with a reason, such as disagreement, a declaration role, no expansions, or
 the file being a header or module interface.
 
+When a symbol is renamed from its declaration, any quote token with the symbol's name that clangd cannot prove refers to
+it also makes the rename refuse: a token with no expansions, or whose expansions disagree, even if it names an unrelated
+symbol that happens to share the name.
+
 Cross-file references and rename use the index and do not know the resolved quote tokens in other files. If another
 affected file contains quote text matching the symbol name, rename refuses rather than risk leaving that text stale.
 Likewise, when clangd parses a header as its own translation unit, hover cannot see expansions that exist only in other

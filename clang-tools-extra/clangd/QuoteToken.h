@@ -42,7 +42,6 @@ public:
   struct Token {
     SourceLocation Loc;
     unsigned Length;
-    bool IsExpressionMacro = false;
     Resolution Result;
   };
 
@@ -57,9 +56,8 @@ public:
   /// Returns every quote token in the main file, including unresolved tokens.
   llvm::SmallVector<Token, 16> tokens() const;
 
-  void addQuotedToken(SourceLocation Loc, unsigned Offset, unsigned Length,
-                      bool IsExpressionMacro) {
-    Tokens.try_emplace(Offset, TokenInfo{Loc, Length, IsExpressionMacro, {}});
+  void addQuotedToken(SourceLocation Loc, unsigned Offset, unsigned Length) {
+    Tokens.try_emplace(Offset, TokenInfo{Loc, Length, {}});
   }
 
   static QuoteTokenTable build(ASTContext &Ctx,
@@ -69,7 +67,6 @@ private:
   struct TokenInfo {
     SourceLocation Loc;
     unsigned Length;
-    bool IsExpressionMacro;
     Resolution Result;
   };
   const TokenInfo *findToken(SourceLocation Loc, const SourceManager &SM) const;

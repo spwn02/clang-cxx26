@@ -26,14 +26,6 @@ public:
   QuoteCollector(const SourceManager &SM, QuoteTokenTable &Table)
       : SM(SM), Table(Table) {}
 
-  bool TraverseFunctionDecl(FunctionDecl *FD) {
-    bool WasExpressionMacro = InExpressionMacro;
-    InExpressionMacro |= FD->isExpressionMacro();
-    bool Result = RecursiveASTVisitor::TraverseFunctionDecl(FD);
-    InExpressionMacro = WasExpressionMacro;
-    return Result;
-  }
-
   bool VisitCXXTokenSequenceExpr(CXXTokenSequenceExpr *E) {
     for (const Token &Tok : E->getValue().getTokenSequence()) {
       // Annotation tokens (e.g. \(x) holes) carry no length and no identifier.
@@ -42,8 +34,7 @@ public:
       SourceLocation Loc = SM.getSpellingLoc(Tok.getLocation());
       if (Loc.isInvalid() || SM.getFileID(Loc) != SM.getMainFileID())
         continue;
-      Table.addQuotedToken(Loc, SM.getFileOffset(Loc), Tok.getLength(),
-                           InExpressionMacro);
+      Table.addQuotedToken(Loc, SM.getFileOffset(Loc), Tok.getLength());
     }
     return true;
   }
@@ -51,7 +42,6 @@ public:
 private:
   const SourceManager &SM;
   QuoteTokenTable &Table;
-  bool InExpressionMacro = false;
 };
 
 struct ExpansionTargets {
@@ -244,7 +234,7 @@ llvm::SmallVector<QuoteTokenTable::Token, 16> QuoteTokenTable::tokens() const {
   Result.reserve(Tokens.size());
   for (const auto &Entry : Tokens)
     Result.push_back({Entry.second.Loc, Entry.second.Length,
-                      Entry.second.IsExpressionMacro, Entry.second.Result});
+                      Entry.second.Result});
   return Result;
 }
 

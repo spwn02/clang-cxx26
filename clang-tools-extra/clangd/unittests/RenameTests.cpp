@@ -2124,6 +2124,44 @@ TEST(CrossFileRenameTests, DirtyBuffer) {
               testing::HasSubstr("too many occurrences"));
 }
 
+TEST(RenameTest, TokenSequenceQuoteRefusalIgnoresCPPNumberSeparator) {
+  Annotations MainCode("void target^(); int use() { target(); return 0; }");
+  Annotations OtherCode(R"cpp(
+    void target() {}
+    void other() { [[target]](); }
+    int n = 1'000;
+    constexpr auto quote = @@{ target(); };
+  )cpp");
+  std::string MainPath = testPath("main.cc");
+  std::string OtherPath = testPath("other.cc");
+  TestTU TU = TestTU::withCode(MainCode.code());
+  TU.ExtraArgs.push_back("-std=c++29");
+  TU.AdditionalFiles["other.cc"] = withReflectionOperator(OtherCode.code());
+  auto AST = TU.build();
+
+  const FunctionDecl *Target = nullptr;
+  for (Decl *D : AST.getLocalTopLevelDecls())
+    if (const auto *FD = dyn_cast<FunctionDecl>(D))
+      if (FD->getName() == "target")
+        Target = FD;
+  ASSERT_NE(Target, nullptr);
+  RefSlab::Builder Refs;
+  std::string OtherURI = URI::create(OtherPath).toString();
+  Refs.insert(getSymbolID(Target),
+              refWithRange(OtherCode.ranges().front(), OtherURI));
+  FileSymbols Symbols(IndexContents::All, true);
+  Symbols.update(OtherPath, nullptr,
+                 std::make_unique<RefSlab>(std::move(Refs).build()), nullptr,
+                 false);
+  auto Index = Symbols.buildIndex(IndexType::Light);
+  auto Results = rename({MainCode.point(), "renamed", AST, MainPath,
+                         getVFSFromAST(AST), Index.get()});
+  ASSERT_FALSE(Results);
+  std::string Message = llvm::toString(Results.takeError());
+  EXPECT_THAT(Message, testing::HasSubstr(OtherPath));
+  EXPECT_THAT(Message, testing::HasSubstr("quote would not be updated"));
+}
+
 TEST(CrossFileRenameTests, TokenSequenceQuoteRefusesRename) {
   Annotations MainCode("void target^(); int use() { target(); return 0; }");
   Annotations OtherCode(R"cpp(
