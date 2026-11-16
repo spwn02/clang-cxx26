@@ -109,7 +109,9 @@
 // MRELOCMODELALL-NEXT: rwpi
 // MRELOCMODELALL-NEXT: static
 // RUN: %clang --autocomplete=-Wma | FileCheck %s -check-prefix=WARNING
-// WARNING: -Wmacro-redefined
+// WARNING: -Wmacro-located-diagnostics
+// WARNING-NEXT: -Wmacro-redefined
+// WARNING-NEXT: -Wmacro-role
 // WARNING-NEXT: -Wmain
 // WARNING-NEXT: -Wmain-attached-to-named-module
 // WARNING-NEXT: -Wmain-return-type
