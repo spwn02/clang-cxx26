@@ -174,6 +174,10 @@ struct CodeCompleteOptions {
 struct CodeCompletion {
   // The unqualified name of the symbol or other completion item.
   std::string Name;
+  // Optional exact edit text, used by macro-authored completion candidates.
+  std::optional<std::string> InsertText;
+  // Optional explicit ordering key (macro candidates sort after C++ results).
+  std::optional<std::string> SortText;
   // The name of the symbol for filtering and sorting purposes. Typically the
   // same as `Name`, but may be different e.g. for ObjC methods, `Name` is the
   // first selector fragment but the `FilterText` is the entire selector.

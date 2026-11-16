@@ -1,0 +1,47 @@
+[
+ {
+  "line": 23,
+  "col": 34,
+  "request": "textDocument/completion",
+  "match": "hx_",
+  "label": "completion-dsl-end-of-prefix",
+  "pre": 1500,
+  "wait": 300
+ },
+ {
+  "line": 24,
+  "col": 33,
+  "request": "textDocument/completion",
+  "match": "hx_",
+  "label": "completion-dsl-middle",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 25,
+  "col": 30,
+  "request": "textDocument/completion",
+  "match": "hx_",
+  "label": "completion-dsl-empty",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 26,
+  "col": 39,
+  "request": "textDocument/completion",
+  "match": "hx_",
+  "label": "completion-dsl-string",
+  "pre": 300,
+  "wait": 300
+ },
+ {
+  "line": 27,
+  "col": 36,
+  "request": "textDocument/completion",
+  "match": "hx_",
+  "label": "completion-injected",
+  "pre": 300,
+  "wait": 300
+ }
+]

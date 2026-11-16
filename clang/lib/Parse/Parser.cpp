@@ -383,6 +383,10 @@ bool Parser::SkipUntil(ArrayRef<tok::TokenKind> Toks, SkipUntilFlags Flags) {
       return false;
 
     case tok::code_completion:
+      if (HasFlagsSet(Flags, ConsumeCodeCompletion)) {
+        ConsumeCodeCompletionToken();
+        break;
+      }
       if (!HasFlagsSet(Flags, StopAtCodeCompletion))
         handleUnexpectedCodeCompletionToken();
       return false;
@@ -390,32 +394,48 @@ bool Parser::SkipUntil(ArrayRef<tok::TokenKind> Toks, SkipUntilFlags Flags) {
     case tok::l_paren:
       // Recursively skip properly-nested parens.
       ConsumeParen();
-      if (HasFlagsSet(Flags, StopAtCodeCompletion))
-        SkipUntil(tok::r_paren, StopAtCodeCompletion);
+      if (HasFlagsSet(Flags, StopAtCodeCompletion) ||
+          HasFlagsSet(Flags, ConsumeCodeCompletion))
+        SkipUntil(tok::r_paren,
+                  static_cast<SkipUntilFlags>(
+                      unsigned(StopAtCodeCompletion) |
+                      (unsigned(Flags) & unsigned(ConsumeCodeCompletion))));
       else
         SkipUntil(tok::r_paren);
       break;
     case tok::l_square:
       // Recursively skip properly-nested square brackets.
       ConsumeBracket();
-      if (HasFlagsSet(Flags, StopAtCodeCompletion))
-        SkipUntil(tok::r_square, StopAtCodeCompletion);
+      if (HasFlagsSet(Flags, StopAtCodeCompletion) ||
+          HasFlagsSet(Flags, ConsumeCodeCompletion))
+        SkipUntil(tok::r_square,
+                  static_cast<SkipUntilFlags>(
+                      unsigned(StopAtCodeCompletion) |
+                      (unsigned(Flags) & unsigned(ConsumeCodeCompletion))));
       else
         SkipUntil(tok::r_square);
       break;
     case tok::l_brace:
       // Recursively skip properly-nested braces.
       ConsumeBrace();
-      if (HasFlagsSet(Flags, StopAtCodeCompletion))
-        SkipUntil(tok::r_brace, StopAtCodeCompletion);
+      if (HasFlagsSet(Flags, StopAtCodeCompletion) ||
+          HasFlagsSet(Flags, ConsumeCodeCompletion))
+        SkipUntil(tok::r_brace,
+                  static_cast<SkipUntilFlags>(
+                      unsigned(StopAtCodeCompletion) |
+                      (unsigned(Flags) & unsigned(ConsumeCodeCompletion))));
       else
         SkipUntil(tok::r_brace);
       break;
     case tok::l_splice:
       // Recursively skip property-nested splices.
       ConsumeSplice();
-      if (HasFlagsSet(Flags, StopAtCodeCompletion))
-        SkipUntil(tok::r_splice, StopAtCodeCompletion);
+      if (HasFlagsSet(Flags, StopAtCodeCompletion) ||
+          HasFlagsSet(Flags, ConsumeCodeCompletion))
+        SkipUntil(tok::r_splice,
+                  static_cast<SkipUntilFlags>(
+                      unsigned(StopAtCodeCompletion) |
+                      (unsigned(Flags) & unsigned(ConsumeCodeCompletion))));
       else
         SkipUntil(tok::r_splice);
       break;
@@ -425,7 +445,8 @@ bool Parser::SkipUntil(ArrayRef<tok::TokenKind> Toks, SkipUntilFlags Flags) {
       ConsumeToken();
       SkipUntil(tok::colon,
                 SkipUntilFlags(unsigned(Flags) &
-                               unsigned(StopAtCodeCompletion | StopAtSemi)));
+                               unsigned(StopAtCodeCompletion | StopAtSemi |
+                                        ConsumeCodeCompletion)));
       break;
 
     // Okay, we found a ']' or '}' or ')', which we think should be balanced.
@@ -2845,7 +2866,11 @@ bool BalancedDelimiterTracker::diagnoseMissingClose() {
   return true;
 }
 
-void BalancedDelimiterTracker::skipToEnd() {
-  P.SkipUntil(Close, Parser::StopBeforeMatch);
+void BalancedDelimiterTracker::skipToEnd(bool ConsumeCodeCompletion) {
+  Parser::SkipUntilFlags Flags = Parser::StopBeforeMatch;
+  if (ConsumeCodeCompletion)
+    Flags = static_cast<Parser::SkipUntilFlags>(
+        unsigned(Flags) | unsigned(Parser::ConsumeCodeCompletion));
+  P.SkipUntil(Close, Flags);
   consumeClose();
 }

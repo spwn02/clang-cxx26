@@ -1898,6 +1898,18 @@ successful expansion. If expansions assign different kinds or modifiers to the s
 Roles are not delivered after a fatal error, and roles attached to tokens stored in PCH files or named modules are not
 shown by clangd. A role remark at a token in another file is ignored for main-file highlighting.
 
+The same header declares ``__is_completion(token)`` and ``__complete(token, label, insert_text, kind, detail, documentation)``.
+These C++29-only APIs let a macro publish bounded, macro-authored candidates while processing a raw ``token_sequence``
+that contains the completion token. ``kind`` is one of ``text``, ``method``, ``property``, ``class_``, ``field``,
+``variable``, ``keyword`` or ``value``; the optional detail and documentation are plain UTF-8 text. The editor replaces
+only the identifier prefix before the cursor: for ``data-f^``, insert ``foo`` rather than ``data-foo``. Completion
+inside string literals and comments is unavailable because lexing stops before the raw argument closes. Per expansion,
+at most 128 candidates are accepted; per request, at most 512 candidates and 64 KiB of text are copied. Labels are
+limited to 256 bytes, insertions to 4096 bytes, details to 1024 bytes and documentation to 4096 bytes. Oversize display
+text is truncated at a UTF-8 boundary; oversize insertion text is discarded.
+A completion request that reaches clangd before the file's first preamble has been built may return only ordinary
+candidates.
+
 **Deviation note:** These APIs and their editor behavior are not specified by P2758 or P4380R1. They are a Clang fork
 extension pending a WG21 paper.
 

@@ -8485,7 +8485,8 @@ bool Sema::EvaluateMacroExpansion(Expr *Fn, FunctionDecl *Macro,
       // evaluation record once and do not add a generic call-site cascade.
       for (const PartialDiagnosticAt &PD : Notes) {
         diag::kind ID = PD.second.getDiagID();
-        if (ID == diag::remark_macro_role)
+        if (ID == diag::remark_macro_role ||
+            ID == diag::remark_macro_completion)
           continue;
         bool IsLocated = ID == diag::err_macro_located_error ||
                          ID == diag::warn_macro_located_warning ||
@@ -8508,7 +8509,8 @@ bool Sema::EvaluateMacroExpansion(Expr *Fn, FunctionDecl *Macro,
                              : diag::err_macro_evaluation_failed)
         << Macro;
     for (const PartialDiagnosticAt &PD : Notes) {
-      if (PD.second.getDiagID() == diag::remark_macro_role)
+      if (PD.second.getDiagID() == diag::remark_macro_role ||
+          PD.second.getDiagID() == diag::remark_macro_completion)
         continue;
       Diag(PD.first, PD.second);
     }
@@ -8530,6 +8532,18 @@ bool Sema::EvaluateMacroExpansion(Expr *Fn, FunctionDecl *Macro,
   for (const PartialDiagnosticAt &PD : Notes)
     if (PD.second.getDiagID() == diag::remark_macro_role)
       Diag(PD.first, PD.second) << MacroRoleExpansionID;
+  unsigned MacroCompletionCount = 0;
+  bool MacroCompletionOverflow = false;
+  for (const PartialDiagnosticAt &PD : Notes)
+    if (PD.second.getDiagID() == diag::remark_macro_completion) {
+      if (MacroCompletionCount++ < 128)
+        Diag(PD.first, PD.second);
+      else
+        MacroCompletionOverflow = true;
+    }
+  if (MacroCompletionOverflow)
+    Diag(LParenLoc, diag::remark_macro_completion)
+        << 255u << StringRef() << StringRef() << StringRef() << StringRef();
   Expansion = Result.getTokenSequence();
   return false;
 }

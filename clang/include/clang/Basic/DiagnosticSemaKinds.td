@@ -3301,6 +3301,8 @@ def warn_macro_located_warning : Warning<"%0">,
 def note_macro_located_note : Note<"%0">;
 def remark_macro_role : Remark<"macro role kind=%0 modifiers=%1 expansion=%2">,
   InGroup<MacroRole>;
+def remark_macro_completion : Remark<"macro completion kind=%0 label=%1 insert=%2 detail=%3 documentation=%4">,
+  InGroup<MacroRole>;
 def err_macro_located_outside_body : Error<
   "located macro diagnostics are only valid in an expression-macro body">;
 def err_macro_raw_pack_not_last : Error<

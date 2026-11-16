@@ -502,7 +502,7 @@ namespace clang {
 
       return diagnoseMissingClose();
     }
-    void skipToEnd();
+    void skipToEnd(bool ConsumeCodeCompletion = false);
   };
 } // end namespace clang
 

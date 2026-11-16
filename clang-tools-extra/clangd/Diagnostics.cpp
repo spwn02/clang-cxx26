@@ -681,6 +681,8 @@ static void fillNonLocationData(DiagnosticsEngine::Level DiagLevel,
 
 void StoreDiags::HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
                                   const clang::Diagnostic &Info) {
+  if (Info.getID() == diag::remark_macro_completion)
+    return;
   if (Info.getID() == diag::remark_macro_role) {
     if (MacroRoleCollector && Info.hasSourceManager() &&
         Info.getLocation().isValid() && Info.getNumArgs() == 3 &&

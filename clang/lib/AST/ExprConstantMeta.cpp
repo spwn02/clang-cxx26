@@ -998,6 +998,17 @@ static bool macro_token_role(APValue &Result, ASTContext &C, MetaActions &Meta,
                              SourceRange Range, ArrayRef<Expr *> Args,
                              Decl *ContainingDecl);
 
+static bool is_completion(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl);
+static bool macro_complete(APValue &Result, ASTContext &C, MetaActions &Meta,
+                           EvalFn Evaluator, DiagFn Diagnoser,
+                           bool AllowInjection, QualType ResultTy,
+                           SourceRange Range, ArrayRef<Expr *> Args,
+                           Decl *ContainingDecl);
+
 static constexpr Metafunction Metafunctions[] = {
   // Kind, MinArgs, MaxArgs, Impl
 
@@ -1172,6 +1183,8 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 2, 4, macro_located_warning },
   { Metafunction::MFRK_bool, 2, 4, macro_located_note },
   { Metafunction::MFRK_bool, 3, 4, macro_token_role },
+  { Metafunction::MFRK_bool, 1, 1, is_completion },
+  { Metafunction::MFRK_bool, 3, 6, macro_complete },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
                                             sizeof(Metafunction);
@@ -2975,6 +2988,99 @@ static bool macro_token_role(APValue &Result, ASTContext &C, MetaActions &Meta,
         Diagnoser(RoleLoc, diag::remark_macro_role);
     PD << static_cast<unsigned>(Kind) << static_cast<unsigned>(Modifiers);
   }
+  return SetAndSucceed(Result, makeBool(C, true));
+}
+
+static bool is_completion(APValue &Result, ASTContext &C, MetaActions &Meta,
+                          EvalFn Evaluator, DiagFn Diagnoser,
+                          bool AllowInjection, QualType ResultTy,
+                          SourceRange Range, ArrayRef<Expr *> Args,
+                          Decl *ContainingDecl) {
+  if (!C.getLangOpts().CPlusPlus29)
+    return SetAndSucceed(Result, makeBool(C, false));
+  std::optional<Token> Tok;
+  if (!getSingleToken(Evaluator, Args[0], Tok))
+    return true;
+  return SetAndSucceed(Result,
+                       makeBool(C, Tok && Tok->is(tok::code_completion)));
+}
+
+static size_t utf8PrefixLength(StringRef Text, size_t Limit) {
+  size_t N = std::min(Text.size(), Limit);
+  while (N && N < Text.size() &&
+         (static_cast<unsigned char>(Text[N]) & 0xc0) == 0x80)
+    --N;
+  if (N < Text.size() && N) {
+    unsigned char Lead = Text[N - 1];
+    size_t Width = Lead < 0x80             ? 1
+                   : (Lead & 0xe0) == 0xc0 ? 2
+                   : (Lead & 0xf0) == 0xe0 ? 3
+                   : (Lead & 0xf8) == 0xf0 ? 4
+                                           : 1;
+    if (N - 1 + Width > N)
+      --N;
+  }
+  return N;
+}
+
+static void diagnoseMacroCompletionLimit(DiagFn Diagnoser, SourceLocation Loc) {
+  PartialDiagnostic &PD = Diagnoser(Loc, diag::remark_macro_completion);
+  PD << 255u << StringRef() << StringRef() << StringRef() << StringRef();
+}
+
+static bool macro_complete(APValue &Result, ASTContext &C, MetaActions &Meta,
+                           EvalFn Evaluator, DiagFn Diagnoser,
+                           bool AllowInjection, QualType ResultTy,
+                           SourceRange Range, ArrayRef<Expr *> Args,
+                           Decl *ContainingDecl) {
+  assert(ResultTy->isBooleanType());
+  if (!C.getLangOpts().CPlusPlus29)
+    return SetAndSucceed(Result, makeBool(C, false));
+  std::optional<Token> Tok;
+  if (!getSingleToken(Evaluator, Args[0], Tok))
+    return true;
+  if (!Tok || !Tok->is(tok::code_completion))
+    return SetAndSucceed(Result, makeBool(C, false));
+
+  APValue LabelValue, InsertValue, KindValue, DetailValue, DocValue;
+  std::string Label, Insert, Detail, Documentation;
+  if (!Evaluator(LabelValue, Args[1], true) ||
+      !evaluateDiagnosticString(LabelValue, Label) ||
+      !Evaluator(InsertValue, Args[2], true) ||
+      !evaluateDiagnosticString(InsertValue, Insert))
+    return true;
+  uint64_t Kind = 0;
+  if (Args.size() > 3) {
+    if (!Evaluator(KindValue, Args[3], true) || !KindValue.isInt())
+      return true;
+    Kind = KindValue.getInt().getZExtValue();
+  }
+  if (Kind > 7) {
+    return SetAndSucceed(Result, makeBool(C, false));
+  }
+  if (Insert.size() > 4096) {
+    diagnoseMacroCompletionLimit(Diagnoser, Tok->getLocation());
+    return SetAndSucceed(Result, makeBool(C, false));
+  }
+  if (Args.size() > 4 && (!Evaluator(DetailValue, Args[4], true) ||
+                          !evaluateDiagnosticString(DetailValue, Detail)))
+    return true;
+  if (Args.size() > 5 && (!Evaluator(DocValue, Args[5], true) ||
+                          !evaluateDiagnosticString(DocValue, Documentation)))
+    return true;
+
+  bool Truncated =
+      Label.size() > 256 || Detail.size() > 1024 || Documentation.size() > 4096;
+  Label.resize(utf8PrefixLength(Label, 256));
+  Detail.resize(utf8PrefixLength(Detail, 1024));
+  Documentation.resize(utf8PrefixLength(Documentation, 4096));
+
+  PartialDiagnostic &PD =
+      Diagnoser(Tok->getLocation(), diag::remark_macro_completion);
+  PD << static_cast<unsigned>(Kind) << StringRef(Label) << StringRef(Insert)
+     << StringRef(Detail) << StringRef(Documentation);
+  if (Truncated)
+    diagnoseMacroCompletionLimit(Diagnoser, Tok->getLocation());
   return SetAndSucceed(Result, makeBool(C, true));
 }
 

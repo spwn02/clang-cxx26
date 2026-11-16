@@ -201,6 +201,8 @@ enum : unsigned {
   __metafn_macro_located_warning,
   __metafn_macro_located_note,
   __metafn_macro_token_role,
+  __metafn_is_completion,
+  __metafn_macro_complete,
 };
 } // namespace __detail
 

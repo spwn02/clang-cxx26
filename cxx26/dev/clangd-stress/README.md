@@ -3,8 +3,9 @@
 `lsp_probe.py` exercises every character boundary from each macro name through
 its invocation semicolon, every character boundary in each `^^{ ... }` quote
 body, and advisor control cases for dependent explicit-object hints, lambda
-trailing-return completion, a raw macro argument's first token, and a
-mem-initializer macro. The 15 macro cases cover expression, statement,
+trailing-return completion, a raw macro argument's first token, a
+mem-initializer macro, and macro-supplied completion in a DSL token sequence.
+The 15 macro cases cover expression, statement,
 declaration, typed and raw parameters, nesting, deferred templates, explicit
 object members, injected calls, mem-initializers, and quote navigation.
 
@@ -31,13 +32,16 @@ python3 cxx26/dev/clangd-stress/lsp_probe.py /path/to/clangd \
   --clang /path/to/clang --mode all
 ```
 
-Run only selected LSP cases or change repeat counts:
+Run only selected LSP or cc1 cases or change repeat counts:
 
 ```sh
 python3 cxx26/dev/clangd-stress/lsp_probe.py /path/to/clangd \
   --mode lsp --case nested --case control-lambda-trailing --repeats 3
 python3 cxx26/dev/clangd-stress/lsp_probe.py /path/to/clangd \
   --clang /path/to/clang --mode cc1 --cc1-repeats 25
+python3 cxx26/dev/clangd-stress/lsp_probe.py /path/to/clangd \
+  --clang /path/to/clang --mode cc1 --case control-macro-supplied-completion \
+  --case control-raw-first-token --case control-meminit --cc1-repeats 40
 ```
 
 The compiler executable is passed separately so the same corpus can compare

@@ -14,6 +14,9 @@ import urllib.parse
 HERE = Path(__file__).resolve().parent
 CASES = HERE / "cases"
 INPUTS = HERE.parents[2] / "clang" / "test" / "Reflection" / "Inputs"
+LIBCXX_INCLUDE = HERE.parents[2] / "libcxx" / "include"
+LIBCXX_BUILD_INCLUDE = HERE.parents[2] / "build-libcxx" / "include" / "c++" / "v1"
+RESOURCE_INCLUDE = HERE.parents[2] / "build-nyx" / "lib" / "clang" / "22" / "include"
 MACRO_CASES = (
     "expression-raw", "expression-typed", "statement-raw", "declaration-raw",
     "nested", "statement-typed", "declaration-typed", "meminit-raw",
@@ -23,6 +26,7 @@ MACRO_CASES = (
 CONTROLS = (
     "control-deducing-this-inlay", "control-lambda-trailing",
     "control-raw-first-token", "control-meminit",
+    "control-macro-supplied-completion",
 )
 INLAY_CASE = "control-deducing-this-inlay"
 IGNORE_LSP_ERRORS = {-32001, -32602}
@@ -111,6 +115,7 @@ def positions_for(name, code, marker):
             "control-lambda-trailing": "lambda-trailing",
             "control-raw-first-token": "raw-first-token",
             "control-meminit": "mem-initializer",
+            "control-macro-supplied-completion": "macro-supplied-completion",
         }.get(name, "control")
         locations.append({"line": line, "character": col, "offset": marker,
                           "class": kind})
@@ -247,7 +252,9 @@ def run_lsp(binary, repeats, timeout, only_cases=None):
             path.write_text(code)
             (root / "compile_commands.json").write_text(json.dumps([{
                 "directory": str(root), "file": str(path),
-                "arguments": ["clang++", "-std=c++29", "-fsyntax-only",
+                "arguments": ["clang++", "-std=c++29", "-nostdinc++",
+                              "-isystem", str(LIBCXX_INCLUDE), "-idirafter",
+                              str(LIBCXX_BUILD_INCLUDE), "-fsyntax-only",
                               "-I", str(INPUTS), str(path)],
             }]))
             locations = positions_for(name, code, marker)
@@ -272,6 +279,12 @@ def run_lsp(binary, repeats, timeout, only_cases=None):
                                  "params": {"textDocument": {"uri": client.uri,
                                  "languageId": "cpp", "version": 1, "text": code}}})
                     time.sleep(0.25)
+                    if name == "control-macro-supplied-completion":
+                        # A completion issued before the first preamble is built
+                        # degrades to ordinary results (documented limit): wait
+                        # for the AST so the check below is about the macro.
+                        client.request("textDocument/documentSymbol",
+                                       {"textDocument": {"uri": client.uri}})
                     for loc in locations:
                         try:
                             sent += 1
@@ -290,6 +303,14 @@ def run_lsp(binary, repeats, timeout, only_cases=None):
                                     and "partial_value" not in json.dumps(response.get("result"))):
                                 failures.append({"position": loc,
                                                  "failure": "completion omitted partial_value"})
+                            if (name == "control-macro-supplied-completion"
+                                    and loc.get("class") == "macro-supplied-completion"):
+                                Items = response.get("result", {}).get("items", [])
+                                Labels = [(I.get("label") or "").strip() for I in Items]
+                                if Labels != ["hx_alpha", "hx_beta"]:
+                                    failures.append({"position": loc,
+                                                     "failure": "unexpected macro candidates",
+                                                     "labels": Labels})
                             if loc["class"] == "quote-body":
                                 for method in ("textDocument/hover",
                                                "textDocument/definition",
@@ -372,6 +393,7 @@ def compiler_classes():
                 "control-lambda-trailing": "lambda-trailing",
                 "control-raw-first-token": "raw-first-token",
                 "control-meminit": "mem-initializer",
+                "control-macro-supplied-completion": "macro-supplied-completion",
             }.get(name, "control")
             loc = {"line": line, "character": col, "offset": marker,
                    "class": kind}
@@ -381,8 +403,12 @@ def compiler_classes():
     return classes
 
 
-def run_cc1(binary, repeats):
+def run_cc1(binary, repeats, only_cases=None):
     classes = compiler_classes()
+    if only_cases:
+        classes = {kind: [entry for entry in entries if entry[0] in only_cases]
+                   for kind, entries in classes.items()}
+        classes = {kind: entries for kind, entries in classes.items() if entries}
     total = failures = 0
     for kind, cases in classes.items():
         positions = [(name, code, loc) for name, code, locs in cases for loc in locs]
@@ -394,8 +420,14 @@ def run_cc1(binary, repeats):
                     source.write_text(code)
                     line = loc["line"] + 1
                     column = loc["character"] + 1
-                    command = [binary, "-cc1", "-std=c++29", "-I", str(INPUTS),
-                               "-fsyntax-only", "-code-completion-at=%s:%d:%d" %
+                    command = [binary, "-cc1", "-std=c++29", "-nostdinc++",
+                               "-internal-isystem", str(RESOURCE_INCLUDE),
+                               "-isystem", str(LIBCXX_INCLUDE), "-idirafter",
+                               str(LIBCXX_BUILD_INCLUDE), "-internal-isystem",
+                               "/usr/include/x86_64-linux-gnu", "-internal-isystem",
+                               "/usr/include", "-I", str(INPUTS),
+                               "-fsyntax-only", "-Rmacro-role",
+                               "-code-completion-at=%s:%d:%d" %
                                (source, line, column), str(source), "-o", "-"]
                     try:
                         run = subprocess.run(command, capture_output=True, text=True,
@@ -414,6 +446,15 @@ def run_cc1(binary, repeats):
                                                    "position": [line, column],
                                                    "iteration": iteration,
                                                    "failure": "completion omitted partial_value",
+                                                   "tail": output[-1200:]})
+                        elif kind == "macro-supplied-completion" and \
+                                ("label=hx_alpha" not in output or
+                                 "label=hx_beta" not in output or
+                                 "COMPLETION:" in output):
+                            class_failures.append({"case": name,
+                                                   "position": [line, column],
+                                                   "iteration": iteration,
+                                                   "failure": "macro completion remarks missing or C++ completion leaked",
                                                    "tail": output[-1200:]})
                         elif kind == "raw-first-token" and \
                                 "COMPLETION: Pattern : return" in output:
@@ -453,7 +494,7 @@ def main():
     if args.mode in ("cc1", "all"):
         if not args.clang:
             parser.error("--clang is required for cc1 and all modes")
-        rc |= run_cc1(args.clang, args.cc1_repeats)
+        rc |= run_cc1(args.clang, args.cc1_repeats, args.case)
     return rc
 
 

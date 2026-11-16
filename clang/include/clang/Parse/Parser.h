@@ -566,7 +566,9 @@ public:
     StopAtSemi = 1 << 0, ///< Stop skipping at semicolon
     /// Stop skipping at specified token, but don't skip the token itself
     StopBeforeMatch = 1 << 1,
-    StopAtCodeCompletion = 1 << 2 ///< Stop at code completion
+    StopAtCodeCompletion = 1 << 2, ///< Stop at code completion
+    /// Consume code-completion tokens without triggering completion.
+    ConsumeCodeCompletion = 1 << 3
   };
 
   friend constexpr SkipUntilFlags operator|(SkipUntilFlags L,

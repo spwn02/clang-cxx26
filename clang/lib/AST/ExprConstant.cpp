@@ -1107,6 +1107,7 @@ namespace {
     /// body has run, so a reported error does not stop later statements.
     SmallVector<PartialDiagnosticAt, 4> MacroLocatedDiagnostics;
     SmallVector<PartialDiagnosticAt, 4> MacroRoleDiagnostics;
+    SmallVector<PartialDiagnosticAt, 4> MacroCompletionDiagnostics;
 
     /// Whether a parameter of the macro whose body is being evaluated holds a
     /// reflection of a value-dependent expression (an argument in a template
@@ -12039,14 +12040,18 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
   auto Diagnoser = [&](SourceLocation Loc,
                            diag::kind DiagID) -> PartialDiagnostic & {
     const bool IsRole = DiagID == diag::remark_macro_role;
-    if (IsRole || DiagID == diag::err_macro_located_error ||
+    const bool IsCompletion = DiagID == diag::remark_macro_completion;
+    if (IsRole || IsCompletion || DiagID == diag::err_macro_located_error ||
         DiagID == diag::warn_macro_located_warning ||
         DiagID == diag::note_macro_located_note) {
       if (Info.EvaluatingMacroBody) {
         if (!Info.checkingPotentialConstantExpression() &&
             Info.SpeculativeEvaluationDepth == 0) {
-          auto &Buffer = IsRole ? Info.MacroRoleDiagnostics
-                                : Info.MacroLocatedDiagnostics;
+          if (IsCompletion && Info.MacroCompletionDiagnostics.size() >= 129)
+            return Info.MacroCompletionDiagnostics.back().second;
+          auto &Buffer = IsRole         ? Info.MacroRoleDiagnostics
+                         : IsCompletion ? Info.MacroCompletionDiagnostics
+                                        : Info.MacroLocatedDiagnostics;
           auto &D = Buffer.emplace_back(
               std::piecewise_construct, std::make_tuple(Loc),
               std::make_tuple(DiagID,
@@ -28074,6 +28079,9 @@ bool Expr::EvaluateMacroBody(const FunctionDecl *Macro,
                  std::make_move_iterator(Info.MacroLocatedDiagnostics.end()));
     Diags.append(std::make_move_iterator(Info.MacroRoleDiagnostics.begin()),
                  std::make_move_iterator(Info.MacroRoleDiagnostics.end()));
+    Diags.append(
+        std::make_move_iterator(Info.MacroCompletionDiagnostics.begin()),
+        std::make_move_iterator(Info.MacroCompletionDiagnostics.end()));
   });
   Info.InConstantContext = true;
   Info.EvaluatingMacroBody = true;

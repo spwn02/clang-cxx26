@@ -46,6 +46,7 @@
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/Basic/CharInfo.h"
+#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TokenKinds.h"
@@ -1377,15 +1378,123 @@ void loadMainFilePreambleMacros(const Preprocessor &PP,
   }
 }
 
+struct MacroCompletionCandidate {
+  unsigned Kind;
+  std::string Label;
+  std::string InsertText;
+  std::string Detail;
+  std::string Documentation;
+};
+
+static size_t truncateUTF8(StringRef Text, size_t Limit) {
+  size_t N = std::min(Text.size(), Limit);
+  while (N && N < Text.size() &&
+         (static_cast<unsigned char>(Text[N]) & 0xc0) == 0x80)
+    --N;
+  if (N < Text.size() && N) {
+    unsigned char Lead = Text[N - 1];
+    size_t Width = Lead < 0x80             ? 1
+                   : (Lead & 0xe0) == 0xc0 ? 2
+                   : (Lead & 0xf0) == 0xe0 ? 3
+                   : (Lead & 0xf8) == 0xf0 ? 4
+                                           : 1;
+    if (N - 1 + Width > N)
+      --N;
+  }
+  return N;
+}
+
+class CompletionDiagnostics : public IgnoreDiagnostics {
+public:
+  CompletionDiagnostics(std::vector<MacroCompletionCandidate> *Candidates,
+                        bool *LimitHit, unsigned CursorOffset)
+      : Candidates(Candidates), LimitHit(LimitHit), CursorOffset(CursorOffset) {
+  }
+
+  void HandleDiagnostic(DiagnosticsEngine::Level Level,
+                        const clang::Diagnostic &Info) override {
+    if (Info.getID() != diag::remark_macro_completion) {
+      IgnoreDiagnostics::HandleDiagnostic(Level, Info);
+      return;
+    }
+    if (!Candidates || !Info.hasSourceManager() || Info.getNumArgs() != 5 ||
+        Info.getArgKind(0) != DiagnosticsEngine::ak_uint ||
+        Info.getArgKind(1) != DiagnosticsEngine::ak_std_string ||
+        Info.getArgKind(2) != DiagnosticsEngine::ak_std_string ||
+        Info.getArgKind(3) != DiagnosticsEngine::ak_std_string ||
+        Info.getArgKind(4) != DiagnosticsEngine::ak_std_string)
+      return;
+
+    const SourceManager &SM = Info.getSourceManager();
+    SourceLocation Loc = Info.getLocation();
+    if (Loc.isInvalid() || Loc.isMacroID() || SM.isWrittenInScratchSpace(Loc) ||
+        SM.getFileID(Loc) != SM.getMainFileID())
+      return;
+    auto [FID, Offset] = SM.getDecomposedLoc(Loc);
+    if (FID != SM.getMainFileID() || Offset > CursorOffset)
+      return;
+    bool Invalid = false;
+    StringRef Buffer = SM.getBufferData(FID, &Invalid);
+    if (Invalid || CursorOffset > Buffer.size())
+      return;
+    if (Offset != CursorOffset) {
+      if (Offset >= Buffer.size() ||
+          !isAsciiIdentifierStart(static_cast<unsigned char>(Buffer[Offset])))
+        return;
+      for (unsigned I = Offset + 1; I < CursorOffset; ++I)
+        if (!isAsciiIdentifierContinue(static_cast<unsigned char>(Buffer[I])))
+          return;
+    }
+
+    unsigned Kind = Info.getArgUInt(0);
+    std::string Label = Info.getArgStdStr(1);
+    std::string Insert = Info.getArgStdStr(2);
+    std::string Detail = Info.getArgStdStr(3);
+    std::string Documentation = Info.getArgStdStr(4);
+    if (Kind > 7) {
+      if (LimitHit)
+        *LimitHit = true;
+      return;
+    }
+    if (Insert.size() > 4096)
+      return;
+    Label.resize(truncateUTF8(Label, 256));
+    Detail.resize(truncateUTF8(Detail, 1024));
+    Documentation.resize(truncateUTF8(Documentation, 4096));
+    constexpr size_t MaxCandidates = 512, MaxBytes = 64 * 1024;
+    size_t Bytes =
+        Label.size() + Insert.size() + Detail.size() + Documentation.size();
+    size_t Used = 0;
+    for (const auto &C : *Candidates)
+      Used += C.Label.size() + C.InsertText.size() + C.Detail.size() +
+              C.Documentation.size();
+    if (Candidates->size() == MaxCandidates || Bytes > MaxBytes - Used) {
+      if (LimitHit)
+        *LimitHit = true;
+      return;
+    }
+    Candidates->push_back({Kind, std::move(Label), std::move(Insert),
+                           std::move(Detail), std::move(Documentation)});
+  }
+
+private:
+  std::vector<MacroCompletionCandidate> *Candidates;
+  bool *LimitHit;
+  unsigned CursorOffset;
+};
+
 // Invokes Sema code completion on a file.
 // If \p Includes is set, it will be updated based on the compiler invocation.
-bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
-                      const clang::CodeCompleteOptions &Options,
-                      const SemaCompleteInput &Input,
-                      IncludeStructure *Includes = nullptr) {
+bool semaCodeComplete(
+    std::unique_ptr<CodeCompleteConsumer> Consumer,
+    const clang::CodeCompleteOptions &Options, const SemaCompleteInput &Input,
+    IncludeStructure *Includes = nullptr,
+    std::vector<MacroCompletionCandidate> *Candidates = nullptr,
+    bool *MacroCompletionLimitHit = nullptr) {
   trace::Span Tracer("Sema completion");
 
-  IgnoreDiagnostics IgnoreDiags;
+  CompletionDiagnostics IgnoreDiags(Candidates, MacroCompletionLimitHit,
+                                    Input.Offset);
   auto CI = buildCompilerInvocation(Input.ParseInput, IgnoreDiags);
   if (!CI) {
     elog("Couldn't create CompilerInvocation");
@@ -1411,6 +1520,10 @@ bool semaCodeComplete(std::unique_ptr<CodeCompleteConsumer> Consumer,
                                        Input.FileName);
   // The diagnostic options must be set before creating a CompilerInstance.
   CI->getDiagnosticOpts().IgnoreWarnings = true;
+  // Macro completion candidates travel through the private remark channel in
+  // the same group as semantic roles. Enable it even though ordinary warnings
+  // remain suppressed for code completion.
+  CI->getDiagnosticOpts().Remarks.push_back("macro-role");
   // We reuse the preamble whether it's valid or not. This is a
   // correctness/performance tradeoff: building without a preamble is slow, and
   // completion is latency-sensitive.
@@ -1718,8 +1831,87 @@ public:
 
     Recorder = RecorderOwner.get();
 
+    std::vector<MacroCompletionCandidate> MacroCandidates;
+    bool MacroCompletionLimitHit = false;
     semaCodeComplete(std::move(RecorderOwner), Opts.getClangCompleteOpts(),
-                     SemaCCInput, &Includes);
+                     SemaCCInput, &Includes, &MacroCandidates,
+                     &MacroCompletionLimitHit);
+    if (MacroCompletionLimitHit)
+      Output.HasMore = true;
+    if (!MacroCandidates.empty()) {
+      Range MacroRange;
+      MacroRange.start = MacroRange.end =
+          offsetToPosition(SemaCCInput.ParseInput.Contents, SemaCCInput.Offset);
+      MacroRange.start.character -= HeuristicPrefix.Name.size();
+      const Range RangeForCandidates =
+          Output.CompletionRange.value_or(MacroRange);
+      llvm::StringSet<> Seen;
+      unsigned MacroIndex = 0;
+      for (const MacroCompletionCandidate &Candidate : MacroCandidates) {
+        bool Duplicate = false;
+        for (const CodeCompletion &Existing : Output.Completions) {
+          std::string ExistingInsert = Existing.InsertText.value_or(
+              Existing.RequiredQualifier + Existing.Name +
+              Existing.SnippetSuffix);
+          if (Existing.Name == Candidate.Label &&
+              ExistingInsert == Candidate.InsertText) {
+            Duplicate = true;
+            break;
+          }
+        }
+        std::string PairKey = Candidate.Label;
+        PairKey.push_back('\0');
+        PairKey += Candidate.InsertText;
+        if (Duplicate || !Seen.insert(PairKey).second)
+          continue;
+        if (Opts.Limit && Output.Completions.size() >= Opts.Limit) {
+          Output.HasMore = true;
+          break;
+        }
+        CodeCompletion Item;
+        Item.Name = Candidate.Label;
+        Item.FilterText = Candidate.Label;
+        Item.InsertText = Candidate.InsertText;
+        Item.Signature = Candidate.Detail;
+        Item.CompletionTokenRange = RangeForCandidates;
+        Item.SortText =
+            llvm::formatv("zz-macro:{0}:{1}", MacroIndex++, Candidate.Label)
+                .str();
+        switch (Candidate.Kind) {
+        case 0:
+          Item.Kind = CompletionItemKind::Text;
+          break;
+        case 1:
+          Item.Kind = CompletionItemKind::Method;
+          break;
+        case 2:
+          Item.Kind = CompletionItemKind::Property;
+          break;
+        case 3:
+          Item.Kind = CompletionItemKind::Class;
+          break;
+        case 4:
+          Item.Kind = CompletionItemKind::Field;
+          break;
+        case 5:
+          Item.Kind = CompletionItemKind::Variable;
+          break;
+        case 6:
+          Item.Kind = CompletionItemKind::Keyword;
+          break;
+        case 7:
+          Item.Kind = CompletionItemKind::Value;
+          break;
+        }
+        if (!Candidate.Documentation.empty()) {
+          Item.Documentation.emplace();
+          parseDocumentation(Candidate.Documentation, *Item.Documentation);
+        }
+        Output.Completions.push_back(std::move(Item));
+      }
+      if (!Output.CompletionRange)
+        Output.CompletionRange = RangeForCandidates;
+    }
     logResults(Output, Tracer);
     return Output;
   }
@@ -1804,10 +1996,11 @@ public:
     CodeCompleteResult Output = toCodeCompleteResult(mergeResults(
         /*SemaResults=*/{}, IndexResults, IdentifierResults));
     Output.RanParser = false;
-    // These results are heuristic (e.g. the preamble is not ready yet). Tell the
-    // client they are provisional so that it asks again on the next keystroke
-    // instead of filtering this list locally, otherwise it keeps showing
-    // identifier-only candidates until completion is re-triggered by hand.
+    // These results are heuristic (e.g. the preamble is not ready yet). Tell
+    // the client they are provisional so that it asks again on the next
+    // keystroke instead of filtering this list locally, otherwise it keeps
+    // showing identifier-only candidates until completion is re-triggered by
+    // hand.
     Output.HasMore = true;
     logResults(Output, Tracer);
     return Output;
@@ -2139,13 +2332,14 @@ private:
           Relevance.HadSymbolType |= true;
         // A call is not a primary expression of a constraint, a bool function
         // is not what is wanted after 'requires'.
-        bool IsCallInConstraint =
-            Recorder && Recorder->CCContext.isConstraintPrimary() &&
-            (Candidate.IndexResult->SymInfo.Kind == index::SymbolKind::Function ||
-             Candidate.IndexResult->SymInfo.Kind ==
-                 index::SymbolKind::InstanceMethod ||
-             Candidate.IndexResult->SymInfo.Kind ==
-                 index::SymbolKind::StaticMethod);
+        bool IsCallInConstraint = Recorder &&
+                                  Recorder->CCContext.isConstraintPrimary() &&
+                                  (Candidate.IndexResult->SymInfo.Kind ==
+                                       index::SymbolKind::Function ||
+                                   Candidate.IndexResult->SymInfo.Kind ==
+                                       index::SymbolKind::InstanceMethod ||
+                                   Candidate.IndexResult->SymInfo.Kind ==
+                                       index::SymbolKind::StaticMethod);
         if (PreferredType && !IsCallInConstraint &&
             PreferredType->raw() == Candidate.IndexResult->Type) {
           Relevance.TypeMatchesPreferred = true;
@@ -2160,9 +2354,8 @@ private:
                 : nullptr;
         if (SemaDecl)
           SemaDecl = SemaDecl->getUnderlyingDecl();
-        bool IsCallInConstraint =
-            Recorder->CCContext.isConstraintPrimary() && SemaDecl &&
-            SemaDecl->getAsFunction();
+        bool IsCallInConstraint = Recorder->CCContext.isConstraintPrimary() &&
+                                  SemaDecl && SemaDecl->getAsFunction();
         if (PreferredType) {
           if (auto CompletionType = OpaqueType::fromCompletionResult(
                   Recorder->CCSema->getASTContext(), *Candidate.SemaResult)) {
@@ -2269,7 +2462,8 @@ CompletionPrefix guessCompletionPrefix(llvm::StringRef Content,
 // space after the keyword and only name characters up to the cursor (so not
 // `import <` or `import "`, header units, which are completed as includes).
 struct ImportNameContext {
-  unsigned PrefixStart; // offset of the first character of the name typed so far
+  unsigned
+      PrefixStart; // offset of the first character of the name typed so far
   llvm::StringRef Prefix; // the name typed so far, possibly starting with ':'
 };
 
@@ -2316,8 +2510,9 @@ codeCompleteModuleName(PathRef FileName, unsigned Offset,
     return std::nullopt;
 
   ModulesBuilder::KnownModules Known =
-      ParseInput.ModulesManager->getKnownModules(FileName, ParseInput.ModulesTFS ? *ParseInput.ModulesTFS
-                                                      : *ParseInput.TFS);
+      ParseInput.ModulesManager->getKnownModules(
+          FileName,
+          ParseInput.ModulesTFS ? *ParseInput.ModulesTFS : *ParseInput.TFS);
 
   llvm::StringRef Prefix = Context->Prefix;
   unsigned Start = Context->PrefixStart;
@@ -2349,16 +2544,18 @@ codeCompleteModuleName(PathRef FileName, unsigned Offset,
       Candidate = Partition;
     } else {
       if (Candidate.contains(':') || Candidate == Primary)
-        continue; // a partition is imported as `:Name`; a unit cannot import itself
+        continue; // a partition is imported as `:Name`; a unit cannot import
+                  // itself
     }
     if (auto Score = Filter.match(Candidate))
       Scored.emplace_back(*Score, Candidate.str());
   }
-  std::stable_sort(Scored.begin(), Scored.end(), [](const auto &A, const auto &B) {
-    if (A.first != B.first)
-      return A.first > B.first;
-    return A.second < B.second;
-  });
+  std::stable_sort(Scored.begin(), Scored.end(),
+                   [](const auto &A, const auto &B) {
+                     if (A.first != B.first)
+                       return A.first > B.first;
+                     return A.second < B.second;
+                   });
   if (Opts.Limit && Scored.size() > Opts.Limit) {
     Scored.resize(Opts.Limit);
     Result.HasMore = true;
@@ -2568,9 +2765,10 @@ CompletionItem CodeCompletion::render(const CodeCompleteOptions &Opts) const {
       Doc.append(*Documentation);
     LSP.documentation = renderDoc(Doc, Opts.DocumentationFormat);
   }
-  LSP.sortText = sortText(Score.Total, FilterText);
+  LSP.sortText = SortText.value_or(sortText(Score.Total, FilterText));
   LSP.filterText = FilterText;
-  LSP.textEdit = {CompletionTokenRange, RequiredQualifier + Name, ""};
+  LSP.textEdit = {CompletionTokenRange,
+                  RequiredQualifier + InsertText.value_or(Name), ""};
   // Merge continuous additionalTextEdits into main edit. The main motivation
   // behind this is to help LSP clients, it seems most of them are confused when
   // they are provided with additionalTextEdits that are consecutive to main
@@ -2673,8 +2871,9 @@ bool allowImplicitCompletion(llvm::StringRef Content, unsigned Offset) {
            isAsciiIdentifierContinue(Before[Before.size() - 1 - IdentLen],
                                      /*AllowDollar=*/true))
       ++IdentLen;
-    if (IdentLen != 0 && isAsciiIdentifierStart(Before[Before.size() - IdentLen],
-                                                /*AllowDollar=*/true))
+    if (IdentLen != 0 &&
+        isAsciiIdentifierStart(Before[Before.size() - IdentLen],
+                               /*AllowDollar=*/true))
       return true;
   }
 

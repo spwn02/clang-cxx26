@@ -883,7 +883,9 @@ bool Parser::isStartOfStmtMacroInvocation() {
       isMacroArgumentListOpener(Tok.getKind())) {
     BalancedDelimiterTracker T(*this, Tok.getKind());
     T.consumeOpen();
-    T.skipToEnd();
+    // This is lookahead only. Preserve completion tokens for the real parse
+    // so a raw statement-macro argument can be evaluated before completion.
+    T.skipToEnd(/*ConsumeCodeCompletion=*/true);
     WholeStatement = Tok.is(tok::semi);
   }
   TPA.Revert();

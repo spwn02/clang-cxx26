@@ -75,6 +75,41 @@ enum class __semantic_token_modifier : unsigned {
   global_scope = 1u << 17,
 };
 
+enum class __completion_kind : unsigned char {
+  text,
+  method,
+  property,
+  class_,
+  field,
+  variable,
+  keyword,
+  value
+};
+
+consteval bool __is_completion(token __where) {
+  return __metafunction(__detail::__metafn_is_completion, __where);
+}
+
+// Macro-authored completion candidates are considered only while completing
+// the token sequence containing the cursor. The editor replaces the
+// identifier prefix at the cursor, so for data-f^, insert_text should be
+// "foo", not "data-foo". Completion is unavailable inside string literals
+// and comments because lexing stops before the raw argument closes. Candidates
+// are macro-authored and bounded: 128 per expansion, 512 per request, 64 KiB
+// total text, 256-byte labels, 4096-byte insertions, 1024-byte details and
+// 4096-byte documentation.
+consteval bool __complete(
+    token __where,
+    string_view __label,
+    string_view __insert_text,
+    __completion_kind __kind    = __completion_kind::text,
+    string_view __detail        = {},
+    string_view __documentation = {}) {
+  return __metafunction(
+      __detail::__metafn_macro_complete, __where, __label, __insert_text,
+      __kind, __detail, __documentation);
+}
+
 // Roles are transported as private diagnostics and intercepted by clangd.
 // Consequently clangd can report roles only for evaluations it observes while
 // parsing the current translation unit; after a fatal error, diagnostic

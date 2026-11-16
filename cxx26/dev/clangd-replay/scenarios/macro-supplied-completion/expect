@@ -1,0 +1,11 @@
+# A macro that drops the completion token supplies the candidates; unique labels prove the source.
+completion-dsl-end-of-prefix must-contain hx_alpha edits= insertText=alpha kind=10 detail=attribute documentation=Alpha HTML attribute
+completion-dsl-end-of-prefix must-contain hx_beta edits= insertText=beta kind=5 detail=field documentation=Beta HTML attribute
+completion-dsl-end-of-prefix never-contain hx_gamma
+completion-dsl-middle must-contain hx_alpha
+completion-dsl-middle must-contain hx_beta
+completion-dsl-empty must-contain hx_alpha
+completion-dsl-empty must-contain hx_beta
+completion-dsl-string never-contain hx_
+completion-injected must-contain hx_gamma edits= insertText=gamma kind=1
+completion-injected never-contain hx_alpha

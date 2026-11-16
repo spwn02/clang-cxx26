@@ -148,7 +148,15 @@ local function run_step(i)
               if it.label and it.label:find(s.match, 1, true) then
                 local edits = {}
                 for _, e in ipairs(it.additionalTextEdits or {}) do table.insert(edits, (e.newText:gsub("%s+", " "))) end
-                table.insert(parts, it.label:gsub("^%s+", "") .. " edits=" .. table.concat(edits, ";"))
+                local documentation = it.documentation or ""
+                if type(documentation) == "table" then documentation = documentation.value or "" end
+                documentation = tostring(documentation):gsub("%s+", " ")
+                local detail = it.labelDetails and it.labelDetails.detail or ""
+                table.insert(parts, it.label:gsub("^%s+", "") .. " edits=" .. table.concat(edits, ";") ..
+                  " insertText=" .. tostring(it.insertText or "") ..
+                  " kind=" .. tostring(it.kind or "") ..
+                  " detail=" .. tostring(detail) ..
+                  " documentation=" .. documentation)
               end
             end
           end
