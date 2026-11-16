@@ -1,0 +1,6 @@
+diag-located must-contain 2 diagnostics
+diag-located must-contain 1:10:14-19:Bad name
+diag-located must-contain 1:10:20-25:Second problem
+diag-located never-contain reported an error
+quickfix-located must-contain change 'wrong' to 'good'
+quickfix-located must-contain 10:14-10:19=>good

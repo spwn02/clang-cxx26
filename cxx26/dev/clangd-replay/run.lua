@@ -99,6 +99,37 @@ local function run_step(i)
         local pos = vim.lsp.util.make_position_params(0, "utf-16")
         local params = { textDocument = pos.textDocument, position = pos.position, context = { includeDeclaration = true, triggerKind = 1 } }
         if s.request == "textDocument/rename" then params.newName = s.newName or "renamed" end
+        if s.request == "textDocument/codeAction" then
+          -- {"request": "textDocument/codeAction"}: the quick fixes for the diagnostics on the cursor line,
+          -- printed as "title -> line:col-line:col=>newText" for every edit
+          local lnum = pos.position.line
+          local lsp_diags = {}
+          for _, d in ipairs(vim.diagnostic.get(0, { lnum = lnum })) do
+            local ld = d.user_data and d.user_data.lsp
+            if ld then table.insert(lsp_diags, ld) end
+          end
+          params = { textDocument = pos.textDocument, range = { start = pos.position, ["end"] = pos.position },
+                     context = { diagnostics = lsp_diags } }
+          local res = vim.lsp.buf_request_sync(0, s.request, params, 5000) or {}
+          local parts = {}
+          for _, r in pairs(res) do
+            if r.err then table.insert(parts, "error: " .. ((r.err.message or ""):gsub("%s+", " "))) end
+            for _, a in ipairs(r.result or {}) do
+              local edits = {}
+              local chg = (a.edit and a.edit.changes) or {}
+              for _, dc in ipairs((a.edit and a.edit.documentChanges) or {}) do chg[dc.textDocument.uri] = dc.edits end
+              for _, es in pairs(chg) do
+                for _, e in ipairs(es) do
+                  table.insert(edits, (e.range.start.line + 1) .. ":" .. (e.range.start.character + 1) .. "-" ..
+                    (e.range["end"].line + 1) .. ":" .. (e.range["end"].character + 1) .. "=>" .. e.newText)
+                end
+              end
+              table.insert(parts, a.title .. " -> " .. table.concat(edits, ";"))
+            end
+          end
+          log((s.label or s.request) .. " [lsp request]: " .. (#parts > 0 and table.concat(parts, " | ") or "NOTHING"))
+          return run_step(i + 1)
+        end
         local res = vim.lsp.buf_request_sync(0, s.request, params, 5000) or {}
         if s.request == "textDocument/completion" then
           -- {"match": "<label>"}: print the item with that label and the text its additionalTextEdits insert

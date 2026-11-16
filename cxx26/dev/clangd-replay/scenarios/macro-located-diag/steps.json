@@ -1,0 +1,4 @@
+[
+ {"line":10,"col":12,"diagnostics":"diag-located","pre":4000,"wait":300},
+ {"line":10,"col":12,"request":"textDocument/codeAction","label":"quickfix-located","pre":300,"wait":300}
+]
