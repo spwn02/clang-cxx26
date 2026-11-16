@@ -1,4 +1,5 @@
 # Entries accepted by vocabulary_audit.py: <header|name|macro> <entry>   # justification (clause or opt-in macro)
+# extension-name and extension-option entries record reserved fork API spelling without accepting it as standard vocabulary.
 #
 # <codecvt> was removed in C++26 (P2871R3): the header declares nothing in C++26 unless the explicit opt-in
 # macro _LIBCPP_ENABLE_CXX26_REMOVED_CODECVT is defined (upstream libc++ mechanism, off by default).
@@ -15,3 +16,26 @@ header experimental/type_traits    # Library Fundamentals TS v1/v2, [meta] (dete
 header experimental/utility        # Library Fundamentals TS v1, [utility] (erased_type)
 header experimental/scope          # Library Fundamentals TS v3, [scopeguard], [exception.scope.guard], [unique.resource]
 macro __cpp_lib_experimental_scope # Library Fundamentals TS v3, SD-6 table of the TS
+# Private C++29 fork API: checked for presence by the vocabulary audit, but excluded from standard vocabulary.
+extension-name std::meta::__x
+extension-name std::meta::__x::__semantic_token_kind
+extension-name std::meta::__x::__semantic_token_modifier
+extension-name std::meta::__x::__role
+extension-name std::meta::__x::__diagnostic_fixit
+extension-name std::meta::__x::__diagnostic_fixit::__kind
+extension-name std::meta::__x::__diagnostic_fixit::__operation
+extension-name std::meta::__x::__diagnostic_fixit::__first
+extension-name std::meta::__x::__diagnostic_fixit::__last
+extension-name std::meta::__x::__diagnostic_fixit::__replacement
+extension-name std::meta::__x::__replace
+extension-name std::meta::__x::__insert_after
+extension-name std::meta::__x::__remove
+extension-name std::meta::__x::__error
+extension-name std::meta::__x::__warning
+extension-name std::meta::__x::__note
+extension-name std::meta::__x::__token_begin
+extension-name std::meta::__x::__token_end
+extension-name std::meta::__x::__token_sequence_begin
+extension-name std::meta::__x::__token_sequence_end
+extension-option -Wmacro-located-diagnostics
+extension-option -Rmacro-role

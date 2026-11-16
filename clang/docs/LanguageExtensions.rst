@@ -1865,6 +1865,42 @@ affected file contains quote text matching the symbol name, rename refuses rathe
 Likewise, when clangd parses a header as its own translation unit, hover cannot see expansions that exist only in other
 translation units.
 
+Macro diagnostics and editor roles (fork extension)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Clang provides a fork extension in ``<__meta/token_locations.h>`` under the reserved ``std::meta::__x`` namespace.
+It is available only in ``-std=c++29``. The header declares nothing in earlier modes. The extension is not exported by
+``<meta>`` or by ``import std;``.
+
+``__token_begin`` and ``__token_end`` return ``source_location`` values for a token's spelling. ``__token_end`` is
+exclusive; when a token's serialized length is unavailable, Clang recovers its end from the spelling when possible.
+``__token_sequence_begin`` and ``__token_sequence_end`` query the first and last token of a contiguous range. Synthesized
+tokens have no source location.
+
+``__error``, ``__warning`` and ``__note`` report a message on one token or an inclusive token range. They can carry
+``__replace``, ``__insert_after`` or ``__remove`` fix-its. Located diagnostics are recorded while the macro body
+continues evaluating; an error then fails the expansion and discards its result tokens. ``std::constexpr_error_str``
+keeps its existing call-site behavior. Fix-its targeting macro-produced or injected storage are dropped. An invalid
+token location falls back to the macro call. ``-Wmacro-located-diagnostics`` controls located warnings; errors remain
+errors.
+
+``__role`` marks a token or inclusive token range with one of these kinds: ``variable``, ``local_variable``,
+``parameter``, ``function``, ``method``, ``static_method``, ``field``, ``static_field``, ``class_``, ``interface``,
+``enum_``, ``enum_constant``, ``typedef_``, ``type``, ``namespace_``, ``template_parameter``, ``concept_``,
+``primitive``, ``macro``, ``modifier``, ``operator_``, ``bracket`` or ``label``. Supported modifiers are
+``declaration``, ``definition``, ``deprecated``, ``deduced``, ``readonly``, ``static_``, ``abstract``, ``virtual_``,
+``dependent_name``, ``default_library``, ``used_as_mutable_reference``, ``used_as_mutable_pointer``,
+``constructor_or_destructor``, ``user_defined``, ``function_scope``, ``class_scope``, ``file_scope`` and
+``global_scope``.
+
+Roles travel through private ``-Rmacro-role`` remarks, which clangd intercepts and hides. clangd uses a role only for a
+successful expansion. If expansions assign different kinds or modifiers to the same token, clangd drops that role.
+Roles are not delivered after a fatal error, and roles attached to tokens stored in PCH files or named modules are not
+shown by clangd. A role remark at a token in another file is ignored for main-file highlighting.
+
+**Deviation note:** These APIs and their editor behavior are not specified by P2758 or P4380R1. They are a Clang fork
+extension pending a WG21 paper.
+
 .. _do_expressions:
 
 Do Expressions (P2806)

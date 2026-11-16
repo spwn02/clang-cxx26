@@ -24,6 +24,9 @@ at the tag the release targets:
 Anything reported must be removed, renamed to a reserved spelling, gated behind
 an explicit opt-in, or listed (with the justification) in the allow-list file,
 one entry per line:  <kind> <name>  # reason, with kind in header/name/macro.
+Fork-only reserved API names and compiler options can be recorded as
+``extension-name`` and ``extension-option`` entries. They are checked for
+presence and do not make the names part of the standard vocabulary.
 
 Usage:
   vocabulary_audit.py --draft <draft checkout> --clang <clang++> \
@@ -104,12 +107,19 @@ def main():
     args = ap.parse_args()
 
     allow = set()
+    extension_names = set()
+    extension_options = set()
     if args.allow:
         for line in open(args.allow):
             line = line.split('#')[0].strip()
             if line:
                 kind, name = line.split(None, 1)
-                allow.add((kind, name.strip()))
+                if kind == 'extension-name':
+                    extension_names.add(name.strip())
+                elif kind == 'extension-option':
+                    extension_options.add(name.strip())
+                else:
+                    allow.add((kind, name.strip()))
 
     ref, draft_headers, draft_lib_macros = draft_reference(args.draft)
     if args.sd6:
@@ -120,6 +130,12 @@ def main():
     # 1. headers
     headers = public_headers(args.include)
     base_cmd = [args.clang, '-std=' + args.std, '-nostdinc++', '-I', args.include] + [x for d in args.extra_include for x in ('-I', d)] + args.flags.split()
+    for option in sorted(extension_options):
+        probe = run([args.clang, '-std=' + args.std,
+                     '-Werror=unknown-warning-option', option,
+                     '-fsyntax-only', '-x', 'c++', '-'], input='')
+        if probe.returncode != 0:
+            problems.append(('extension-option', option))
     usable_headers = []
     for h in headers:
         # A header that the standard no longer has but which reports an error when included is not exposed.
@@ -146,14 +162,31 @@ def main():
         with open(tu, 'w') as f:
             for h in headers:
                 f.write('#if __has_include(<%s>)\n#include <%s>\n#endif\n' % (h, h))
+            if extension_names:
+                f.write('#include <__meta/token_locations.h>\n')
+                if args.std == 'c++29':
+                    f.write('namespace _vocabulary_audit_extension = std::meta::__x;\n')
+                    for name in sorted(extension_names):
+                        if name == 'std::meta::__x' or '::__diagnostic_fixit::__' in name:
+                            continue
+                        f.write('using %s;\n' % name)
+        extension_probe = None
+        if args.std == 'c++29' and extension_names:
+            extension_probe = run(base_cmd + ['-fsyntax-only', tu])
+            if extension_probe.returncode != 0:
+                problems.append(('extension-declarations', 'C++29 reserved API probe failed'))
         base = base_cmd
         r = run(base + ['-fsyntax-only', '-Xclang', '-ast-list', tu])
         if r.returncode != 0 and not r.stdout:
             sys.stderr.write(r.stderr[:2000])
             return 2
         by_last = collections.defaultdict(set)
+        seen_extensions = set()
         for line in r.stdout.splitlines():
             q = line.strip()
+            if q in extension_names:
+                seen_extensions.add(q)
+                continue
             if not q.startswith('std'):
                 continue
             # std::experimental is the Technical Specifications' namespace; its headers are audited as headers.
@@ -169,6 +202,14 @@ def main():
             q = sorted(qs)[0]
             if ('name', q) not in allow and ('name', last) not in allow:
                 problems.append(('name', q + (' (+%d more)' % (len(qs) - 1) if len(qs) > 1 else '')))
+
+        if args.std == 'c++29':
+            for missing in sorted(extension_names - seen_extensions):
+                if not (extension_probe and extension_probe.returncode == 0):
+                    problems.append(('extension-name-missing', missing))
+        else:
+            for exposed in sorted(extension_names & seen_extensions):
+                problems.append(('extension-name-exposed-in-older-mode', exposed))
 
         # 3. macros defined by the library's own headers (system headers define many more)
         r = run(base + ['-E', '-dD', tu])
