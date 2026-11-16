@@ -25,6 +25,73 @@ _LIBCPP_BEGIN_NAMESPACE_REFLECTION_V2
 
 namespace __x {
 
+// C++29-only clangd highlighting roles for expression-macro input tokens.
+// These values are private transport ABI: clangd maps them explicitly to its
+// semantic-token kinds and does not rely on enum ordinals.
+enum class __semantic_token_kind : unsigned char {
+  variable = 0,
+  local_variable = 1,
+  parameter = 2,
+  function = 3,
+  method = 4,
+  static_method = 5,
+  field = 6,
+  static_field = 7,
+  class_ = 8,
+  interface = 9,
+  enum_ = 10,
+  enum_constant = 11,
+  typedef_ = 12,
+  type = 13,
+  namespace_ = 14,
+  template_parameter = 15,
+  concept_ = 16,
+  primitive = 17,
+  macro = 18,
+  modifier = 19,
+  operator_ = 20,
+  bracket = 21,
+  label = 22,
+};
+
+enum class __semantic_token_modifier : unsigned {
+  declaration = 1u << 0,
+  definition = 1u << 1,
+  deprecated = 1u << 2,
+  deduced = 1u << 3,
+  readonly = 1u << 4,
+  static_ = 1u << 5,
+  abstract = 1u << 6,
+  virtual_ = 1u << 7,
+  dependent_name = 1u << 8,
+  default_library = 1u << 9,
+  used_as_mutable_reference = 1u << 10,
+  used_as_mutable_pointer = 1u << 11,
+  constructor_or_destructor = 1u << 12,
+  user_defined = 1u << 13,
+  function_scope = 1u << 14,
+  class_scope = 1u << 15,
+  file_scope = 1u << 16,
+  global_scope = 1u << 17,
+};
+
+// Roles are transported as private diagnostics and intercepted by clangd.
+// Consequently clangd can report roles only for evaluations it observes while
+// parsing the current translation unit; after a fatal error, diagnostic
+// suppression prevents roles from being reported.
+consteval bool __role(token __where, __semantic_token_kind __kind,
+                      unsigned __modifiers = 0) {
+  return __metafunction(__detail::__metafn_macro_token_role, __where, __kind,
+                        __modifiers);
+}
+
+consteval bool __role(token __first, token __last,
+                      __semantic_token_kind __kind,
+                      unsigned __modifiers = 0) {
+  return __metafunction(__detail::__metafn_macro_token_role, __first, __last,
+                        __kind, __modifiers);
+}
+
 // A fix-it suggestion attached to a located expression-macro diagnostic.
 // Replacement and removal ranges include both endpoint tokens.
 struct __diagnostic_fixit {

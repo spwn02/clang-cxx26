@@ -58,7 +58,15 @@ local function run_step(i)
         for _, d in ipairs(ds) do
           local start_col = (d.col or 0) + 1
           local end_col = (d.end_col or d.col or 0) + 1
-          table.insert(parts, d.severity .. ":" .. (d.lnum + 1) .. ":" .. start_col .. "-" .. end_col .. ":" .. (d.message:gsub("%s+", " ")))
+          local message = d.message:gsub("%s+", " ")
+          if s.relatedInformation then
+            local LSP = d.user_data and d.user_data.lsp
+            for _, Related in ipairs((LSP and LSP.relatedInformation) or {}) do
+              message = message .. " [related: " ..
+                        (Related.message or ""):gsub("%s+", " ") .. "]"
+            end
+          end
+          table.insert(parts, d.severity .. ":" .. (d.lnum + 1) .. ":" .. start_col .. "-" .. end_col .. ":" .. message)
         end
         log(s.diagnostics .. " [diagnostics]: " .. table.concat(parts, " | "))
       end
@@ -166,10 +174,28 @@ local function run_step(i)
           elseif s.request == "textDocument/semanticTokens/full" then
             -- the tokens as line:col:len (delta encoding decoded)
             local d, line, col = (v and v.data) or {}, 0, 0
+            local legend
+            if s.legend then
+              for _, client in ipairs(vim.lsp.get_clients({ bufnr = 0 })) do
+                local provider = client.server_capabilities.semanticTokensProvider
+                if provider and provider.legend then legend = provider.legend; break end
+              end
+            end
             table.insert(parts, #d / 5 .. " tokens")
             for k = 1, #d, 5 do
               if d[k] > 0 then line = line + d[k]; col = d[k + 1] else col = col + d[k + 1] end
-              table.insert(parts, line + 1 .. ":" .. col + 1 .. ":" .. d[k + 2])
+              local token = line + 1 .. ":" .. col + 1 .. ":" .. d[k + 2]
+              if legend then
+                local token_type = legend.tokenTypes[(d[k + 3] or 0) + 1] or "unknown"
+                local modifiers, bits = {}, d[k + 4] or 0
+                for i, name in ipairs(legend.tokenModifiers) do
+                  if math.floor(bits / (2 ^ (i - 1))) % 2 == 1 then
+                    table.insert(modifiers, name)
+                  end
+                end
+                token = token .. ":" .. token_type .. ":" .. table.concat(modifiers, ",")
+              end
+              table.insert(parts, token)
             end
           elseif s.request == "textDocument/foldingRange" and type(v) == "table" then
             table.insert(parts, #v .. " ranges")

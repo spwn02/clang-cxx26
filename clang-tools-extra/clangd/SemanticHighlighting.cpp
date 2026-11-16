@@ -41,6 +41,74 @@ namespace clang {
 namespace clangd {
 namespace {
 
+std::optional<HighlightingKind> macroRoleKind(unsigned Kind) {
+  // These numeric values are the private libc++ role ABI. Keep the mapping
+  // explicit so changes to either enum cannot silently change semantics.
+  switch (Kind) {
+  case 0: return HighlightingKind::Variable;
+  case 1: return HighlightingKind::LocalVariable;
+  case 2: return HighlightingKind::Parameter;
+  case 3: return HighlightingKind::Function;
+  case 4: return HighlightingKind::Method;
+  case 5: return HighlightingKind::StaticMethod;
+  case 6: return HighlightingKind::Field;
+  case 7: return HighlightingKind::StaticField;
+  case 8: return HighlightingKind::Class;
+  case 9: return HighlightingKind::Interface;
+  case 10: return HighlightingKind::Enum;
+  case 11: return HighlightingKind::EnumConstant;
+  case 12: return HighlightingKind::Typedef;
+  case 13: return HighlightingKind::Type;
+  case 14: return HighlightingKind::Namespace;
+  case 15: return HighlightingKind::TemplateParameter;
+  case 16: return HighlightingKind::Concept;
+  case 17: return HighlightingKind::Primitive;
+  case 18: return HighlightingKind::Macro;
+  case 19: return HighlightingKind::Modifier;
+  case 20: return HighlightingKind::Operator;
+  case 21: return HighlightingKind::Bracket;
+  case 22: return HighlightingKind::Label;
+  }
+  return std::nullopt;
+}
+
+uint32_t macroRoleModifiers(uint32_t Modifiers) {
+  uint32_t Result = 0;
+  auto Add = [&](unsigned RoleBit, HighlightingModifier Modifier) {
+    if (Modifiers & (1u << RoleBit))
+      Result |= 1u << static_cast<unsigned>(Modifier);
+  };
+  Add(0, HighlightingModifier::Declaration);
+  Add(1, HighlightingModifier::Definition);
+  Add(2, HighlightingModifier::Deprecated);
+  Add(3, HighlightingModifier::Deduced);
+  Add(4, HighlightingModifier::Readonly);
+  Add(5, HighlightingModifier::Static);
+  Add(6, HighlightingModifier::Abstract);
+  Add(7, HighlightingModifier::Virtual);
+  Add(8, HighlightingModifier::DependentName);
+  Add(9, HighlightingModifier::DefaultLibrary);
+  Add(10, HighlightingModifier::UsedAsMutableReference);
+  Add(11, HighlightingModifier::UsedAsMutablePointer);
+  Add(12, HighlightingModifier::ConstructorOrDestructor);
+  Add(13, HighlightingModifier::UserDefined);
+  Add(14, HighlightingModifier::FunctionScope);
+  Add(15, HighlightingModifier::ClassScope);
+  Add(16, HighlightingModifier::FileScope);
+  Add(17, HighlightingModifier::GlobalScope);
+  return Result;
+}
+
+std::optional<Range> macroRoleRange(const ParsedAST &AST, SourceLocation Loc) {
+  const SourceManager &SM = AST.getSourceManager();
+  if (!Loc.isValid() || Loc.isMacroID() || !SM.isWrittenInMainFile(Loc))
+    return std::nullopt;
+  const syntax::Token *Tok = AST.getTokens().spelledTokenContaining(Loc);
+  if (!Tok || !SM.isWrittenInMainFile(Tok->location()))
+    return std::nullopt;
+  return halfOpenToRange(SM, Tok->range(SM).toCharRange(SM));
+}
+
 /// Get the last Position on a given line.
 llvm::Expected<Position> endOfLine(llvm::StringRef Code, int Line) {
   auto StartOfLine = positionToOffset(Code, Position{Line, 0});
@@ -1266,7 +1334,55 @@ getSemanticHighlightings(ParsedAST &AST, bool IncludeInactiveRegionTokens) {
   for (const auto &M : AST.getMacros().UnknownMacros)
     AddMacro(M);
 
-  return std::move(Builder).collect(AST);
+  std::vector<HighlightingToken> Result = std::move(Builder).collect(AST);
+
+  // Normalize records to spelled tokens, then apply last-wins only within an
+  // expansion. Different expansions that reach the same token must agree.
+  std::map<Range, std::map<uint64_t, MacroRoleRecord>> RolesByToken;
+  for (const MacroRoleRecord &Record : AST.getMacroRoleTable().Records) {
+    auto TokenRange = macroRoleRange(AST, Record.Location);
+    if (!TokenRange)
+      continue;
+    auto &ByExpansion = RolesByToken[*TokenRange];
+    auto It = ByExpansion.find(Record.Expansion);
+    if (It == ByExpansion.end() || It->second.Sequence < Record.Sequence)
+      ByExpansion[Record.Expansion] = Record;
+  }
+
+  for (const auto &Entry : RolesByToken) {
+    const std::optional<HighlightingKind> Kind =
+        macroRoleKind(Entry.second.begin()->second.Kind);
+    if (!Kind || !Filter.isHighlightKindActive(*Kind))
+      continue;
+    const uint32_t RoleModifiers =
+        macroRoleModifiers(Entry.second.begin()->second.Modifiers);
+    bool Disagrees = false;
+    for (const auto &ByExpansion : Entry.second) {
+      if (ByExpansion.second.Kind != Entry.second.begin()->second.Kind ||
+          ByExpansion.second.Modifiers !=
+              Entry.second.begin()->second.Modifiers) {
+        Disagrees = true;
+        break;
+      }
+    }
+    if (Disagrees)
+      continue;
+
+    auto Existing = llvm::find_if(Result, [&](const HighlightingToken &Token) {
+      return Token.R == Entry.first;
+    });
+    if (Existing == Result.end()) {
+      Result.push_back(
+          HighlightingToken{*Kind, Filter.maskModifiers(RoleModifiers),
+                            Entry.first});
+      continue;
+    }
+    Existing->Kind = *Kind;
+    Existing->Modifiers =
+        Filter.maskModifiers(Existing->Modifiers | RoleModifiers);
+  }
+  llvm::sort(Result);
+  return Result;
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, HighlightingKind K) {

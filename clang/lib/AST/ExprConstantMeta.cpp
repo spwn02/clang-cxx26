@@ -992,6 +992,11 @@ static bool macro_located_diagnostic(APValue &Result, ASTContext &C,
                                      EvalFn Evaluator, DiagFn Diagnoser,
                                      QualType ResultTy,
                                      ArrayRef<Expr *> Args, diag::kind DiagID);
+static bool macro_token_role(APValue &Result, ASTContext &C, MetaActions &Meta,
+                             EvalFn Evaluator, DiagFn Diagnoser,
+                             bool AllowInjection, QualType ResultTy,
+                             SourceRange Range, ArrayRef<Expr *> Args,
+                             Decl *ContainingDecl);
 
 static constexpr Metafunction Metafunctions[] = {
   // Kind, MinArgs, MaxArgs, Impl
@@ -1166,6 +1171,7 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 2, 4, macro_located_error },
   { Metafunction::MFRK_bool, 2, 4, macro_located_warning },
   { Metafunction::MFRK_bool, 2, 4, macro_located_note },
+  { Metafunction::MFRK_bool, 3, 4, macro_token_role },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
                                             sizeof(Metafunction);
@@ -2895,6 +2901,81 @@ static bool macro_located_note(APValue &Result, ASTContext &C,
                                ArrayRef<Expr *> Args, Decl *ContainingDecl) {
   return macro_located_diagnostic(Result, C, Evaluator, Diagnoser, ResultTy,
                                   Args, diag::note_macro_located_note);
+}
+
+static bool macro_token_role(APValue &Result, ASTContext &C, MetaActions &Meta,
+                             EvalFn Evaluator, DiagFn Diagnoser,
+                             bool AllowInjection, QualType ResultTy,
+                             SourceRange Range, ArrayRef<Expr *> Args,
+                             Decl *ContainingDecl) {
+  assert(ResultTy->isBooleanType());
+  if (Args.size() < 3)
+    return true;
+
+  const bool IsRange = Args.size() == 4;
+  const unsigned KindIndex = IsRange ? 2 : 1;
+  const unsigned ModifiersIndex = IsRange ? 3 : 2;
+  std::optional<Token> First, Last;
+  if (!getSingleToken(Evaluator, Args[0], First) || !First)
+    return true;
+  if (IsRange &&
+      (!getSingleToken(Evaluator, Args[1], Last) || !Last))
+    return true;
+
+  APValue KindValue, ModifiersValue;
+  if (!Evaluator(KindValue, Args[KindIndex], true) ||
+      !Evaluator(ModifiersValue, Args[ModifiersIndex], true) ||
+      !KindValue.isInt() || !ModifiersValue.isInt())
+    return true;
+
+  const uint64_t Kind = KindValue.getInt().getZExtValue();
+  const uint64_t Modifiers = ModifiersValue.getInt().getZExtValue();
+  constexpr uint64_t ValidModifiers = (1u << 18) - 1;
+  if (Kind > 22 || (Modifiers & ~ValidModifiers))
+    return true;
+
+  const SourceManager &SM = C.getSourceManager();
+  SourceLocation Begin = First->getLocation();
+  SourceLocation End = IsRange ? Last->getLocation() : Begin;
+  auto IsUsable = [&](SourceLocation Loc) {
+    return Loc.isValid() && !Loc.isMacroID() &&
+           !SM.isWrittenInScratchSpace(Loc);
+  };
+  if (!IsUsable(Begin) || !IsUsable(End) ||
+      SM.getFileID(Begin) != SM.getFileID(End) ||
+      SM.isBeforeInTranslationUnit(End, Begin))
+    return true;
+
+  // Validate and collect the whole interval before recording anything. This
+  // avoids partial roles when endpoints do not describe a usable token range.
+  SmallVector<SourceLocation, 4> Locations;
+  SourceLocation Loc = Begin;
+  while (true) {
+    Token Raw;
+    if (Lexer::getRawToken(Loc, Raw, SM, C.getLangOpts(), true) ||
+        Raw.getLocation() != Loc)
+      return true;
+    Locations.push_back(Loc);
+    if (Loc == End)
+      break;
+    SourceLocation Next = Lexer::getLocForEndOfToken(
+        Raw.getLocation(), 0, SM, C.getLangOpts());
+    if (!Next.isValid() || Next == Loc ||
+        SM.isBeforeInTranslationUnit(End, Next))
+      return true;
+    Token NextToken;
+    if (Lexer::getRawToken(Next, NextToken, SM, C.getLangOpts(), true) ||
+        SM.isBeforeInTranslationUnit(End, NextToken.getLocation()))
+      return true;
+    Loc = NextToken.getLocation();
+  }
+
+  for (SourceLocation RoleLoc : Locations) {
+    PartialDiagnostic &PD =
+        Diagnoser(RoleLoc, diag::remark_macro_role);
+    PD << static_cast<unsigned>(Kind) << static_cast<unsigned>(Modifiers);
+  }
+  return SetAndSucceed(Result, makeBool(C, true));
 }
 
 /// identifier_of(token_sequence): the spelling of a single identifier token,

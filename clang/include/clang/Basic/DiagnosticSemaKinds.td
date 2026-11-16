@@ -3299,6 +3299,8 @@ def err_macro_located_error : Error<"%0">;
 def warn_macro_located_warning : Warning<"%0">,
   InGroup<MacroLocatedDiagnostics>;
 def note_macro_located_note : Note<"%0">;
+def remark_macro_role : Remark<"macro role kind=%0 modifiers=%1 expansion=%2">,
+  InGroup<MacroRole>;
 def err_macro_located_outside_body : Error<
   "located macro diagnostics are only valid in an expression-macro body">;
 def err_macro_raw_pack_not_last : Error<

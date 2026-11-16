@@ -200,6 +200,7 @@ enum : unsigned {
   __metafn_macro_located_error,
   __metafn_macro_located_warning,
   __metafn_macro_located_note,
+  __metafn_macro_token_role,
 };
 } // namespace __detail
 

@@ -70,6 +70,7 @@
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/TypeSize.h"
+#include <atomic>
 #include <limits>
 #include <optional>
 
@@ -8330,6 +8331,9 @@ bool Sema::EvaluateMacroExpansion(Expr *Fn, FunctionDecl *Macro,
                                   CallExpr::ADLCallKind UsesADL,
                                   TokenSequenceData &Expansion,
                                   bool *Deferred) {
+  static std::atomic<uint64_t> NextMacroRoleExpansionID{1};
+  const uint64_t MacroRoleExpansionID =
+      NextMacroRoleExpansionID.fetch_add(1, std::memory_order_relaxed);
   if (Deferred)
     *Deferred = false;
   // Every kind of macro invocation (expression, member, operator,
@@ -8481,6 +8485,8 @@ bool Sema::EvaluateMacroExpansion(Expr *Fn, FunctionDecl *Macro,
       // evaluation record once and do not add a generic call-site cascade.
       for (const PartialDiagnosticAt &PD : Notes) {
         diag::kind ID = PD.second.getDiagID();
+        if (ID == diag::remark_macro_role)
+          continue;
         bool IsLocated = ID == diag::err_macro_located_error ||
                          ID == diag::warn_macro_located_warning ||
                          ID == diag::note_macro_located_note;
@@ -8501,8 +8507,11 @@ bool Sema::EvaluateMacroExpansion(Expr *Fn, FunctionDecl *Macro,
     Diag(LParenLoc, Explicit ? diag::err_macro_reported_error
                              : diag::err_macro_evaluation_failed)
         << Macro;
-    for (const PartialDiagnosticAt &PD : Notes)
+    for (const PartialDiagnosticAt &PD : Notes) {
+      if (PD.second.getDiagID() == diag::remark_macro_role)
+        continue;
       Diag(PD.first, PD.second);
+    }
     return true;
   }
   for (const PartialDiagnosticAt &PD : Notes) {
@@ -8516,6 +8525,11 @@ bool Sema::EvaluateMacroExpansion(Expr *Fn, FunctionDecl *Macro,
       Diag(PD.first.isInvalid() ? LParenLoc : PD.first, PD.second);
     }
   }
+  // Keep role remarks after every located warning/note pair. Remark diagnostics
+  // are ignored by default, and must not interrupt the warning/note parentage.
+  for (const PartialDiagnosticAt &PD : Notes)
+    if (PD.second.getDiagID() == diag::remark_macro_role)
+      Diag(PD.first, PD.second) << MacroRoleExpansionID;
   Expansion = Result.getTokenSequence();
   return false;
 }

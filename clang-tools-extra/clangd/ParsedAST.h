@@ -43,6 +43,11 @@ class Sema;
 namespace clangd {
 class QuoteTokenTable;
 
+/// Role records observed while parsing the current translation unit.
+struct MacroRoleTable {
+  std::vector<MacroRoleRecord> Records;
+};
+
 /// Stores and provides access to parsed AST.
 class ParsedAST {
 public:
@@ -103,6 +108,7 @@ public:
   /// file, including those in the preamble region.
   const MainFileMacros &getMacros() const;
   const QuoteTokenTable &getQuoteTokenTable() const;
+  const MacroRoleTable &getMacroRoleTable() const { return MacroRoles; }
   /// Gets all pragma marks in the main file.
   const std::vector<PragmaMark> &getMarks() const;
   /// Tokens recorded while parsing the main file.
@@ -136,6 +142,7 @@ private:
             std::unique_ptr<CompilerInstance> Clang,
             std::unique_ptr<FrontendAction> Action, syntax::TokenBuffer Tokens,
             MainFileMacros Macros, std::vector<PragmaMark> Marks,
+            MacroRoleTable MacroRoles,
             std::vector<Decl *> LocalTopLevelDecls, std::vector<Diag> Diags,
             IncludeStructure Includes, include_cleaner::PragmaIncludes PI);
   Path TUPath;
@@ -160,6 +167,7 @@ private:
   MainFileMacros Macros;
   // Pragma marks in the main file.
   std::vector<PragmaMark> Marks;
+  MacroRoleTable MacroRoles;
   // Diags emitted while parsing this AST (including preamble and compiler
   // invocation).
   std::vector<Diag> Diags;

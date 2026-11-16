@@ -443,6 +443,8 @@ ParsedAST::build(llvm::StringRef Filename, const ParseInputs &Inputs,
     }
   }
   StoreDiags ASTDiags;
+  std::vector<MacroRoleRecord> MacroRoleRecords;
+  ASTDiags.setMacroRoleCollector(&MacroRoleRecords);
   ASTDiags.setDiagCallback(
       [&ASTListeners](const clang::Diagnostic &D, clangd::Diag &Diag) {
         for (const auto &L : ASTListeners)
@@ -757,9 +759,11 @@ ParsedAST::build(llvm::StringRef Filename, const ParseInputs &Inputs,
     std::vector<Diag> D = ASTDiags.take(&*CTContext);
     Diags.insert(Diags.end(), D.begin(), D.end());
   }
+  MacroRoleTable MacroRoles{std::move(MacroRoleRecords)};
   ParsedAST Result(Filename, Inputs.Version, std::move(Preamble),
                    std::move(Clang), std::move(Action), std::move(Tokens),
-                   std::move(Macros), std::move(Marks), std::move(ParsedDecls),
+                   std::move(Macros), std::move(Marks), std::move(MacroRoles),
+                   std::move(ParsedDecls),
                    std::move(Diags), std::move(Includes), std::move(PI));
   Result.QuoteTokens = std::make_unique<QuoteTokenTable>(
       QuoteTokenTable::build(Result.getASTContext(),
@@ -858,13 +862,15 @@ ParsedAST::ParsedAST(PathRef TUPath, llvm::StringRef Version,
                      std::unique_ptr<FrontendAction> Action,
                      syntax::TokenBuffer Tokens, MainFileMacros Macros,
                      std::vector<PragmaMark> Marks,
+                     MacroRoleTable MacroRoles,
                      std::vector<Decl *> LocalTopLevelDecls,
                      std::vector<Diag> Diags, IncludeStructure Includes,
                      include_cleaner::PragmaIncludes PI)
     : TUPath(TUPath), Version(Version), Preamble(std::move(Preamble)),
       Clang(std::move(Clang)), Action(std::move(Action)),
       Tokens(std::move(Tokens)), Macros(std::move(Macros)),
-      Marks(std::move(Marks)), Diags(std::move(Diags)),
+      Marks(std::move(Marks)), MacroRoles(std::move(MacroRoles)),
+      Diags(std::move(Diags)),
       LocalTopLevelDecls(std::move(LocalTopLevelDecls)),
       Includes(std::move(Includes)), PI(std::move(PI)),
       Resolver(std::make_unique<HeuristicResolver>(getASTContext())) {

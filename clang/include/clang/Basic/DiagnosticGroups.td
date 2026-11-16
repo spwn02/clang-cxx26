@@ -1821,3 +1821,4 @@ def ExperimentalOption : DiagGroup<"experimental-option">;
 def ReflexingParse : DiagGroup<"reflexing-parse">;
 
 def MacroLocatedDiagnostics : DiagGroup<"macro-located-diagnostics">;
+def MacroRole : DiagGroup<"macro-role">;

@@ -15,6 +15,7 @@
 #include "clang/Basic/AllDiagnostics.h" // IWYU pragma: keep
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticIDs.h"
+#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
@@ -680,6 +681,23 @@ static void fillNonLocationData(DiagnosticsEngine::Level DiagLevel,
 
 void StoreDiags::HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
                                   const clang::Diagnostic &Info) {
+  if (Info.getID() == diag::remark_macro_role) {
+    if (MacroRoleCollector && Info.hasSourceManager() &&
+        Info.getLocation().isValid() && Info.getNumArgs() == 3 &&
+        Info.getArgKind(0) == DiagnosticsEngine::ak_uint &&
+        Info.getArgKind(1) == DiagnosticsEngine::ak_uint &&
+        Info.getArgKind(2) == DiagnosticsEngine::ak_uint) {
+      uint64_t Kind = Info.getArgUInt(0);
+      uint64_t Modifiers = Info.getArgUInt(1);
+      if (Kind <= 22 && Modifiers < (1u << 18))
+        MacroRoleCollector->push_back(
+            {Info.getLocation(), static_cast<unsigned>(Kind),
+             static_cast<uint32_t>(Modifiers), Info.getArgUInt(2),
+             MacroRoleCollector->size()});
+    }
+    return;
+  }
+
   // If the diagnostic was generated for a different SourceManager, skip it.
   // This happens when a module is imported and needs to be implicitly built.
   // The compilation of that module will use the same StoreDiags, but different

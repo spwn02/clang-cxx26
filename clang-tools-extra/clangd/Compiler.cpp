@@ -107,6 +107,12 @@ buildCompilerInvocation(const ParseInputs &Inputs, clang::DiagnosticConsumer &D,
   ArgStrs = {Argv.front().c_str(), "-Xclang", "-no-round-trip-args"};
   for (const auto &S : Argv.drop_front())
     ArgStrs.push_back(S.c_str());
+  // Expression-macro roles use private Remark diagnostics intercepted by
+  // StoreDiags. Add the option after the user's flags but before the "--" that
+  // introduces the input file, or it would be read as an input.
+  auto EndOfOptions = llvm::find_if(
+      ArgStrs, [](const char *A) { return llvm::StringRef(A) == "--"; });
+  ArgStrs.insert(EndOfOptions, "-Rmacro-role");
 
   CreateInvocationOptions CIOpts;
   CIOpts.VFS = Inputs.TFS->view(Inputs.CompileCommand.Directory);

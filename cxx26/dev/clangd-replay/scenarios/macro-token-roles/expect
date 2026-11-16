@@ -1,0 +1,11 @@
+# Macro roles override AST kinds, keep AST modifiers, and disappear when
+# expansions disagree or fail. Header role Remarks stay out of user diagnostics.
+role-semantic-tokens must-contain 11:37:6:type:userDefined
+role-semantic-tokens must-contain 21:36:11:unknown:dependentName
+role-semantic-tokens never-contain 21:36:11:type
+role-semantic-tokens never-contain 21:36:11:variable
+role-semantic-tokens must-contain 40:27:12:unknown:dependentName
+role-semantic-tokens never-contain 40:27:12:type
+role-diagnostics never-contain macro role
+role-diagnostics must-contain Warning keeps its note [related: Note remains attached]
+role-diagnostics must-contain Role failure

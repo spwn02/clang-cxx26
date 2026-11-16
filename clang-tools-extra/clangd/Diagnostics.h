@@ -20,6 +20,7 @@
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/SourceMgr.h"
 #include <cassert>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -52,6 +53,15 @@ struct ClangdDiagnosticOptions {
   /// If true, Clangd will add a number of available fixes to the diagnostic's
   /// message.
   bool DisplayFixesCount = true;
+};
+
+/// Private diagnostics transport for expression-macro semantic token roles.
+struct MacroRoleRecord {
+  SourceLocation Location;
+  unsigned Kind = 0;
+  uint32_t Modifiers = 0;
+  uint64_t Expansion = 0;
+  uint64_t Sequence = 0;
 };
 
 /// Contains basic information about a diagnostic.
@@ -163,6 +173,12 @@ public:
   /// Invokes a callback every time a diagnostics is completely formed. Handler
   /// of the callback can also mutate the diagnostic.
   void setDiagCallback(DiagCallback CB) { DiagCB = std::move(CB); }
+  /// Collects private expression-macro role records without turning them into
+  /// user-facing diagnostics. Records are swallowed even when no collector is
+  /// attached, including for preamble and header parsing.
+  void setMacroRoleCollector(std::vector<MacroRoleRecord> *Collector) {
+    MacroRoleCollector = Collector;
+  }
 
 private:
   void flushLastDiag();
@@ -171,6 +187,7 @@ private:
   LevelAdjuster Adjuster = nullptr;
   DiagCallback DiagCB = nullptr;
   std::vector<Diag> Output;
+  std::vector<MacroRoleRecord> *MacroRoleCollector = nullptr;
   std::optional<LangOptions> LangOpts;
   std::optional<Diag> LastDiag;
   std::optional<FullSourceLoc> LastDiagLoc;  // Valid only when LastDiag is set.
