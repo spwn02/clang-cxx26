@@ -29,6 +29,7 @@
 #include "clang/AST/ReflectionEvaluationContext.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/DiagnosticMetafn.h"
+#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
@@ -972,6 +973,26 @@ static bool get_ith_token(APValue &Result, ASTContext &C, MetaActions &Meta,
                           SourceRange Range, ArrayRef<Expr *> Args,
                           Decl *ContainingDecl);
 
+static bool macro_located_error(APValue &Result, ASTContext &C,
+                                MetaActions &Meta, EvalFn Evaluator,
+                                DiagFn Diagnoser, bool AllowInjection,
+                                QualType ResultTy, SourceRange Range,
+                                ArrayRef<Expr *> Args, Decl *ContainingDecl);
+static bool macro_located_warning(APValue &Result, ASTContext &C,
+                                  MetaActions &Meta, EvalFn Evaluator,
+                                  DiagFn Diagnoser, bool AllowInjection,
+                                  QualType ResultTy, SourceRange Range,
+                                  ArrayRef<Expr *> Args, Decl *ContainingDecl);
+static bool macro_located_note(APValue &Result, ASTContext &C,
+                               MetaActions &Meta, EvalFn Evaluator,
+                               DiagFn Diagnoser, bool AllowInjection,
+                               QualType ResultTy, SourceRange Range,
+                               ArrayRef<Expr *> Args, Decl *ContainingDecl);
+static bool macro_located_diagnostic(APValue &Result, ASTContext &C,
+                                     EvalFn Evaluator, DiagFn Diagnoser,
+                                     QualType ResultTy,
+                                     ArrayRef<Expr *> Args, diag::kind DiagID);
+
 static constexpr Metafunction Metafunctions[] = {
   // Kind, MinArgs, MaxArgs, Impl
 
@@ -1142,6 +1163,9 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 2, 2, tokens_equal },
   { Metafunction::MFRK_sourceLoc, 1, 1, token_begin_location },
   { Metafunction::MFRK_sourceLoc, 1, 1, token_end_location },
+  { Metafunction::MFRK_bool, 2, 4, macro_located_error },
+  { Metafunction::MFRK_bool, 2, 4, macro_located_warning },
+  { Metafunction::MFRK_bool, 2, 4, macro_located_note },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
                                             sizeof(Metafunction);
@@ -2706,6 +2730,171 @@ static bool token_end_location(APValue &Result, ASTContext &C,
                                QualType ResultTy, SourceRange Range,
                                ArrayRef<Expr *> Args, Decl *ContainingDecl) {
   return token_location(Result, C, Evaluator, ResultTy, Args, true);
+}
+
+// Read a constant std::string_view backed by a string literal or a named
+// constant initialized from one.
+static bool evaluateDiagnosticString(const APValue &Value,
+                                     std::string &Storage) {
+  if (!Value.isStruct() || Value.getStructNumFields() < 2)
+    return false;
+  uint64_t Length = Value.getStructField(1).getInt().getZExtValue();
+  if (Length == 0) {
+    Storage.clear();
+    return true;
+  }
+  const APValue &Data = Value.getStructField(0);
+  if (!Data.isLValue())
+    return false;
+  const auto &Base = Data.getLValueBase();
+  const Expr *BaseExpr = Base.dyn_cast<const Expr *>();
+  const auto *Literal = BaseExpr
+                            ? dyn_cast<StringLiteral>(
+                                  BaseExpr->IgnoreParenImpCasts())
+                            : nullptr;
+  if (!Literal) {
+    if (const auto *VD = Base.dyn_cast<const ValueDecl *>()) {
+      if (const auto *Var = dyn_cast<VarDecl>(VD)) {
+        const Expr *Init = Var->getInit();
+        Literal =
+            dyn_cast_or_null<StringLiteral>(Init->IgnoreParenImpCasts());
+      }
+    }
+  }
+  if (!Literal)
+    return false;
+
+  int64_t Offset = Data.getLValueOffset().getQuantity();
+  if (Offset < 0 || static_cast<uint64_t>(Offset) > Literal->getLength())
+    return false;
+  Storage = Literal->getString().substr(Offset, Length).str();
+  return true;
+}
+
+static std::optional<Token> tokenFromValue(const APValue &Value) {
+  if (!Value.isTokenSequence() || Value.getTokenSequence().size() != 1)
+    return std::nullopt;
+  return Value.getTokenSequence()[0];
+}
+
+static bool isUsableFileLoc(SourceLocation Loc, const SourceManager &SM) {
+  return Loc.isValid() && !Loc.isMacroID() &&
+         !SM.isWrittenInScratchSpace(Loc);
+}
+
+static std::optional<FixItHint>
+makeMacroDiagnosticFixIt(const APValue &Fix, ASTContext &C) {
+  if (!Fix.isStruct() || Fix.getStructNumFields() != 4)
+    return std::nullopt;
+
+  std::optional<Token> First = tokenFromValue(Fix.getStructField(1));
+  if (!First)
+    return std::nullopt;
+
+  const uint64_t Operation =
+      Fix.getStructField(0).getInt().getZExtValue();
+  const SourceManager &SM = C.getSourceManager();
+  SourceLocation Begin = First->getLocation();
+  if (!isUsableFileLoc(Begin, SM))
+    return std::nullopt;
+
+  std::string Replacement;
+  if (!evaluateDiagnosticString(Fix.getStructField(3), Replacement))
+    return std::nullopt;
+
+  if (Operation == 1) { // insert_after
+    SourceLocation End = getTokenSpellingEndLoc(*First, C);
+    if (!isUsableFileLoc(End, SM))
+      return std::nullopt;
+    CharSourceRange FileRange = Lexer::makeFileCharRange(
+        CharSourceRange::getCharRange(Begin, End), SM, C.getLangOpts());
+    if (FileRange.isInvalid())
+      return std::nullopt;
+    return FixItHint::CreateInsertion(End, Replacement);
+  }
+
+  std::optional<Token> Last = tokenFromValue(Fix.getStructField(2));
+  if (!Last || !isUsableFileLoc(Last->getLocation(), SM))
+    return std::nullopt;
+  SourceLocation End = getTokenSpellingEndLoc(*Last, C);
+  if (!isUsableFileLoc(End, SM) || SM.isBeforeInTranslationUnit(End, Begin))
+    return std::nullopt;
+  CharSourceRange FileRange = Lexer::makeFileCharRange(
+      CharSourceRange::getCharRange(Begin, End), SM, C.getLangOpts());
+  if (FileRange.isInvalid())
+    return std::nullopt;
+
+  if (Operation == 0)
+    return FixItHint::CreateReplacement(FileRange, Replacement);
+  if (Operation == 2)
+    return FixItHint::CreateRemoval(FileRange);
+  return std::nullopt;
+}
+
+static bool macro_located_diagnostic(APValue &Result, ASTContext &C,
+                                     EvalFn Evaluator, DiagFn Diagnoser,
+                                     QualType ResultTy,
+                                     ArrayRef<Expr *> Args, diag::kind DiagID) {
+  assert(ResultTy->isBooleanType());
+
+  const bool IsRange = Args.size() >= 3 &&
+                       Args[1]->getType()->isMetaTokenType();
+  const unsigned MessageIndex = IsRange ? 2 : 1;
+  if (Args.size() < MessageIndex + 1)
+    return true;
+
+  std::optional<Token> First, Last;
+  if (!getSingleToken(Evaluator, Args[0], First))
+    return true;
+  if (IsRange && !getSingleToken(Evaluator, Args[1], Last))
+    return true;
+
+  std::string Message;
+  APValue MessageValue;
+  if (!Evaluator(MessageValue, Args[MessageIndex], true) ||
+      !evaluateDiagnosticString(MessageValue, Message))
+    return true;
+
+  SourceLocation Loc = First ? First->getLocation() : SourceLocation();
+  PartialDiagnostic &PD = Diagnoser(Loc, DiagID);
+  PD << StringRef(Message);
+
+  const unsigned FixIndex = MessageIndex + 1;
+  if (FixIndex < Args.size()) {
+    APValue Fix;
+    if (Evaluator(Fix, Args[FixIndex], true))
+      if (std::optional<FixItHint> Hint = makeMacroDiagnosticFixIt(Fix, C))
+        PD.AddFixItHint(*Hint);
+  }
+
+  return SetAndSucceed(Result, makeBool(C, true));
+}
+
+static bool macro_located_error(APValue &Result, ASTContext &C,
+                                MetaActions &Meta, EvalFn Evaluator,
+                                DiagFn Diagnoser, bool AllowInjection,
+                                QualType ResultTy, SourceRange Range,
+                                ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  return macro_located_diagnostic(Result, C, Evaluator, Diagnoser, ResultTy,
+                                  Args, diag::err_macro_located_error);
+}
+
+static bool macro_located_warning(APValue &Result, ASTContext &C,
+                                  MetaActions &Meta, EvalFn Evaluator,
+                                  DiagFn Diagnoser, bool AllowInjection,
+                                  QualType ResultTy, SourceRange Range,
+                                  ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  return macro_located_diagnostic(Result, C, Evaluator, Diagnoser, ResultTy,
+                                  Args, diag::warn_macro_located_warning);
+}
+
+static bool macro_located_note(APValue &Result, ASTContext &C,
+                               MetaActions &Meta, EvalFn Evaluator,
+                               DiagFn Diagnoser, bool AllowInjection,
+                               QualType ResultTy, SourceRange Range,
+                               ArrayRef<Expr *> Args, Decl *ContainingDecl) {
+  return macro_located_diagnostic(Result, C, Evaluator, Diagnoser, ResultTy,
+                                  Args, diag::note_macro_located_note);
 }
 
 /// identifier_of(token_sequence): the spelling of a single identifier token,

@@ -86,6 +86,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <cstring>
 #include <functional>
+#include <iterator>
 #include <limits>
 #include <mutex>
 #include <optional>
@@ -1100,6 +1101,11 @@ namespace {
     /// invocation produces no expansion, making the macro invocation an
     /// invalid expression) instead of emitting the error directly.
     bool EvaluatingMacroBody = false;
+
+    /// Diagnostics explicitly located by a metafunction while evaluating an
+    /// expression-macro body. They stay outside EvalStatus until the whole
+    /// body has run, so a reported error does not stop later statements.
+    SmallVector<PartialDiagnosticAt, 4> MacroLocatedDiagnostics;
 
     /// Whether a parameter of the macro whose body is being evaluated holds a
     /// reflection of a value-dependent expression (an argument in a template
@@ -12028,8 +12034,27 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
   };
 
   std::vector<PartialDiagnosticAt> Diagnostics;
+  bool LocatedDiagnosticMisuse = false;
   auto Diagnoser = [&](SourceLocation Loc,
                            diag::kind DiagID) -> PartialDiagnostic & {
+    if (DiagID == diag::err_macro_located_error ||
+        DiagID == diag::warn_macro_located_warning ||
+        DiagID == diag::note_macro_located_note) {
+      if (Info.EvaluatingMacroBody) {
+        if (!Info.checkingPotentialConstantExpression() &&
+            Info.SpeculativeEvaluationDepth == 0) {
+          auto &D = Info.MacroLocatedDiagnostics.emplace_back(
+              std::piecewise_construct, std::make_tuple(Loc),
+              std::make_tuple(DiagID,
+                              std::ref(Info.Ctx.getDiagAllocator())));
+          return D.second;
+        }
+      } else {
+        LocatedDiagnosticMisuse = true;
+        (void)Info.FFDiag(E->getExprLoc(),
+                          diag::err_macro_located_outside_body);
+      }
+    }
     auto &D = Diagnostics.emplace_back(
         std::piecewise_construct,
         std::make_tuple(Loc),
@@ -12244,6 +12269,8 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
 
     return Result;
   }
+  if (LocatedDiagnosticMisuse)
+    return false;
   return DerivedSuccess(Result, E);
 }
 
@@ -28038,6 +28065,10 @@ bool Expr::EvaluateMacroBody(const FunctionDecl *Macro,
   Expr::EvalStatus Status;
   Status.Diag = &Diags;
   EvalInfo Info(Ctx, Status, EvaluationMode::ConstantExpression);
+  auto FlushMacroLocatedDiagnostics = llvm::make_scope_exit([&] {
+    Diags.append(std::make_move_iterator(Info.MacroLocatedDiagnostics.begin()),
+                 std::make_move_iterator(Info.MacroLocatedDiagnostics.end()));
+  });
   Info.InConstantContext = true;
   Info.EvaluatingMacroBody = true;
   // macro_expansion_context() in the body sees where the expansion lands, not
@@ -28098,7 +28129,11 @@ bool Expr::EvaluateMacroBody(const FunctionDecl *Macro,
     Result = std::move(TS);
   }
   Info.discardCleanups();
-  return !Info.EvalStatus.HasSideEffects;
+  bool HasLocatedError = llvm::any_of(
+      Info.MacroLocatedDiagnostics, [](const PartialDiagnosticAt &PD) {
+        return PD.second.getDiagID() == diag::err_macro_located_error;
+      });
+  return !Info.EvalStatus.HasSideEffects && !HasLocatedError;
 }
 
 bool Expr::isPotentialConstantExpr(const FunctionDecl *FD,

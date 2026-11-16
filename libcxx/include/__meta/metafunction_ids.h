@@ -195,6 +195,11 @@ enum : unsigned {
   __metafn_tokens_equal,
   __metafn_token_begin_location,
   __metafn_token_end_location,
+
+  // Located diagnostics in expression macros (fork extension).
+  __metafn_macro_located_error,
+  __metafn_macro_located_warning,
+  __metafn_macro_located_note,
 };
 } // namespace __detail
 

@@ -3295,6 +3295,12 @@ def err_macro_evaluation_failed : Error<
   "expression macro %0 did not produce a token sequence">;
 def err_macro_reported_error : Error<
   "expression macro %0 reported an error">;
+def err_macro_located_error : Error<"%0">;
+def warn_macro_located_warning : Warning<"%0">,
+  InGroup<MacroLocatedDiagnostics>;
+def note_macro_located_note : Note<"%0">;
+def err_macro_located_outside_body : Error<
+  "located macro diagnostics are only valid in an expression-macro body">;
 def err_macro_raw_pack_not_last : Error<
   "a pack of raw macro parameters must be the last parameter">;
 def err_macro_expand_at_instantiation_unsupported : Error<

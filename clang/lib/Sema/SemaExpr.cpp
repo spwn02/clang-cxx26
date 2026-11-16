@@ -8473,6 +8473,25 @@ bool Sema::EvaluateMacroExpansion(Expr *Fn, FunctionDecl *Macro,
           << Macro;
       return true;
     }
+    bool LocatedError = llvm::any_of(Notes, [](const PartialDiagnosticAt &PD) {
+      return PD.second.getDiagID() == diag::err_macro_located_error;
+    });
+    if (LocatedError) {
+      // Located errors are the expansion's diagnostics. Flush the complete
+      // evaluation record once and do not add a generic call-site cascade.
+      for (const PartialDiagnosticAt &PD : Notes) {
+        diag::kind ID = PD.second.getDiagID();
+        bool IsLocated = ID == diag::err_macro_located_error ||
+                         ID == diag::warn_macro_located_warning ||
+                         ID == diag::note_macro_located_note;
+        if (ID == diag::note_macro_located_note &&
+            getDiagnostics().isLastDiagnosticIgnored())
+          getDiagnostics().setLastDiagnosticIgnored(false);
+        Diag(IsLocated && PD.first.isInvalid() ? LParenLoc : PD.first,
+             PD.second);
+      }
+      return true;
+    }
     // A std::constexpr_error_str in the body is the macro explicitly
     // declining to produce an expansion, not a bug in it.
     bool Explicit = llvm::any_of(Notes, [](const PartialDiagnosticAt &PD) {
@@ -8485,6 +8504,17 @@ bool Sema::EvaluateMacroExpansion(Expr *Fn, FunctionDecl *Macro,
     for (const PartialDiagnosticAt &PD : Notes)
       Diag(PD.first, PD.second);
     return true;
+  }
+  for (const PartialDiagnosticAt &PD : Notes) {
+    diag::kind ID = PD.second.getDiagID();
+    if (ID == diag::err_macro_located_error ||
+        ID == diag::warn_macro_located_warning ||
+        ID == diag::note_macro_located_note) {
+      if (ID == diag::note_macro_located_note &&
+          getDiagnostics().isLastDiagnosticIgnored())
+        getDiagnostics().setLastDiagnosticIgnored(false);
+      Diag(PD.first.isInvalid() ? LParenLoc : PD.first, PD.second);
+    }
   }
   Expansion = Result.getTokenSequence();
   return false;

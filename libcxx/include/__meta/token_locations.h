@@ -19,10 +19,66 @@
 
 #  include <meta>
 #  include <source_location>
+#  include <string_view>
 
 _LIBCPP_BEGIN_NAMESPACE_REFLECTION_V2
 
 namespace __x {
+
+// A fix-it suggestion attached to a located expression-macro diagnostic.
+// Replacement and removal ranges include both endpoint tokens.
+struct __diagnostic_fixit {
+  enum class __kind : unsigned char { replace, insert_after, remove };
+  __kind __operation;
+  token __first;
+  token __last; // ignored for insert_after
+  string_view __replacement; // empty except replace/insert_after
+};
+
+consteval auto __replace(token __begin, token __end, string_view __text)
+    -> __diagnostic_fixit {
+  return {__diagnostic_fixit::__kind::replace, __begin, __end, __text};
+}
+
+consteval auto __insert_after(token __where, string_view __text)
+    -> __diagnostic_fixit {
+  return {__diagnostic_fixit::__kind::insert_after, __where, token{}, __text};
+}
+
+consteval auto __remove(token __begin, token __end) -> __diagnostic_fixit {
+  return {__diagnostic_fixit::__kind::remove, __begin, __end, {}};
+}
+
+consteval bool __error(token __where, string_view __message,
+                       __diagnostic_fixit __fix = {}) {
+  return __metafunction(__detail::__metafn_macro_located_error, __where,
+                        __message, __fix);
+}
+consteval bool __error(token __begin, token __end, string_view __message,
+                       __diagnostic_fixit __fix = {}) {
+  return __metafunction(__detail::__metafn_macro_located_error, __begin, __end,
+                        __message, __fix);
+}
+consteval bool __warning(token __where, string_view __message,
+                         __diagnostic_fixit __fix = {}) {
+  return __metafunction(__detail::__metafn_macro_located_warning, __where,
+                        __message, __fix);
+}
+consteval bool __warning(token __begin, token __end, string_view __message,
+                         __diagnostic_fixit __fix = {}) {
+  return __metafunction(__detail::__metafn_macro_located_warning, __begin,
+                        __end, __message, __fix);
+}
+consteval bool __note(token __where, string_view __message,
+                      __diagnostic_fixit __fix = {}) {
+  return __metafunction(__detail::__metafn_macro_located_note, __where,
+                        __message, __fix);
+}
+consteval bool __note(token __begin, token __end, string_view __message,
+                      __diagnostic_fixit __fix = {}) {
+  return __metafunction(__detail::__metafn_macro_located_note, __begin, __end,
+                        __message, __fix);
+}
 
 // Fork extension: query the source coordinates carried by an individual
 // P4380 token. The reserved __x namespace and __-prefixed names keep this
