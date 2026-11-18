@@ -1,0 +1,3 @@
+[
+ {"line":51,"col":27,"request":"textDocument/completion","match":"hx","label":"chain-candidates","pre":1500,"wait":300}
+]

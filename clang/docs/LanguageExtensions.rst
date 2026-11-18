@@ -1910,6 +1910,11 @@ come from string literals. Per expansion, at most 128 candidates are accepted; p
 64 KiB of text are copied. Labels are limited to 256 bytes, insertions to 4096 bytes, details to 1024 bytes and
 documentation to 4096 bytes. Oversize display text is truncated at a UTF-8 boundary; oversize insertion text is
 discarded.
+Diagnostic messages are limited to 4096 bytes (longer ones are truncated at a UTF-8 boundary) and a fix-it's replacement
+text to 4096 bytes (a longer one drops the fix-it, never cuts it). Each byte of a string is read through one constant
+evaluation step, so the total size of the strings a macro passes in one expansion is also bounded by
+``-fconstexpr-steps``. Candidates from nested expansions that forward the completion token to each other are all
+accepted, up to the per-request limit.
 A completion request that reaches clangd before the file's first preamble has been built may return only ordinary
 candidates.
 

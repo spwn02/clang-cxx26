@@ -1006,7 +1006,9 @@ static bool macro_complete(APValue &Result, ASTContext &C, MetaActions &Meta,
                            Decl *ContainingDecl);
 static bool readStringArguments(ASTContext &C, EvalFn Evaluator,
                                 SourceRange Range, Expr *LenArg, Expr *DataArg,
-                                std::string &Out);
+                                std::string &Out,
+                                size_t MaxLength = ~size_t(0),
+                                bool *Exceeded = nullptr);
 
 static constexpr Metafunction Metafunctions[] = {
   // Kind, MinArgs, MaxArgs, Impl
@@ -2803,6 +2805,8 @@ makeMacroDiagnosticFixIt(uint64_t Operation, const APValue &FirstValue,
   return std::nullopt;
 }
 
+static size_t utf8PrefixLength(StringRef Text, size_t Limit);
+
 static bool macro_located_diagnostic(APValue &Result, ASTContext &C,
                                      EvalFn Evaluator, DiagFn Diagnoser,
                                      QualType ResultTy,
@@ -2821,19 +2825,28 @@ static bool macro_located_diagnostic(APValue &Result, ASTContext &C,
     return true;
 
   std::string Message;
+  // Messages longer than 4096 bytes are truncated at a UTF-8 boundary; a
+  // fix-it text longer than 4096 bytes is dropped (a cut edit would be wrong).
+  constexpr size_t MaxMessage = 4096, MaxReplacement = 4096;
   auto ReadString = [&](unsigned Index, const char *FailureMessage,
-                        std::string &Storage) {
+                        std::string &Storage, size_t Max, bool &Exceeded) {
     if (readStringArguments(C, Evaluator, Range, Args[Index], Args[Index + 1],
-                            Storage))
+                            Storage, Max, &Exceeded))
       return true;
-    Diagnoser(Args[Index]->getExprLoc(), diag::err_macro_located_error)
+    Diagnoser(TokenFirst && TokenFirst->getLocation().isValid()
+                  ? TokenFirst->getLocation()
+                  : Args[Index]->getExprLoc(),
+              diag::err_macro_located_error)
         << FailureMessage;
     return false;
   };
+  bool MessageExceeded = false;
   if (!ReadString(MessageIndex,
                   "macro diagnostic message argument is not a constant string",
-                  Message))
+                  Message, MaxMessage, MessageExceeded))
     return true;
+  if (MessageExceeded)
+    Message.resize(utf8PrefixLength(Message, MaxMessage));
 
   SourceLocation Loc = TokenFirst ? TokenFirst->getLocation() : SourceLocation();
   PartialDiagnostic &PD = Diagnoser(Loc, DiagID);
@@ -2842,14 +2855,18 @@ static bool macro_located_diagnostic(APValue &Result, ASTContext &C,
   const unsigned FixIndex = MessageIndex + 2;
   APValue Operation, FirstValue, LastValue;
   std::string Replacement;
+  bool ReplacementExceeded = false;
   if (!Evaluator(Operation, Args[FixIndex], true) || !Operation.isInt() ||
       !Evaluator(FirstValue, Args[FixIndex + 1], true) ||
       !Evaluator(LastValue, Args[FixIndex + 2], true) ||
       !ReadString(FixIndex + 3,
                   "macro diagnostic replacement text argument is not a constant string",
-                  Replacement))
+                  Replacement, MaxReplacement, ReplacementExceeded))
     return true;
-  if (std::optional<FixItHint> Hint = makeMacroDiagnosticFixIt(
+  if (ReplacementExceeded)
+    Replacement.clear();
+  if (std::optional<FixItHint> Hint = ReplacementExceeded ? std::nullopt :
+      makeMacroDiagnosticFixIt(
           Operation.getInt().getZExtValue(), FirstValue, LastValue,
           Replacement, C))
     PD.AddFixItHint(*Hint);
@@ -3012,21 +3029,26 @@ static bool macro_complete(APValue &Result, ASTContext &C, MetaActions &Meta,
 
   APValue KindValue;
   std::string Label, Insert, Detail, Documentation;
+  // Each string is read only up to its cap (the characters are fetched one
+  // evaluation at a time): display strings are truncated at a UTF-8 boundary,
+  // an over-long insert text drops the candidate.
   auto ReadString = [&](unsigned Index, const char *FailureMessage,
-                        std::string &Storage) {
+                        std::string &Storage, size_t Max, bool &Exceeded) {
     if (readStringArguments(C, Evaluator, Range, Args[Index], Args[Index + 1],
-                            Storage))
+                            Storage, Max, &Exceeded))
       return true;
-    Diagnoser(Args[Index]->getExprLoc(), diag::err_macro_located_error)
+    Diagnoser(Tok->getLocation(), diag::err_macro_located_error)
         << FailureMessage;
     return false;
   };
+  bool LabelExceeded = false, InsertExceeded = false, DetailExceeded = false,
+       DocumentationExceeded = false;
   if (!ReadString(1, "macro completion label argument is not a constant string",
-                  Label) ||
+                  Label, 256, LabelExceeded) ||
       !ReadString(
           3,
           "macro completion insert text argument is not a constant string",
-          Insert))
+          Insert, 4096, InsertExceeded))
     return true;
   if (!Evaluator(KindValue, Args[5], true) || !KindValue.isInt())
     return true;
@@ -3034,21 +3056,20 @@ static bool macro_complete(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (Kind > 7) {
     return SetAndSucceed(Result, makeBool(C, false));
   }
-  if (Insert.size() > 4096) {
+  if (InsertExceeded) {
     diagnoseMacroCompletionLimit(Diagnoser, Tok->getLocation());
     return SetAndSucceed(Result, makeBool(C, false));
   }
   if (!ReadString(6, "macro completion detail argument is not a constant string",
-                  Detail))
+                  Detail, 1024, DetailExceeded))
     return true;
   if (!ReadString(
           8,
           "macro completion documentation argument is not a constant string",
-          Documentation))
+          Documentation, 4096, DocumentationExceeded))
     return true;
 
-  bool Truncated =
-      Label.size() > 256 || Detail.size() > 1024 || Documentation.size() > 4096;
+  bool Truncated = LabelExceeded || DetailExceeded || DocumentationExceeded;
   Label.resize(utf8PrefixLength(Label, 256));
   Detail.resize(utf8PrefixLength(Detail, 1024));
   Documentation.resize(utf8PrefixLength(Documentation, 4096));
@@ -4457,23 +4478,35 @@ bool expand_at_instantiation(APValue &Result, ASTContext &C, MetaActions &Meta,
 // data_member_spec.
 static bool readStringArguments(ASTContext &C, EvalFn Evaluator,
                                 SourceRange Range, Expr *LenArg, Expr *DataArg,
-                                std::string &Out) {
+                                std::string &Out, size_t MaxLength,
+                                bool *Exceeded) {
   APValue Scratch;
   if (!Evaluator(Scratch, LenArg, true))
     return false;
   size_t Len = Scratch.getInt().getExtValue();
+  // Never read more than the caller can use: the characters are fetched one
+  // evaluation at a time, so an unbounded length would be unbounded work.
+  if (Len > MaxLength) {
+    if (Exceeded)
+      *Exceeded = true;
+    Len = MaxLength;
+  }
   Out.assign(Len, '\0');
+  if (!Len)
+    return true;
 
+  // One index literal and one subscript expression are reused for every
+  // character: nodes are allocated in the ASTContext and never freed.
+  unsigned IdxBits = C.getTypeSize(C.getSizeType());
+  auto *Index = IntegerLiteral::Create(C, llvm::APInt(IdxBits, 0, false),
+                                       C.getSizeType(), DataArg->getExprLoc());
+  Expr *Synthesized = new (C) ArraySubscriptExpr(
+      DataArg, Index, C.getConstType(C.CharTy), VK_LValue, OK_Ordinary,
+      Range.getBegin());
+  if (Synthesized->isValueDependent() || Synthesized->isTypeDependent())
+    return false;
   for (uint64_t K = 0; K < Len; ++K) {
-    llvm::APInt Idx(C.getTypeSize(C.getSizeType()), K, false);
-    Expr *Synthesized = IntegerLiteral::Create(C, Idx, C.getSizeType(),
-                                               DataArg->getExprLoc());
-    Synthesized = new (C) ArraySubscriptExpr(DataArg, Synthesized,
-                                             C.getConstType(C.CharTy),
-                                             VK_LValue, OK_Ordinary,
-                                             Range.getBegin());
-    if (Synthesized->isValueDependent() || Synthesized->isTypeDependent())
-      return false;
+    Index->setValue(C, llvm::APInt(IdxBits, K, false));
     if (!Evaluator(Scratch, Synthesized, true))
       return false;
     Out[K] = static_cast<char>(Scratch.getInt().getExtValue());

@@ -1426,7 +1426,10 @@ public:
       return;
 
     const SourceManager &SM = Info.getSourceManager();
-    SourceLocation Loc = Info.getLocation();
+    // A completion token forwarded through nested expansions carries a macro
+    // location; its spelling is the token the user typed. The checks below
+    // still require it to sit at the start of the prefix being completed.
+    SourceLocation Loc = SM.getSpellingLoc(Info.getLocation());
     if (Loc.isInvalid() || Loc.isMacroID() || SM.isWrittenInScratchSpace(Loc) ||
         SM.getFileID(Loc) != SM.getMainFileID())
       return;

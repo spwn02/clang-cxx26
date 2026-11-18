@@ -1,0 +1,5 @@
+# Five nested expansions publish 128 candidates each at one cursor (640): clangd keeps the first 512.
+chain-candidates must-contain hxa000_x
+chain-candidates must-contain hxd127_x
+chain-candidates never-contain hxe000_x
+chain-candidates never-contain hxe127_x
