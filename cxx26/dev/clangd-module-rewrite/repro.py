@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Does clangd survive a build rewriting a module file it has open? (issue #487)
 
-usage: repro.py <clangd> <clang++> [--in-place | --truncate] [--workaround | --copy]
+usage: repro.py <clangd> <clang++> [--in-place | --truncate] [--workaround | --copy] [--typo]
 
 Builds module M with <clang++>, opens Use.cpp (import M) in clangd with a compile
 database that lists the module file via -fmodule-file=M=..., then rewrites M.pcm
@@ -17,6 +17,7 @@ in_place = "--in-place" in sys.argv
 workaround = "--workaround" in sys.argv  # response file as CMake writes it + .clangd Remove: "@*"
 copy = "--copy" in sys.argv  # .clangd: CompileFlags: CopyModuleFiles: true
 truncate = "--truncate" in sys.argv  # leave the file half written (a compiler killed mid-write)
+typo = "--typo" in sys.argv  # after the rewrite edit the file to use a misspelled name: typo correction walks every module's identifiers (#488)
 
 work = tempfile.mkdtemp(prefix="clangd-module-rewrite-")
 try:
@@ -87,7 +88,7 @@ try:
     ok = True
     try:
       send({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {"textDocument": {"uri": uri, "version": 2},
-            "contentChanges": [{"text": use + "// edit\n"}]}})
+            "contentChanges": [{"text": use + ("int h(int n) { return twic(n); }\n" if typo else "// edit\n")}]}})
       for pos in ((1, 32), (1, 38), (1, 15), (1, 50), (1, 63)):
           r = hover(*pos)
           if r is None or p.poll() is not None:
