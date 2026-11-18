@@ -1916,8 +1916,8 @@ text to 4096 bytes (a longer one drops the fix-it, never cuts it). Each byte of 
 evaluation step, so the total size of the strings a macro passes in one expansion is also bounded by
 ``-fconstexpr-steps``. Candidates from nested expansions that forward the completion token to each other are all
 accepted, up to the per-request limit.
-A completion request that reaches clangd before the file's first preamble has been built may return only ordinary
-candidates.
+A completion inside a ``name!(...)`` invocation waits for the file's first preamble instead of using clangd's
+identifier-only fallback, so the macro's candidates are available on the first request.
 
 **Deviation note:** These APIs and their editor behavior are not specified by P2758 or P4380R1. They are a Clang fork
 extension pending a WG21 paper (drafts: ``cxx26/papers/``).

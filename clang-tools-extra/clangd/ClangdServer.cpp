@@ -37,6 +37,7 @@
 #include "support/ThreadsafeFS.h"
 #include "support/Trace.h"
 #include "clang/Basic/Stack.h"
+#include "clang/Basic/CharInfo.h"
 #include "clang/Format/Format.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Tooling/CompilationDatabase.h"
@@ -444,6 +445,37 @@ void ClangdServer::removeDocument(PathRef File) {
   WorkScheduler->remove(File);
 }
 
+namespace {
+// True if the cursor sits inside the argument list of a `name!(...)` style
+// macro invocation (P4380 expression/statement macros). Such an argument can
+// only be completed by evaluating the macro, which needs a parse, so a
+// completion there should wait for the first preamble instead of falling back
+// to identifiers. A false positive only costs that request some latency.
+bool cursorInMacroInvocationArgs(llvm::StringRef Code, size_t Offset) {
+  constexpr size_t MaxScan = 4096;
+  unsigned Depth = 0;
+  size_t Stop = Offset > MaxScan ? Offset - MaxScan : 0;
+  for (size_t I = Offset; I > Stop; --I) {
+    char C = Code[I - 1];
+    if (C == ')' || C == ']' || C == '}') {
+      ++Depth;
+    } else if (C == '(' || C == '[' || C == '{') {
+      if (Depth) {
+        --Depth;
+        continue;
+      }
+      // An unmatched opener: a macro invocation if written `name!(`.
+      if (I >= 3 && Code[I - 2] == '!' &&
+          (isAsciiIdentifierContinue(Code[I - 3]) || Code[I - 3] == '>'))
+        return true;
+    } else if (C == ';' && Depth == 0) {
+      return false;
+    }
+  }
+  return false;
+}
+} // namespace
+
 void ClangdServer::codeComplete(PathRef File, Position Pos,
                                 const clangd::CodeCompleteOptions &Opts,
                                 Callback<CodeCompleteResult> CB) {
@@ -514,10 +546,17 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
       SpecFuzzyFind->Result.wait();
   };
 
-  // We use a potentially-stale preamble because latency is critical here.
+  // We use a potentially-stale preamble because latency is critical here. In
+  // a macro invocation's arguments we wait for the first preamble: macro-
+  // supplied candidates need a parse, which the fallback mode skips.
+  bool InMacroArgs = false;
+  if (Opts.RunParser != CodeCompleteOptions::AlwaysParse)
+    if (auto Draft = getDraft(File))
+      if (auto Offset = positionToOffset(*Draft, Pos))
+        InMacroArgs = cursorInMacroInvocationArgs(*Draft, *Offset);
   WorkScheduler->runWithPreamble(
       "CodeComplete", File,
-      (Opts.RunParser == CodeCompleteOptions::AlwaysParse)
+      (Opts.RunParser == CodeCompleteOptions::AlwaysParse || InMacroArgs)
           ? TUScheduler::Stale
           : TUScheduler::StaleOrAbsent,
       std::move(Task));

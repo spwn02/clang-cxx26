@@ -279,12 +279,6 @@ def run_lsp(binary, repeats, timeout, only_cases=None):
                                  "params": {"textDocument": {"uri": client.uri,
                                  "languageId": "cpp", "version": 1, "text": code}}})
                     time.sleep(0.25)
-                    if name == "control-macro-supplied-completion":
-                        # A completion issued before the first preamble is built
-                        # degrades to ordinary results (documented limit): wait
-                        # for the AST so the check below is about the macro.
-                        client.request("textDocument/documentSymbol",
-                                       {"textDocument": {"uri": client.uri}})
                     for loc in locations:
                         try:
                             sent += 1
