@@ -550,7 +550,7 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
   // a macro invocation's arguments we wait for the first preamble: macro-
   // supplied candidates need a parse, which the fallback mode skips.
   bool InMacroArgs = false;
-  if (Opts.RunParser != CodeCompleteOptions::AlwaysParse)
+  if (Opts.RunParser == CodeCompleteOptions::ParseIfReady)
     if (auto Draft = getDraft(File))
       if (auto Offset = positionToOffset(*Draft, Pos))
         InMacroArgs = cursorInMacroInvocationArgs(*Draft, *Offset);

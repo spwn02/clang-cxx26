@@ -25490,6 +25490,10 @@ static bool EvaluateBuiltinConstexprDiag(EvalInfo &Info, const CallExpr *E) {
   // Explicit failure of an expression macro: record the message as the
   // reason the evaluation failed and produce no expansion.
   if (Kind == 2 && Info.EvaluatingMacroBody) {
+    // FFDiag records nothing when an earlier note is still in the status; only
+    // then is it safe to take the note back out and keep evaluating.
+    const bool StatusWasEmpty =
+        Info.EvalStatus.Diag && Info.EvalStatus.Diag->empty();
     if (Tag.empty())
       Info.FFDiag(E, diag::note_constexpr_message) << Msg.str();
     else
@@ -25500,7 +25504,7 @@ static bool EvaluateBuiltinConstexprDiag(EvalInfo &Info, const CallExpr *E) {
     // the status so the next message is recorded too, and fail the expansion
     // when the body is done. Speculative evaluations still fail at once.
     if (Info.checkingPotentialConstantExpression() ||
-        Info.SpeculativeEvaluationDepth != 0 || !Info.EvalStatus.Diag)
+        Info.SpeculativeEvaluationDepth != 0 || !StatusWasEmpty)
       return false;
     Info.MacroReportedMessages.append(
         std::make_move_iterator(Info.EvalStatus.Diag->begin()),
