@@ -1106,6 +1106,13 @@ namespace {
     /// expression-macro body. They stay outside EvalStatus until the whole
     /// body has run, so a reported error does not stop later statements.
     SmallVector<PartialDiagnosticAt, 4> MacroLocatedDiagnostics;
+
+    /// Messages of std::constexpr_error_str calls made while evaluating an
+    /// expression-macro body. P2758R5 leaves such a call a core constant
+    /// expression, so evaluation continues (later messages are issued too);
+    /// the expansion then fails and produces no tokens.
+    SmallVector<PartialDiagnosticAt, 4> MacroReportedMessages;
+    bool MacroReportedError = false;
     SmallVector<PartialDiagnosticAt, 4> MacroRoleDiagnostics;
     SmallVector<PartialDiagnosticAt, 4> MacroCompletionDiagnostics;
 
@@ -25488,7 +25495,19 @@ static bool EvaluateBuiltinConstexprDiag(EvalInfo &Info, const CallExpr *E) {
     else
       Info.FFDiag(E, diag::note_constexpr_message_tag) << Tag.str()
                                                        << Msg.str();
-    return false;
+    // A final (non-speculative) evaluation keeps going after the message, as
+    // P2758R5 specifies: move the notes (with their call-stack notes) out of
+    // the status so the next message is recorded too, and fail the expansion
+    // when the body is done. Speculative evaluations still fail at once.
+    if (Info.checkingPotentialConstantExpression() ||
+        Info.SpeculativeEvaluationDepth != 0 || !Info.EvalStatus.Diag)
+      return false;
+    Info.MacroReportedMessages.append(
+        std::make_move_iterator(Info.EvalStatus.Diag->begin()),
+        std::make_move_iterator(Info.EvalStatus.Diag->end()));
+    Info.EvalStatus.Diag->clear();
+    Info.MacroReportedError = true;
+    return true;
   }
 
   // Only a manifestly constant evaluation reports; speculative evaluations,
@@ -28079,6 +28098,10 @@ bool Expr::EvaluateMacroBody(const FunctionDecl *Macro,
   Expr::EvalStatus Status;
   Status.Diag = &Diags;
   EvalInfo Info(Ctx, Status, EvaluationMode::ConstantExpression);
+  auto FlushMacroReportedMessages = llvm::make_scope_exit([&] {
+    Diags.append(std::make_move_iterator(Info.MacroReportedMessages.begin()),
+                 std::make_move_iterator(Info.MacroReportedMessages.end()));
+  });
   auto FlushMacroLocatedDiagnostics = llvm::make_scope_exit([&] {
     Diags.append(std::make_move_iterator(Info.MacroLocatedDiagnostics.begin()),
                  std::make_move_iterator(Info.MacroLocatedDiagnostics.end()));
@@ -28152,7 +28175,8 @@ bool Expr::EvaluateMacroBody(const FunctionDecl *Macro,
       Info.MacroLocatedDiagnostics, [](const PartialDiagnosticAt &PD) {
         return PD.second.getDiagID() == diag::err_macro_located_error;
       });
-  return !Info.EvalStatus.HasSideEffects && !HasLocatedError;
+  return !Info.EvalStatus.HasSideEffects && !HasLocatedError &&
+         !Info.MacroReportedError;
 }
 
 bool Expr::isPotentialConstantExpr(const FunctionDecl *FD,

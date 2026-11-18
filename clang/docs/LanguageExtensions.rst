@@ -1831,7 +1831,8 @@ invocation keep their source locations, so what a macro does with them decides w
   ``^^{ int \(name) = 1; }``) is navigable, highlighted and renameable with the cursor on the argument as well as at the uses.
 * **Located errors.** A macro can put an error exactly on a user token by injecting that token where it is ill-formed
   (an undeclared name, a type error): the editor and the compiler report it on the token the user wrote. One error per
-  expansion is what ``std::constexpr_error_str`` gives; it is reported at the invocation, not at a token.
+  expansion is what ``std::constexpr_error_str`` gives; it is reported at the invocation, not at a token. Like P2758R5
+specifies, such a call does not stop the evaluation: every message of the macro body is issued, then the expansion fails.
 * **Completion.** The code-completion position inside a raw argument stays in the token sequence. If the macro injects
   that token, completion happens in the expansion's real context (an expression, a statement, a declaration, a
   mem-initializer); if the macro drops it, nothing is offered. A token position that never becomes C++ completes nothing.
@@ -1880,7 +1881,7 @@ tokens have no source location.
 ``__error``, ``__warning`` and ``__note`` report a message on one token or an inclusive token range. They can carry
 ``__replace``, ``__insert_after`` or ``__remove`` fix-its. Located diagnostics are recorded while the macro body
 continues evaluating; an error then fails the expansion and discards its result tokens. ``std::constexpr_error_str``
-keeps its existing call-site behavior. Fix-its targeting macro-produced or injected storage are dropped. An invalid
+keeps its call-site reporting (evaluation continues after it, as P2758R5 specifies, and the expansion then fails). Fix-its targeting macro-produced or injected storage are dropped. An invalid
 token location falls back to the macro call. ``-Wmacro-located-diagnostics`` controls located warnings; errors remain
 errors.
 
