@@ -8,6 +8,7 @@
 
 #include "Annotations.h"
 #include "Config.h"
+#include "Diagnostics.h"
 #include "Protocol.h"
 #include "SemanticHighlighting.h"
 #include "SourceCode.h"
@@ -16,6 +17,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/raw_ostream.h"
 #include "gmock/gmock.h"
@@ -1525,6 +1527,94 @@ int *$Variable[[x]] = new int;
   WithContextValue WithCfg(Config::Key, std::move(Cfg));
   checkHighlightings(AnnotatedCode, {}, ~ScopeModifierMask);
 }
+
+// The fork extension tests use the real libc++ headers (the TU needs the clang
+// resource directory for <stddef.h> and the predefined macros).
+bool realLibcxxAvailable() {
+  return llvm::sys::fs::is_directory(CLANGD_TEST_LIBCXX_INCLUDE) &&
+         llvm::sys::fs::is_directory(CLANGD_TEST_LIBCXX_BUILD_INCLUDE) &&
+         llvm::sys::fs::is_directory(CLANGD_TEST_RESOURCE_DIR);
+}
+void useRealLibcxx(TestTU &TU) {
+  TU.ExtraArgs = {"-std=c++29",
+                  "-nostdinc++",
+                  "-resource-dir",
+                  CLANGD_TEST_RESOURCE_DIR,
+                  "-isystem",
+                  CLANGD_TEST_LIBCXX_INCLUDE,
+                  "-idirafter",
+                  CLANGD_TEST_LIBCXX_BUILD_INCLUDE};
+  TU.OverlayRealFileSystemForModules = true;
+  TU.PredefineMacros = true;
+}
+
+TEST(SemanticHighlighting, MacroRoleTable) {
+  if (!realLibcxxAvailable())
+    GTEST_SKIP() << "libc++ headers of this tree are unavailable";
+  Annotations Test(R"cpp(
+#include <__meta/token_locations.h>
+namespace mx = std::meta::__x;
+using std::meta::token_sequence;
+__macro as_type(token_sequence ts) {
+  (void)mx::__role(ts[0], mx::__semantic_token_kind::type,
+                   static_cast<unsigned>(
+                       mx::__semantic_token_modifier::user_defined));
+  return @@{ \(ts) };
+}
+int target = 0;
+int use = as_type!($ok[[target]]);
+
+constexpr auto shared = @@{ $shared[[shared_name]] };
+__macro shared_as_type() {
+  (void)mx::__role(shared[0], mx::__semantic_token_kind::type);
+  return @@{ 0 };
+}
+__macro shared_as_variable() {
+  (void)mx::__role(shared[0], mx::__semantic_token_kind::variable);
+  return @@{ 0 };
+}
+static_assert(shared_as_type!() == 0);
+static_assert(shared_as_variable!() == 0);
+
+__macro failed(token_sequence ts) {
+  (void)mx::__role(ts[0], mx::__semantic_token_kind::type);
+  (void)mx::__error(ts[0], "role failure");
+  return @@{ 1 + };
+}
+int bad = failed!($failed[[failed_token]]); // error-ok
+)cpp");
+  TestTU TU = TestTU::withCode(withReflectionOperator(Test.code()));
+  useRealLibcxx(TU);
+  auto AST = TU.build();
+  auto Tokens = getSemanticHighlightings(AST, /*IncludeInactiveRegionTokens=*/true);
+  auto At = [&](llvm::StringRef Name) -> const HighlightingToken * {
+    Range R = Test.range(Name);
+    for (const auto &T : Tokens)
+      if (T.R == R)
+        return &T;
+    return nullptr;
+  };
+  // A role replaces the AST-derived kind and its modifiers are added to the
+  // AST's own.
+  const HighlightingToken *Ok = At("ok");
+  ASSERT_NE(Ok, nullptr);
+  EXPECT_EQ(Ok->Kind, HighlightingKind::Type);
+  EXPECT_NE(Ok->Modifiers &
+                (1u << static_cast<unsigned>(HighlightingModifier::UserDefined)),
+            0u);
+  // Expansions that disagree on one token, and a failed expansion, give no
+  // role: the token keeps its dependent-name highlighting.
+  for (llvm::StringRef Name : {"shared", "failed"}) {
+    const HighlightingToken *T = At(Name);
+    ASSERT_NE(T, nullptr) << Name.str();
+    EXPECT_EQ(T->Kind, HighlightingKind::Unknown) << Name.str();
+  }
+  // The private remarks never reach the user.
+  EXPECT_THAT(AST.getDiagnostics(),
+              Not(Contains(::testing::Field(&Diag::Message,
+                                            ::testing::HasSubstr("macro role")))));
+}
+
 } // namespace
 } // namespace clangd
 } // namespace clang

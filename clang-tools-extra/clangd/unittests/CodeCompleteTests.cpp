@@ -33,6 +33,7 @@
 #include "llvm/Testing/Annotations/Annotations.h"
 #include "llvm/Testing/Support/Error.h"
 #include "llvm/Testing/Support/SupportHelpers.h"
+#include "llvm/Support/FileSystem.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <condition_variable>
@@ -5031,6 +5032,97 @@ TEST(CompletionTest, FuzzyMatchMacro) {
                   ElementsAre(named("_gl_frob"), named("_gl_foo")));
     }
   }
+}
+
+
+// The fork extension tests use the real libc++ headers (the TU needs the clang
+// resource directory for <stddef.h> and the predefined macros).
+bool realLibcxxAvailable() {
+  return llvm::sys::fs::is_directory(CLANGD_TEST_LIBCXX_INCLUDE) &&
+         llvm::sys::fs::is_directory(CLANGD_TEST_LIBCXX_BUILD_INCLUDE) &&
+         llvm::sys::fs::is_directory(CLANGD_TEST_RESOURCE_DIR);
+}
+void useRealLibcxx(TestTU &TU) {
+  TU.ExtraArgs = {"-std=c++29",
+                  "-nostdinc++",
+                  "-resource-dir",
+                  CLANGD_TEST_RESOURCE_DIR,
+                  "-isystem",
+                  CLANGD_TEST_LIBCXX_INCLUDE,
+                  "-idirafter",
+                  CLANGD_TEST_LIBCXX_BUILD_INCLUDE};
+  TU.OverlayRealFileSystemForModules = true;
+  TU.PredefineMacros = true;
+}
+
+TEST(CompletionTest, MacroSuppliedRawArgument) {
+  if (!realLibcxxAvailable())
+    GTEST_SKIP() << "libc++ headers of this tree are unavailable";
+  const char *Prefix = R"cpp(
+#include <__meta/token_locations.h>
+namespace mx = std::meta::__x;
+using std::meta::token_sequence;
+__macro html(token_sequence raw) {
+  for (std::meta::token t : raw)
+    if (mx::__is_completion(t)) {
+      (void)mx::__complete(t, "hx_alpha", "alpha",
+                           mx::__completion_kind::property, "attribute",
+                           "Alpha documentation");
+      (void)mx::__complete(t, "hx_beta", "beta", mx::__completion_kind::field,
+                           "field", "Beta documentation");
+      (void)mx::__complete(t, "hx_alpha", "alpha",
+                           mx::__completion_kind::property, "attribute",
+                           "Alpha documentation");
+    }
+  return @@{ };
+}
+__macro identity(token_sequence raw) {
+  for (std::meta::token t : raw)
+    if (mx::__is_completion(t))
+      (void)mx::__complete(t, "hx_injected", "injected");
+  return @@{ \(raw) };
+}
+__macro failing(token_sequence raw) {
+  for (std::meta::token t : raw)
+    if (mx::__is_completion(t)) {
+      (void)mx::__complete(t, "hx_leak", "leak");
+      (void)mx::__error(t, "failed completion");
+    }
+  return @@{ \(raw) };
+}
+int partial_value;
+)cpp";
+  auto Complete = [&](llvm::StringRef Tail) {
+    Annotations Test((Prefix + Tail).str());
+    TestTU TU = TestTU::withCode(withReflectionOperator(Test.code()));
+    useRealLibcxx(TU);
+    return completions(TU, Test.point()).Completions;
+  };
+  // The macro drops the cursor: only its candidates (duplicates removed), with
+  // the fields the macro supplied, and nothing from ordinary completion.
+  auto DSL = Complete("void f() { html!(<div cla^ss=\"x\">); }");
+  ASSERT_THAT(DSL, ElementsAre(AllOf(named("hx_alpha"),
+                                     kind(CompletionItemKind::Property)),
+                               AllOf(named("hx_beta"),
+                                     kind(CompletionItemKind::Field))));
+  EXPECT_THAT(DSL, Not(Contains(named("partial_value"))));
+  ASSERT_TRUE(DSL[0].InsertText);
+  EXPECT_EQ(*DSL[0].InsertText, "alpha");
+  EXPECT_EQ(DSL[0].Signature, "attribute");
+  ASSERT_TRUE(DSL[0].Documentation);
+  EXPECT_EQ(DSL[0].Documentation->asPlainText(), "Alpha documentation");
+  ASSERT_TRUE(DSL[0].SortText);
+  EXPECT_THAT(*DSL[0].SortText, HasSubstr("zz-macro:"));
+  // An empty prefix works the same way.
+  EXPECT_THAT(Complete("void f() { html!(<div ^>); }"),
+              ElementsAre(named("hx_alpha"), named("hx_beta")));
+  // A macro that injects the cursor keeps ordinary candidates and adds its own.
+  auto Injected = Complete("int g() { return identity!(part^); }");
+  EXPECT_THAT(Injected, Contains(named("hx_injected")));
+  EXPECT_THAT(Injected, Contains(named("partial_value")));
+  // A failed expansion leaks no candidate.
+  EXPECT_THAT(Complete("int h() { return failing!(hx_l^); }"),
+              Not(Contains(named("hx_leak"))));
 }
 
 } // namespace

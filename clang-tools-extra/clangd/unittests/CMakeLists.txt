@@ -156,6 +156,13 @@ add_unittest(ClangdUnitTests ClangdTests
 target_include_directories(ClangdTests PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
 )
+# Tests of the P4380 fork extension compile against the real libc++ headers of
+# this tree; they skip themselves when the directories do not exist.
+target_compile_definitions(ClangdTests PRIVATE
+  CLANGD_TEST_LIBCXX_INCLUDE="${LLVM_MAIN_SRC_DIR}/../libcxx/include"
+  CLANGD_TEST_LIBCXX_BUILD_INCLUDE="${LLVM_BINARY_DIR}/../build-libcxx/include/c++/v1"
+  CLANGD_TEST_RESOURCE_DIR="${LLVM_BINARY_DIR}/lib/clang/${LLVM_VERSION_MAJOR}"
+)
 
 clang_target_link_libraries(ClangdTests
   PRIVATE
