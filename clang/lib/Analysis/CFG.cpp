@@ -3196,7 +3196,6 @@ std::pair<CFGBlock *, CFGBlock *> CFGBuilder::VisitCaseConditionChain(
   }
 
   if (auto *Match = dyn_cast<CaseConditionExpr>(Condition)) {
-    CFGBlock *MatchFalseBlock = FalseBlock;
     if (!Match->getInstantiations().empty()) {
       if (SelectConstexprInstantiation && Match->hasSemanticInstantiations()) {
         for (unsigned I = 0; I != Match->getInstantiations().size(); ++I) {
@@ -3213,12 +3212,12 @@ std::pair<CFGBlock *, CFGBlock *> CFGBuilder::VisitCaseConditionChain(
             Block = nullptr;
             Success =
                 VisitCaseConditionChain(Instantiation.Condition, Term, Success,
-                                        MatchFalseBlock, SuccessBlocks,
+                                        FalseBlock, SuccessBlocks,
                                         /*SelectConstexprInstantiation=*/true)
                     .first;
           }
           CFGBlock *Successors[] = {Success};
-          return VisitMatchTestExpr(Match, Term, Successors, MatchFalseBlock,
+          return VisitMatchTestExpr(Match, Term, Successors, FalseBlock,
                                     I);
         }
       }
@@ -3233,13 +3232,13 @@ std::pair<CFGBlock *, CFGBlock *> CFGBuilder::VisitCaseConditionChain(
             It != SuccessBlocks.end())
           CandidateDefault = It->second;
         else if (Match->hasSemanticInstantiations())
-          CandidateDefault = MatchFalseBlock;
+          CandidateDefault = FalseBlock;
 
         if (Instantiation.Condition) {
           SaveAndRestore saveBlock(Block), saveSucc(Succ);
           Block = nullptr;
           Success = VisitCaseConditionChain(Instantiation.Condition, Term,
-                                            CandidateDefault, MatchFalseBlock,
+                                            CandidateDefault, FalseBlock,
                                             SuccessBlocks,
                                             SelectConstexprInstantiation)
                         .first;
@@ -3249,9 +3248,9 @@ std::pair<CFGBlock *, CFGBlock *> CFGBuilder::VisitCaseConditionChain(
         CandidateSuccessors.push_back(Success);
       }
       return VisitMatchTestExpr(Match, Term, CandidateSuccessors,
-                                MatchFalseBlock);
+                                FalseBlock);
     }
-    return VisitMatchTestExpr(Match, Term, DefaultTrueBlock, MatchFalseBlock);
+    return VisitMatchTestExpr(Match, Term, DefaultTrueBlock, FalseBlock);
   }
 
   CFGBlock *ExitBlock = createBlock(false);

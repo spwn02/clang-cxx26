@@ -12048,8 +12048,7 @@ public:
   /// candidates accumulated in Context.
   std::optional<MatchExhaustivenessResult>
   FinalizeMatchUsefulness(MatchUsefulnessContext &Context, Expr *Subject,
-                          ArrayRef<MatchCase> Cases,
-                          bool DiagnoseExhaustiveness = true);
+                          ArrayRef<MatchCase> Cases);
   bool
   CheckCompleteMatchPattern(Expr *Subject, MatchPattern *Pattern,
                             MatchPatternState &State,
@@ -12062,9 +12061,7 @@ public:
   /// coverage.
   std::optional<MatchExhaustivenessResult> CheckMatchExhaustiveness(
       Expr *Subject, ArrayRef<MatchCase> Cases,
-      ArrayRef<MatchCaseInstantiation> Instantiations,
-      bool DiagnoseExhaustiveness = true,
-      bool UseResolvedInstantiationDependentPatterns = false);
+      ArrayRef<MatchCaseInstantiation> Instantiations);
 
   ///@}
 

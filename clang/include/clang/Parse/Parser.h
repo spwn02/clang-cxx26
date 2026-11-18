@@ -4615,8 +4615,7 @@ private:
   CaseConditionPreparation
   PrepareCaseCondition(Sema::ConditionResult &Condition, SourceLocation Loc,
                        Stmt *&Handler, Expr *&Increment,
-                       Sema::ConditionKind Kind = Sema::ConditionKind::Boolean,
-                       bool ExpandImmediately = true);
+                       Sema::ConditionKind Kind = Sema::ConditionKind::Boolean);
 
   bool ParseMatchBody(Expr *Subject, TypeLoc OrigResultType, QualType &RetTy,
                       SmallVectorImpl<Stmt *> &Preamble,

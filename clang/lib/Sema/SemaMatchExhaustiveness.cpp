@@ -1203,30 +1203,6 @@ bool hasGuard(const MatchCaseInstantiation &Case) {
   return Case.Guard.hasGuard() || Case.IfLoc.isValid();
 }
 
-bool isResolvedForExhaustiveness(
-    MatchPattern *Pattern,
-    const MatchPatternInstantiation *PatternInstantiation) {
-  ExprDependence Dependence = Pattern->getDependence();
-  if (static_cast<bool>(Dependence & ExprDependence::Error))
-    return false;
-  if (!static_cast<bool>(Dependence & ExprDependence::Instantiation))
-    return true;
-
-  Pattern = Pattern->IgnoreParens();
-  auto *Decomposition = dyn_cast<DecompositionPattern>(Pattern);
-  if (!Decomposition)
-    return false;
-
-  const MatchPatternInfo *Info = PatternInstantiation->find(Decomposition);
-  if (!Info || !Info->HasExpandedPatterns)
-    return false;
-  return llvm::all_of(
-      PatternInstantiation->getDecompositionPatterns(Decomposition),
-      [&](MatchPattern *Element) {
-        return isResolvedForExhaustiveness(Element, PatternInstantiation);
-      });
-}
-
 } // namespace
 
 struct Sema::MatchUsefulnessContext::Impl {
@@ -1334,8 +1310,7 @@ Sema::MatchPatternUsefulness Sema::UpdateMatchCandidateDomainUsefulness(
 
 std::optional<Sema::MatchExhaustivenessResult>
 Sema::FinalizeMatchUsefulness(MatchUsefulnessContext &UsefulnessContext,
-                              Expr *Subject, ArrayRef<MatchCase> Cases,
-                              bool DiagnoseExhaustiveness) {
+                              Expr *Subject, ArrayRef<MatchCase> Cases) {
   MatchUsefulnessContext::Impl &State = *UsefulnessContext.State;
   if (!Subject || Subject->isTypeDependent() || State.HasUnresolvedPattern)
     return std::nullopt;
@@ -1425,7 +1400,7 @@ Sema::FinalizeMatchUsefulness(MatchUsefulnessContext &UsefulnessContext,
   Usefulness Exhaustive =
       isUseful(*this, State.CoverageMatrix, WildRow, State.InitialTypes,
                ConstructorDomain::Required, &Witness);
-  if (DiagnoseExhaustiveness && Exhaustive == Usefulness::Useful) {
+  if (Exhaustive == Usefulness::Useful) {
     std::string Missing =
         State.HasOpaquePattern ? "_" : printWitness(Context, Witness);
     Diag(Subject->getBeginLoc(), diag::err_match_not_exhaustive)
@@ -1442,17 +1417,12 @@ Sema::FinalizeMatchUsefulness(MatchUsefulnessContext &UsefulnessContext,
 
 std::optional<Sema::MatchExhaustivenessResult>
 Sema::CheckMatchExhaustiveness(Expr *Subject, ArrayRef<MatchCase> Cases,
-                               ArrayRef<MatchCaseInstantiation> Instantiations,
-                               bool DiagnoseExhaustiveness,
-                               bool UseResolvedInstantiationDependentPatterns) {
+                               ArrayRef<MatchCaseInstantiation> Instantiations) {
   if (!Subject || Subject->isTypeDependent() ||
       llvm::any_of(Instantiations, [&](const MatchCaseInstantiation &Case) {
-        if (!UseResolvedInstantiationDependentPatterns)
-          return static_cast<bool>(
-              Case.Pattern->getDependence() &
-              (ExprDependence::Instantiation | ExprDependence::Error));
-        return !isResolvedForExhaustiveness(Case.Pattern,
-                                            Case.PatternInstantiation);
+        return static_cast<bool>(Case.Pattern->getDependence() &
+                                 (ExprDependence::Instantiation |
+                                  ExprDependence::Error));
       }))
     return std::nullopt;
 
@@ -1465,6 +1435,5 @@ Sema::CheckMatchExhaustiveness(Expr *Subject, ArrayRef<MatchCase> Cases,
                                    /*ClassifyContinuation=*/false,
                                    /*RecordOpaquePattern=*/true);
   }
-  return FinalizeMatchUsefulness(Usefulness, Subject, Cases,
-                                 DiagnoseExhaustiveness);
+  return FinalizeMatchUsefulness(Usefulness, Subject, Cases);
 }

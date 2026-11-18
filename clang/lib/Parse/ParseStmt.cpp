@@ -1570,7 +1570,7 @@ struct MisleadingIndentationChecker {
 
 Parser::CaseConditionPreparation Parser::PrepareCaseCondition(
     Sema::ConditionResult &Condition, SourceLocation Loc, Stmt *&Handler,
-    Expr *&Increment, Sema::ConditionKind Kind, bool ExpandImmediately) {
+    Expr *&Increment, Sema::ConditionKind Kind) {
   Expr *ConditionExpr = Condition.get().second;
   auto *Match = dyn_cast_if_present<CaseConditionExpr>(
       MatchTestExpr::findInCondition(ConditionExpr));
@@ -1588,9 +1588,6 @@ Parser::CaseConditionPreparation Parser::PrepareCaseCondition(
       return CaseConditionPreparation::Invalid;
     return CaseConditionPreparation::Ready;
   }
-
-  if (!ExpandImmediately)
-    return CaseConditionPreparation::Ready;
 
   MatchTestExpr *MatchToExpand =
       Match && Match->needsCaseInstantiation()
