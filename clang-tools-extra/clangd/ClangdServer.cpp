@@ -551,9 +551,13 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
   // supplied candidates need a parse, which the fallback mode skips.
   bool InMacroArgs = false;
   if (Opts.RunParser == CodeCompleteOptions::ParseIfReady)
-    if (auto Draft = getDraft(File))
-      if (auto Offset = positionToOffset(*Draft, Pos))
+    if (auto Draft = getDraft(File)) {
+      auto Offset = positionToOffset(*Draft, Pos);
+      if (Offset)
         InMacroArgs = cursorInMacroInvocationArgs(*Draft, *Offset);
+      else
+        llvm::consumeError(Offset.takeError()); // An invalid position: no wait.
+    }
   WorkScheduler->runWithPreamble(
       "CodeComplete", File,
       (Opts.RunParser == CodeCompleteOptions::AlwaysParse || InMacroArgs)
