@@ -9,9 +9,15 @@ require("blink.cmp").setup({
   fuzzy = { implementation = "prefer_rust_with_warning" },
   completion = { menu = { auto_show = true } },
 })
+local clangd_cmd = {
+  vim.env.REPLAY_CLANGD, "--background-index=false", "--completion-style=detailed",
+  "--header-insertion=" .. (vim.env.REPLAY_HEADER_INSERTION or "never"), "--log=error",
+}
+if vim.env.REPLAY_LIMIT_RESULTS then
+  table.insert(clangd_cmd, "--limit-results=" .. vim.env.REPLAY_LIMIT_RESULTS)
+end
 vim.lsp.config("clangd", {
-  cmd = { vim.env.REPLAY_CLANGD, "--background-index=false", "--completion-style=detailed",
-          "--header-insertion=" .. (vim.env.REPLAY_HEADER_INSERTION or "never"), "--log=error" },
+  cmd = clangd_cmd,
   root_markers = { "compile_commands.json" },
   filetypes = { "cpp" },
   capabilities = require("blink.cmp").get_lsp_capabilities(),

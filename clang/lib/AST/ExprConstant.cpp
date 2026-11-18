@@ -12036,6 +12036,9 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
   };
 
   std::vector<PartialDiagnosticAt> Diagnostics;
+  PartialDiagnostic MacroCompletionOverflowDiagnostic(
+      diag::remark_macro_completion,
+      std::ref(Info.Ctx.getDiagAllocator()));
   bool LocatedDiagnosticMisuse = false;
   auto Diagnoser = [&](SourceLocation Loc,
                            diag::kind DiagID) -> PartialDiagnostic & {
@@ -12047,8 +12050,10 @@ bool ExprEvaluatorBase<Derived>::VisitCXXMetafunctionExpr(
       if (Info.EvaluatingMacroBody) {
         if (!Info.checkingPotentialConstantExpression() &&
             Info.SpeculativeEvaluationDepth == 0) {
-          if (IsCompletion && Info.MacroCompletionDiagnostics.size() >= 129)
-            return Info.MacroCompletionDiagnostics.back().second;
+          if (IsCompletion && Info.MacroCompletionDiagnostics.size() >= 129) {
+            MacroCompletionOverflowDiagnostic.Reset(DiagID);
+            return MacroCompletionOverflowDiagnostic;
+          }
           auto &Buffer = IsRole         ? Info.MacroRoleDiagnostics
                          : IsCompletion ? Info.MacroCompletionDiagnostics
                                         : Info.MacroLocatedDiagnostics;

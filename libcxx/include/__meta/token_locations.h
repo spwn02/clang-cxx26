@@ -106,8 +106,10 @@ consteval bool __complete(
     string_view __detail        = {},
     string_view __documentation = {}) {
   return __metafunction(
-      __detail::__metafn_macro_complete, __where, __label, __insert_text,
-      __kind, __detail, __documentation);
+      __detail::__metafn_macro_complete, __where, __label.size(),
+      __label.data(), __insert_text.size(), __insert_text.data(), __kind,
+      __detail.size(), __detail.data(), __documentation.size(),
+      __documentation.data());
 }
 
 // Roles are transported as private diagnostics and intercepted by clangd.
@@ -154,32 +156,50 @@ consteval auto __remove(token __begin, token __end) -> __diagnostic_fixit {
 consteval bool __error(token __where, string_view __message,
                        __diagnostic_fixit __fix = {}) {
   return __metafunction(__detail::__metafn_macro_located_error, __where,
-                        __message, __fix);
+                        __message.size(), __message.data(),
+                        static_cast<unsigned>(__fix.__operation), __fix.__first,
+                        __fix.__last, __fix.__replacement.size(),
+                        __fix.__replacement.data());
 }
 consteval bool __error(token __begin, token __end, string_view __message,
                        __diagnostic_fixit __fix = {}) {
   return __metafunction(__detail::__metafn_macro_located_error, __begin, __end,
-                        __message, __fix);
+                        __message.size(), __message.data(),
+                        static_cast<unsigned>(__fix.__operation), __fix.__first,
+                        __fix.__last, __fix.__replacement.size(),
+                        __fix.__replacement.data());
 }
 consteval bool __warning(token __where, string_view __message,
                          __diagnostic_fixit __fix = {}) {
   return __metafunction(__detail::__metafn_macro_located_warning, __where,
-                        __message, __fix);
+                        __message.size(), __message.data(),
+                        static_cast<unsigned>(__fix.__operation), __fix.__first,
+                        __fix.__last, __fix.__replacement.size(),
+                        __fix.__replacement.data());
 }
 consteval bool __warning(token __begin, token __end, string_view __message,
                          __diagnostic_fixit __fix = {}) {
   return __metafunction(__detail::__metafn_macro_located_warning, __begin,
-                        __end, __message, __fix);
+                        __end, __message.size(), __message.data(),
+                        static_cast<unsigned>(__fix.__operation), __fix.__first,
+                        __fix.__last, __fix.__replacement.size(),
+                        __fix.__replacement.data());
 }
 consteval bool __note(token __where, string_view __message,
                       __diagnostic_fixit __fix = {}) {
   return __metafunction(__detail::__metafn_macro_located_note, __where,
-                        __message, __fix);
+                        __message.size(), __message.data(),
+                        static_cast<unsigned>(__fix.__operation), __fix.__first,
+                        __fix.__last, __fix.__replacement.size(),
+                        __fix.__replacement.data());
 }
 consteval bool __note(token __begin, token __end, string_view __message,
                       __diagnostic_fixit __fix = {}) {
   return __metafunction(__detail::__metafn_macro_located_note, __begin, __end,
-                        __message, __fix);
+                        __message.size(), __message.data(),
+                        static_cast<unsigned>(__fix.__operation), __fix.__first,
+                        __fix.__last, __fix.__replacement.size(),
+                        __fix.__replacement.data());
 }
 
 // Fork extension: query the source coordinates carried by an individual

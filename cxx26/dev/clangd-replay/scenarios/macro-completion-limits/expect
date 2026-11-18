@@ -1,0 +1,8 @@
+computed-overflow must-contain hx_127
+computed-overflow never-contain hx_128
+computed-overflow must-contain hx_127
+computed-overflow never-contain hx_129
+computed-overflow must-contain hx_127
+computed-overflow never-contain label= 
+truncated-label must-contain hx_aaa
+truncated-label never-contain hx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaZ

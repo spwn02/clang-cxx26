@@ -35,7 +35,7 @@ main{max-width:940px;margin:0 auto;padding:2rem 1.4rem 5rem}h1,h2,h3{line-height
 </section>
 <section id="design"><h2>2. Design</h2>
 <h3>2.1 Token locations</h3>
-<p>The proposed library queries return source locations for the beginning and exclusive end of a token, and for the beginning and exclusive end of a token range. A token without a source location yields a default <code>source_location</code>; an empty range likewise has no location. For a diagnostic whose token location is absent or unusable, the diagnostic is attributed to the expression-macro invocation. For an end position whose token length was not retained by PCH or module serialization, an implementation may recover the end from a recoverable spelling; this is a quality-of-implementation choice, not a portable promise about exact columns.</p>
+<p>The proposed library queries return source locations for the beginning and exclusive end of a token, and for the beginning and exclusive end of a token range. A token without a source location yields a default <code>source_location</code>. For a diagnostic whose token location is absent or unusable, the diagnostic is attributed to the expression-macro invocation. For an end position whose token length was not retained by PCH or module serialization, an implementation may recover the end from a recoverable spelling; this is a quality-of-implementation choice, not a portable promise about exact columns.</p>
 <h3>2.2 Located reporting and evaluation</h3>
 <p>A macro can report an error, warning, or note on one token or an inclusive token range. A report can carry one optional fix-it: replace an inclusive token range, insert text after a token, or remove an inclusive token range. An implementation may discard a fix-it when its target is macro-produced or injected storage and cannot be represented as a safe file edit; the diagnostic itself remains.</p>
 <p>Each report records a diagnostic and does not itself terminate evaluation. Evaluation continues through later executed statements in the macro body. At completion, if at least one located error was recorded, the expansion fails and all returned expansion tokens are discarded. The implementation reports the recorded located diagnostics without an additional generic expansion-failure cascade. Warnings and notes alone do not fail the expansion. Ordinary evaluation failures retain their ordinary behavior; the continuation guarantee here concerns located error reports.</p>
@@ -62,6 +62,21 @@ __macro check_width(token_sequence ts) {
 }
 int value = check_width!(widht);</code></pre>
 <p>The proposed standard names below are illustrative and do not match the fork's reserved-name extension.</p>
+<h3>2.6 Example: a <code>try_</code>-style misuse check</h3>
+<p>P4380R1's <code>try_</code> example reports misuse with <code>std::constexpr_error_str</code>, which has no location. With located reports the same kind of check can point at the offending argument tokens and offer a note, and the macro keeps evaluating after the first report.</p>
+<pre><code>#include &lt;__meta/token_locations.h&gt;
+using std::meta::token_sequence;
+namespace mx = std::meta::__x;
+__macro try_value(token_sequence ts) {
+  if (ts.size() != 1) {
+    mx::__error(ts[0], ts[ts.size() - 1], &quot;try_value! expects exactly one token&quot;);
+    mx::__note(ts[0], &quot;wrap the expression in parentheses&quot;);
+    return ^^{ 0 };
+  }
+  return ^^{ \(ts) };
+}
+int a = try_value!(1 + 2);</code></pre>
+<p>In the fork this reports the error at the first token of the argument (<code>1</code>), with a note at the same token, and no further diagnostic such as "did not produce a token sequence"; the <code>0</code> is never injected.</p>
 </section>
 <section id="wording"><h2>3. Proposed wording</h2>
 <p><em>Draft wording relative to P4380R1 and P2758R5. Bracketed labels are placeholders for clause placement and numbering.</em></p>
@@ -73,7 +88,7 @@ int value = check_width!(widht);</code></pre>
   consteval source_location token_range_location_begin(token, token);
   consteval source_location token_range_location_end(token, token);
 }</code></pre>
-<p><em>Mandates:</em> The first and last arguments to a range query designate the first and last tokens of an inclusive token range. <em>Returns:</em> The source location of the beginning or exclusive end of the designated spelling. If the token has no source location, or a range is empty, returns a default-initialized <code>source_location</code>. An implementation is encouraged to recover an end location when serialized token length is unavailable and the spelling can be recovered.</p>
+<p><em>Mandates:</em> The first and last arguments to a range query designate the first and last tokens of an inclusive token range. <em>Returns:</em> The source location of the beginning or exclusive end of the designated spelling. If a token has no source location, returns a default-initialized <code>source_location</code>. An implementation is encouraged to recover an end location when serialized token length is unavailable and the spelling can be recovered.</p>
 <h3>[library] Reporting a diagnostic</h3>
 <blockquote><p>Add the following declarations to the reflection library synopsis. The fix-it descriptor is exposition-only here; the final API shape is an open question.</p></blockquote>
 <pre><code>namespace std::meta {
@@ -103,9 +118,10 @@ int value = check_width!(widht);</code></pre>
 </section>
 <section id="experience"><h2>4. Implementation experience</h2>
 <p><strong>Fork implementation, not proposed wording:</strong> the current implementation exposes the functions through <code>&lt;__meta/token_locations.h&gt;</code> in reserved namespace <code>std::meta::__x</code>, with double-underscore names such as <code>__token_begin</code>, <code>__error</code>, and <code>__replace</code>. The header is C++29-only and is not exported by <code>&lt;meta&gt;</code> or <code>import std;</code>. The proposed standard API above deliberately uses non-reserved names.</p>
+<p>In the fork, the message and the fix-it replacement text may be any constant string, including one computed in the macro body (a <code>std::string</code> built there, an element of a constexpr table); the compiler reads the characters through the constant evaluator, so the strings need not be literals. A string that cannot be read is diagnosed at the call.</p>
 <p>In the fork, a missing token location produces a default location for location queries, while an invalid diagnostic location falls back to the macro call. Token-end recovery after PCH/module serialization uses a recoverable spelling when possible; the fork's test describes serialized non-literal token lengths as unavailable. Exact token-end recovery across serialization is therefore implementation quality, not a portable guarantee. Fix-its are discarded when the target is macro-produced or injected storage.</p>
 <p>The fork's regression cases exercise one error, two errors in a single expansion, warning and note, invalid-location fallback, replace/insert/remove edits, rejected edits in macro storage, macros inside templates (behaviour unchanged), and the unchanged legacy message path. In its test, the legacy call still diagnoses <code>expression macro 'legacy_error' reported an error</code> at the invocation and carries its message note.</p>
-<p>On the implementing commit the full gate reported: 23 clangd replay scenarios with 0 failures; 1476 clangd unit tests; 46033 Clang tests passing; an LSP stress run of 60 iterations with 3456 navigation and 1902 completion requests and 0 failures; and 21800 cc1 injection-loop runs with 0 failures. These are test results, not performance measurements or evidence of user outcomes. Timing and broader user impact were not measured.</p>
+<p>On the implementing commit the full gate reported: 23 clangd replay scenarios with 0 failures; 1476 clangd unit tests; 46,033 Clang tests passing (one further test failed and was fixed by updating its list of expected warning-group names); an LSP stress run of 60 iterations with 3456 navigation and 1902 completion requests and 0 failures; and 21800 cc1 injection-loop runs with 0 failures. These are test results, not performance measurements or evidence of user outcomes. Timing and broader user impact were not measured.</p>
 </section>
 <section id="questions"><h2>5. Open questions and polls</h2>
 <ul>

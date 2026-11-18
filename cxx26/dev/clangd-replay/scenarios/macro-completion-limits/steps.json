@@ -1,0 +1,4 @@
+[
+  {"line":39,"col":24,"request":"textDocument/completion","match":"hx_12","label":"computed-overflow","pre":1500,"wait":1500},
+  {"line":40,"col":17,"request":"textDocument/completion","match":"hx_","label":"truncated-label","pre":300,"wait":1500}
+]

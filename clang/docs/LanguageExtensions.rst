@@ -1903,15 +1903,18 @@ These C++29-only APIs let a macro publish bounded, macro-authored candidates whi
 that contains the completion token. ``kind`` is one of ``text``, ``method``, ``property``, ``class_``, ``field``,
 ``variable``, ``keyword`` or ``value``; the optional detail and documentation are plain UTF-8 text. The editor replaces
 only the identifier prefix before the cursor: for ``data-f^``, insert ``foo`` rather than ``data-foo``. Completion
-inside string literals and comments is unavailable because lexing stops before the raw argument closes. Per expansion,
-at most 128 candidates are accepted; per request, at most 512 candidates and 64 KiB of text are copied. Labels are
-limited to 256 bytes, insertions to 4096 bytes, details to 1024 bytes and documentation to 4096 bytes. Oversize display
-text is truncated at a UTF-8 boundary; oversize insertion text is discarded.
+inside string literals and comments is unavailable because lexing stops before the raw argument closes. The message
+arguments to ``__error``, ``__warning`` and ``__note``, replacement text passed to ``__replace`` or ``__insert_after``,
+and ``__complete``'s label, insert text, detail and documentation may be computed constant strings; they do not need to
+come from string literals. Per expansion, at most 128 candidates are accepted; per request, at most 512 candidates and
+64 KiB of text are copied. Labels are limited to 256 bytes, insertions to 4096 bytes, details to 1024 bytes and
+documentation to 4096 bytes. Oversize display text is truncated at a UTF-8 boundary; oversize insertion text is
+discarded.
 A completion request that reaches clangd before the file's first preamble has been built may return only ordinary
 candidates.
 
 **Deviation note:** These APIs and their editor behavior are not specified by P2758 or P4380R1. They are a Clang fork
-extension pending a WG21 paper.
+extension pending a WG21 paper (drafts: ``cxx26/papers/``).
 
 .. _do_expressions:
 

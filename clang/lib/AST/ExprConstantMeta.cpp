@@ -988,10 +988,6 @@ static bool macro_located_note(APValue &Result, ASTContext &C,
                                DiagFn Diagnoser, bool AllowInjection,
                                QualType ResultTy, SourceRange Range,
                                ArrayRef<Expr *> Args, Decl *ContainingDecl);
-static bool macro_located_diagnostic(APValue &Result, ASTContext &C,
-                                     EvalFn Evaluator, DiagFn Diagnoser,
-                                     QualType ResultTy,
-                                     ArrayRef<Expr *> Args, diag::kind DiagID);
 static bool macro_token_role(APValue &Result, ASTContext &C, MetaActions &Meta,
                              EvalFn Evaluator, DiagFn Diagnoser,
                              bool AllowInjection, QualType ResultTy,
@@ -1008,6 +1004,9 @@ static bool macro_complete(APValue &Result, ASTContext &C, MetaActions &Meta,
                            bool AllowInjection, QualType ResultTy,
                            SourceRange Range, ArrayRef<Expr *> Args,
                            Decl *ContainingDecl);
+static bool readStringArguments(ASTContext &C, EvalFn Evaluator,
+                                SourceRange Range, Expr *LenArg, Expr *DataArg,
+                                std::string &Out);
 
 static constexpr Metafunction Metafunctions[] = {
   // Kind, MinArgs, MaxArgs, Impl
@@ -1179,12 +1178,12 @@ static constexpr Metafunction Metafunctions[] = {
   { Metafunction::MFRK_bool, 2, 2, tokens_equal },
   { Metafunction::MFRK_sourceLoc, 1, 1, token_begin_location },
   { Metafunction::MFRK_sourceLoc, 1, 1, token_end_location },
-  { Metafunction::MFRK_bool, 2, 4, macro_located_error },
-  { Metafunction::MFRK_bool, 2, 4, macro_located_warning },
-  { Metafunction::MFRK_bool, 2, 4, macro_located_note },
+  { Metafunction::MFRK_bool, 8, 9, macro_located_error },
+  { Metafunction::MFRK_bool, 8, 9, macro_located_warning },
+  { Metafunction::MFRK_bool, 8, 9, macro_located_note },
   { Metafunction::MFRK_bool, 3, 4, macro_token_role },
   { Metafunction::MFRK_bool, 1, 1, is_completion },
-  { Metafunction::MFRK_bool, 3, 6, macro_complete },
+  { Metafunction::MFRK_bool, 10, 10, macro_complete },
 };
 constexpr const unsigned NumMetafunctions = sizeof(Metafunctions) /
                                             sizeof(Metafunction);
@@ -2751,45 +2750,6 @@ static bool token_end_location(APValue &Result, ASTContext &C,
   return token_location(Result, C, Evaluator, ResultTy, Args, true);
 }
 
-// Read a constant std::string_view backed by a string literal or a named
-// constant initialized from one.
-static bool evaluateDiagnosticString(const APValue &Value,
-                                     std::string &Storage) {
-  if (!Value.isStruct() || Value.getStructNumFields() < 2)
-    return false;
-  uint64_t Length = Value.getStructField(1).getInt().getZExtValue();
-  if (Length == 0) {
-    Storage.clear();
-    return true;
-  }
-  const APValue &Data = Value.getStructField(0);
-  if (!Data.isLValue())
-    return false;
-  const auto &Base = Data.getLValueBase();
-  const Expr *BaseExpr = Base.dyn_cast<const Expr *>();
-  const auto *Literal = BaseExpr
-                            ? dyn_cast<StringLiteral>(
-                                  BaseExpr->IgnoreParenImpCasts())
-                            : nullptr;
-  if (!Literal) {
-    if (const auto *VD = Base.dyn_cast<const ValueDecl *>()) {
-      if (const auto *Var = dyn_cast<VarDecl>(VD)) {
-        const Expr *Init = Var->getInit();
-        Literal =
-            dyn_cast_or_null<StringLiteral>(Init->IgnoreParenImpCasts());
-      }
-    }
-  }
-  if (!Literal)
-    return false;
-
-  int64_t Offset = Data.getLValueOffset().getQuantity();
-  if (Offset < 0 || static_cast<uint64_t>(Offset) > Literal->getLength())
-    return false;
-  Storage = Literal->getString().substr(Offset, Length).str();
-  return true;
-}
-
 static std::optional<Token> tokenFromValue(const APValue &Value) {
   if (!Value.isTokenSequence() || Value.getTokenSequence().size() != 1)
     return std::nullopt;
@@ -2802,23 +2762,16 @@ static bool isUsableFileLoc(SourceLocation Loc, const SourceManager &SM) {
 }
 
 static std::optional<FixItHint>
-makeMacroDiagnosticFixIt(const APValue &Fix, ASTContext &C) {
-  if (!Fix.isStruct() || Fix.getStructNumFields() != 4)
-    return std::nullopt;
-
-  std::optional<Token> First = tokenFromValue(Fix.getStructField(1));
+makeMacroDiagnosticFixIt(uint64_t Operation, const APValue &FirstValue,
+                         const APValue &LastValue, StringRef Replacement,
+                         ASTContext &C) {
+  std::optional<Token> First = tokenFromValue(FirstValue);
   if (!First)
     return std::nullopt;
 
-  const uint64_t Operation =
-      Fix.getStructField(0).getInt().getZExtValue();
   const SourceManager &SM = C.getSourceManager();
   SourceLocation Begin = First->getLocation();
   if (!isUsableFileLoc(Begin, SM))
-    return std::nullopt;
-
-  std::string Replacement;
-  if (!evaluateDiagnosticString(Fix.getStructField(3), Replacement))
     return std::nullopt;
 
   if (Operation == 1) { // insert_after
@@ -2832,7 +2785,7 @@ makeMacroDiagnosticFixIt(const APValue &Fix, ASTContext &C) {
     return FixItHint::CreateInsertion(End, Replacement);
   }
 
-  std::optional<Token> Last = tokenFromValue(Fix.getStructField(2));
+  std::optional<Token> Last = tokenFromValue(LastValue);
   if (!Last || !isUsableFileLoc(Last->getLocation(), SM))
     return std::nullopt;
   SourceLocation End = getTokenSpellingEndLoc(*Last, C);
@@ -2853,38 +2806,53 @@ makeMacroDiagnosticFixIt(const APValue &Fix, ASTContext &C) {
 static bool macro_located_diagnostic(APValue &Result, ASTContext &C,
                                      EvalFn Evaluator, DiagFn Diagnoser,
                                      QualType ResultTy,
+                                     SourceRange Range,
                                      ArrayRef<Expr *> Args, diag::kind DiagID) {
   assert(ResultTy->isBooleanType());
 
   const bool IsRange = Args.size() >= 3 &&
                        Args[1]->getType()->isMetaTokenType();
   const unsigned MessageIndex = IsRange ? 2 : 1;
-  if (Args.size() < MessageIndex + 1)
-    return true;
 
-  std::optional<Token> First, Last;
-  if (!getSingleToken(Evaluator, Args[0], First))
+  std::optional<Token> TokenFirst, TokenLast;
+  if (!getSingleToken(Evaluator, Args[0], TokenFirst))
     return true;
-  if (IsRange && !getSingleToken(Evaluator, Args[1], Last))
+  if (IsRange && !getSingleToken(Evaluator, Args[1], TokenLast))
     return true;
 
   std::string Message;
-  APValue MessageValue;
-  if (!Evaluator(MessageValue, Args[MessageIndex], true) ||
-      !evaluateDiagnosticString(MessageValue, Message))
+  auto ReadString = [&](unsigned Index, const char *FailureMessage,
+                        std::string &Storage) {
+    if (readStringArguments(C, Evaluator, Range, Args[Index], Args[Index + 1],
+                            Storage))
+      return true;
+    Diagnoser(Args[Index]->getExprLoc(), diag::err_macro_located_error)
+        << FailureMessage;
+    return false;
+  };
+  if (!ReadString(MessageIndex,
+                  "macro diagnostic message argument is not a constant string",
+                  Message))
     return true;
 
-  SourceLocation Loc = First ? First->getLocation() : SourceLocation();
+  SourceLocation Loc = TokenFirst ? TokenFirst->getLocation() : SourceLocation();
   PartialDiagnostic &PD = Diagnoser(Loc, DiagID);
   PD << StringRef(Message);
 
-  const unsigned FixIndex = MessageIndex + 1;
-  if (FixIndex < Args.size()) {
-    APValue Fix;
-    if (Evaluator(Fix, Args[FixIndex], true))
-      if (std::optional<FixItHint> Hint = makeMacroDiagnosticFixIt(Fix, C))
-        PD.AddFixItHint(*Hint);
-  }
+  const unsigned FixIndex = MessageIndex + 2;
+  APValue Operation, FirstValue, LastValue;
+  std::string Replacement;
+  if (!Evaluator(Operation, Args[FixIndex], true) || !Operation.isInt() ||
+      !Evaluator(FirstValue, Args[FixIndex + 1], true) ||
+      !Evaluator(LastValue, Args[FixIndex + 2], true) ||
+      !ReadString(FixIndex + 3,
+                  "macro diagnostic replacement text argument is not a constant string",
+                  Replacement))
+    return true;
+  if (std::optional<FixItHint> Hint = makeMacroDiagnosticFixIt(
+          Operation.getInt().getZExtValue(), FirstValue, LastValue,
+          Replacement, C))
+    PD.AddFixItHint(*Hint);
 
   return SetAndSucceed(Result, makeBool(C, true));
 }
@@ -2895,7 +2863,7 @@ static bool macro_located_error(APValue &Result, ASTContext &C,
                                 QualType ResultTy, SourceRange Range,
                                 ArrayRef<Expr *> Args, Decl *ContainingDecl) {
   return macro_located_diagnostic(Result, C, Evaluator, Diagnoser, ResultTy,
-                                  Args, diag::err_macro_located_error);
+                                  Range, Args, diag::err_macro_located_error);
 }
 
 static bool macro_located_warning(APValue &Result, ASTContext &C,
@@ -2904,7 +2872,7 @@ static bool macro_located_warning(APValue &Result, ASTContext &C,
                                   QualType ResultTy, SourceRange Range,
                                   ArrayRef<Expr *> Args, Decl *ContainingDecl) {
   return macro_located_diagnostic(Result, C, Evaluator, Diagnoser, ResultTy,
-                                  Args, diag::warn_macro_located_warning);
+                                  Range, Args, diag::warn_macro_located_warning);
 }
 
 static bool macro_located_note(APValue &Result, ASTContext &C,
@@ -2913,7 +2881,7 @@ static bool macro_located_note(APValue &Result, ASTContext &C,
                                QualType ResultTy, SourceRange Range,
                                ArrayRef<Expr *> Args, Decl *ContainingDecl) {
   return macro_located_diagnostic(Result, C, Evaluator, Diagnoser, ResultTy,
-                                  Args, diag::note_macro_located_note);
+                                  Range, Args, diag::note_macro_located_note);
 }
 
 static bool macro_token_role(APValue &Result, ASTContext &C, MetaActions &Meta,
@@ -3042,19 +3010,27 @@ static bool macro_complete(APValue &Result, ASTContext &C, MetaActions &Meta,
   if (!Tok || !Tok->is(tok::code_completion))
     return SetAndSucceed(Result, makeBool(C, false));
 
-  APValue LabelValue, InsertValue, KindValue, DetailValue, DocValue;
+  APValue KindValue;
   std::string Label, Insert, Detail, Documentation;
-  if (!Evaluator(LabelValue, Args[1], true) ||
-      !evaluateDiagnosticString(LabelValue, Label) ||
-      !Evaluator(InsertValue, Args[2], true) ||
-      !evaluateDiagnosticString(InsertValue, Insert))
-    return true;
-  uint64_t Kind = 0;
-  if (Args.size() > 3) {
-    if (!Evaluator(KindValue, Args[3], true) || !KindValue.isInt())
+  auto ReadString = [&](unsigned Index, const char *FailureMessage,
+                        std::string &Storage) {
+    if (readStringArguments(C, Evaluator, Range, Args[Index], Args[Index + 1],
+                            Storage))
       return true;
-    Kind = KindValue.getInt().getZExtValue();
-  }
+    Diagnoser(Args[Index]->getExprLoc(), diag::err_macro_located_error)
+        << FailureMessage;
+    return false;
+  };
+  if (!ReadString(1, "macro completion label argument is not a constant string",
+                  Label) ||
+      !ReadString(
+          3,
+          "macro completion insert text argument is not a constant string",
+          Insert))
+    return true;
+  if (!Evaluator(KindValue, Args[5], true) || !KindValue.isInt())
+    return true;
+  uint64_t Kind = KindValue.getInt().getZExtValue();
   if (Kind > 7) {
     return SetAndSucceed(Result, makeBool(C, false));
   }
@@ -3062,11 +3038,13 @@ static bool macro_complete(APValue &Result, ASTContext &C, MetaActions &Meta,
     diagnoseMacroCompletionLimit(Diagnoser, Tok->getLocation());
     return SetAndSucceed(Result, makeBool(C, false));
   }
-  if (Args.size() > 4 && (!Evaluator(DetailValue, Args[4], true) ||
-                          !evaluateDiagnosticString(DetailValue, Detail)))
+  if (!ReadString(6, "macro completion detail argument is not a constant string",
+                  Detail))
     return true;
-  if (Args.size() > 5 && (!Evaluator(DocValue, Args[5], true) ||
-                          !evaluateDiagnosticString(DocValue, Documentation)))
+  if (!ReadString(
+          8,
+          "macro completion documentation argument is not a constant string",
+          Documentation))
     return true;
 
   bool Truncated =
