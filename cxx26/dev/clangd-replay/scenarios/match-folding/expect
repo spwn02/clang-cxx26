@@ -1,0 +1,4 @@
+# Folding is bracket based: a multi-line match body (braces) and a multi-line match(...) argument list both fold.
+fold-match must-contain 2-4
+fold-match must-contain 8-10
+fold-match must-contain 12-13
