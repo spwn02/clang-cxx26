@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>DXXXX R0: Located Diagnostics for Token Sequence Macros</title>
+<style>
+:root{color-scheme:light dark;--bg:#fff;--fg:#202124;--muted:#5c6470;--line:#cbd1d8;--panel:#f4f6f8;--link:#0759a5;--code:#f0f2f4}
+@media(prefers-color-scheme:dark){:root{--bg:#17191c;--fg:#e7e9ec;--muted:#a9b0b9;--line:#424850;--panel:#22262a;--link:#8abfff;--code:#24292f}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.58 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:940px;margin:0 auto;padding:2rem 1.4rem 5rem}h1,h2,h3{line-height:1.25}h1{font-size:2.05rem;margin:0 0 .6rem}h2{margin-top:2.6rem;padding-bottom:.35rem;border-bottom:1px solid var(--line)}h3{margin-top:1.7rem}a{color:var(--link)}code,pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}code{background:var(--code);padding:.08em .25em;border-radius:3px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:1rem;font-size:.9rem;line-height:1.45}.meta,.note{background:var(--panel);border:1px solid var(--line);padding:1rem 1.2rem;border-radius:6px}.meta p{margin:.2rem 0}.small{color:var(--muted);font-size:.94rem}table{border-collapse:collapse;width:100%;margin:1rem 0}th,td{border:1px solid var(--line);padding:.55rem .7rem;text-align:left;vertical-align:top}nav ol{columns:2;padding-left:1.4rem}@media(max-width:620px){nav ol{columns:1}body{font-size:16px}main{padding:1.2rem .9rem 3rem}}
+</style>
+</head>
+<body><main>
+<header>
+<h1>Located Diagnostics for Token Sequence Macros</h1>
+<div class="meta">
+<p><strong>Document #:</strong> DXXXX R0</p>
+<p><strong>Date:</strong> 2026-11-18</p>
+<p><strong>Audience:</strong> EWG / SG15 (tooling)</p>
+<p><strong>Reply-to:</strong> [AUTHOR NAME, AFFILIATION, EMAIL]</p>
+<p><strong>Status:</strong> Draft proposal; not adopted wording</p>
+</div>
+</header>
+<nav aria-label="Table of contents"><h2>Contents</h2><ol>
+<li><a href="#revision">Revision history</a></li><li><a href="#intro">Introduction and motivation</a></li><li><a href="#design">Design</a></li><li><a href="#wording">Proposed wording</a></li><li><a href="#experience">Implementation experience</a></li><li><a href="#questions">Open questions and polls</a></li><li><a href="#references">References</a></li>
+</ol></nav>
+<section id="revision"><h2>Revision history</h2><ul><li>R0 (2026-11-18): Initial draft.</li></ul></section>
+<section id="intro"><h2>1. Introduction and motivation</h2>
+<p>P4380R1 describes function-shaped expression macros that receive token sequences and return token sequences. Its examples use <code>std::constexpr_error_str</code> in macro bodies, and its <code>check!</code> example places a diagnostic caret under an argument token. The design paper says that errors in injected tokens still point to the correct location, but it does not specify a diagnostic-location API or the interaction between such a diagnostic and macro expansion.</p>
+<p>P2758R5 gives <code>std::constexpr_error_str</code> an effect during constant evaluation: it issues a diagnostic message and makes evaluation constexpr-erroneous. The associated wording says a constexpr-erroneous expression evaluated in a manifestly constant-evaluated context makes the program ill-formed, while the expression remains a core constant expression. That wording does not specify halting, a source location, or how multiple messages from one evaluation are reported. The message has no location component; tag strings support suppression or elevation.</p>
+<p>This paper proposes separate facilities for token-location queries and for diagnostics attached to macro input tokens. A macro can identify the source spelling that needs attention, report more than one issue in a single evaluation, and optionally offer a source edit. A located error is accumulated while the macro body continues; once evaluation completes, the expansion fails and its returned tokens are discarded. This avoids using an invalid expansion as a continuation after an error.</p>
+<p>The proposal is relative to P4380R1 and P2758R5 as design baselines. It does not amend the semantics of <code>std::constexpr_error_str</code>.</p>
+</section>
+<section id="design"><h2>2. Design</h2>
+<h3>2.1 Token locations</h3>
+<p>The proposed library queries return source locations for the beginning and exclusive end of a token, and for the beginning and exclusive end of a token range. A token without a source location yields a default <code>source_location</code>; an empty range likewise has no location. For a diagnostic whose token location is absent or unusable, the diagnostic is attributed to the expression-macro invocation. For an end position whose token length was not retained by PCH or module serialization, an implementation may recover the end from a recoverable spelling; this is a quality-of-implementation choice, not a portable promise about exact columns.</p>
+<h3>2.2 Located reporting and evaluation</h3>
+<p>A macro can report an error, warning, or note on one token or an inclusive token range. A report can carry one optional fix-it: replace an inclusive token range, insert text after a token, or remove an inclusive token range. An implementation may discard a fix-it when its target is macro-produced or injected storage and cannot be represented as a safe file edit; the diagnostic itself remains.</p>
+<p>Each report records a diagnostic and does not itself terminate evaluation. Evaluation continues through later executed statements in the macro body. At completion, if at least one located error was recorded, the expansion fails and all returned expansion tokens are discarded. The implementation reports the recorded located diagnostics without an additional generic expansion-failure cascade. Warnings and notes alone do not fail the expansion. Ordinary evaluation failures retain their ordinary behavior; the continuation guarantee here concerns located error reports.</p>
+<p>These facilities have effect only during non-speculative evaluation of an expression-macro body. A speculative evaluation records no diagnostic. Evaluating a call to one of these facilities outside an expression-macro body is ill-formed. A report referring to a token with no usable location falls back to the macro invocation.</p>
+<h3>2.3 Interaction with P2758R5</h3>
+<p><code>std::constexpr_error_str</code> remains as specified by P2758R5: it makes constant evaluation constexpr-erroneous and supplies a message without a token location. It is not converted into a buffered located report and retains its existing immediate behavior in the implementation experience described below. A macro may use either facility, but a P2758 message does not acquire a location merely because the call appears in a macro body. A located error has its own deferred-to-end-of-body failure rule. If the legacy facility terminates useful evaluation first, later located calls are not guaranteed to execute.</p>
+<h3>2.4 Design alternatives</h3>
+<table><thead><tr><th>Alternative</th><th>Reason not selected</th></tr></thead><tbody>
+<tr><td>Add an optional location argument to <code>constexpr_error_str</code>.</td><td>This couples a message facility whose P2758 semantics are constexpr-error based to token ownership and macro-specific buffering. It also leaves warning/note severities, fix-its, and multi-message continuation unresolved.</td></tr>
+<tr><td>Return a diagnostic list from a macro.</td><td>This changes the macro result shape and makes diagnostics a second output protocol every macro caller must handle. It also separates the reported source token from the evaluation that produced it.</td></tr>
+<tr><td>Use tag strings to classify located reports.</td><td>P2758 tag strings support diagnostic suppression or elevation but do not identify a token or source range. Encoding location or edit information in tags would give them unrelated responsibilities.</td></tr>
+<tr><td>Throw an exception, following an exception-based diagnostic design such as P3068.</td><td>An exception aborts the current evaluation path and cannot naturally accumulate several independent token diagnostics before the expansion is discarded. The proposal instead requires continued evaluation after a located error.</td></tr>
+</tbody></table>
+<h3>2.5 Example</h3>
+<p>The following uses the fork's current spelling to illustrate the proposed behavior. The invocation is intentionally diagnosed; the caret and replacement target the misspelled input token.</p>
+<pre><code>#include &lt;__meta/token_locations.h&gt;
+using std::meta::token_sequence;
+namespace mx = std::meta::__x;
+
+__macro check_width(token_sequence ts) {
+  (void)mx::__error(ts[0], "unknown attribute; did you mean 'width'?",
+                    mx::__replace(ts[0], ts[0], "width"));
+  return ^^{ \(ts) };
+}
+int value = check_width!(widht);</code></pre>
+<p>The proposed standard names below are illustrative and do not match the fork's reserved-name extension.</p>
+</section>
+<section id="wording"><h2>3. Proposed wording</h2>
+<p><em>Draft wording relative to P4380R1 and P2758R5. Bracketed labels are placeholders for clause placement and numbering.</em></p>
+<h3>[library] Token source locations</h3>
+<blockquote><p>Add declarations to the reflection library synopsis:</p></blockquote>
+<pre><code>namespace std::meta {
+  consteval source_location token_location_begin(token);
+  consteval source_location token_location_end(token);
+  consteval source_location token_range_location_begin(token, token);
+  consteval source_location token_range_location_end(token, token);
+}</code></pre>
+<p><em>Mandates:</em> The first and last arguments to a range query designate the first and last tokens of an inclusive token range. <em>Returns:</em> The source location of the beginning or exclusive end of the designated spelling. If the token has no source location, or a range is empty, returns a default-initialized <code>source_location</code>. An implementation is encouraged to recover an end location when serialized token length is unavailable and the spelling can be recovered.</p>
+<h3>[library] Reporting a diagnostic</h3>
+<blockquote><p>Add the following declarations to the reflection library synopsis. The fix-it descriptor is exposition-only here; the final API shape is an open question.</p></blockquote>
+<pre><code>namespace std::meta {
+  struct diagnostic_fixit {
+    enum class kind { replace, insert_after, remove };
+    kind operation;
+    token first;
+    token last;
+    string_view replacement;
+  };
+
+  consteval diagnostic_fixit replace_tokens(token, token, string_view);
+  consteval diagnostic_fixit insert_after(token, string_view);
+  consteval diagnostic_fixit remove_tokens(token, token);
+
+  consteval bool report_error(token, string_view, diagnostic_fixit = {});
+  consteval bool report_error(token, token, string_view, diagnostic_fixit = {});
+  consteval bool report_warning(token, string_view, diagnostic_fixit = {});
+  consteval bool report_warning(token, token, string_view, diagnostic_fixit = {});
+  consteval bool report_note(token, string_view, diagnostic_fixit = {});
+  consteval bool report_note(token, token, string_view, diagnostic_fixit = {});
+}</code></pre>
+<p><em>Mandates:</em> These functions are evaluated only as part of evaluation of an expression-macro body. Otherwise, the program is ill-formed. A call during speculative evaluation has no effect. <em>Effects:</em> Each call records one diagnostic of the specified severity and message, associated with the designated token or inclusive token range. If that designation has no usable source location, the diagnostic is associated with the expression-macro invocation. A fix-it is a request to replace or remove the designated inclusive token range, or to insert after the designated token; an implementation may omit a fix-it it cannot apply to source text.</p>
+<p><em>Evaluation:</em> Evaluation of the macro body continues after a call to <code>report_error</code>. If evaluation completes and one or more error diagnostics were recorded, the macro expansion fails and no tokens are injected from that expansion. The implementation emits the recorded diagnostics and does not emit a further diagnostic solely because the expansion failed. If no error diagnostic was recorded, the expansion result is processed as otherwise specified. A warning or note alone does not cause failure.</p>
+<h3>[expr.const] Relationship to constexpr messages</h3>
+<p>No change is proposed to the P2758R5 wording or semantics of <code>std::constexpr_error_str</code>. The location-aware functions above are distinct operations; a call to <code>std::constexpr_error_str</code> does not designate a token location.</p>
+</section>
+<section id="experience"><h2>4. Implementation experience</h2>
+<p><strong>Fork implementation, not proposed wording:</strong> the current implementation exposes the functions through <code>&lt;__meta/token_locations.h&gt;</code> in reserved namespace <code>std::meta::__x</code>, with double-underscore names such as <code>__token_begin</code>, <code>__error</code>, and <code>__replace</code>. The header is C++29-only and is not exported by <code>&lt;meta&gt;</code> or <code>import std;</code>. The proposed standard API above deliberately uses non-reserved names.</p>
+<p>In the fork, a missing token location produces a default location for location queries, while an invalid diagnostic location falls back to the macro call. Token-end recovery after PCH/module serialization uses a recoverable spelling when possible; the fork's test describes serialized non-literal token lengths as unavailable. Exact token-end recovery across serialization is therefore implementation quality, not a portable guarantee. Fix-its are discarded when the target is macro-produced or injected storage.</p>
+<p>The fork's regression cases exercise one error, two errors in a single expansion, warning and note, invalid-location fallback, replace/insert/remove edits, rejected edits in macro storage, macros inside templates (behaviour unchanged), and the unchanged legacy message path. In its test, the legacy call still diagnoses <code>expression macro 'legacy_error' reported an error</code> at the invocation and carries its message note.</p>
+<p>On the implementing commit the full gate reported: 23 clangd replay scenarios with 0 failures; 1476 clangd unit tests; 46033 Clang tests passing; an LSP stress run of 60 iterations with 3456 navigation and 1902 completion requests and 0 failures; and 21800 cc1 injection-loop runs with 0 failures. These are test results, not performance measurements or evidence of user outcomes. Timing and broader user impact were not measured.</p>
+</section>
+<section id="questions"><h2>5. Open questions and polls</h2>
+<ul>
+<li><strong>API naming:</strong> Should the standard use <code>token_location_begin</code>/<code>token_location_end</code> and <code>report_error</code>/<code>report_warning</code>/<code>report_note</code>, or names closer to the fork spellings?</li>
+<li><strong>Fix-it type:</strong> Should replace, insert-after, and remove be represented by one descriptor, overloads, or a smaller initial API? Should range endpoints be spelled as a token range abstraction rather than two tokens?</li>
+<li><strong>Location fallback:</strong> Is invocation fallback the right specified behavior for an unlocated token, or should the API require the caller to supply an explicit fallback?</li>
+<li><strong>Serialization:</strong> Should token end locations be specified only as an implementation quality, given that serialized token lengths may be unavailable?</li>
+<li><strong>Error continuation:</strong> Is continuing macro-body evaluation after a located error, then failing the expansion once the body completes, the desired rule?</li>
+<li><strong>Poll:</strong> Do we want to pursue the token-location and located-diagnostic facility for expression macros?</li>
+</ul>
+</section>
+<section id="references"><h2>6. References</h2>
+<ol>
+<li>P2758R5, <cite>Emitting messages at compile time</cite>, Revzin. Baseline semantics and wording quoted in the paper request.</li>
+<li>P4380R1, <cite>Token Sequence Injection</cite>, Revzin, Vandevoorde, and Alexandrescu, 2026-10-22. Design-paper baseline; no normative wording.</li>
+<li>Fork implementation: <code>libcxx/include/__meta/token_locations.h</code> and <code>clang/docs/LanguageExtensions.rst</code>, sections “Macro diagnostics and editor roles (fork extension)” and “Quote bodies in the editor (clangd)”.</li>
+<li>Regression coverage: <code>clang/test/Reflection/expression-macro-located-diagnostics.cpp</code>, <code>clang/test/PCH/macro-token-locations.cpp</code>, <code>clang/test/Modules/macro-token-locations.cppm</code>, and replay scenario <code>cxx26/dev/clangd-replay/scenarios/macro-located-diag</code>.</li>
+</ol>
+</section>
+</main></body></html>

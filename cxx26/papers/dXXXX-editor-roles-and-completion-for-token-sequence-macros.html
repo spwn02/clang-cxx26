@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>DXXXX R0: Editor Roles and Completion for Token Sequence Macros</title>
+<style>
+:root{color-scheme:light dark;--bg:#fff;--fg:#202124;--muted:#5c6470;--line:#cbd1d8;--panel:#f4f6f8;--link:#0759a5;--code:#f0f2f4}
+@media(prefers-color-scheme:dark){:root{--bg:#17191c;--fg:#e7e9ec;--muted:#a9b0b9;--line:#424850;--panel:#22262a;--link:#8abfff;--code:#24292f}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.58 system-ui,-apple-system,"Segoe UI",sans-serif}main{max-width:940px;margin:0 auto;padding:2rem 1.4rem 5rem}h1,h2,h3{line-height:1.25}h1{font-size:2.05rem;margin:0 0 .6rem}h2{margin-top:2.6rem;padding-bottom:.35rem;border-bottom:1px solid var(--line)}h3{margin-top:1.7rem}a{color:var(--link)}code,pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}code{background:var(--code);padding:.08em .25em;border-radius:3px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:1rem;font-size:.9rem;line-height:1.45}.meta,.note{background:var(--panel);border:1px solid var(--line);padding:1rem 1.2rem;border-radius:6px}.meta p{margin:.2rem 0}.small{color:var(--muted);font-size:.94rem}table{border-collapse:collapse;width:100%;margin:1rem 0}th,td{border:1px solid var(--line);padding:.55rem .7rem;text-align:left;vertical-align:top}nav ol{columns:2;padding-left:1.4rem}@media(max-width:620px){nav ol{columns:1}body{font-size:16px}main{padding:1.2rem .9rem 3rem}}
+</style>
+</head>
+<body><main>
+<header>
+<h1>Editor Roles and Completion for Token Sequence Macros</h1>
+<div class="meta">
+<p><strong>Document #:</strong> DXXXX R0</p>
+<p><strong>Date:</strong> 2026-11-18</p>
+<p><strong>Audience:</strong> EWG / SG15 (tooling)</p>
+<p><strong>Reply-to:</strong> [AUTHOR NAME, AFFILIATION, EMAIL]</p>
+<p><strong>Status:</strong> Draft proposal; not adopted wording</p>
+</div>
+</header>
+<nav aria-label="Table of contents"><h2>Contents</h2><ol>
+<li><a href="#revision">Revision history</a></li><li><a href="#intro">Introduction and motivation</a></li><li><a href="#design">Design</a></li><li><a href="#wording">Proposed wording</a></li><li><a href="#experience">Implementation experience</a></li><li><a href="#questions">Open questions and polls</a></li><li><a href="#references">References</a></li>
+</ol></nav>
+<section id="revision"><h2>Revision history</h2><ul><li>R0 (2026-11-18): Initial draft.</li></ul></section>
+<section id="intro"><h2>1. Introduction and motivation</h2>
+<p>P4380R1 describes expression macros that receive and return token sequences. A macro can therefore accept text whose grammar is not C++, such as markup in an <code>html!</code>-style invocation. The editor sees the raw argument tokens, but ordinary C++ parsing cannot assign useful C++ semantic colors or context-specific completion candidates to DSL tokens that the macro consumes.</p>
+<p>Some editor support already follows from the macro expansion: when raw argument tokens are injected into a C++ expansion, ordinary C++ completion can occur in that expansion context. The fork also provides navigation into quote bodies. Those facilities do not address raw DSL text that is dropped or transformed before it forms C++ syntax. This paper proposes a narrow channel for macro-authored token roles and completion candidates, with no change to program translation.</p>
+<p>These are editor hints. A compiler that does not provide an IDE interface can treat the role and candidate functions as no-ops; in such an implementation a completion token is never present in the macro's input.</p>
+</section>
+<section id="design"><h2>2. Design</h2>
+<h3>2.1 Token roles for highlighting</h3>
+<p>A macro may associate a token or token range with a role consisting of a kind and a set of modifiers. Roles help an editor highlight a DSL token as a type, property, parameter, or another supported semantic category. They do not affect parsing, constant evaluation, diagnostics, or the expansion result.</p>
+<p>Only roles from a final successful expansion are eligible for presentation. If distinct expansions assign different kinds or modifier sets to the same source token, an editor should drop that token's role rather than choose one interpretation. Role data attached to source tokens that are unavailable to the editor may simply be ignored. These rules keep the displayed role tied to the expansion that actually supplied the program text.</p>
+<h3>2.2 Macro-supplied completion</h3>
+<p>During an editor completion request, the macro can recognize a distinguished completion token in its raw argument. A dedicated predicate distinguishes it from ordinary tokens. The macro may then publish candidates containing a display label, inserted text, kind, optional detail, and optional documentation. Candidate generation is macro-authored: the implementation does not infer the grammar of the DSL.</p>
+<p>The editor replaces the identifier prefix immediately before the cursor. Therefore, for a cursor in <code>data-f^</code>, a candidate that inserts <code>data-foo</code> should publish <code>foo</code> as its insertion text. A candidate's label can remain <code>data-foo</code>. The location of the completion token selects which candidates apply; an implementation may impose per-expansion, per-request, and text-size caps.</p>
+<p>Completion inside string literals and comments is not required by this proposal. The fork implementation stops raw-argument lexing before the closing delimiter in these positions, so the macro does not receive a completion token there. This limitation is an implementation observation and a recommended initial scope for the wording.</p>
+<h3>2.3 Example</h3>
+<p>This example uses the fork's current private API spelling. At an editor cursor in the raw <code>html!</code> argument, the macro can assign a property role and publish attribute candidates. In an ordinary compilation, the completion token and candidate calls have no translation effect.</p>
+<pre><code>#include &lt;__meta/token_locations.h&gt;
+namespace mx = std::meta::__x;
+using std::meta::token_sequence;
+
+__macro html(token_sequence raw) {
+  for (std::meta::token t : raw) {
+    (void)mx::__role(t, mx::__semantic_token_kind::field);
+    if (mx::__is_completion(t)) {
+      (void)mx::__complete(t, "class", "class",
+                           mx::__completion_kind::property,
+                           "HTML attribute", "Class attribute");
+      (void)mx::__complete(t, "className", "className",
+                           mx::__completion_kind::property,
+                           "HTML attribute", "Class name attribute");
+    }
+  }
+  return ^^{ };
+}
+void render() { html!( &lt;div cla&gt; ); }</code></pre>
+<h3>2.4 Specification strategy</h3>
+<p>The normative core should be small: define the role and completion functions, and state that their effect is implementation-defined editor hints with no effect on translation. The standard should not require a particular editor protocol, semantic-token encoding, candidate ranking algorithm, or markup grammar. Recommended practice and a quality-of-implementation note can describe how tools expose roles and merge candidates.</p>
+<p>A non-IDE implementation conforms by making the functions no-ops for translation and by never supplying a completion token. It need not implement an editor transport or candidate UI.</p>
+<h3>2.5 Design alternatives</h3>
+<table><thead><tr><th>Alternative</th><th>Reason not selected</th></tr></thead><tbody>
+<tr><td>LSP-side grammar plugins, such as a separate grammar provider for macro DSLs.</td><td>This puts knowledge of each macro's language outside the macro definition and requires a second mapping from DSL source ranges to macro arguments. A macro-authored hint keeps the semantic choice with the code that recognizes the DSL.</td></tr>
+<tr><td>A separate IDE query function exported by each macro.</td><td>This creates a second macro interface and query lifecycle, separate from normal macro evaluation. It also needs a way to keep query results aligned with the exact current token sequence and cursor.</td></tr>
+<tr><td>Attributes on declarations or tokens.</td><td>Attributes can describe C++ entities, but raw DSL tokens may not become declarations or AST nodes. An attribute mechanism does not by itself carry completion candidates for a transient cursor in raw input.</td></tr>
+</tbody></table>
+</section>
+<section id="wording"><h2>3. Proposed wording</h2>
+<p><em>Draft wording relative to P4380R1. Bracketed labels are placeholders for clause placement and numbering. The interfaces below are examples of the proposed standard API; names and enum stability remain open.</em></p>
+<h3>[library] Editor role hints</h3>
+<pre><code>namespace std::meta {
+  enum class editor_role_kind : unsigned char;
+  enum class editor_role_modifier : unsigned;
+  consteval bool editor_role(token, editor_role_kind,
+                             editor_role_modifier = {});
+  consteval bool editor_role(token, token, editor_role_kind,
+                             editor_role_modifier = {});
+}</code></pre>
+<p><em>Effects:</em> These functions provide implementation-defined editor hints and have no effect on translation. A role designates one token or the inclusive token range from the first argument through the second. The set and interpretation of role kinds and modifiers are implementation-defined.</p>
+<h3>[library] Completion candidates</h3>
+<pre><code>namespace std::meta {
+  enum class completion_kind : unsigned char;
+  consteval bool is_completion_token(token);
+  consteval bool editor_completion(token, string_view label,
+                                   string_view insert_text,
+                                   completion_kind = {},
+                                   string_view detail = {},
+                                   string_view documentation = {});
+}</code></pre>
+<p><em>Effects:</em> These functions provide implementation-defined editor hints and have no effect on translation. <code>is_completion_token</code> returns true only for the distinguished token representing the active completion position, if one is supplied. <code>editor_completion</code> makes the supplied candidate available to an implementation-defined editor interface for the completion request containing that token. Implementations may bound the number and size of candidates.</p>
+<h3>[recommended practice] Editor presentation</h3>
+<ul>
+<li>An implementation should expose roles only for the final successful expansion that produced them.</li>
+<li>If successful expansions give conflicting roles to the same source token, an implementation should omit the role for that token.</li>
+<li>An implementation should not expose role or completion hints from an expansion that fails.</li>
+<li>A completion UI should replace the identifier prefix before the cursor with <code>insert_text</code>, while showing <code>label</code> as the candidate label. The implementation should preserve ordinary C++ completion results when it also presents macro-supplied candidates.</li>
+<li>Implementations may omit candidates whose location or text exceeds implementation-defined limits. Completion inside a string literal or comment is not required.</li>
+</ul>
+<h3>[note] Non-editor implementations</h3>
+<p>An implementation without an editor interface can make the hint functions have no effect on translation. Such an implementation need not create a distinguished completion token.</p>
+</section>
+<section id="experience"><h2>4. Implementation experience</h2>
+<p><strong>Fork implementation, not proposed wording:</strong> the fork declares its current APIs in <code>&lt;__meta/token_locations.h&gt;</code>, in reserved namespace <code>std::meta::__x</code>. Role APIs are named <code>__role</code>; role kinds and modifiers use private enums. Completion uses <code>__is_completion</code>, <code>__complete</code>, and <code>__completion_kind</code>. This spelling and transport are not proposed for standard wording.</p>
+<p>In the fork, clangd receives roles through private remark diagnostics that it intercepts and hides. It applies roles only for successful expansions. If different expansions assign conflicting roles to one token, clangd drops that role. A fatal error suppresses role hints, and role data on tokens stored in PCH files or named modules is not shown. Roles for tokens outside the main file are ignored for main-file highlighting.</p>
+<p>Macro-supplied completion is collected during a completion parse and merged into the editor result. The fork caps candidates at 128 per expansion and 512 per request; labels at 256 bytes, insertion text at 4096 bytes, detail at 1024 bytes, documentation at 4096 bytes, and total copied text at 64 KiB. Display strings can be truncated at UTF-8 boundaries; insertion text over its limit is discarded. The editor replaces the identifier prefix preceding the cursor. Candidates are unavailable inside string literals and comments. A completion request reaching clangd before the file's first preamble has been built may return only ordinary candidates.</p>
+<p>The implementation's replay and tests cover a raw HTML-like argument, role conflict and failure cases, injected-token completion, and DSL completion that drops the completion token from C++ output. On the implementing commit the full gate reported 23 replay scenarios with 0 failures; 1476 clangd unit tests; 46033 Clang tests passing; and an LSP stress run of 60 iterations with 3456 navigation and 1902 completion requests and 0 failures. The cc1 injection-loop result is 21800 runs with 0 failures. These figures are test results, not measurements of editor latency, adoption, or user benefit; those outcomes were not measured.</p>
+<p>The transport, diagnostic interception, and clangd merge described above are implementation experience only. They are explicitly not part of the proposed wording.</p>
+</section>
+<section id="questions"><h2>5. Open questions and polls</h2>
+<ul>
+<li><strong>Enum stability:</strong> Should role and completion kinds be implementation-defined, or should the standard define a stable common set with an extension mechanism?</li>
+<li><strong>Names:</strong> Are <code>editor_role</code>, <code>is_completion_token</code>, and <code>editor_completion</code> suitable names, or should these facilities live under a different reflection-library naming scheme?</li>
+<li><strong>Role scope:</strong> Should a role be permitted on a token that the successful expansion also uses in its returned C++ tokens, or only on tokens whose editor meaning differs from the generated C++ meaning?</li>
+<li><strong>Conflicts:</strong> Should conflicting roles from successful expansions be dropped, combined, or resolved by a specified precedence rule?</li>
+<li><strong>Candidate limits:</strong> Should the standard specify any upper bounds, or leave all limits to implementations and recommended practice?</li>
+<li><strong>Candidate scope:</strong> Should completion candidates from nested successful expansions be combined when they refer to the same cursor?</li>
+<li><strong>Poll:</strong> Do we want standard facilities for token roles and macro-supplied completion as implementation-defined editor hints?</li>
+</ul>
+</section>
+<section id="references"><h2>6. References</h2>
+<ol>
+<li>P4380R1, <cite>Token Sequence Injection</cite>, Barry Revzin, Daveed Vandevoorde, and Andrei Alexandrescu, 2026-10-22. Design-paper baseline; no normative wording.</li>
+<li>Fork implementation: <code>libcxx/include/__meta/token_locations.h</code> and <code>clang/docs/LanguageExtensions.rst</code>, sections “Macro diagnostics and editor roles (fork extension)” and “Quote bodies in the editor (clangd)”.</li>
+<li>Regression coverage: <code>clang/test/Reflection/expression-macro-token-roles.cpp</code>, <code>clang/test/CodeCompletion/cxx29-macro-supplied-completion.cpp</code>, <code>clang/test/PCH/macro-token-locations.cpp</code>, and replay scenarios <code>cxx26/dev/clangd-replay/scenarios/macro-token-roles</code>, <code>macro-supplied-completion</code>, and <code>quote-body-nav</code>.</li>
+<li>Stress harness: <code>cxx26/dev/clangd-stress</code>.</li>
+</ol>
+</section>
+</main></body></html>
