@@ -114,6 +114,16 @@ raw_ostream &syntax::operator<<(raw_ostream &OS, NodeRole R) {
     return OS << "Subject";
   case syntax::NodeRole::Case:
     return OS << "Case";
+  case syntax::NodeRole::CaseKeyword:
+    return OS << "CaseKeyword";
+  case syntax::NodeRole::EqualSign:
+    return OS << "EqualSign";
+  case syntax::NodeRole::ConstexprKeyword:
+    return OS << "ConstexprKeyword";
+  case syntax::NodeRole::ResultType:
+    return OS << "ResultType";
+  case syntax::NodeRole::NotReturnKeyword:
+    return OS << "NotReturnKeyword";
   }
   llvm_unreachable("invalid role");
 }

@@ -1931,10 +1931,17 @@ public:
         Builder.markChildToken(DelimiterToken, syntax::NodeRole::ListDelimiter);
     }
     auto *Parameters = new (allocator()) syntax::ParameterDeclarationList;
-    if (!Params.empty())
-      Builder.foldNode(Builder.getRange(Params.front()->getBeginLoc(),
-                                        Params.back()->getEndLoc()),
+    if (!Params.empty()) {
+      // The comma after the last parameter ('void f(int, ...)') is a delimiter
+      // of this list as well; leave it out and it stays a stray child of
+      // ParametersAndQualifiers.
+      SourceLocation End = Params.back()->getEndLoc();
+      const auto *Next = std::next(Builder.findToken(End));
+      if (Next->kind() == clang::tok::comma)
+        End = Next->location();
+      Builder.foldNode(Builder.getRange(Params.front()->getBeginLoc(), End),
                        Parameters, nullptr);
+    }
     return Parameters;
   }
 
@@ -2264,6 +2271,16 @@ public:
     if (CaseToken->kind() != tok::kw_case ||
         ArrowToken->kind() != tok::equalgreater)
       return;
+    if (C.isNonReturning() && Builder.isTokenStart(C.NotReturnLoc)) {
+      const syntax::Token *NotToken = Builder.findToken(C.NotReturnLoc);
+      const syntax::Token *ReturnToken = std::next(NotToken);
+      if (NotToken->kind() == tok::exclaim &&
+          ReturnToken->kind() == tok::kw_return) {
+        Builder.markChildToken(NotToken, syntax::NodeRole::NotReturnKeyword);
+        Builder.markChildToken(ReturnToken,
+                               syntax::NodeRole::NotReturnKeyword);
+      }
+    }
     if (C.Guard.hasGuard() && Builder.isTokenStart(C.IfLoc)) {
       Builder.markChildToken(C.IfLoc, syntax::NodeRole::IntroducerKeyword);
       auto *Guard = new (allocator()) syntax::MatchGuard;
@@ -2349,6 +2366,23 @@ public:
     markSubjects(S);
     Builder.markChildToken(S->getMatchLoc(),
                            syntax::NodeRole::IntroducerKeyword);
+    const syntax::Token *MatchToken = Builder.findToken(S->getMatchLoc());
+    if (S->isConstexpr() && std::next(MatchToken)->kind() == tok::kw_constexpr)
+      Builder.markChildToken(std::next(MatchToken),
+                             syntax::NodeRole::ConstexprKeyword);
+    TypeLoc ResultType = S->getOrigResultType();
+    SourceRange ResultRange = ResultType.getSourceRange();
+    if (ResultType && ResultRange.isValid() &&
+        Builder.isTokenStart(ResultRange.getBegin())) {
+      ArrayRef<syntax::Token> TypeTokens = Builder.getRange(ResultRange);
+      if (!TypeTokens.empty()) {
+        const syntax::Token *ArrowToken = TypeTokens.begin() - 1;
+        if (ArrowToken->kind() == tok::arrow)
+          Builder.markChildToken(ArrowToken, syntax::NodeRole::ArrowToken);
+        for (const syntax::Token &Token : TypeTokens)
+          Builder.markChildToken(&Token, syntax::NodeRole::ResultType);
+      }
+    }
     Builder.markChildToken(S->getBraces().getBegin(),
                            syntax::NodeRole::OpenParen);
     Builder.markChildToken(S->getBraces().getEnd(),
@@ -2371,6 +2405,10 @@ public:
     markSubjects(E);
     Builder.markChildToken(E->getMatchLoc(),
                            syntax::NodeRole::IntroducerKeyword);
+    const syntax::Token *CaseToken =
+        std::prev(Builder.findToken(E->getPattern()->getBeginLoc()));
+    if (CaseToken->kind() == tok::kw_case)
+      Builder.markChildToken(CaseToken, syntax::NodeRole::CaseKeyword);
     if (syntax::Tree *Pattern = patternNode(E->getPattern()))
       Builder.markChild(Pattern, syntax::NodeRole::Pattern);
     Builder.foldNode(Builder.getExprRange(E),
@@ -2382,6 +2420,10 @@ public:
     markSubjects(E);
     Builder.markChildToken(E->getMatchLoc(),
                            syntax::NodeRole::IntroducerKeyword);
+    const syntax::Token *EqualToken =
+        std::next(Builder.findToken(E->getPattern()->getEndLoc()));
+    if (EqualToken->kind() == tok::equal)
+      Builder.markChildToken(EqualToken, syntax::NodeRole::EqualSign);
     if (syntax::Tree *Pattern = patternNode(E->getPattern()))
       Builder.markChild(Pattern, syntax::NodeRole::Pattern);
     Builder.foldNode(Builder.getExprRange(E),

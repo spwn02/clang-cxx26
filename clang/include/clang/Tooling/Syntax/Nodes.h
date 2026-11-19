@@ -112,7 +112,12 @@ enum class NodeRole : uint8_t {
   Elements,
   Guard,
   Subject,
-  Case
+  Case,
+  CaseKeyword,
+  EqualSign,
+  ConstexprKeyword,
+  ResultType,
+  NotReturnKeyword
 };
 /// For debugging purposes.
 raw_ostream &operator<<(raw_ostream &OS, NodeRole R);

@@ -156,6 +156,91 @@ MatchSelectionExpression ReturnValue
 )txt"}));
 }
 
+TEST_P(BuildSyntaxTreeMatchTest, ParameterListCommaRoles) {
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
+      R"cpp(
+void ordinary([[int a, int b]]);
+void defaults([[int a = 1, int b = 2]]);
+template <class... Ts> void pack([[Ts... values, int tail]]);
+)cpp",
+      {R"txt(
+ParameterDeclarationList Parameters
+|-SimpleDeclaration ListElement
+| |-'int'
+| `-DeclaratorList Declarators
+|   `-SimpleDeclarator ListElement
+|     `-'a'
+|-',' ListDelimiter
+`-SimpleDeclaration ListElement
+  |-'int'
+  `-DeclaratorList Declarators
+    `-SimpleDeclarator ListElement
+      `-'b'
+)txt",
+       R"txt(
+ParameterDeclarationList Parameters
+|-SimpleDeclaration ListElement
+| |-'int'
+| `-DeclaratorList Declarators
+|   `-SimpleDeclarator ListElement
+|     |-'a'
+|     |-'='
+|     `-IntegerLiteralExpression
+|       `-'1' LiteralToken
+|-',' ListDelimiter
+`-SimpleDeclaration ListElement
+  |-'int'
+  `-DeclaratorList Declarators
+    `-SimpleDeclarator ListElement
+      |-'b'
+      |-'='
+      `-IntegerLiteralExpression
+        `-'2' LiteralToken
+)txt",
+       R"txt(
+ParameterDeclarationList Parameters
+|-SimpleDeclaration ListElement
+| |-'Ts'
+| |-'...'
+| `-DeclaratorList Declarators
+|   `-SimpleDeclarator ListElement
+|     `-'values'
+|-',' ListDelimiter
+`-SimpleDeclaration ListElement
+  |-'int'
+  `-DeclaratorList Declarators
+    `-SimpleDeclarator ListElement
+      `-'tail'
+)txt"}));
+}
+
+TEST_P(BuildSyntaxTreeMatchTest, VariadicParameterCommaRole) {
+  EXPECT_TRUE(treeDumpEqual(
+      R"cpp(
+void f(int value, ...);
+)cpp",
+      R"txt(
+TranslationUnit Detached
+`-SimpleDeclaration
+  |-'void'
+  |-DeclaratorList Declarators
+  | `-SimpleDeclarator ListElement
+  |   |-'f'
+  |   `-ParametersAndQualifiers
+  |     |-'(' OpenParen
+  |     |-ParameterDeclarationList Parameters
+  |     | |-SimpleDeclaration ListElement
+  |     | | |-'int'
+  |     | | `-DeclaratorList Declarators
+  |     | |   `-SimpleDeclarator ListElement
+  |     | |     `-'value'
+  |     | `-',' ListDelimiter
+  |     |-'...'
+  |     `-')' CloseParen
+  `-';'
+)txt"));
+}
+
 // A match selection statement is a statement of its own (no `;` follows the
 // closing brace); patterns are not expressions: an or-pattern is a list of
 // patterns, a declaration pattern holds a declaration, and a guard is a node.
@@ -271,7 +356,7 @@ MatchTestExpression ReturnValue
 | `-UnqualifiedId UnqualifiedId
 |   `-'a'
 |-','
-|-'case'
+|-'case' CaseKeyword
 |-OrPattern Pattern
 | `-PatternAlternatives Alternatives
 |   |-ExpressionPattern ListElement
@@ -316,7 +401,7 @@ IfStatement Statement
 |     |   `-DeclaratorList Declarators
 |     |     `-SimpleDeclarator ListElement
 |     |       `-'x'
-|     |-'='
+|     |-'=' EqualSign
 |     `-IdExpression Subject
 |       `-UnqualifiedId UnqualifiedId
 |         `-'a'
@@ -356,7 +441,7 @@ WhileStatement Statement
 | |   `-DeclaratorList Declarators
 | |     `-SimpleDeclarator ListElement
 | |       `-'y'
-| |-'='
+| |-'=' EqualSign
 | `-IdExpression Subject
 |   `-UnqualifiedId UnqualifiedId
 |     `-'a'
@@ -400,7 +485,7 @@ ForStatement Statement
 | |   `-DeclaratorList Declarators
 | |     `-SimpleDeclarator ListElement
 | |       `-'z'
-| |-'='
+| |-'=' EqualSign
 | `-IdExpression Subject
 |   `-UnqualifiedId UnqualifiedId
 |     `-'i'
@@ -731,19 +816,20 @@ TEST_P(BuildSyntaxTreeMatchTest, PreambleAndResultType) {
   EXPECT_TRUE(treeDumpEqualOnAnnotations(
       R"cpp(
 int test(int a) {
-  return [[match (a) -> long { using I = long; case _ => 1; }]];
+  return [[match constexpr (a) -> long { using I = long; case _ => not return 1; }]];
 }
 )cpp",
       {R"txt(
 MatchSelectionExpression ReturnValue
 |-'match' IntroducerKeyword
+|-'constexpr' ConstexprKeyword
 |-'('
 |-IdExpression Subject
 | `-UnqualifiedId UnqualifiedId
 |   `-'a'
 |-')'
-|-'->'
-|-'long'
+|-'->' ArrowToken
+|-'long' ResultType
 |-'{' OpenParen
 |-DeclarationStatement Statement
 | |-TypeAliasDeclaration
@@ -757,6 +843,8 @@ MatchSelectionExpression ReturnValue
 | |-WildcardPattern Pattern
 | | `-'_' Wildcard
 | |-'=>' ArrowToken
+| |-'not' NotReturnKeyword
+| |-'return' NotReturnKeyword
 | `-ExpressionStatement Statement
 |   |-IntegerLiteralExpression Expression
 |   | `-'1' LiteralToken
@@ -1374,7 +1462,7 @@ MatchSelectionStatement Statement
 )txt"}));
 }
 
-// `not return` is not modelled (its tokens are leaves).
+// `not return` is represented by role-bearing keyword leaves.
 TEST_P(BuildSyntaxTreeMatchTest, NotReturnHandler) {
   EXPECT_TRUE(treeDumpEqualOnAnnotations(
       R"cpp(
@@ -1390,8 +1478,8 @@ MatchSelectionExpression ReturnValue
 | `-UnqualifiedId UnqualifiedId
 |   `-'a'
 |-')'
-|-'->'
-|-'int'
+|-'->' ArrowToken
+|-'int' ResultType
 |-'{' OpenParen
 |-MatchCase Case
 | |-'case' IntroducerKeyword
@@ -1399,8 +1487,8 @@ MatchSelectionExpression ReturnValue
 | | `-IntegerLiteralExpression Expression
 | |   `-'1' LiteralToken
 | |-'=>' ArrowToken
-| |-'not'
-| |-'return'
+| |-'not' NotReturnKeyword
+| |-'return' NotReturnKeyword
 | `-ExpressionStatement Statement
 |   |-UnknownExpression Expression
 |   | |-'throw'
