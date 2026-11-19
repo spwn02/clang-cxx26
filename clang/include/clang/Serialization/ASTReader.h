@@ -2193,8 +2193,30 @@ public:
   /// result type.
   template <typename T>
   T *ReadDeclAs(ModuleFile &F, const RecordDataImpl &R, unsigned &I) {
-    return cast_or_null<T>(GetDecl(ReadDeclID(F, R, I)));
+    Decl *D = GetDecl(ReadDeclID(F, R, I));
+    if (!D)
+      return nullptr;
+    if (T *Result = dyn_cast<T>(D))
+      return Result;
+    // The ID names a declaration of another kind: the module file refers to
+    // a dependency that was rebuilt (C++20 named-module imports record no
+    // signature of what they import). Diagnose instead of asserting.
+    diagnoseUnexpectedDeclKind(D);
+    return nullptr;
   }
+
+  /// Reports that a declaration read from a module file has an unexpected
+  /// kind, which means the module file is out of date with its dependencies.
+  void diagnoseUnexpectedDeclKind(const Decl *D) const;
+
+  /// As above, for an entity that is not a declaration.
+  void diagnoseUnexpectedKind() const;
+
+  /// When set, the process exits right after reporting an entity of an
+  /// unexpected kind in a module file. The reader cannot recover from it (the
+  /// null results it would return make later reads fail in unrelated ways),
+  /// so a one-shot compiler stops there; long-lived tools leave it unset.
+  static void setExitOnUnexpectedKind(bool Exit);
 
   /// If any redeclarations of \p D have been imported since it was
   /// last checked, this digs out those redeclarations and adds them to the

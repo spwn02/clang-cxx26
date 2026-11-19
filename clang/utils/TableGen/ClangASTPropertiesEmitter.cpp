@@ -762,10 +762,11 @@ ASTPropsEmitter::emitBasicReaderWriterTemplate(const ReaderWriterInfo &info) {
     } else if (PropertyType superclass = type.getSuperclassType()) {
       enterMethod("value");
       if (info.IsReader)
-        Out << "    return cast_or_null<" << type.getSubclassClassName()
-                                          << ">(asImpl().read"
-                                          << superclass.getAbstractTypeName()
-                                          << "());\n";
+        // A checked cast: a module file that is out of date with the module
+        // files it imports can name an entity of another kind.
+        Out << "    return asImpl().template readCheckedCast<"
+            << type.getSubclassClassName() << ">(asImpl().read"
+            << superclass.getAbstractTypeName() << "());\n";
       else
         Out << "    asImpl().write" << superclass.getAbstractTypeName()
                                     << "(value);\n";

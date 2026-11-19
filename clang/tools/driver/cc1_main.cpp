@@ -26,6 +26,7 @@
 #include "clang/Frontend/Utils.h"
 #include "clang/FrontendTool/Utils.h"
 #include "clang/Options/Options.h"
+#include "clang/Serialization/ASTReader.h"
 #include "clang/Serialization/ObjectFilePCHContainerReader.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"
@@ -218,6 +219,10 @@ static int PrintEnabledExtensions(const TargetOptions& TargetOpts) {
 
 int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   ensureSufficientStack();
+
+  // A one-shot compiler cannot recover from a module file that is out of date
+  // with the module files it imports; stop at the first diagnostic.
+  ASTReader::setExitOnUnexpectedKind(true);
 
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID = DiagnosticIDs::create();
 

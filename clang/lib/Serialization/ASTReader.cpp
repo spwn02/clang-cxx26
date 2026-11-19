@@ -119,6 +119,7 @@
 #include "llvm/Support/LEB128.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/Signals.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/Timer.h"
@@ -126,6 +127,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
 #include <algorithm>
+#include <atomic>
+#include <cstdlib>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -1624,6 +1627,37 @@ bool ASTReader::ReadSpecializations(ModuleFile &M, BitstreamCursor &Cursor,
   auto *Data = (const unsigned char *)Blob.data();
   AddSpecializations(D, Data, M, IsPartial);
   return false;
+}
+
+static std::atomic<bool> ExitOnUnexpectedKind{false};
+
+void ASTReader::setExitOnUnexpectedKind(bool Exit) {
+  ExitOnUnexpectedKind = Exit;
+}
+
+static void exitIfRequested() {
+  if (!ExitOnUnexpectedKind)
+    return;
+  // Process::Exit would be reported as a crash by the crash recovery context
+  // an in-process cc1 runs under, so leave directly after removing the
+  // partial output files that are registered for removal.
+  llvm::errs().flush();
+  llvm::sys::RunInterruptHandlers();
+  std::_Exit(1);
+}
+
+void ASTReader::diagnoseUnexpectedDeclKind(const Decl *D) const {
+  Error(("declaration of unexpected kind '" + Twine(D->getDeclKindName()) +
+         "' read from a module file; the module file is out of date with "
+         "the module files it imports")
+            .str());
+  exitIfRequested();
+}
+
+void ASTReader::diagnoseUnexpectedKind() const {
+  Error("entity of unexpected kind read from a module file; the module file is "
+        "out of date with the module files it imports");
+  exitIfRequested();
 }
 
 void ASTReader::Error(StringRef Msg) const {
@@ -10244,6 +10278,8 @@ ASTRecordReader::readNestedNameSpecifierLoc() {
     case NestedNameSpecifier::Kind::Namespace: {
       auto *NS = readDeclAs<NamespaceBaseDecl>();
       SourceRange Range = readSourceRange();
+      if (!NS)
+        return NestedNameSpecifierLoc();
       Builder.Extend(Context, NS, Range.getBegin(), Range.getEnd());
       break;
     }

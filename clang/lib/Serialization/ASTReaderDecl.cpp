@@ -622,6 +622,12 @@ void ASTDeclReader::VisitDecl(Decl *D) {
     auto *SemaDC = readDeclAs<DeclContext>();
     auto *LexicalDC =
         HasStandaloneLexicalDC ? readDeclAs<DeclContext>() : nullptr;
+    // A declaration of the wrong kind was already diagnosed (a module file
+    // that is out of date with its imports); keep reading with the
+    // translation unit as a placeholder so the error is not followed by a
+    // crash.
+    if (!SemaDC)
+      SemaDC = Reader.getContext().getTranslationUnitDecl();
     if (!LexicalDC)
       LexicalDC = SemaDC;
     // If the context is a class, we might not have actually merged it yet, in

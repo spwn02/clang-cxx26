@@ -191,6 +191,19 @@ public:
   Decl *readDecl() {
     return Reader->ReadDecl(*F, Record, Idx);
   }
+  /// Casts a value read from the record to \p To. A value of another kind
+  /// means the module file is out of date with the module files it imports:
+  /// diagnose it and return null instead of asserting (or mis-casting in a
+  /// build without assertions).
+  template <class To, class From> To *readCheckedCast(From *V) {
+    if (!V)
+      return nullptr;
+    if (To *Result = dyn_cast<To>(V))
+      return Result;
+    Reader->diagnoseUnexpectedKind();
+    return nullptr;
+  }
+
   Decl *readDeclRef() {
     return readDecl();
   }

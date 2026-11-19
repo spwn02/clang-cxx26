@@ -6,9 +6,10 @@
 # Builds `std`, a project module P (partition P:Concepts + primary P) against it, then a
 # second `std` built from different sources, and compiles an importer of P against the
 # NEW std with the OLD P files. C++20 named-module imports store no signature of the
-# module they import, so the mismatch is not detected: expected result today is an
-# assertion failure in the AST reader (clang::ASTRecordReader::readNestedNameSpecifierLoc),
-# the wanted result is an "out of date" diagnostic. Exit 0: diagnosed; 1: crashed.
+# module they import, so the mismatch is not detected up front. Before #486 was hardened
+# the AST reader asserted (clang::ASTRecordReader::readNestedNameSpecifierLoc); now it
+# reports 'module file is out of date with the module files it imports' and cc1 stops.
+# Exit 0: diagnosed; 1: crashed.
 set -u
 clangxx=$(realpath "$1"); lcx=$(realpath "$2"); lcxinc=$(realpath "$3")
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT; cd "$work"
