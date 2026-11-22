@@ -112,6 +112,7 @@ enum class NodeRole : uint8_t {
   Elements,
   Guard,
   Subject,
+  Subjects,
   Case,
   CaseKeyword,
   EqualSign,
@@ -389,6 +390,16 @@ public:
   std::vector<List::ElementAndDelimiter<Pattern>> getElementsAndCommas();
 };
 
+/// The comma separated subjects of a match selection or test:
+/// `match (<subjects>)`. (P2688, C++29)
+class MatchSubjects final : public List {
+public:
+  MatchSubjects() : List(NodeKind::MatchSubjects) {}
+  static bool classof(const Node *N);
+  std::vector<Expression *> getSubjects();
+  std::vector<List::ElementAndDelimiter<Expression>> getSubjectsAndCommas();
+};
+
 /// The guard of a match case: `if (<init-statement>? <condition>)`.
 /// (P2688, C++29)
 class MatchGuard final : public Tree {
@@ -418,6 +429,7 @@ public:
   MatchSelectionExpression() : Expression(NodeKind::MatchSelectionExpression) {}
   static bool classof(const Node *N);
   Leaf *getMatchKeyword();
+  MatchSubjects *getSubjectList();
   std::vector<Expression *> getSubjects();
   std::vector<MatchCase *> getCases();
 };
@@ -430,6 +442,7 @@ public:
   MatchSelectionStatement() : Statement(NodeKind::MatchSelectionStatement) {}
   static bool classof(const Node *N);
   Leaf *getMatchKeyword();
+  MatchSubjects *getSubjectList();
   std::vector<Expression *> getSubjects();
   std::vector<MatchCase *> getCases();
 };
@@ -440,6 +453,7 @@ public:
   MatchTestExpression() : Expression(NodeKind::MatchTestExpression) {}
   static bool classof(const Node *N);
   Leaf *getMatchKeyword();
+  MatchSubjects *getSubjectList();
   std::vector<Expression *> getSubjects();
   Pattern *getPattern();
 };

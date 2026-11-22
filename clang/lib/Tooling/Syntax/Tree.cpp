@@ -403,6 +403,7 @@ clang::tok::TokenKind syntax::List::getDelimiterTokenKind() const {
   case NodeKind::ParameterDeclarationList:
   case NodeKind::DeclaratorList:
   case NodeKind::PatternElements:
+  case NodeKind::MatchSubjects:
     return clang::tok::comma;
   case NodeKind::PatternAlternatives:
     return clang::tok::pipepipe;
@@ -420,6 +421,7 @@ syntax::List::TerminationKind syntax::List::getTerminationKind() const {
   case NodeKind::ParameterDeclarationList:
   case NodeKind::DeclaratorList:
   case NodeKind::PatternElements:
+  case NodeKind::MatchSubjects:
   case NodeKind::PatternAlternatives:
     return TerminationKind::Separated;
   default:
@@ -440,6 +442,8 @@ bool syntax::List::canBeEmpty() const {
     return true;
   case NodeKind::PatternElements:
     return true;
+  case NodeKind::MatchSubjects:
+    return false;
   case NodeKind::PatternAlternatives:
     return false;
   default:

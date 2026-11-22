@@ -112,6 +112,8 @@ raw_ostream &syntax::operator<<(raw_ostream &OS, NodeRole R) {
     return OS << "Guard";
   case syntax::NodeRole::Subject:
     return OS << "Subject";
+  case syntax::NodeRole::Subjects:
+    return OS << "Subjects";
   case syntax::NodeRole::Case:
     return OS << "Case";
   case syntax::NodeRole::CaseKeyword:
@@ -415,12 +417,30 @@ syntax::Statement *syntax::MatchCase::getHandler() {
       findChild(syntax::NodeRole::Statement));
 }
 
+static syntax::MatchSubjects *matchSubjectList(syntax::Tree *T) {
+  return llvm::cast_or_null<syntax::MatchSubjects>(
+      T->findChild(syntax::NodeRole::Subjects));
+}
+
 static std::vector<syntax::Expression *> matchSubjects(syntax::Tree *T) {
-  std::vector<syntax::Expression *> Subjects;
-  for (syntax::Node &C : T->getChildren())
-    if (C.getRole() == syntax::NodeRole::Subject)
-      Subjects.push_back(llvm::cast<syntax::Expression>(&C));
-  return Subjects;
+  if (syntax::MatchSubjects *List = matchSubjectList(T))
+    return List->getSubjects();
+  return {};
+}
+
+std::vector<syntax::Expression *> syntax::MatchSubjects::getSubjects() {
+  std::vector<syntax::Expression *> Children;
+  for (Node *N : getElementsAsNodes())
+    Children.push_back(llvm::cast<syntax::Expression>(N));
+  return Children;
+}
+
+std::vector<syntax::List::ElementAndDelimiter<syntax::Expression>>
+syntax::MatchSubjects::getSubjectsAndCommas() {
+  std::vector<syntax::List::ElementAndDelimiter<syntax::Expression>> Children;
+  for (const auto &E : getElementsAsNodesAndDelimiters())
+    Children.push_back({llvm::cast<syntax::Expression>(E.element), E.delimiter});
+  return Children;
 }
 
 static std::vector<syntax::MatchCase *> matchCases(syntax::Tree *T) {
@@ -434,6 +454,10 @@ static std::vector<syntax::MatchCase *> matchCases(syntax::Tree *T) {
 syntax::Leaf *syntax::MatchSelectionExpression::getMatchKeyword() {
   return cast_or_null<syntax::Leaf>(
       findChild(syntax::NodeRole::IntroducerKeyword));
+}
+
+syntax::MatchSubjects *syntax::MatchSelectionExpression::getSubjectList() {
+  return matchSubjectList(this);
 }
 
 std::vector<syntax::Expression *>
@@ -450,6 +474,10 @@ syntax::Leaf *syntax::MatchSelectionStatement::getMatchKeyword() {
       findChild(syntax::NodeRole::IntroducerKeyword));
 }
 
+syntax::MatchSubjects *syntax::MatchSelectionStatement::getSubjectList() {
+  return matchSubjectList(this);
+}
+
 std::vector<syntax::Expression *>
 syntax::MatchSelectionStatement::getSubjects() {
   return matchSubjects(this);
@@ -462,6 +490,10 @@ std::vector<syntax::MatchCase *> syntax::MatchSelectionStatement::getCases() {
 syntax::Leaf *syntax::MatchTestExpression::getMatchKeyword() {
   return cast_or_null<syntax::Leaf>(
       findChild(syntax::NodeRole::IntroducerKeyword));
+}
+
+syntax::MatchSubjects *syntax::MatchTestExpression::getSubjectList() {
+  return matchSubjectList(this);
 }
 
 std::vector<syntax::Expression *> syntax::MatchTestExpression::getSubjects() {

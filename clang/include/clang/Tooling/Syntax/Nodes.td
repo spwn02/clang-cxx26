@@ -327,6 +327,8 @@ def TypePattern : External<Pattern> {}
 def AlternativePattern : External<Pattern> {}
 def PatternAlternatives : External<List> {}
 def PatternElements : External<List> {}
+// The comma separated subjects of a match selection or test.
+def MatchSubjects : External<List> {}
 
 def WildcardPattern : Sequence<Pattern> {
   let documentation = [{

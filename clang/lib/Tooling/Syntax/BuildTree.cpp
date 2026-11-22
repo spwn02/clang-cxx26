@@ -2252,6 +2252,39 @@ public:
     Mark(Holder && Holder->getInit() ? Holder->getInit() : S->getSubject());
   }
 
+  /// Marks the written subjects of \p S, a match selection or test, as the
+  /// elements of a comma separated list and folds them into a MatchSubjects.
+  template <class MatchExprT> void markSubjectList(MatchExprT *S) {
+    std::vector<Expr *> Subjects;
+    auto Add = [&](Expr *E) {
+      if (E && Builder.isMapped(IgnoreImplicit(E)))
+        Subjects.push_back(E);
+    };
+    ArrayRef<Expr *> Elements = S->getSubjectProductElements();
+    if (!Elements.empty()) {
+      for (Expr *E : Elements)
+        Add(E);
+    } else {
+      VarDecl *Holder = S->getHoldingVar();
+      Add(Holder && Holder->getInit() ? Holder->getInit() : S->getSubject());
+    }
+    if (Subjects.empty())
+      return;
+    for (Expr *E : Subjects) {
+      Builder.markExprChild(E, syntax::NodeRole::ListElement);
+      // The comma after the last subject (`match(s, case p)`) is not part of
+      // the list.
+      const syntax::Token *Next = Builder.getExprRange(E).end();
+      if (E != Subjects.back() && Next->kind() == tok::comma)
+        Builder.markChildToken(Next, syntax::NodeRole::ListDelimiter);
+    }
+    auto *List = new (allocator()) syntax::MatchSubjects;
+    Builder.foldNode(Builder.getRange(Subjects.front()->getBeginLoc(),
+                                      Subjects.back()->getEndLoc()),
+                     List, nullptr);
+    Builder.markChild(List, syntax::NodeRole::Subjects);
+  }
+
   /// Builds the node of a source case of a match selection; the tokens `case`
   /// and `=>` and the guard are found next to the pattern and the handler.
   void buildMatchCase(const clang::MatchCase &C) {
@@ -2363,7 +2396,7 @@ public:
   }
 
   bool WalkUpFromMatchSelectExpr(MatchSelectExpr *S) {
-    markSubjects(S);
+    markSubjectList(S);
     Builder.markChildToken(S->getMatchLoc(),
                            syntax::NodeRole::IntroducerKeyword);
     const syntax::Token *MatchToken = Builder.findToken(S->getMatchLoc());
@@ -2402,7 +2435,7 @@ public:
   }
 
   bool WalkUpFromMatchTestExpr(MatchTestExpr *E) {
-    markSubjects(E);
+    markSubjectList(E);
     Builder.markChildToken(E->getMatchLoc(),
                            syntax::NodeRole::IntroducerKeyword);
     const syntax::Token *CaseToken =

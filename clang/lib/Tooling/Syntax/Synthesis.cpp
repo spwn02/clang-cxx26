@@ -210,6 +210,8 @@ syntax::Tree *allocateTree(syntax::Arena &A, syntax::NodeKind Kind) {
     return new (A.getAllocator()) syntax::PatternAlternatives;
   case syntax::NodeKind::PatternElements:
     return new (A.getAllocator()) syntax::PatternElements;
+  case syntax::NodeKind::MatchSubjects:
+    return new (A.getAllocator()) syntax::MatchSubjects;
   case syntax::NodeKind::WildcardPattern:
     return new (A.getAllocator()) syntax::WildcardPattern;
   case syntax::NodeKind::ExpressionPattern:

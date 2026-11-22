@@ -128,9 +128,10 @@ int test(int a) {
 MatchSelectionExpression ReturnValue
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'a'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -260,9 +261,10 @@ void test(int a) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'a'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -352,9 +354,10 @@ bool test(int a) {
 MatchTestExpression ReturnValue
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'a'
 |-','
 |-'case' CaseKeyword
 |-OrPattern Pattern
@@ -519,13 +522,14 @@ void test(int a, int b) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
-|-','
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'b'
+|-MatchSubjects Subjects
+| |-IdExpression ListElement
+| | `-UnqualifiedId UnqualifiedId
+| |   `-'a'
+| |-',' ListDelimiter
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'b'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -598,9 +602,10 @@ void test(P p) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'p'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'p'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -649,9 +654,10 @@ void test(int *p) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'p'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'p'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -713,9 +719,10 @@ int test(T v) {
 MatchSelectionExpression ReturnValue
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'v'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'v'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -759,9 +766,10 @@ void test(int a) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'a'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -824,9 +832,10 @@ MatchSelectionExpression ReturnValue
 |-'match' IntroducerKeyword
 |-'constexpr' ConstexprKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'a'
 |-')'
 |-'->' ArrowToken
 |-'long' ResultType
@@ -867,9 +876,10 @@ void test(int a) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'a'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -948,9 +958,10 @@ void test(int a) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'a'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -1043,9 +1054,10 @@ void test(P p) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'p'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'p'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -1092,9 +1104,10 @@ void test(P p) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'p'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'p'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -1158,9 +1171,10 @@ void test(const auto &tuple) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'tuple'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'tuple'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -1222,9 +1236,10 @@ void test(N n) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'n'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'n'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -1300,9 +1315,10 @@ void test(int a) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'a'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -1342,9 +1358,10 @@ void test(int a) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'a'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -1406,9 +1423,10 @@ void test(int a, int b) {
 MatchSelectionStatement Statement
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'a'
 |-')'
 |-'{' OpenParen
 |-MatchCase Case
@@ -1420,9 +1438,10 @@ MatchSelectionStatement Statement
 | `-MatchSelectionStatement Statement
 |   |-'match' IntroducerKeyword
 |   |-'('
-|   |-IdExpression Subject
-|   | `-UnqualifiedId UnqualifiedId
-|   |   `-'b'
+|   |-MatchSubjects Subjects
+|   | `-IdExpression ListElement
+|   |   `-UnqualifiedId UnqualifiedId
+|   |     `-'b'
 |   |-')'
 |   |-'{' OpenParen
 |   |-MatchCase Case
@@ -1474,9 +1493,10 @@ int test(int a) {
 MatchSelectionExpression ReturnValue
 |-'match' IntroducerKeyword
 |-'('
-|-IdExpression Subject
-| `-UnqualifiedId UnqualifiedId
-|   `-'a'
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'a'
 |-')'
 |-'->' ArrowToken
 |-'int' ResultType
