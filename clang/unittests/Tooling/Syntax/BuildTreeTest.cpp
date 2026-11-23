@@ -1222,6 +1222,276 @@ MatchSelectionStatement Statement
 }
 
 // A decomposition pattern inside another.
+TEST_P(BuildSyntaxTreeMatchTest, StructuredBindingDeclaration) {
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
+      R"cpp(
+struct P { int a; int b; };
+struct N { P p; int d; };
+void test(N n) {
+  [[auto [x, y] = n.p;]]
+  [[auto& [p, d] = n;]]
+}
+)cpp",
+      {R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'auto'
+| `-DeclaratorList Declarators
+|   `-StructuredBindingDeclarator ListElement
+|     |-StructuredBindingGroup Bindings
+|     | |-'[' OpenParen
+|     | |-StructuredBindingList Elements
+|     | | |-StructuredBinding ListElement
+|     | | | `-'x' BindingName
+|     | | |-',' ListDelimiter
+|     | | `-StructuredBinding ListElement
+|     | |   `-'y' BindingName
+|     | `-']' CloseParen
+|     |-'='
+|     `-MemberExpression
+|       |-IdExpression Object
+|       | `-UnqualifiedId UnqualifiedId
+|       |   `-'n'
+|       |-'.' AccessToken
+|       `-IdExpression Member
+|         `-UnqualifiedId UnqualifiedId
+|           `-'p'
+`-';'
+)txt", R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'auto'
+| `-DeclaratorList Declarators
+|   `-StructuredBindingDeclarator ListElement
+|     |-'&'
+|     |-StructuredBindingGroup Bindings
+|     | |-'[' OpenParen
+|     | |-StructuredBindingList Elements
+|     | | |-StructuredBinding ListElement
+|     | | | `-'p' BindingName
+|     | | |-',' ListDelimiter
+|     | | `-StructuredBinding ListElement
+|     | |   `-'d' BindingName
+|     | `-']' CloseParen
+|     |-'='
+|     `-IdExpression
+|       `-UnqualifiedId UnqualifiedId
+|         `-'n'
+`-';'
+)txt"}));
+}
+
+TEST_P(BuildSyntaxTreeMatchTest, StructuredBindingNestedBraceInit) {
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
+      R"cpp(
+struct P { int a; int b; };
+struct N { P p; int d; };
+void test(N n) {
+  [[const auto& [ [q, r], d] { n };]]
+}
+)cpp",
+      {R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'const'
+| |-'auto'
+| `-DeclaratorList Declarators
+|   `-StructuredBindingDeclarator ListElement
+|     |-'&'
+|     |-StructuredBindingGroup Bindings
+|     | |-'[' OpenParen
+|     | |-StructuredBindingList Elements
+|     | | |-StructuredBindingGroup ListElement
+|     | | | |-'[' OpenParen
+|     | | | |-StructuredBindingList Elements
+|     | | | | |-StructuredBinding ListElement
+|     | | | | | `-'q' BindingName
+|     | | | | |-',' ListDelimiter
+|     | | | | `-StructuredBinding ListElement
+|     | | | |   `-'r' BindingName
+|     | | | `-']' CloseParen
+|     | | |-',' ListDelimiter
+|     | | `-StructuredBinding ListElement
+|     | |   `-'d' BindingName
+|     | `-']' CloseParen
+|     `-UnknownExpression
+|       `-UnknownExpression
+|         |-'{'
+|         |-IdExpression
+|         | `-UnqualifiedId UnqualifiedId
+|         |   `-'n'
+|         `-'}'
+`-';'
+)txt"}));
+}
+
+TEST_P(BuildSyntaxTreeMatchTest, StructuredBindingPack) {
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
+      R"cpp(
+struct P { int a; int b; };
+struct N { P p; int d; };
+template <class T> void test(T t) {
+  [[auto [x, ...rest] = t;]]
+}
+)cpp",
+      {R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'auto'
+| `-DeclaratorList Declarators
+|   `-StructuredBindingDeclarator ListElement
+|     |-StructuredBindingGroup Bindings
+|     | |-'[' OpenParen
+|     | |-StructuredBindingList Elements
+|     | | |-StructuredBinding ListElement
+|     | | | `-'x' BindingName
+|     | | |-',' ListDelimiter
+|     | | `-StructuredBinding ListElement
+|     | |   |-'...'
+|     | |   `-'rest' BindingName
+|     | `-']' CloseParen
+|     |-'='
+|     `-IdExpression
+|       `-UnqualifiedId UnqualifiedId
+|         `-'t'
+`-';'
+)txt"}));
+}
+
+TEST_P(BuildSyntaxTreeMatchTest, StructuredBindingGlobalRangeForIf) {
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
+      R"cpp(
+struct P { int a; int b; };
+struct N { P p; int d; };
+auto [ga, gb] = P{};
+void test(N n) {
+  P arr[2] = {{1, 2}, {3, 4}};
+  [[for (auto [u, v] : arr) {}]]
+  [[if (auto [i, j] = P{}; i) {}]]
+}
+)cpp",
+      {R"txt(
+RangeBasedForStatement Statement
+|-'for' IntroducerKeyword
+|-'('
+|-SimpleDeclaration
+| |-'auto'
+| |-DeclaratorList Declarators
+| | `-StructuredBindingDeclarator ListElement
+| |   `-StructuredBindingGroup Bindings
+| |     |-'[' OpenParen
+| |     |-StructuredBindingList Elements
+| |     | |-StructuredBinding ListElement
+| |     | | `-'u' BindingName
+| |     | |-',' ListDelimiter
+| |     | `-StructuredBinding ListElement
+| |     |   `-'v' BindingName
+| |     `-']' CloseParen
+| `-':'
+|-IdExpression
+| `-UnqualifiedId UnqualifiedId
+|   `-'arr'
+|-')'
+`-CompoundStatement BodyStatement
+  |-'{' OpenParen
+  `-'}' CloseParen
+)txt", R"txt(
+IfStatement Statement
+|-'if' IntroducerKeyword
+|-'('
+|-DeclarationStatement
+| |-SimpleDeclaration
+| | |-'auto'
+| | `-DeclaratorList Declarators
+| |   `-StructuredBindingDeclarator ListElement
+| |     |-StructuredBindingGroup Bindings
+| |     | |-'[' OpenParen
+| |     | |-StructuredBindingList Elements
+| |     | | |-StructuredBinding ListElement
+| |     | | | `-'i' BindingName
+| |     | | |-',' ListDelimiter
+| |     | | `-StructuredBinding ListElement
+| |     | |   `-'j' BindingName
+| |     | `-']' CloseParen
+| |     |-'='
+| |     `-UnknownExpression
+| |       |-'P'
+| |       `-UnknownExpression
+| |         `-UnknownExpression
+| |           |-'{'
+| |           `-'}'
+| `-';'
+|-ExpressionStatement Condition
+| `-IdExpression Expression
+|   `-UnqualifiedId UnqualifiedId
+|     `-'i'
+|-')'
+`-CompoundStatement ThenStatement
+  |-'{' OpenParen
+  `-'}' CloseParen
+)txt"}));
+}
+
+TEST_P(BuildSyntaxTreeMatchTest, StructuredBindingPattern) {
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
+      R"cpp(
+struct P { int a; int b; };
+struct N { P p; int d; };
+int use(int);
+void test(N n) {
+  [[match (n) { case auto [ [q, r], d] => use(d); }]]
+}
+)cpp",
+      {R"txt(
+MatchSelectionStatement Statement
+|-'match' IntroducerKeyword
+|-'('
+|-MatchSubjects Subjects
+| `-IdExpression ListElement
+|   `-UnqualifiedId UnqualifiedId
+|     `-'n'
+|-')'
+|-'{' OpenParen
+|-MatchCase Case
+| |-'case' IntroducerKeyword
+| |-DeclarationPattern Pattern
+| | `-SimpleDeclaration Declaration
+| |   |-'auto'
+| |   `-DeclaratorList Declarators
+| |     `-StructuredBindingDeclarator ListElement
+| |       `-StructuredBindingGroup Bindings
+| |         |-'[' OpenParen
+| |         |-StructuredBindingList Elements
+| |         | |-StructuredBindingGroup ListElement
+| |         | | |-'[' OpenParen
+| |         | | |-StructuredBindingList Elements
+| |         | | | |-StructuredBinding ListElement
+| |         | | | | `-'q' BindingName
+| |         | | | |-',' ListDelimiter
+| |         | | | `-StructuredBinding ListElement
+| |         | | |   `-'r' BindingName
+| |         | | `-']' CloseParen
+| |         | |-',' ListDelimiter
+| |         | `-StructuredBinding ListElement
+| |         |   `-'d' BindingName
+| |         `-']' CloseParen
+| |-'=>' ArrowToken
+| `-ExpressionStatement Statement
+|   |-CallExpression Expression
+|   | |-IdExpression Callee
+|   | | `-UnqualifiedId UnqualifiedId
+|   | |   `-'use'
+|   | |-'(' OpenParen
+|   | |-CallArguments Arguments
+|   | | `-IdExpression ListElement
+|   | |   `-UnqualifiedId UnqualifiedId
+|   | |     `-'d'
+|   | `-')' CloseParen
+|   `-';'
+`-'}' CloseParen
+)txt"}));
+}
+
 TEST_P(BuildSyntaxTreeMatchTest, NestedDecomposition) {
   EXPECT_TRUE(treeDumpEqualOnAnnotations(
       R"cpp(

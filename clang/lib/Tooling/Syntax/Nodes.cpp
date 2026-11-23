@@ -114,6 +114,10 @@ raw_ostream &syntax::operator<<(raw_ostream &OS, NodeRole R) {
     return OS << "Subject";
   case syntax::NodeRole::Subjects:
     return OS << "Subjects";
+  case syntax::NodeRole::Bindings:
+    return OS << "Bindings";
+  case syntax::NodeRole::BindingName:
+    return OS << "BindingName";
   case syntax::NodeRole::Case:
     return OS << "Case";
   case syntax::NodeRole::CaseKeyword:
@@ -591,6 +595,44 @@ syntax::Leaf *syntax::ExplicitTemplateInstantiation::getExternKeyword() {
 syntax::Declaration *syntax::ExplicitTemplateInstantiation::getDeclaration() {
   return cast_or_null<syntax::Declaration>(
       findChild(syntax::NodeRole::Declaration));
+}
+
+syntax::StructuredBindingGroup *
+syntax::StructuredBindingDeclarator::getBindings() {
+  return cast_or_null<syntax::StructuredBindingGroup>(
+      findChild(syntax::NodeRole::Bindings));
+}
+
+syntax::Leaf *syntax::StructuredBindingGroup::getOpenSquare() {
+  return cast_or_null<syntax::Leaf>(findChild(syntax::NodeRole::OpenParen));
+}
+
+syntax::StructuredBindingList *syntax::StructuredBindingGroup::getBindingList() {
+  return cast_or_null<syntax::StructuredBindingList>(
+      findChild(syntax::NodeRole::Elements));
+}
+
+syntax::Leaf *syntax::StructuredBindingGroup::getCloseSquare() {
+  return cast_or_null<syntax::Leaf>(findChild(syntax::NodeRole::CloseParen));
+}
+
+std::vector<syntax::Tree *> syntax::StructuredBindingList::getBindings() {
+  std::vector<syntax::Tree *> Children;
+  for (Node *N : getElementsAsNodes())
+    Children.push_back(llvm::cast<syntax::Tree>(N));
+  return Children;
+}
+
+std::vector<syntax::List::ElementAndDelimiter<syntax::Tree>>
+syntax::StructuredBindingList::getBindingsAndCommas() {
+  std::vector<syntax::List::ElementAndDelimiter<syntax::Tree>> Children;
+  for (const auto &E : getElementsAsNodesAndDelimiters())
+    Children.push_back({llvm::cast<syntax::Tree>(E.element), E.delimiter});
+  return Children;
+}
+
+syntax::Leaf *syntax::StructuredBinding::getName() {
+  return cast_or_null<syntax::Leaf>(findChild(syntax::NodeRole::BindingName));
 }
 
 syntax::Leaf *syntax::ParenDeclarator::getLparen() {

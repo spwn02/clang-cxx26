@@ -5477,7 +5477,12 @@ Parser::ParseDeclarationPattern(bool AllowPackExpansion) {
   auto *VD = dyn_cast<VarDecl>(Decls.getSingleDecl());
   if (!VD)
     return true;
-  return Actions.ActOnDeclarationPattern(VD, VD->getSourceRange());
+  // The range of a structured binding declaration without an initializer ends
+  // at its `[`: the pattern ends at the `]`.
+  SourceRange Written = VD->getSourceRange();
+  if (isa<DecompositionDecl>(VD) && D.getEndLoc().isValid())
+    Written.setEnd(D.getEndLoc());
+  return Actions.ActOnDeclarationPattern(VD, Written);
 }
 
 ActionResult<MatchPattern *>

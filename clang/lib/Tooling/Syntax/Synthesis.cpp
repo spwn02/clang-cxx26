@@ -170,6 +170,14 @@ syntax::Tree *allocateTree(syntax::Arena &A, syntax::NodeKind Kind) {
     return new (A.getAllocator()) syntax::SimpleDeclarator;
   case syntax::NodeKind::ParenDeclarator:
     return new (A.getAllocator()) syntax::ParenDeclarator;
+  case syntax::NodeKind::StructuredBindingDeclarator:
+    return new (A.getAllocator()) syntax::StructuredBindingDeclarator;
+  case syntax::NodeKind::StructuredBindingGroup:
+    return new (A.getAllocator()) syntax::StructuredBindingGroup;
+  case syntax::NodeKind::StructuredBindingList:
+    return new (A.getAllocator()) syntax::StructuredBindingList;
+  case syntax::NodeKind::StructuredBinding:
+    return new (A.getAllocator()) syntax::StructuredBinding;
   case syntax::NodeKind::ArraySubscript:
     return new (A.getAllocator()) syntax::ArraySubscript;
   case syntax::NodeKind::TrailingReturnType:

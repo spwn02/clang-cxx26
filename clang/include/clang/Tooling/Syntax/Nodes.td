@@ -271,7 +271,16 @@ def TypeAliasDeclaration : External<Declaration> {}
 // Declarators.
 def Declarator : External<Tree> {}
 def SimpleDeclarator : External<Declarator> {}
+// `auto& [a, [b, c]] = e` without the specifiers: the bracketed group, the
+// reference tokens before it and the initializer after it.
+def StructuredBindingDeclarator : External<Declarator> {}
 def ParenDeclarator : External<Declarator> {}
+
+// `[a, b, ...c, [d, e]]` of a structured binding declaration (C++17, nested
+// bindings C++29): the group, its comma separated list and its elements.
+def StructuredBindingGroup : External<Tree> {}
+def StructuredBindingList : External<List> {}
+def StructuredBinding : External<Tree> {}
 
 def ArraySubscript : External<Tree> {}
 def TrailingReturnType : External<Tree> {}

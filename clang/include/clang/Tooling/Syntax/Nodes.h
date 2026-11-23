@@ -118,7 +118,10 @@ enum class NodeRole : uint8_t {
   EqualSign,
   ConstexprKeyword,
   ResultType,
-  NotReturnKeyword
+  NotReturnKeyword,
+  /// Roles of structured binding declarations.
+  Bindings,
+  BindingName
 };
 /// For debugging purposes.
 raw_ostream &operator<<(raw_ostream &OS, NodeRole R);
@@ -645,6 +648,46 @@ class SimpleDeclarator final : public Declarator {
 public:
   SimpleDeclarator() : Declarator(NodeKind::SimpleDeclarator) {}
   static bool classof(const Node *N);
+};
+
+/// The declarator of a structured binding declaration: the reference tokens, the
+/// bracketed bindings and the initializer. E.g. `&[a, b] = p` from
+/// `auto &[a, b] = p;` (nested bindings are C++29).
+class StructuredBindingDeclarator final : public Declarator {
+public:
+  StructuredBindingDeclarator()
+      : Declarator(NodeKind::StructuredBindingDeclarator) {}
+  static bool classof(const Node *N);
+  class StructuredBindingGroup *getBindings();
+};
+
+/// `[a, [b, c]]`: the bindings of a structured binding declaration or the
+/// nested bindings of one of them.
+class StructuredBindingGroup final : public Tree {
+public:
+  StructuredBindingGroup() : Tree(NodeKind::StructuredBindingGroup) {}
+  static bool classof(const Node *N);
+  Leaf *getOpenSquare();
+  class StructuredBindingList *getBindingList();
+  Leaf *getCloseSquare();
+};
+
+/// The comma separated bindings of a StructuredBindingGroup. Each element is a
+/// StructuredBinding or a nested StructuredBindingGroup.
+class StructuredBindingList final : public List {
+public:
+  StructuredBindingList() : List(NodeKind::StructuredBindingList) {}
+  static bool classof(const Node *N);
+  std::vector<Tree *> getBindings();
+  std::vector<List::ElementAndDelimiter<Tree>> getBindingsAndCommas();
+};
+
+/// One name of a structured binding declaration: `a` or `...rest`.
+class StructuredBinding final : public Tree {
+public:
+  StructuredBinding() : Tree(NodeKind::StructuredBinding) {}
+  static bool classof(const Node *N);
+  Leaf *getName();
 };
 
 /// Declarator inside parentheses.

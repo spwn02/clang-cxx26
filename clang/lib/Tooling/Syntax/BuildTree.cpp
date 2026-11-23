@@ -1021,6 +1021,23 @@ public:
     return processDeclaratorAndDeclaration(DD);
   }
 
+  /// A structured binding declaration `specifiers &? [a, [b, c]] = e`: the
+  /// bindings are made a group of names, the declarator holds the group and
+  /// the initializer. (Nested bindings are C++29; the compiler makes an
+  /// implicit declaration for each nested group, so the traversal would not
+  /// reach their names.)
+  bool TraverseBindingDecl(BindingDecl *) {
+    // (A namespace scope declaration puts its bindings in the context beside
+    // it: they are built with the declaration.)
+    return true;
+  }
+
+  bool TraverseDecompositionDecl(DecompositionDecl *D) {
+    if (!buildStructuredBindingDeclaration(D))
+      return RecursiveASTVisitor::TraverseDecompositionDecl(D);
+    return true;
+  }
+
   bool WalkUpFromTypedefNameDecl(TypedefNameDecl *TD) {
     return processDeclaratorAndDeclaration(TD);
   }
@@ -2553,6 +2570,133 @@ public:
   }
 
 private:
+  /// The first token of \p B: its name, or the `...` before it for a pack.
+  const syntax::Token *bindingFirstToken(const BindingDecl *B,
+                                         const syntax::Token *Previous) {
+    const syntax::Token *Name = Builder.findToken(B->getLocation());
+    if (std::prev(Name) != Previous && std::prev(Name)->kind() == tok::ellipsis)
+      return std::prev(Name);
+    return Name;
+  }
+
+  /// The `]` that closes the bindings of \p Bindings, written after the `[` at
+  /// \p Open; null if the tokens are not those of a well formed group. Nothing
+  /// is changed.
+  const syntax::Token *bindingGroupEnd(ArrayRef<BindingDecl *> Bindings,
+                                       SourceLocation Open) {
+    if (Bindings.empty() || !Builder.isTokenStart(Open) ||
+        Builder.findToken(Open)->kind() != tok::l_square)
+      return nullptr;
+    const syntax::Token *Previous = Builder.findToken(Open);
+    for (const BindingDecl *B : Bindings) {
+      if (const DecompositionDecl *Nested = B->getNestedDecomposition()) {
+        Previous = bindingGroupEnd(Nested->bindings(), Nested->getLocation());
+        if (!Previous)
+          return nullptr;
+      } else {
+        if (!Builder.isTokenStart(B->getLocation()) ||
+            Builder.findToken(B->getLocation())->kind() != tok::identifier)
+          return nullptr;
+        Previous = Builder.findToken(B->getLocation());
+      }
+      const syntax::Token *Next = std::next(Previous);
+      if (B == Bindings.back())
+        return Next->kind() == tok::r_square ? Next : nullptr;
+      if (Next->kind() != tok::comma)
+        return nullptr;
+      Previous = Next;
+    }
+    return nullptr;
+  }
+
+  /// Builds the group of the bindings of \p Bindings after the `[` at \p Open,
+  /// which bindingGroupEnd accepted.
+  syntax::StructuredBindingGroup *
+  buildBindingGroup(ArrayRef<BindingDecl *> Bindings, SourceLocation Open) {
+    const syntax::Token *OpenTok = Builder.findToken(Open);
+    struct Element {
+      syntax::Tree *Node;
+      const syntax::Token *First, *Last;
+    };
+    SmallVector<Element, 4> Elements;
+    const syntax::Token *Previous = OpenTok;
+    for (BindingDecl *B : Bindings) {
+      if (const DecompositionDecl *Nested = B->getNestedDecomposition()) {
+        const syntax::Token *End =
+            bindingGroupEnd(Nested->bindings(), Nested->getLocation());
+        Elements.push_back(
+            {buildBindingGroup(Nested->bindings(), Nested->getLocation()),
+             Builder.findToken(Nested->getLocation()), End});
+        Previous = End;
+      } else {
+        const syntax::Token *Name = Builder.findToken(B->getLocation());
+        const syntax::Token *First = bindingFirstToken(B, Previous);
+        Builder.markChildToken(Name, syntax::NodeRole::BindingName);
+        auto *Binding = new (allocator()) syntax::StructuredBinding;
+        Builder.foldNode(llvm::ArrayRef(First, Name + 1), Binding, nullptr);
+        Elements.push_back({Binding, First, Name});
+        Previous = Name;
+      }
+      Previous = std::next(Previous); // the comma, or the closing `]`
+    }
+    for (const Element &E : Elements) {
+      Builder.markChild(E.Node, syntax::NodeRole::ListElement);
+      const syntax::Token *Next = std::next(E.Last);
+      if (&E != &Elements.back() && Next->kind() == tok::comma)
+        Builder.markChildToken(Next, syntax::NodeRole::ListDelimiter);
+    }
+    const syntax::Token *Close = std::next(Elements.back().Last);
+    auto *List = new (allocator()) syntax::StructuredBindingList;
+    Builder.foldNode(
+        llvm::ArrayRef(Elements.front().First, Elements.back().Last + 1), List,
+        nullptr);
+    Builder.markChildToken(OpenTok, syntax::NodeRole::OpenParen);
+    Builder.markChild(List, syntax::NodeRole::Elements);
+    Builder.markChildToken(Close, syntax::NodeRole::CloseParen);
+    auto *Group = new (allocator()) syntax::StructuredBindingGroup;
+    Builder.foldNode(llvm::ArrayRef(OpenTok, Close + 1), Group, nullptr);
+    return Group;
+  }
+
+  /// Builds the declaration of \p D, after its initializer. Returns false, with
+  /// nothing built, if \p D is not written the usual way.
+  bool buildStructuredBindingDeclaration(DecompositionDecl *D) {
+    const syntax::Token *Close =
+        bindingGroupEnd(D->bindings(), D->getLocation());
+    if (!Close || D->isInvalidDecl() || !Builder.isTokenStart(D->getBeginLoc()))
+      return false;
+    const bool WrittenInit = D->getInit() && !D->isCXXForRangeDecl();
+    // The initializer is built first, so that the declarator folds it.
+    if (WrittenInit && !TraverseStmt(D->getInit()))
+      return true;
+    const syntax::Token *DeclaratorFirst = Builder.findToken(D->getLocation());
+    if (DeclaratorFirst != Builder.findToken(D->getBeginLoc()) &&
+        (std::prev(DeclaratorFirst)->kind() == tok::amp ||
+         std::prev(DeclaratorFirst)->kind() == tok::ampamp))
+      DeclaratorFirst = std::prev(DeclaratorFirst);
+    const syntax::Token *Last = Close;
+    if (WrittenInit && Builder.isTokenStart(D->getEndLoc())) {
+      const syntax::Token *InitEnd = Builder.findToken(D->getEndLoc());
+      if (InitEnd > Last)
+        Last = InitEnd;
+    }
+    syntax::StructuredBindingGroup *Group =
+        buildBindingGroup(D->bindings(), D->getLocation());
+    Builder.markChild(Group, syntax::NodeRole::Bindings);
+    auto *Declarator = new (allocator()) syntax::StructuredBindingDeclarator;
+    Builder.foldNode(llvm::ArrayRef(DeclaratorFirst, Last + 1), Declarator,
+                     nullptr);
+    Builder.markChild(Declarator, syntax::NodeRole::ListElement);
+    ArrayRef<syntax::Token> Range = Builder.getDeclarationRange(D);
+    if (Range.end() <= Last)
+      Range = llvm::ArrayRef(Range.begin(), Last + 1);
+    auto *DL = new (allocator()) syntax::DeclaratorList;
+    Builder.foldList(Range, DL, nullptr);
+    Builder.markChild(DL, syntax::NodeRole::Declarators);
+    Builder.foldNode(Range, new (allocator()) syntax::SimpleDeclaration, D);
+    return true;
+  }
+
   /// Folds SimpleDeclarator node (if present) and in case this is the last
   /// declarator in the chain it also folds SimpleDeclaration node.
   template <class T> bool processDeclaratorAndDeclaration(T *D) {
