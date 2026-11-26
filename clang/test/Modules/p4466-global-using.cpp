@@ -8,5 +8,14 @@ import p4466_global_using;
 
 static_assert(^^::size_t == ^^size_t);
 static_assert(^^::strlen == ^^strlen);
+static_assert(^^global_from_export_block == ^^global_from_export_block);
+static_assert(^^global_from_linkage_block == ^^global_from_linkage_block);
 
-// expected-no-diagnostics
+// P4466R2 §8, [namespace.udecl] *.2.2: the non-inline namespace named by
+// the exported using-declarator is an intervening scope.
+constexpr auto rejected_export = ^^from_export_block;
+// expected-error@-1 {{cannot take the reflection of a using-declarator}}
+
+// The extern "C" wrapper does not make Named::NonInline transparent.
+constexpr auto rejected_linkage = ^^Named::from_linkage_block;
+// expected-error@-1 {{cannot take the reflection of a using-declarator}}
