@@ -826,7 +826,8 @@ class ContractStmt final
   friend class SemaContractHelper;
 
   unsigned numTrailingObjects(OverloadToken<Stmt *>) const {
-    return ContractAssertBits.HasResultName + 1;
+    return ContractAssertBits.HasResultName + 1 +
+           ContractAssertBits.IsTerminating;
   }
 
   Stmt **getStmtPtr() { return getTrailingObjects<Stmt *>(); }
@@ -859,6 +860,11 @@ class ContractStmt final
     getSubStmts().back() = E;
   }
 
+  void setControlExpr(Expr *E) {
+    assert(isTerminating() && E && "no control expression");
+    getSubStmts()[ContractAssertBits.HasResultName] = E;
+  }
+
   void copyAttrs(ArrayRef<const Attr *> Attrs) {
     assert(Attrs.size() == ContractAssertBits.NumAttrs &&
            "wrong number of attributes");
@@ -866,7 +872,7 @@ class ContractStmt final
   }
 
   ContractStmt(ContractKind CK, SourceLocation KeywordLoc, Expr *Condition,
-               DeclStmt *RN, bool IsTerminating,
+               DeclStmt *RN, bool IsTerminating, Expr *Control,
                ArrayRef<const Attr *> Attrs = {})
       : Stmt(ContractStmtClass), KeywordLoc(KeywordLoc) {
     ContractAssertBits.ContractKind = static_cast<unsigned>(CK);
@@ -876,6 +882,11 @@ class ContractStmt final
     if (RN)
       setResultName(RN);
     setCondition(Condition);
+    if (IsTerminating) {
+      assert(Control &&
+             "terminating contract must retain its control expression");
+      setControlExpr(Control);
+    }
     if (!Attrs.empty())
       copyAttrs(Attrs);
   }
@@ -895,7 +906,7 @@ public:
   static ContractStmt *Create(const ASTContext &C, ContractKind Kind,
                               SourceLocation KeywordLoc, Expr *Condition,
                               DeclStmt *ResultNameDecl,
-                              bool IsTerminating,
+                              bool IsTerminating, Expr *Control,
                               ArrayRef<const Attr *> Attrs = {});
 
   static ContractStmt *CreateEmpty(const ASTContext &C, ContractKind Kind,
@@ -912,9 +923,22 @@ public:
 
   ResultNameDecl *getResultName() const;
 
-  Expr *getCond() { return static_cast<Expr *>(getSubStmts().back()); }
+  Expr *getCond() {
+    return static_cast<Expr *>(
+        getSubStmts()[ContractAssertBits.HasResultName +
+                      ContractAssertBits.IsTerminating]);
+  }
   const Expr *getCond() const {
     return const_cast<ContractStmt *>(this)->getCond();
+  }
+  Expr *getControlExpr() {
+    return isTerminating()
+               ? static_cast<Expr *>(
+                     getSubStmts()[ContractAssertBits.HasResultName])
+               : nullptr;
+  }
+  const Expr *getControlExpr() const {
+    return const_cast<ContractStmt *>(this)->getControlExpr();
   }
 
 public:
@@ -962,12 +986,12 @@ public:
   SourceLocation getKeywordLoc() const { return KeywordLoc; }
   SourceLocation getBeginLoc() const LLVM_READONLY { return KeywordLoc; }
   SourceLocation getExpressionLoc() const LLVM_READONLY {
-    return getSubStmts().back()->getBeginLoc();
+    return getCond()->getBeginLoc();
   }
   SourceLocation getEndLoc() const LLVM_READONLY {
     assert(!KeywordLoc.isInvalid() &&
            "Trying to get end location on an invalid node");
-    return getSubStmts().back()->getEndLoc();
+    return getCond()->getEndLoc();
   }
 
   child_range children() { return getSubStmts(); }

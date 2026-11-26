@@ -163,10 +163,10 @@ ExprResult Sema::ActOnContractAssertCondition(Expr *Cond)  {
 
 StmtResult Sema::BuildContractStmt(ContractKind CK, SourceLocation KeywordLoc,
                                    Expr *Cond, DeclStmt *RND,
-                                   bool IsTerminating,
+                                   bool IsTerminating, Expr *Control,
                                    ArrayRef<const Attr *> Attrs) {
   return ContractStmt::Create(Context, CK, KeywordLoc, Cond, RND,
-                              IsTerminating, Attrs);
+                              IsTerminating, Control, Attrs);
 }
 
 StmtResult Sema::ActOnContractAssert(ContractKind CK, SourceLocation KeywordLoc,
@@ -232,7 +232,7 @@ StmtResult Sema::ActOnContractAssert(ContractKind CK, SourceLocation KeywordLoc,
 
   StmtResult Res =
       BuildContractStmt(CK, KeywordLoc, Cond, RNDStmt,
-                        IsTerminating,
+                        IsTerminating, Control,
                         SemaContractHelper::buildAttributesWithDummyNode(
                             *this, ContractAttrs, KeywordLoc));
 

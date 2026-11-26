@@ -10,7 +10,9 @@
 #include "clang/AST/ASTConcept.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclTemplate.h"
+#include "clang/AST/StmtCXX.h"
 #include "clang/AST/DeclVisitor.h"
 #include "clang/Index/IndexDataConsumer.h"
 #include "clang/Index/IndexSymbol.h"
@@ -258,6 +260,10 @@ public:
 
     TRY_DECL(D, IndexCtx.handleDecl(D, Roles, Relations));
     handleDeclarator(D);
+
+    if (const ContractSpecifierDecl *Contracts = D->getContracts())
+      for (const ContractStmt *Contract : Contracts->contracts())
+        IndexCtx.indexBody(Contract, D, D);
 
     if (const CXXConstructorDecl *Ctor = dyn_cast<CXXConstructorDecl>(D)) {
       IndexCtx.handleReference(Ctor->getParent(), Ctor->getLocation(),

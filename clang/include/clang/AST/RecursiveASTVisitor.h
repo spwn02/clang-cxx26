@@ -2637,12 +2637,14 @@ DEF_TRAVERSE_STMT(ObjCAtThrowStmt, {})
 DEF_TRAVERSE_STMT(ObjCAtTryStmt, {})
 DEF_TRAVERSE_STMT(ObjCForCollectionStmt, {})
 DEF_TRAVERSE_STMT(ObjCAutoreleasePoolStmt, {})
-// A contract statement owns no declaration with a body: only its result name
-// is traversed.
+// A contract statement owns no declaration with a body; its result name,
+// control expression, and condition are traversed explicitly below.
 DEF_TRAVERSE_STMT(ContractStmt, {
   if (S->hasResultName()) {
     TRY_TO(TraverseDecl(S->getResultName()));
   }
+  if (S->getControlExpr())
+    TRY_TO(TraverseStmt(S->getControlExpr()));
   TRY_TO_TRAVERSE_OR_ENQUEUE_STMT(S->getCond());
   ShouldVisitChildren = false;
 })

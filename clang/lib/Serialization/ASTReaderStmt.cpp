@@ -689,6 +689,8 @@ void ASTStmtReader::VisitContractStmt(ContractStmt *S) {
   S->setCondition(Record.readExpr());
   if (S->hasResultName())
     S->setResultName(cast<DeclStmt>(Record.readStmt()));
+  if (S->isTerminating())
+    S->setControlExpr(Record.readExpr());
   AttrVec Attrs;
   Record.readAttributes(Attrs);
   assert(Attrs.size() == NumAttrs);

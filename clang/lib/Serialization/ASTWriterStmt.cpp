@@ -678,6 +678,8 @@ void ASTStmtWriter::VisitContractStmt(ContractStmt *S) {
   Record.AddStmt(S->getCond());
   if (S->hasResultName())
     Record.AddStmt(S->getResultNameDeclStmt());
+  if (S->getControlExpr())
+    Record.AddStmt(S->getControlExpr());
   Record.AddAttributes(S->getAttrs());
 
   Code = serialization::STMT_CXX_CONTRACT;

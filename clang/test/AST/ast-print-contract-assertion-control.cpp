@@ -18,3 +18,4 @@ int f(int x) pre<std::contracts::controls::enforced>(x > 0)
 // CHECK: post<std::contracts::controls::enforced>(r: r > 0)
 // CHECK: contract_assert<std::contracts::controls::enforced>(x > 0);
 // DUMP: ContractStmt{{.*}}<std::contracts::controls::enforced>
+// DUMP-COUNT-3: DeclRefExpr{{.*}}enforced

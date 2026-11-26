@@ -770,6 +770,7 @@ public:
   void VisitContractStmt(const ContractStmt *S) {
     if (S->hasResultName())
       Visit(S->getResultName());
+    Visit(S->getControlExpr());
     Visit(S->getCond());
   }
 
