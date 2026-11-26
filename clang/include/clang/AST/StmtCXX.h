@@ -903,10 +903,12 @@ class ContractStmt final
   }
 
   ContractStmt(ContractKind CK, SourceLocation KeywordLoc, Expr *Condition,
-               DeclStmt *RN, ArrayRef<const Attr *> Attrs = {})
+               DeclStmt *RN, bool IsTerminating,
+               ArrayRef<const Attr *> Attrs = {})
       : Stmt(ContractStmtClass), KeywordLoc(KeywordLoc) {
     ContractAssertBits.ContractKind = static_cast<unsigned>(CK);
     ContractAssertBits.HasResultName = RN != nullptr;
+    ContractAssertBits.IsTerminating = IsTerminating;
     ContractAssertBits.NumAttrs = Attrs.size();
     if (RN)
       setResultName(RN);
@@ -916,10 +918,11 @@ class ContractStmt final
   }
 
   ContractStmt(EmptyShell Empty, ContractKind Kind, bool HasResultName,
-               unsigned NumAttrs = 0)
+               bool IsTerminating, unsigned NumAttrs = 0)
       : Stmt(ContractStmtClass, Empty) {
     ContractAssertBits.ContractKind = static_cast<unsigned>(Kind);
     ContractAssertBits.HasResultName = HasResultName;
+    ContractAssertBits.IsTerminating = IsTerminating;
     ContractAssertBits.NumAttrs = NumAttrs;
     if (NumAttrs != 0)
       std::fill_n(getAttrPtr(), NumAttrs, nullptr);
@@ -929,12 +932,15 @@ public:
   static ContractStmt *Create(const ASTContext &C, ContractKind Kind,
                               SourceLocation KeywordLoc, Expr *Condition,
                               DeclStmt *ResultNameDecl,
+                              bool IsTerminating,
                               ArrayRef<const Attr *> Attrs = {});
 
   static ContractStmt *CreateEmpty(const ASTContext &C, ContractKind Kind,
-                                   bool HasResultName, unsigned NumAttrs);
+                                   bool HasResultName, bool IsTerminating,
+                                   unsigned NumAttrs);
 
   bool hasResultName() const { return ContractAssertBits.HasResultName; }
+  bool isTerminating() const { return ContractAssertBits.IsTerminating; }
 
   DeclStmt *getResultNameDeclStmt() const {
     return hasResultName() ? static_cast<DeclStmt *>(getSubStmts().front())

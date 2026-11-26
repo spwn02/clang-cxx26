@@ -26,6 +26,17 @@ using _EvaluationSemantic _LIBCPP_NODEBUG = evaluation_semantic;
 enum class detection_mode : int { predicate_false = 1, evaluation_exception = 2 };
 using _DetectionMode _LIBCPP_NODEBUG = detection_mode;
 
+#if _LIBCPP_STD_VER >= 26
+namespace controls {
+// Use a distinct empty class type as the placeholder's unspecified type. The
+// reserved inline namespace keeps it distinct from a future label object.
+inline namespace __p4451 {
+struct __enforced_t {};
+inline constexpr __enforced_t enforced{};
+} // namespace __p4451
+} // namespace controls
+#endif // _LIBCPP_STD_VER >= 26
+
 struct _ContractViolationImpl;
 
 class contract_violation {

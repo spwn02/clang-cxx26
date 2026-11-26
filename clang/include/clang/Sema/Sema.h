@@ -3455,7 +3455,7 @@ public:
 public:
   StmtResult ActOnContractAssert(ContractKind CK, SourceLocation KeywordLoc,
                                  Expr *Cond, ResultNameDecl *ResultNameDecl,
-                                 ParsedAttributes &Attrs);
+                                 Expr *Control, ParsedAttributes &Attrs);
 
   ResultNameDecl *ActOnResultNameDeclarator(ContractKind CK, Scope *S,
                                             QualType T, SourceLocation IDLoc,
@@ -3465,6 +3465,7 @@ public:
 
   StmtResult BuildContractStmt(ContractKind CK, SourceLocation KeywordLoc,
                                Expr *Cond, DeclStmt *ResultName,
+                               bool IsTerminating,
                                ArrayRef<const Attr *> Attrs);
 
   ContractSpecifierDecl *

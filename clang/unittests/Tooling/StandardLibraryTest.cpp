@@ -139,6 +139,7 @@ TEST(StdlibTest, Cxx26Facilities) {
       {"std::meta::", "queue_injection", "<meta>"},
       {"std::meta::", "list_builder", "<meta>"},
       {"std::", "constexpr_print_str", "<debugging>"},
+      {"std::contracts::controls::", "enforced", "<contracts>"},
   };
   for (const auto &C : Cases) {
     auto Symbol = stdlib::Symbol::named(C.Scope, C.Name);

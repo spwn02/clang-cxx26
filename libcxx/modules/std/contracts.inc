@@ -15,4 +15,10 @@ export namespace std::contracts {
   using std::contracts::assertion_kind;
   using std::contracts::detection_mode;
 } // namespace std::contracts
+
+#if _LIBCPP_STD_VER >= 26
+export namespace std::contracts::controls {
+  using std::contracts::controls::enforced;
+} // namespace std::contracts::controls
+#endif
 #endif

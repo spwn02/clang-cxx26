@@ -308,8 +308,13 @@ C++2d (C++29) Feature Support
   chosen function and then those of the final overrider, and the postconditions of the final overrider and then those
   of the statically chosen function, also in constant evaluation (as are the preconditions and postconditions of a
   destructor, which constant evaluation used to skip) (assertions are not inherited by overriders;
-  qualified calls and calls through a pointer to member name one function). ``__cpp_contracts`` is 202606L in C++29
-  mode (the value of the draft N5054). C++26 keeps rejecting contract specifiers on virtual functions.
+  qualified calls and calls through a pointer to member name one function). P3097R3 introduced the 202606L
+  ``__cpp_contracts`` value in C++29; P4451R2 later updates it to 202611L in C++26 and later. C++26 keeps rejecting
+  contract specifiers on virtual functions.
+
+- Implemented `P4451R2 <https://wg21.link/P4451R2>`_ (C++26 DIS comment resolution, also in C++29): ``pre``, ``post``, and
+  ``contract_assert`` accept ``<std::contracts::controls::enforced>`` to require a terminating evaluation
+  semantic. The ``__cpp_contracts`` and ``__cpp_lib_contracts`` macros are 202611L in C++26 and later modes.
 
 - Implemented `P3822R2 <https://wg21.link/P3822R2>`_ under ``-std=c++29``: a compound requirement can have a
   conditional ``noexcept``, ``{ E } noexcept(condition)``. The condition is a contextually converted constant
@@ -399,7 +404,7 @@ C++2c Feature Support
 
 - The C++26 feature-test macros ``__cpp_constexpr_exceptions`` (202411L) and
   ``__cpp_pp_embed`` (202502L) are defined, and ``#embed`` no longer warns that it is an extension in C++26 mode.
-  ``__cpp_contracts`` is 202502L as in the C++26 standard (it was 202606L, a value of a later paper).
+  ``__cpp_contracts`` is 202611L (P4451R2).
 
 - In C++26 mode a throw-expression and a try-block in a constexpr or consteval function (and in a lambda in one) are
   accepted with ``-fno-exceptions``: constant evaluation uses them. A constexpr function that reaches a throw-expression

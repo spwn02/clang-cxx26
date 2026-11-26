@@ -3326,6 +3326,8 @@ void TextNodeDumper::VisitContractStmt(const ContractStmt *S) {
     OS << " contract_assert";
     break;
   }
+  if (S->isTerminating())
+    OS << " <std::contracts::controls::enforced>";
   if (Context) {
     switch (S->getSemantic(*Context)) {
     case ContractEvaluationSemantic::Ignore:

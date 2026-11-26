@@ -3195,6 +3195,8 @@ void StmtPrinter::VisitContractStmt(ContractStmt *Node) {
 
   // Print the contract keyword...
   OS << Keyword;
+  if (Node->isTerminating())
+    OS << "<std::contracts::controls::enforced>";
 
   // Then any attributes: [stmt.contract.assert] puts the attribute-specifier-seq
   // after contract_assert.
