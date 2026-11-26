@@ -981,6 +981,10 @@ static bool isReflectionTransparentUsing(UsingShadowDecl *USD) {
     return false;
 
   DeclContext *UsingScope = UD->getDeclContext();
+  // An export-block declaration is in the surrounding namespace scope; the
+  // ExportDecl is only a syntactic wrapper.
+  if (isa<ExportDecl>(UsingScope))
+    UsingScope = UsingScope->getParent();
   if (!UsingScope->isTranslationUnit() && !isa<NamespaceDecl>(UsingScope))
     return false;
 
@@ -999,6 +1003,15 @@ static bool isReflectionTransparentUsing(UsingShadowDecl *USD) {
         ContainsTargetScope = true;
         break;
       }
+
+      // Linkage specifications are represented as DeclContexts, but they do
+      // not introduce a scope for [namespace.udecl]'s target-scope relation.
+      // In particular, C library declarations such as ::strlen commonly
+      // live in an extern "C" LinkageSpecDecl nested in the global scope.
+      if (isa<LinkageSpecDecl>(DC))
+        continue;
+      if (isa<ExportDecl>(DC))
+        continue;
 
       auto *NS = dyn_cast<NamespaceDecl>(DC);
       if (!NS || (!NS->isInline() && !NS->isAnonymousNamespace()))
