@@ -513,6 +513,11 @@ void UseTrailingReturnTypeCheck::check(const MatchFinder::MatchResult &Result) {
   if (F->getLocation().isInvalid() || F->isImplicit())
     return;
 
+  // A token-sequence macro ('__macro', C++29) has no written return type to
+  // move: its result is the token sequence its body returns.
+  if (F->isExpressionMacro())
+    return;
+
   // Skip functions which return 'auto' and defaulted operators.
   const auto *AT = F->getDeclaredReturnType()->getAs<AutoType>();
   if (AT != nullptr &&
