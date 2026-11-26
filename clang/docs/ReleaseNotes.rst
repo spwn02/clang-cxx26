@@ -316,6 +316,10 @@ C++2d (C++29) Feature Support
   ``contract_assert`` accept ``<std::contracts::controls::enforced>`` to require a terminating evaluation
   semantic. The ``__cpp_contracts`` and ``__cpp_lib_contracts`` macros are 202611L in C++26 and later modes.
 
+- Implemented `P4466R2 <https://wg21.link/P4466R2>`_ (C++26 DIS comment FI-067 resolution, also in C++29): reflection treats
+  a using-declarator as transparent when it names declarations in its target scope, or in an inline or unnamed namespace
+  nested within that scope. Other using-declarators remain ill-formed in reflection-name operands.
+
 - Implemented `P3822R2 <https://wg21.link/P3822R2>`_ under ``-std=c++29``: a compound requirement can have a
   conditional ``noexcept``, ``{ E } noexcept(condition)``. The condition is a contextually converted constant
   expression of type ``bool`` (as for a function), substituted after ``E``; the expression must not be

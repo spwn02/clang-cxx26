@@ -163,6 +163,13 @@ struct Derived : Base { using Base::member; };
 constexpr info r5 = ^^Derived::member;
 // expected-error@-1 {{cannot take the reflection of a using-declarator}}
 
+// An inherited constructor cannot be named as the target of a reflection-name
+// operand: ^^Derived::Derived denotes the injected-class-name, not the
+// class-scope using-declarator `using Base::Base`.
+struct ConstructorBase { ConstructorBase(int); };
+struct ConstructorDerived : ConstructorBase { using ConstructorBase::ConstructorBase; };
+static_assert(^^ConstructorDerived::ConstructorDerived == ^^ConstructorDerived);
+
 struct EnumBase { enum E { value }; };
 struct EnumDerived : EnumBase { using enum EnumBase::E; };
 constexpr info r_enum_using_class = ^^EnumDerived::value;
