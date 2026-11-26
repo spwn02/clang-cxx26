@@ -16,6 +16,7 @@
 #include "clang/AST/RawCommentList.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Sema/CodeCompleteConsumer.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/raw_ostream.h"
@@ -358,6 +359,28 @@ std::string getReturnType(const CodeCompletionString &CCS) {
     if (Chunk.Kind == CodeCompletionString::CK_ResultType)
       return Chunk.Text;
   return "";
+}
+
+std::string stripInlineVersionNamespaces(llvm::StringRef Text) {
+  std::string Result;
+  Result.reserve(Text.size());
+  for (size_t I = 0; I < Text.size();) {
+    // A "__<digits>::" segment after "::", before an identifier.
+    if (Text.substr(I).starts_with("__") && I >= 2 &&
+        Text.substr(I - 2, 2) == "::") {
+      size_t J = I + 2;
+      while (J < Text.size() && llvm::isDigit(Text[J]))
+        ++J;
+      if (J > I + 2 && Text.substr(J).starts_with("::") &&
+          J + 2 < Text.size() &&
+          (llvm::isAlpha(Text[J + 2]) || Text[J + 2] == '_')) {
+        I = J + 2;
+        continue;
+      }
+    }
+    Result += Text[I++];
+  }
+  return Result;
 }
 
 } // namespace clangd

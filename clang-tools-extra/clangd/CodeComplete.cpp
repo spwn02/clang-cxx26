@@ -531,8 +531,10 @@ struct CodeCompletionBuilder {
   }
 
   CodeCompletion build() {
-    Completion.ReturnType = summarizeReturnType();
-    Completion.Signature = summarizeSignature();
+    // What is shown is cleaned of the version namespace of the standard
+    // library; the text that is inserted (the snippet) is not touched.
+    Completion.ReturnType = stripInlineVersionNamespaces(summarizeReturnType());
+    Completion.Signature = stripInlineVersionNamespaces(summarizeSignature());
     Completion.SnippetSuffix = summarizeSnippet();
     Completion.BundleSize = Bundled.size();
     return std::move(Completion);
