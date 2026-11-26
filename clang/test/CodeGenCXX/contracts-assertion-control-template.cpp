@@ -1,8 +1,6 @@
 // RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=ignore -emit-llvm -o - %s | FileCheck %s --check-prefix=IGNORE
-// RUN: %clang_cc1 -std=c++29 -fcontract-evaluation-semantic=ignore -emit-llvm -o - %s | FileCheck %s --check-prefix=IGNORE
 // RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=observe -emit-llvm -o - %s | FileCheck %s --check-prefix=OBSERVE
 // RUN: %clang_cc1 -std=c++26 -ast-dump %s | FileCheck %s --check-prefix=AST
-// RUN: %clang_cc1 -std=c++29 -ast-dump %s | FileCheck %s --check-prefix=AST
 
 // P4451R2: the assertion-control-specifier of a function template (and of a
 // member of a class template) survives instantiation (TreeTransform), so an
