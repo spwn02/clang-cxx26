@@ -4665,10 +4665,12 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       BitsUnpacker ContractBits(Record[ASTStmtReader::NumStmtFields]);
       ContractKind CK = static_cast<ContractKind>(ContractBits.getNextBits(2));
       bool HasResultName = ContractBits.getNextBit();
+      bool IsTerminating = ContractBits.getNextBit();
 
       unsigned NumAttrs = Record[ASTStmtReader::NumStmtFields + 1];
 
-      S = ContractStmt::CreateEmpty(Context, CK, HasResultName, NumAttrs);
+      S = ContractStmt::CreateEmpty(Context, CK, HasResultName, IsTerminating,
+                                    NumAttrs);
       break;
     }
 

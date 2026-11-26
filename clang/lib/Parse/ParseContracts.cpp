@@ -81,6 +81,23 @@ bool Parser::LateParseFunctionContractSpecifier(CachedTokens &Toks) {
   SourceRange ContractRange = SourceRange(ConsumeToken());
 
   Toks.push_back(StartTok);
+  // Preserve the assertion-control id-expression for the late parse. This
+  // syntax is only recognized after one of the contract keywords.
+  if (getLangOpts().CPlusPlus26 && Tok.is(tok::less)) {
+    unsigned AngleDepth = 0;
+    do {
+      Toks.push_back(Tok);
+      if (Tok.is(tok::less))
+        ++AngleDepth;
+      else if (Tok.is(tok::greater))
+        --AngleDepth;
+      else if (Tok.is(tok::greatergreater))
+        AngleDepth -= std::min(AngleDepth, 2u);
+      ConsumeAnyToken();
+    } while (AngleDepth != 0 && Tok.isNot(tok::eof));
+    if (AngleDepth != 0)
+      return false;
+  }
   // Attributes belong to the assertion and must survive delayed parsing.
   while (Tok.is(tok::l_square) && NextToken().is(tok::l_square)) {
     Toks.push_back(Tok);
@@ -281,6 +298,25 @@ StmtResult Parser::ParseFunctionContractSpecifierImpl(
   SourceLocation KeywordLoc = Tok.getLocation();
   ConsumeToken();
 
+  ExprResult Control;
+  bool InvalidControl = false;
+  if (getLangOpts().CPlusPlus26 && Tok.is(tok::less)) {
+    ConsumeToken();
+    bool OldGreaterThanIsOperator = GreaterThanIsOperator;
+    GreaterThanIsOperator = false;
+    {
+      // The id-expression names the control entity; it is not an evaluated
+      // operand and must not leave a pending odr-use in the containing body.
+      EnterExpressionEvaluationContext Unevaluated(
+          Actions, Sema::ExpressionEvaluationContext::Unevaluated);
+      Control = ParseCXXIdExpression();
+    }
+    GreaterThanIsOperator = OldGreaterThanIsOperator;
+    InvalidControl = Control.isInvalid();
+    if (ExpectAndConsume(tok::greater))
+      return StmtError();
+  }
+
   ParsedAttributes CXX11Attrs(AttrFactory);
   MaybeParseCXX11Attributes(CXX11Attrs);
 
@@ -358,7 +394,9 @@ StmtResult Parser::ParseFunctionContractSpecifierImpl(
   }
 
   StmtResult Res =
-      Actions.ActOnContractAssert(CK, KeywordLoc, Cond.get(), RND, CXX11Attrs);
+      Actions.ActOnContractAssert(CK, KeywordLoc, Cond.get(), RND,
+                                  InvalidControl ? nullptr : Control.get(),
+                                  CXX11Attrs);
   if (Res.isInvalid())
     IsInvalid = true;
   return Res;

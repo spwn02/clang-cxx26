@@ -671,6 +671,7 @@ void ASTStmtWriter::VisitContractStmt(ContractStmt *S) {
   CurrentPackingBits.addBits(S->ContractAssertBits.ContractKind,
                              /*BitsWidth=*/2);
   CurrentPackingBits.addBit(S->ContractAssertBits.HasResultName);
+  CurrentPackingBits.addBit(S->ContractAssertBits.IsTerminating);
   Record.push_back(S->getAttrs().size());
 
   Record.AddSourceLocation(S->getKeywordLoc());

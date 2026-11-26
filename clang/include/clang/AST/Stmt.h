@@ -917,10 +917,14 @@ protected:
     LLVM_PREFERRED_TYPE(bool)
     unsigned HasResultName : 1;
 
+    /// Whether this assertion has the P4451 always-enforced control.
+    LLVM_PREFERRED_TYPE(bool)
+    unsigned IsTerminating : 1;
+
     LLVM_PREFERRED_TYPE(ContractKind)
     unsigned ContractKind : 2;
 
-    enum { NumContractAssertBits = 3 };
+    enum { NumContractAssertBits = 4 };
 
     LLVM_PREFERRED_TYPE(unsigned)
     unsigned NumAttrs : 32 - NumStmtBits - NumContractAssertBits;

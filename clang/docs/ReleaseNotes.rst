@@ -276,6 +276,8 @@ C++2c Feature Support
   ``annotation_attributes`` and ``experimental_library``; use ``__cpp_impl_reflection`` and ``__cplusplus``.
   Erroneous behavior for uninitialized reads (P2795R5) is the default in C++26.
 
+- Implemented `P4451R2 <https://wg21.link/P4451R2>`_ in C++26: ``pre``, ``post``, and ``contract_assert`` accept ``<std::contracts::controls::enforced>`` to require a terminating evaluation semantic.
+
 - The contract extensions that the draft does not have were removed (``[[clang::contract_semantic]]``,
   ``[[clang::contract_message]]``, ``[[clang::contract_emission]]``).
 
@@ -317,7 +319,7 @@ C++2c Feature Support
 
 - The C++26 feature-test macros ``__cpp_constexpr_exceptions`` (202411L) and
   ``__cpp_pp_embed`` (202502L) are defined, and ``#embed`` no longer warns that it is an extension in C++26 mode.
-  ``__cpp_contracts`` is 202502L as in the C++26 standard (it was 202606L, a value of a later paper).
+  ``__cpp_contracts`` is 202611L after P4451R2 (it was 202502L in the original C++26 DIS).
 
 - In C++26 mode a throw-expression and a try-block in a constexpr or consteval function (and in a lambda in one) are
   accepted with ``-fno-exceptions``: constant evaluation uses them. A constexpr function that reaches a throw-expression

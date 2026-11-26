@@ -12915,6 +12915,10 @@ def err_result_name_shadows_param : Error<
   "declaration of result name %0 shadows parameter">;
 def err_void_result_name : Error<
   "result name %0 cannot be used with a void return type">;
+def err_contract_control_dependent : Error<
+  "assertion-control id-expression must not be type- or value-dependent">;
+def err_contract_control_invalid : Error<
+  "assertion-control id-expression must denote std::contracts::controls::enforced">;
 def err_result_name_not_allowed : Error<
   "result name %0 not allowed outside of post condition specifier">;
 
@@ -12943,7 +12947,8 @@ def note_previous_contracts : Note<
   "|<ERROR>"
   "|as '%sub{select_contract_kind}1'"
   "|%select{without|with}2 result name"
-  "|with a non-equivalent condition}0">;
+  "|with a non-equivalent condition"
+  "|with a different assertion-control-specifier}0">;
 
 def err_contract_postcondition_parameter_type_invalid : Error<
     "parameter %0 referenced in contract postcondition %select{cannot have an array type|cannot have a function type|must be declared const|cannot be odr-used in a coroutine postcondition}1">;

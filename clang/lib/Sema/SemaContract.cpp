@@ -163,13 +163,55 @@ ExprResult Sema::ActOnContractAssertCondition(Expr *Cond)  {
 
 StmtResult Sema::BuildContractStmt(ContractKind CK, SourceLocation KeywordLoc,
                                    Expr *Cond, DeclStmt *RND,
+                                   bool IsTerminating,
                                    ArrayRef<const Attr *> Attrs) {
-  return ContractStmt::Create(Context, CK, KeywordLoc, Cond, RND, Attrs);
+  return ContractStmt::Create(Context, CK, KeywordLoc, Cond, RND,
+                              IsTerminating, Attrs);
 }
 
 StmtResult Sema::ActOnContractAssert(ContractKind CK, SourceLocation KeywordLoc,
                                      Expr *Cond, ResultNameDecl *RND,
+                                     Expr *Control,
                                      ParsedAttributes &ContractAttrs) {
+
+  bool IsTerminating = false;
+  if (Control) {
+    if (Control->isTypeDependent() || Control->isValueDependent()) {
+      Diag(Control->getExprLoc(), diag::err_contract_control_dependent);
+      return StmtError();
+    }
+
+    const auto *DRE = dyn_cast<DeclRefExpr>(Control->IgnoreParenImpCasts());
+    const auto *VD = DRE ? dyn_cast<VarDecl>(DRE->getDecl()) : nullptr;
+    const auto *RT = VD ? VD->getType()->getAs<RecordType>() : nullptr;
+    const RecordDecl *ControlType = RT ? RT->getDecl() : nullptr;
+    auto IsNamedNamespace = [](const DeclContext *DC, StringRef Name) {
+      const auto *ND = dyn_cast_or_null<NamespaceDecl>(DC);
+      return ND && ND->getName() == Name;
+    };
+    bool IsLibraryEnforced =
+        VD && VD->getName() == "enforced" && ControlType &&
+        ControlType->getName() == "__enforced_t" &&
+        IsNamedNamespace(VD->getDeclContext(), "__p4451") &&
+        IsNamedNamespace(VD->getDeclContext()->getParent(), "controls") &&
+        IsNamedNamespace(VD->getDeclContext()->getParent()->getParent(),
+                         "contracts") &&
+        IsNamedNamespace(
+            VD->getDeclContext()->getParent()->getParent()->getParent(),
+            "std") &&
+        IsNamedNamespace(ControlType->getDeclContext(), "__p4451") &&
+        IsNamedNamespace(ControlType->getDeclContext()->getParent(),
+                         "controls") &&
+        IsNamedNamespace(ControlType->getDeclContext()->getParent()->getParent(),
+                         "contracts") &&
+        IsNamedNamespace(ControlType->getDeclContext()->getParent()->getParent()->getParent(),
+                         "std");
+    if (!IsLibraryEnforced) {
+      Diag(Control->getExprLoc(), diag::err_contract_control_invalid);
+      return StmtError();
+    }
+    IsTerminating = true;
+  }
 
   // The parser diagnoses malformed result bindings before finishing the
   // predicate. Do not construct a precondition with a postcondition-only node.
@@ -190,6 +232,7 @@ StmtResult Sema::ActOnContractAssert(ContractKind CK, SourceLocation KeywordLoc,
 
   StmtResult Res =
       BuildContractStmt(CK, KeywordLoc, Cond, RNDStmt,
+                        IsTerminating,
                         SemaContractHelper::buildAttributesWithDummyNode(
                             *this, ContractAttrs, KeywordLoc));
 
@@ -535,7 +578,8 @@ bool Sema::CheckEquivalentContractSequence(FunctionDecl *OldDecl,
     DK_NumContracts,
     DK_Kind,
     DK_ResultName,
-    DK_Cond
+    DK_Cond,
+    DK_Control
   };
   unsigned ContractIndex = 0;
 
@@ -563,6 +607,8 @@ bool Sema::CheckEquivalentContractSequence(FunctionDecl *OldDecl,
 
       if (OC->getContractKind() != NC->getContractKind())
         return DK_Kind;
+      if (OC->isTerminating() != NC->isTerminating())
+        return DK_Control;
       if (OC->hasResultName() != NC->hasResultName())
         return DK_ResultName;
       if (!Context.hasSameExpr(OC->getCond(), NC->getCond()))
@@ -605,6 +651,8 @@ bool Sema::CheckEquivalentContractSequence(FunctionDecl *OldDecl,
   auto GetRangeForNote = [&](const ContractStmt *CS) {
     switch (DK) {
     case DK_Kind:
+      return SourceRange(CS->getBeginLoc(), CS->getBeginLoc());
+    case DK_Control:
       return SourceRange(CS->getBeginLoc(), CS->getBeginLoc());
     case DK_ResultName:
       return CS->hasResultName() ? CS->getResultName()->getSourceRange()

@@ -548,7 +548,7 @@ feature_test_macros = [
         },
         {
             "name": "__cpp_lib_contracts",
-            "values": {"c++26": 202502},
+            "values": {"c++26": 202611},
             "headers": ["contracts"],
         },
         {

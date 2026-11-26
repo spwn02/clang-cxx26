@@ -73,8 +73,8 @@
 #  ifndef __cpp_lib_contracts
 #    error "__cpp_lib_contracts should be defined in c++26"
 #  endif
-#  if __cpp_lib_contracts != 202502L
-#    error "__cpp_lib_contracts should have the value 202502L in c++26"
+#  if __cpp_lib_contracts != 202611L
+#    error "__cpp_lib_contracts should have the value 202611L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_replaceable_contract_violation_handler

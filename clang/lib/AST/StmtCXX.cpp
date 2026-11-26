@@ -278,16 +278,19 @@ unsigned CXXInitListExpansionStmt::getNumInstantiations() const {
 }
 
 ContractStmt *ContractStmt::CreateEmpty(const ASTContext &C, ContractKind Kind,
-                                        bool HasResultName, unsigned NumAttrs) {
+                                        bool HasResultName, bool IsTerminating,
+                                        unsigned NumAttrs) {
   void *Mem = C.Allocate(
       totalSizeToAlloc<Stmt *, const Attr *>(1 + HasResultName, NumAttrs),
       alignof(ContractStmt));
-  return new (Mem) ContractStmt(EmptyShell(), Kind, HasResultName, NumAttrs);
+  return new (Mem) ContractStmt(EmptyShell(), Kind, HasResultName,
+                                IsTerminating, NumAttrs);
 }
 
 ContractStmt *ContractStmt::Create(const ASTContext &C, ContractKind Kind,
                                    SourceLocation KeywordLoc, Expr *Condition,
                                    DeclStmt *ResultNameDecl,
+                                   bool IsTerminating,
                                    ArrayRef<const Attr *> Attrs) {
   assert((ResultNameDecl == nullptr || Kind == ContractKind::Post) &&
          "Only a postcondition can have a result name declaration");
@@ -295,7 +298,8 @@ ContractStmt *ContractStmt::Create(const ASTContext &C, ContractKind Kind,
                              1 + (ResultNameDecl != nullptr), Attrs.size()),
                          alignof(ContractStmt));
   return new (Mem)
-      ContractStmt(Kind, KeywordLoc, Condition, ResultNameDecl, Attrs);
+      ContractStmt(Kind, KeywordLoc, Condition, ResultNameDecl, IsTerminating,
+                   Attrs);
 }
 
 ResultNameDecl *ContractStmt::getResultName() const {
@@ -350,5 +354,12 @@ StringRef ContractStmt::SemanticAsString(ContractEvaluationSemantic Sem) {
 
 ContractEvaluationSemantic
 ContractStmt::getSemantic(const ASTContext &Ctx) const {
+  if (isTerminating()) {
+    auto Semantic = Ctx.getLangOpts().ContractOpts.DefaultSemantic;
+    if (Semantic == ContractEvaluationSemantic::Ignore ||
+        Semantic == ContractEvaluationSemantic::Observe)
+      return ContractEvaluationSemantic::Enforce;
+    return Semantic;
+  }
   return Ctx.getLangOpts().ContractOpts.DefaultSemantic;
 }

@@ -2434,7 +2434,11 @@ void StmtProfiler::VisitCoyieldExpr(const CoyieldExpr *S) {
   VisitExpr(S);
 }
 
-void StmtProfiler::VisitContractStmt(const ContractStmt *S) { VisitStmt(S); }
+void StmtProfiler::VisitContractStmt(const ContractStmt *S) {
+  VisitStmt(S);
+  ID.AddInteger(static_cast<unsigned>(S->getContractKind()));
+  ID.AddBoolean(S->isTerminating());
+}
 
 void StmtProfiler::VisitOpaqueValueExpr(const OpaqueValueExpr *E) {
   VisitExpr(E);

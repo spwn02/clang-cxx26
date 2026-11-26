@@ -115,6 +115,7 @@ TEST(StdlibTest, Cxx26Facilities) {
       {"std::", "constant_wrapper", "<utility>"},
       {"std::", "apply_result", "<type_traits>"},
       {"std::", "exception_ptr_cast", "<exception>"},
+      {"std::contracts::controls::", "enforced", "<contracts>"},
   };
   for (const auto &C : Cases) {
     auto Symbol = stdlib::Symbol::named(C.Scope, C.Name);
