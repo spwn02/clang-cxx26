@@ -2359,6 +2359,7 @@ module std [system] {
     module get_env                        { header "__execution/get_env.h" export * }
     module get_forward_progress_guarantee { header "__execution/get_forward_progress_guarantee.h" export * }
     module get_scheduler                  { header "__execution/get_scheduler.h" export * }
+    module get_scheduler_allocator        { header "__execution/get_scheduler_allocator.h" export * }
     module get_stop_token                 { header "__execution/get_stop_token.h" export * }
     module infallible_scheduler           { header "__execution/infallible_scheduler.h" export * }
     module inline_scheduler               { header "__execution/inline_scheduler.h" export * }

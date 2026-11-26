@@ -384,6 +384,7 @@ set(files
   __execution/get_env.h
   __execution/get_forward_progress_guarantee.h
   __execution/get_scheduler.h
+  __execution/get_scheduler_allocator.h
   __execution/get_stop_token.h
   __execution/infallible_scheduler.h
   __execution/inline_scheduler.h

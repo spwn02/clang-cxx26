@@ -29,4 +29,9 @@ namespace ex = std::execution;
 static_assert(std::same_as<ex::with_error<const int&>::type, int>);
 static_assert(std::same_as<ex::task<>::start_scheduler_type, ex::task_scheduler>);
 static_assert(std::same_as<ex::task<int>, ex::task<int, ex::env<>>>);
+struct scheduler_allocator_env {
+  std::allocator<int> query(std::get_scheduler_allocator_t) const noexcept { return {}; }
+};
+static_assert(std::forwarding_query(std::get_scheduler_allocator));
+static_assert(std::same_as<decltype(std::get_scheduler_allocator(scheduler_allocator_env{})), std::allocator<int>>);
 int main(int, char**) { return 0; }
