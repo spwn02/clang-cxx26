@@ -62,9 +62,7 @@ struct bulk_unchunked_t;
 // adopted text, task_scheduler has exactly one constructor --
 // `explicit task_scheduler(Sch&&, Allocator = {})`, constrained on scheduler<Sch> -- and is
 // NOT default-constructible: there is no implicit "empty" state, so every task<T,Environment>
-// whose Environment doesn't supply its own scheduler_type must explicitly construct
-// `task_scheduler(inline_scheduler{})` wherever it needs a default value (see task.h's
-// promise_type).
+// using task_scheduler must obtain a scheduler from the connected receiver's environment.
 //
 // The erased schedule() sender always advertises this fixed completion-signature shape,
 // regardless of what the wrapped real scheduler's own schedule() sender declares: erasing to

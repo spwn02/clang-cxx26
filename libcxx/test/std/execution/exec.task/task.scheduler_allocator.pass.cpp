@@ -91,6 +91,8 @@ void check_scheduler_selection(int _Expected) {
 }
 
 int main(int, char**) {
+  static_assert(!std::default_initializable<ex::task_scheduler>);
+
   check_scheduler_selection<1>(9); // The query returns the selected scheduler value.
   check_scheduler_selection<2>(2); // start scheduler and scheduler allocator
   check_scheduler_selection<3>(3); // start scheduler

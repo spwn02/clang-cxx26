@@ -299,10 +299,6 @@ private:
         return _Scheduler(std::get_scheduler_allocator(__env));
       } else if constexpr (requires { _Scheduler(); }) {
         return _Scheduler();
-      } else if constexpr (same_as<_Scheduler, task_scheduler>) {
-        // Preserve task's default environment behavior: its type-erased default scheduler is
-        // constructed around inline_scheduler, because task_scheduler itself has no default ctor.
-        return task_scheduler(inline_scheduler{});
       } else {
         static_assert(same_as<_Scheduler, void>, "task start_scheduler_type is not constructible from its environment");
       }
@@ -310,8 +306,6 @@ private:
       return _Scheduler(std::get_scheduler_allocator(__env));
     } else if constexpr (requires { _Scheduler(); }) {
       return _Scheduler();
-    } else if constexpr (same_as<_Scheduler, task_scheduler>) {
-      return task_scheduler(inline_scheduler{});
     } else {
       static_assert(same_as<_Scheduler, void>, "task start_scheduler_type is not constructible from its environment");
     }
