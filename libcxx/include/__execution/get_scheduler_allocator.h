@@ -10,9 +10,12 @@
 #define _LIBCPP___EXECUTION_GET_SCHEDULER_ALLOCATOR_H
 
 #include <__config>
+
+#if _LIBCPP_STD_VER >= 26
 #include <__execution/forwarding_query.h>
 #include <__execution/get_allocator.h>
 #include <__type_traits/remove_cvref.h>
+#endif // _LIBCPP_STD_VER >= 26
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header

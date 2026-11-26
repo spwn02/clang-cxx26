@@ -65,7 +65,7 @@ struct value_rcvr {
   void set_value(int v) && noexcept { *out = v; }
   void set_error(std::exception_ptr) && noexcept { assert(false); }
   void set_stopped() && noexcept { assert(false); }
-  auto get_env() const noexcept { return env<>{}; }
+  auto get_env() const noexcept { return env{prop{get_start_scheduler, inline_scheduler{}}}; }
 };
 
 int main(int, char**) {
