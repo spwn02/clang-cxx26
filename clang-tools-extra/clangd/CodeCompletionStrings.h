@@ -67,6 +67,15 @@ std::string formatDocumentation(const CodeCompletionString &CCS,
 /// is usually the return type of a function.
 std::string getReturnType(const CodeCompletionString &CCS);
 
+/// Removes the inline "ABI version" namespace qualifiers of a standard library
+/// (libc++'s `__1::`, `__2::`, ...) from the spelling of a type that is shown
+/// to the user: `std::__1::meta::token_sequence` becomes
+/// `std::meta::token_sequence`. Clang keeps such a qualifier when it cannot
+/// prove it redundant (a module that re-exports the names of the library in a
+/// namespace of its own), but it never helps a reader. Only a segment of the
+/// form `__<digits>::` that follows another `::` is removed.
+std::string stripInlineVersionNamespaces(llvm::StringRef Text);
+
 } // namespace clangd
 } // namespace clang
 

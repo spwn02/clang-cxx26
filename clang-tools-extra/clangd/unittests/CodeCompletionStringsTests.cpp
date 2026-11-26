@@ -48,6 +48,22 @@ TEST_F(CompletionStringTest, ReturnType) {
   EXPECT_EQ(getReturnType(*Builder.TakeString()), "result");
 }
 
+TEST(StripInlineVersionNamespaces, RemovesLibraryVersionSegments) {
+  EXPECT_EQ(stripInlineVersionNamespaces("std::__1::meta::token_sequence"),
+            "std::meta::token_sequence");
+  EXPECT_EQ(stripInlineVersionNamespaces("std::__12::vector<std::__1::string>"),
+            "std::vector<std::string>");
+  EXPECT_EQ(stripInlineVersionNamespaces("(std::__1::string_view v)"),
+            "(std::string_view v)");
+  // Not a version segment: no leading "::", no digits, or nothing follows.
+  EXPECT_EQ(stripInlineVersionNamespaces("__1::x"), "__1::x");
+  EXPECT_EQ(stripInlineVersionNamespaces("a::__x::y"), "a::__x::y");
+  EXPECT_EQ(stripInlineVersionNamespaces("a::foo__1::y"), "a::foo__1::y");
+  EXPECT_EQ(stripInlineVersionNamespaces("a::__1::"), "a::__1::");
+  EXPECT_EQ(stripInlineVersionNamespaces("a::__1"), "a::__1");
+  EXPECT_EQ(stripInlineVersionNamespaces("int"), "int");
+}
+
 TEST_F(CompletionStringTest, Documentation) {
   Builder.addBriefComment("This is ignored");
   EXPECT_EQ(formatDocumentation(*Builder.TakeString(), "Is this brief?"),
