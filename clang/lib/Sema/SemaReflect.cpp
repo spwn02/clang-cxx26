@@ -936,9 +936,9 @@ static bool isReflectionTransparentUsing(UsingShadowDecl *USD) {
     return false;
 
   DeclContext *UsingScope = UD->getDeclContext();
-  // An export-block declaration is in the surrounding namespace scope; the
-  // ExportDecl is only a syntactic wrapper.
-  if (isa<ExportDecl>(UsingScope))
+  // Export-declarations and linkage specifications are syntactic wrappers;
+  // neither introduces a scope for [namespace.udecl].
+  while (isa<ExportDecl, LinkageSpecDecl>(UsingScope))
     UsingScope = UsingScope->getParent();
   if (!UsingScope->isTranslationUnit() && !isa<NamespaceDecl>(UsingScope))
     return false;
