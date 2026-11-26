@@ -969,6 +969,96 @@ static bool isReflectionNameForm(DeclarationName Name, bool HasTemplateArgs) {
   return Name.getNameKind() == DeclarationName::Identifier && !HasTemplateArgs;
 }
 
+static NamedDecl *getTransparentUsingTarget(NamedDecl *D);
+
+/// Whether the using-declarator that introduced \p USD is transparent for
+/// reflection, as specified by [namespace.udecl]. This deliberately excludes
+/// using-enum and inherited-constructor declarations: they do not denote an
+/// ordinary namespace-scope using-declarator for this rule.
+static bool isReflectionTransparentUsing(UsingShadowDecl *USD) {
+  auto *UD = dyn_cast_or_null<UsingDecl>(USD->getIntroducer());
+  if (!UD)
+    return false;
+
+  DeclContext *UsingScope = UD->getDeclContext();
+  if (!UsingScope->isTranslationUnit() && !isa<NamespaceDecl>(UsingScope))
+    return false;
+
+  // Every entity named by a using-declarator must satisfy the target scope
+  // relation. A preceding using-declarator in a chain does not itself affect
+  // this relation; the declaration named is the ultimate target entity.
+  for (UsingShadowDecl *Shadow : UD->shadows()) {
+    NamedDecl *Target = getTransparentUsingTarget(Shadow->getTargetDecl());
+    if (isa<EnumConstantDecl>(Target))
+      return false;
+
+    DeclContext *TargetScope = Target->getDeclContext();
+    bool ContainsTargetScope = false;
+    for (DeclContext *DC = TargetScope; DC; DC = DC->getParent()) {
+      if (DC->getPrimaryContext() == UsingScope->getPrimaryContext()) {
+        ContainsTargetScope = true;
+        break;
+      }
+
+      auto *NS = dyn_cast<NamespaceDecl>(DC);
+      if (!NS || (!NS->isInline() && !NS->isAnonymousNamespace()))
+        return false;
+    }
+    if (!ContainsTargetScope)
+      return false;
+  }
+
+  return true;
+}
+
+/// Return the declaration denoted through a transparent chain of
+/// using-declarators.
+static NamedDecl *getTransparentUsingTarget(NamedDecl *D) {
+  while (auto *USD = dyn_cast<UsingShadowDecl>(D))
+    D = USD->getTargetDecl();
+  return D;
+}
+
+/// Lookup of an unscoped enumerator can merge the declaration introduced by a
+/// using-declarator with the original declaration. Recover those shadows from
+/// the found declaration's scope so the using-declarator still participates in
+/// the transparency check.
+static bool hasNonTransparentUsingInLookup(LookupResult &Found,
+                                           DeclContext *LookupDC) {
+  for (NamedDecl *D : Found) {
+    if (auto *USD = dyn_cast<UsingShadowDecl>(D)) {
+      if (!isReflectionTransparentUsing(USD))
+        return true;
+    }
+
+    // Some lookups (notably unscoped enumerators and using-enum) return the
+    // named declaration instead of its using-shadow. Inspect the actual scope
+    // searched for the reflection-name, since the declaration's semantic
+    // context may be an enum or another scope that did not contribute lookup.
+    for (Decl *ContextDecl : LookupDC->decls()) {
+      auto *UD = dyn_cast<UsingDecl>(ContextDecl);
+      if (UD && UD->getDeclName() == D->getDeclName()) {
+        for (UsingShadowDecl *USD : UD->shadows()) {
+          if (getTransparentUsingTarget(USD)->getCanonicalDecl() ==
+                  D->getCanonicalDecl() &&
+              !isReflectionTransparentUsing(USD))
+            return true;
+        }
+      }
+
+      auto *UED = dyn_cast<UsingEnumDecl>(ContextDecl);
+      if (UED) {
+        for (UsingShadowDecl *USD : UED->shadows()) {
+          if (getTransparentUsingTarget(USD)->getCanonicalDecl() ==
+                  D->getCanonicalDecl())
+            return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc,
                                      SourceLocation TemplateKWLoc,
                                      CXXScopeSpec &SS, UnqualifiedId &Id) {
@@ -1022,6 +1112,27 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc,
     return ExprError();
   }
 
+  DeclContext *LookupDC = CurContext;
+  if (!SS.isEmpty()) {
+    NestedNameSpecifier NNS = SS.getScopeRep();
+    if (NNS.getKind() == NestedNameSpecifier::Kind::Namespace) {
+      LookupDC = const_cast<NamespaceDecl *>(
+          NNS.getAsNamespaceAndPrefix().Namespace->getNamespace());
+    } else if (NNS.getKind() == NestedNameSpecifier::Kind::Type) {
+      if (TagDecl *TD = NNS.getAsType()->getAsTagDecl())
+        LookupDC = TD;
+    }
+  }
+
+  if (isReflectionNameForm(NameInfo.getName(), TArgs) &&
+      hasNonTransparentUsingInLookup(Found, LookupDC)) {
+    SourceLocation DiagLoc = SS.getBeginLoc();
+    if (DiagLoc.isInvalid())
+      DiagLoc = NameInfo.getLoc();
+    Diag(DiagLoc, diag::err_reflect_using_declarator);
+    return ExprError();
+  }
+
   // Make sure the lookup was neither ambiguous nor resulting in an overload set
   // having more than one candidate.
   if (Found.isAmbiguous()) {
@@ -1039,12 +1150,12 @@ ExprResult Sema::ActOnCXXReflectExpr(SourceLocation OpLoc,
 
   if (auto *USD = dyn_cast<UsingShadowDecl>(ND)) {
     if (isReflectionNameForm(NameInfo.getName(), TArgs)) {
-      Diag(SS.getBeginLoc(), diag::err_reflect_using_declarator);
-      return ExprError();
+      ND = getTransparentUsingTarget(USD);
+    } else {
+      // An id-expression names the entity that the using-declarator
+      // introduced.
+      ND = USD->getTargetDecl();
     }
-
-    // An id-expression names the entity that the using-declarator introduced.
-    ND = USD->getTargetDecl();
   }
 
   if (auto *TD = dyn_cast<TypeDecl>(ND)) {
@@ -2518,8 +2629,16 @@ Sema::getClonedDeclarationSource(const FunctionDecl *FD) const {
 ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
                                      SourceLocation OperandLoc, QualType T) {
   if (auto *UT = dyn_cast<UsingType>(T)) {
-    Diag(OperandLoc, diag::err_reflect_using_declarator);
-    return ExprError();
+    if (!isReflectionTransparentUsing(UT->getDecl())) {
+      Diag(OperandLoc, diag::err_reflect_using_declarator);
+      return ExprError();
+    }
+
+    NamedDecl *Target = getTransparentUsingTarget(UT->getDecl());
+    if (auto *TD = dyn_cast<TypeDecl>(Target))
+      T = Context.getTypeDeclType(TD);
+    else
+      T = UT->desugar();
   }
 
   if (auto *STTPTy = T->getAs<SubstTemplateTypeParmType>())
@@ -2540,9 +2659,15 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
       return ExprError();
     }
     UsingShadowDecl *USD = *UD->shadow_begin();
-    D = USD;
-    if (!isReflectionNameForm(UD->getDeclName(), /*HasTemplateArgs=*/false))
+    if (isReflectionNameForm(UD->getDeclName(), /*HasTemplateArgs=*/false)) {
+      if (!isReflectionTransparentUsing(USD)) {
+        Diag(OperandLoc, diag::err_reflect_using_declarator);
+        return ExprError();
+      }
+      D = getTransparentUsingTarget(USD);
+    } else {
       D = USD->getTargetDecl();
+    }
   }
 
   D = D->getCanonicalDecl();
@@ -2550,9 +2675,12 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc,
   ReflectionKind RK = ReflectionKind::Declaration;
   if (isa<TranslationUnitDecl, NamespaceDecl, NamespaceAliasDecl>(D))
     RK = ReflectionKind::Namespace;
-  else if (isa<UsingShadowDecl>(D)) {
-    Diag(OperandLoc, diag::err_reflect_using_declarator);
-    return ExprError();
+  else if (auto *USD = dyn_cast<UsingShadowDecl>(D)) {
+    if (!isReflectionTransparentUsing(USD)) {
+      Diag(OperandLoc, diag::err_reflect_using_declarator);
+      return ExprError();
+    }
+    D = getTransparentUsingTarget(USD)->getCanonicalDecl();
   }
 
   APValue RV(RK, D);
@@ -2590,9 +2718,14 @@ ExprResult Sema::BuildCXXReflectExpr(SourceLocation OperatorLoc, Expr *E) {
     Decl *D = DRE->getDecl();
     if (auto *F = DRE->getFoundDecl();
         isa<UsingShadowDecl>(F) &&
-        (isReflectionNameForm(DRE->getNameInfo().getName(),
-                              DRE->hasExplicitTemplateArgs())))
+        isReflectionNameForm(DRE->getNameInfo().getName(),
+                             DRE->hasExplicitTemplateArgs())) {
+      if (!isReflectionTransparentUsing(cast<UsingShadowDecl>(F))) {
+        Diag(DRE->getExprLoc(), diag::err_reflect_using_declarator);
+        return ExprError();
+      }
       D = F;
+    }
 
     return BuildCXXReflectExpr(OperatorLoc, DRE->getExprLoc(), D);
   }
