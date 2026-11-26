@@ -143,6 +143,13 @@ void MissingStdForwardCheck::check(const MatchFinder::MatchResult &Result) {
   if (!Param)
     return;
 
+  // A token-sequence macro ('__macro', C++29) is not called with values: its
+  // parameters are spliced into the returned token sequence, so there is no
+  // call to forward them to.
+  if (const auto *F = dyn_cast<FunctionDecl>(Param->getDeclContext());
+      F && F->isExpressionMacro())
+    return;
+
   diag(Param->getLocation(),
        "forwarding reference parameter %0 is never forwarded "
        "inside the function body")
