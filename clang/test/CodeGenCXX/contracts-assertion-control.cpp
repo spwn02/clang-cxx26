@@ -2,6 +2,10 @@
 // RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=observe -emit-llvm -o - %s | FileCheck %s --check-prefix=OBSERVE
 // RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=enforce -emit-llvm -o - %s | FileCheck %s --check-prefix=ENFORCE
 // RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=quick_enforce -emit-llvm -o - %s | FileCheck %s --check-prefix=QUICK
+// RUN: %clang_cc1 -std=c++26 -DABI_LABELED -emit-llvm -o - %s | FileCheck %s --check-prefix=ABI
+// RUN: %clang_cc1 -std=c++26 -emit-llvm -o - %s | FileCheck %s --check-prefix=ABI
+// RUN: %clang_cc1 -std=c++26 -DABI_LABELED -fcontract-evaluation-semantic=ignore -emit-llvm -o - %s | FileCheck %s --check-prefix=ABI
+// RUN: %clang_cc1 -std=c++26 -fcontract-evaluation-semantic=ignore -emit-llvm -o - %s | FileCheck %s --check-prefix=ABI
 
 namespace std::contracts::controls {
 inline namespace __p4451 {
@@ -18,6 +22,13 @@ int post_labeled(const int x)
   return x + 1;
 }
 void plain(int x) { contract_assert(x > 0); }
+
+// Compare the mangled name for equivalent plain and terminating declarations.
+#ifdef ABI_LABELED
+void abi(int x) pre<std::contracts::controls::enforced>(x > 0) {}
+#else
+void abi(int x) pre(x > 0) {}
+#endif
 
 // IGNORE-LABEL: define{{.*}} @_Z7labeledi(
 // IGNORE: call void @__handle_contract_violation_v3(i32{{.*}} 3,
@@ -54,3 +65,5 @@ void plain(int x) { contract_assert(x > 0); }
 // QUICK: call void @llvm.trap()
 // QUICK-LABEL: define{{.*}} @_Z5plaini(
 // QUICK: call void @llvm.trap()
+
+// ABI-LABEL: define{{.*}} @_Z3abii(
