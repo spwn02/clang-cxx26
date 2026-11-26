@@ -3873,6 +3873,18 @@ void ASTContext::adjustExceptionSpec(
     if (TSInfo->getType() != FD->getType())
       Updated = getFunctionTypeWithExceptionSpec(TSInfo->getType(), ESI);
 
+    // FunctionProtoTypeLoc reserves a SourceRange only when the written type
+    // has an exception specification. During recovery of an incomplete,
+    // delayed exception specification (notably in clangd code completion),
+    // the semantic type can acquire one even though the TypeSourceInfo was
+    // allocated without that range. Keep the original TypeSourceInfo in that
+    // case: its backing storage cannot be reinterpreted using the new layout.
+    const auto *UpdatedProto = Updated->getAs<FunctionProtoType>();
+    const auto *WrittenProto = TSInfo->getType()->getAs<FunctionProtoType>();
+    if (UpdatedProto && WrittenProto &&
+        UpdatedProto->hasExceptionSpec() != WrittenProto->hasExceptionSpec())
+      return;
+
     // FIXME: When we get proper type location information for exceptions,
     // we'll also have to rebuild the TypeSourceInfo. For now, we just patch
     // up the TypeSourceInfo;

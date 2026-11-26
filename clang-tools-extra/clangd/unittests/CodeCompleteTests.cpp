@@ -3284,6 +3284,16 @@ TEST(SignatureHelpTest, PartialSpec) {
   EXPECT_EQ(0, Results.activeParameter);
 }
 
+TEST(SignatureHelpTest, IncompleteNoexceptInLateParsedMethod) {
+  const auto Results = signatures(R"cpp(
+      struct Option {
+        constexpr Option() noexcept(sizeof(int)::)
+        = default;
+      ^};
+  )cpp");
+  EXPECT_TRUE(Results.signatures.empty());
+}
+
 TEST(SignatureHelpTest, InsideArgument) {
   {
     const auto Results = signatures(R"cpp(
