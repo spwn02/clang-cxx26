@@ -46,6 +46,23 @@ TEST(RecursiveASTVisitor, VisitsCallExpr) {
     "void x(); void y() { x(); }"));
 }
 
+TEST(RecursiveASTVisitor, VisitsContractControlExpressions) {
+  DeclRefExprVisitor Visitor;
+  Visitor.ExpectMatch("enforced", 5, 19);
+  Visitor.ExpectMatch("enforced", 6, 33);
+  Visitor.ExpectMatch("enforced", 7, 19);
+  EXPECT_TRUE(Visitor.runOver(
+      "namespace std::contracts::controls {\n"
+      "inline namespace __p4451 { struct __enforced_t {}; "
+      "inline constexpr __enforced_t enforced{}; }\n"
+      "}\n"
+      "using std::contracts::controls::enforced;\n"
+      "void f(int x) pre<enforced>(x > 0) {}\n"
+      "void g(int x) { contract_assert<enforced>(x > 0); }\n"
+      "int h(int x) post<enforced>(r : r > 0) { return x; }\n",
+      ExpectedLocationVisitor::Lang_CXX26));
+}
+
 TEST(RecursiveASTVisitor, VisitsExplicitLambdaCaptureInit) {
   DeclRefExprVisitor Visitor;
   Visitor.ExpectMatch("i", 1, 20);

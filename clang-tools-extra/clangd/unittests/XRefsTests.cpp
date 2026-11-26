@@ -3012,6 +3012,29 @@ TEST(FindReferences, MainFileReferencesOnly) {
       << Test;
 }
 
+TEST(FindReferences, ContractControlExpressions) {
+  Annotations Code(R"cpp(
+    namespace std::contracts::controls {
+    inline namespace __p4451 {
+    struct __enforced_t {};
+    inline constexpr __enforced_t $Decl[[enforced]]{};
+    }
+    }
+    using std::contracts::controls::$Using[[enforced]];
+    void f(int x) pre<$PreRange[[$PreUse^enforced]]>(x > 0) {}
+    void g(int x) { contract_assert<$AssertRange[[$AssertUse^enforced]]>(x > 0); }
+  )cpp");
+  TestTU TU = TestTU::withCode(Code.code());
+  TU.ExtraArgs.push_back("-std=c++26");
+  auto AST = TU.build();
+
+  EXPECT_THAT(findReferences(AST, Code.point("PreUse"), 0, nullptr).References,
+              UnorderedElementsAre(rangeIs(Code.range("Decl")),
+                                   rangeIs(Code.range("Using")),
+                                   rangeIs(Code.range("PreRange")),
+                                   rangeIs(Code.range("AssertRange"))));
+}
+
 TEST(FindReferences, ExplicitSymbols) {
   const char *Tests[] = {
       R"cpp(

@@ -3465,7 +3465,7 @@ public:
 
   StmtResult BuildContractStmt(ContractKind CK, SourceLocation KeywordLoc,
                                Expr *Cond, DeclStmt *ResultName,
-                               bool IsTerminating,
+                               bool IsTerminating, Expr *Control,
                                ArrayRef<const Attr *> Attrs);
 
   ContractSpecifierDecl *

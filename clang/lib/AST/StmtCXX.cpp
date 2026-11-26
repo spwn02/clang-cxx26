@@ -286,7 +286,8 @@ ContractStmt *ContractStmt::CreateEmpty(const ASTContext &C, ContractKind Kind,
                                         bool HasResultName, bool IsTerminating,
                                         unsigned NumAttrs) {
   void *Mem = C.Allocate(
-      totalSizeToAlloc<Stmt *, const Attr *>(1 + HasResultName, NumAttrs),
+      totalSizeToAlloc<Stmt *, const Attr *>(1 + HasResultName + IsTerminating,
+                                             NumAttrs),
       alignof(ContractStmt));
   return new (Mem) ContractStmt(EmptyShell(), Kind, HasResultName,
                                 IsTerminating, NumAttrs);
@@ -295,16 +296,19 @@ ContractStmt *ContractStmt::CreateEmpty(const ASTContext &C, ContractKind Kind,
 ContractStmt *ContractStmt::Create(const ASTContext &C, ContractKind Kind,
                                    SourceLocation KeywordLoc, Expr *Condition,
                                    DeclStmt *ResultNameDecl,
-                                   bool IsTerminating,
+                                   bool IsTerminating, Expr *Control,
                                    ArrayRef<const Attr *> Attrs) {
+  assert((!IsTerminating || Control) &&
+         "terminating contract must have a control expression");
   assert((ResultNameDecl == nullptr || Kind == ContractKind::Post) &&
          "Only a postcondition can have a result name declaration");
   void *Mem = C.Allocate(totalSizeToAlloc<Stmt *, const Attr *>(
-                             1 + (ResultNameDecl != nullptr), Attrs.size()),
+                             1 + (ResultNameDecl != nullptr) + IsTerminating,
+                             Attrs.size()),
                          alignof(ContractStmt));
   return new (Mem)
       ContractStmt(Kind, KeywordLoc, Condition, ResultNameDecl, IsTerminating,
-                   Attrs);
+                   Control, Attrs);
 }
 
 ResultNameDecl *ContractStmt::getResultName() const {
