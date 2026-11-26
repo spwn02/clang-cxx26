@@ -25,6 +25,7 @@
 #include <__execution/get_completion_signatures.h>
 #include <__execution/get_env.h>
 #include <__execution/get_scheduler.h>
+#include <__execution/get_scheduler_allocator.h>
 #include <__execution/get_stop_token.h>
 #include <__execution/operation_state.h>
 #include <__execution/receiver.h>
@@ -150,18 +151,6 @@ struct __task_errors<completion_signatures<_Sigs...>> {
     return sizeof...(_Sigs);
   }
 };
-
-// task_scheduler is not default-constructible (see task_scheduler.h), so a default
-// scheduler_type value needs an explicit construction site; a custom Environment::scheduler_type
-// is assumed default-constructible (a reasonable requirement on the customization point itself).
-template <class _Environment>
-_LIBCPP_HIDE_FROM_ABI __task_scheduler_type_t<_Environment> __task_default_scheduler() {
-  if constexpr (same_as<__task_scheduler_type_t<_Environment>, task_scheduler>) {
-    return task_scheduler(inline_scheduler{});
-  } else {
-    return execution::__task_scheduler_type_t<_Environment>();
-  }
-}
 
 // A stand-in for T when T is void, so the result-storage variant and the sink interface below
 // always have a real "value" alternative/argument to name -- mirrors <__execution/as_awaitable.h>'s
@@ -290,12 +279,42 @@ public:
 
 private:
   _LIBCPP_HIDE_FROM_ABI _Environment& __environment() noexcept override { return __environment_; }
+  // [task.state]p6: A valid start-scheduler query result remains valid for the asynchronous
+  // operation's lifetime. The scheduler allocator query result, when valid, has the same
+  // lifetime requirement.
   _LIBCPP_HIDE_FROM_ABI __task_scheduler_type_t<_Environment> __start_scheduler() override {
-    using _Scheduler = __task_scheduler_type_t<_Environment>;
-    if constexpr (requires { _Scheduler(execution::get_start_scheduler(execution::get_env(__rcvr_))); })
-      return _Scheduler(execution::get_start_scheduler(execution::get_env(__rcvr_)));
-    else
-      return execution::__task_default_scheduler<_Environment>();
+    using _Scheduler  = __task_scheduler_type_t<_Environment>;
+    const auto& __env = execution::get_env(__rcvr_);
+    if constexpr (requires { execution::get_start_scheduler(__env); }) {
+      using _StartScheduler = remove_cvref_t<decltype(execution::get_start_scheduler(__env))>;
+      if constexpr (same_as<_Scheduler, _StartScheduler>) {
+        return execution::get_start_scheduler(__env);
+      } else if constexpr (requires {
+                             _Scheduler(execution::get_start_scheduler(__env), std::get_scheduler_allocator(__env));
+                           }) {
+        return _Scheduler(execution::get_start_scheduler(__env), std::get_scheduler_allocator(__env));
+      } else if constexpr (requires { _Scheduler(execution::get_start_scheduler(__env)); }) {
+        return _Scheduler(execution::get_start_scheduler(__env));
+      } else if constexpr (requires { _Scheduler(std::get_scheduler_allocator(__env)); }) {
+        return _Scheduler(std::get_scheduler_allocator(__env));
+      } else if constexpr (requires { _Scheduler(); }) {
+        return _Scheduler();
+      } else if constexpr (same_as<_Scheduler, task_scheduler>) {
+        // Preserve task's default environment behavior: its type-erased default scheduler is
+        // constructed around inline_scheduler, because task_scheduler itself has no default ctor.
+        return task_scheduler(inline_scheduler{});
+      } else {
+        static_assert(same_as<_Scheduler, void>, "task start_scheduler_type is not constructible from its environment");
+      }
+    } else if constexpr (requires { _Scheduler(std::get_scheduler_allocator(__env)); }) {
+      return _Scheduler(std::get_scheduler_allocator(__env));
+    } else if constexpr (requires { _Scheduler(); }) {
+      return _Scheduler();
+    } else if constexpr (same_as<_Scheduler, task_scheduler>) {
+      return task_scheduler(inline_scheduler{});
+    } else {
+      static_assert(same_as<_Scheduler, void>, "task start_scheduler_type is not constructible from its environment");
+    }
   }
   _LIBCPP_HIDE_FROM_ABI __task_allocator_type_t<_Environment> __sink_allocator() override {
     using _Allocator = __task_allocator_type_t<_Environment>;
@@ -531,7 +550,7 @@ public:
   struct __promise_env {
     const promise_type* __promise_;
     _LIBCPP_HIDE_FROM_ABI scheduler_type query(get_start_scheduler_t) const noexcept {
-      return __promise_->__scheduler_;
+      return *__promise_->__scheduler_;
     }
     _LIBCPP_HIDE_FROM_ABI allocator_type query(get_allocator_t) const noexcept {
       return __promise_->__sink_->__sink_allocator();
@@ -553,7 +572,7 @@ public:
   // Called by task::connect's opstate (__task_opstate, above) once it knows where the final
   // result should go; not callable before that, matching a task's own connect-once contract.
   _LIBCPP_HIDE_FROM_ABI void __set_sink(__task_result_sink<_Tp, _Environment>* __sink) noexcept {
-    __sink_ = __sink;
+    __sink_   = __sink;
     __result_ = __sink->__result_storage();
   }
 
@@ -561,14 +580,14 @@ public:
   // connects+starts schedule(__scheduler_), whose receiver resumes __h once that completes.
   // Not called from initial_suspend -- see that method's own comment for why.
   _LIBCPP_HIDE_FROM_ABI void __start(coroutine_handle<promise_type> __h) {
-    __scheduler_ = __sink_->__start_scheduler();
+    __scheduler_.emplace(__sink_->__start_scheduler());
     __h.resume();
   }
   struct __make_sched_op {
     promise_type* __p;
     coroutine_handle<promise_type> __h;
     _LIBCPP_HIDE_FROM_ABI operator __sched_op_t() const {
-      return execution::connect(execution::schedule(__p->__scheduler_), __resume_rcvr{__h});
+      return execution::connect(execution::schedule(*__p->__scheduler_), __resume_rcvr{__h});
     }
   };
   _LIBCPP_HIDE_FROM_ABI void __schedule_resume(coroutine_handle<promise_type> __h) {
@@ -653,7 +672,7 @@ private:
     }
   }
 
-  scheduler_type __scheduler_ = execution::__task_default_scheduler<_Environment>();
+  optional<scheduler_type> __scheduler_;
   stop_source_type __stop_source_{};
   __task_result_sink<_Tp, _Environment>* __sink_ = nullptr;
   optional<__sched_op_t> __sched_op_{};

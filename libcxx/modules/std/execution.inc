@@ -48,6 +48,10 @@ export namespace std {
   using std::get_allocator_t;
   using std::get_allocator;
 
+  // [exec.get.scheduler.allocator]
+  using std::get_scheduler_allocator_t;
+  using std::get_scheduler_allocator;
+
   // [exec.get.stop.token]
 #if _LIBCPP_HAS_THREADS
   using std::get_stop_token_t;
