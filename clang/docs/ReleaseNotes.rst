@@ -278,6 +278,10 @@ C++2c Feature Support
 
 - Implemented `P4451R2 <https://wg21.link/P4451R2>`_ in C++26: ``pre``, ``post``, and ``contract_assert`` accept ``<std::contracts::controls::enforced>`` to require a terminating evaluation semantic.
 
+- Implemented `P4466R2 <https://wg21.link/P4466R2>`_ (C++26 DIS comment FI-067 resolution): reflection treats
+  a using-declarator as transparent when it names declarations in its target scope, or in an inline or unnamed namespace
+  nested within that scope. Other using-declarators remain ill-formed in reflection-name operands.
+
 - The contract extensions that the draft does not have were removed (``[[clang::contract_semantic]]``,
   ``[[clang::contract_message]]``, ``[[clang::contract_emission]]``).
 
