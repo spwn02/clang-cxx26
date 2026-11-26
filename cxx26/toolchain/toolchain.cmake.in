@@ -119,8 +119,33 @@ if(CMAKE_VERSION VERSION_LESS 4.5 AND NOT DEFINED
       CACHE STRING "CMake 4.4 import-std experimental gate")
 endif()
 
+# Where clang cannot find libc++.modules.json itself -- a development install whose bin/ is a symlink
+# into a build tree, so clang's own lookup resolves to the wrong prefix -- tell CMake where it is. The
+# json's source-path entries are relative to the json file; rewrite them to this install's absolute
+# share/ in a copy under the build directory, so a stale relative path cannot break `import std`.
+if(NOT DEFINED CMAKE_CXX_STDLIB_MODULES_JSON AND NOT DEFINED CMAKE_CXX_COMPILER_IMPORT_STD)
+  set(_cxx26_modules_json "${_cxx26_root}/lib/x86_64-unknown-linux-gnu/libc++.modules.json")
+  execute_process(
+    COMMAND "${_cxx26_root}/bin/clang++" -stdlib=libc++ -print-file-name=libc++.modules.json
+    OUTPUT_VARIABLE _cxx26_found_json
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET)
+  if(NOT IS_ABSOLUTE "${_cxx26_found_json}" AND EXISTS "${_cxx26_modules_json}"
+     AND EXISTS "${_cxx26_root}/share/libc++/v1/std.cppm" AND DEFINED CMAKE_BINARY_DIR)
+    file(READ "${_cxx26_modules_json}" _cxx26_json_text)
+    string(REGEX REPLACE "\"(\\.\\./)+share/" "\"${_cxx26_root}/share/" _cxx26_json_text
+                         "${_cxx26_json_text}")
+    file(WRITE "${CMAKE_BINARY_DIR}/libc++.modules.json" "${_cxx26_json_text}")
+    set(CMAKE_CXX_STDLIB_MODULES_JSON "${CMAKE_BINARY_DIR}/libc++.modules.json"
+        CACHE FILEPATH "libc++ module metadata, with install-absolute paths")
+  endif()
+endif()
+
 unset(_cxx26_flag_index)
 unset(_cxx26_linker_flags_var)
 unset(_cxx26_cxx_flag)
 unset(_cxx26_share_dir)
+unset(_cxx26_modules_json)
+unset(_cxx26_found_json)
+unset(_cxx26_json_text)
 unset(_cxx26_root)
