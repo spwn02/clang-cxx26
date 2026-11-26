@@ -518,6 +518,12 @@ void UseTrailingReturnTypeCheck::check(const MatchFinder::MatchResult &Result) {
   if (F->isExpressionMacro())
     return;
 
+  // Contract specifiers follow the parameter list. Inserting the trailing
+  // return type at the function type's closing parenthesis puts it before the
+  // contracts, which is not valid declarator syntax.
+  if (F->getContracts())
+    return;
+
   // Skip functions which return 'auto' and defaulted operators.
   const auto *AT = F->getDeclaredReturnType()->getAs<AutoType>();
   if (AT != nullptr &&

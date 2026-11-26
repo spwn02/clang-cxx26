@@ -244,6 +244,24 @@ bool isUnevaluated(const Stmt *S) {
   return isa<CXXNoexceptExpr, CXXTypeidExpr, RequiresExpr>(S);
 }
 
+/// A consteval block is represented as a call to a synthesized consteval
+/// lambda. It is not a lambda expression written by the user and cannot be
+/// replaced by a do-expression.
+bool isConstevalBlockCall(const CallExpr *Call, ASTContext &Ctx) {
+  DynTypedNode Node = DynTypedNode::create(*Call);
+  for (unsigned Depth = 0; Depth != 8; ++Depth) {
+    DynTypedNodeList Parents = Ctx.getParents(Node);
+    for (const DynTypedNode &Parent : Parents)
+      if (Parent.get<ConstevalBlockDecl>())
+        return true;
+    if (Parents.size() != 1 || Parents[0].get<LambdaExpr>() ||
+        Parents[0].get<FunctionDecl>())
+      break;
+    Node = Parents[0];
+  }
+  return false;
+}
+
 /// Collects the immediately-invoked lambdas in a subtree the AST matchers do
 /// not reach on their own.
 class InvokedLambdaFinder : public RecursiveASTVisitor<InvokedLambdaFinder> {
@@ -293,7 +311,10 @@ void UseDoExprCheck::check(const MatchFinder::MatchResult &Result) {
              /*ForceUnevaluated=*/true);
     return;
   }
-  report(Result.Nodes.getNodeAs<CallExpr>("call"), *Result.Context,
+  const auto *Call = Result.Nodes.getNodeAs<CallExpr>("call");
+  if (Call && isConstevalBlockCall(Call, *Result.Context))
+    return;
+  report(Call, *Result.Context,
          *Result.SourceManager, /*ForceUnevaluated=*/false);
 }
 

@@ -135,6 +135,12 @@ static SourceRange getLocationOfConst(const TypeSourceInfo *TSI,
 void ConvertMemberFunctionsToStaticCheck::check(
     const MatchFinder::MatchResult &Result) {
   const auto *Definition = Result.Nodes.getNodeAs<CXXMethodDecl>("x");
+  // inject_members is a reflection annotation callback. Its implicit caller
+  // invokes it on the annotation object, so changing it to static breaks the
+  // callback protocol even when its body does not otherwise use `this`.
+  if (getLangOpts().CPlusPlus29 &&
+      Definition->getName() == "inject_members")
+    return;
 
   // TODO: For out-of-line declarations, don't modify the source if the header
   // is excluded by the -header-filter option.

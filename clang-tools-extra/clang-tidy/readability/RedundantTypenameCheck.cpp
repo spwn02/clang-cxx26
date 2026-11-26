@@ -7,13 +7,45 @@
 //===----------------------------------------------------------------------===//
 
 #include "RedundantTypenameCheck.h"
+#include "clang/AST/ExprConcepts.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Lex/Lexer.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallVector.h"
 
 using namespace clang::ast_matchers;
+
+namespace {
+
+bool isRequiredByTypeRequirement(clang::TypeLoc TL,
+                                 clang::SourceLocation KeywordLoc,
+                                 clang::ASTContext &Context) {
+  llvm::SmallVector<clang::DynTypedNode, 8> Worklist{
+      clang::DynTypedNode::create(TL)};
+  llvm::SmallPtrSet<const clang::RequiresExpr *, 4> Seen;
+  while (!Worklist.empty()) {
+    clang::DynTypedNode Node = Worklist.pop_back_val();
+    for (const clang::DynTypedNode &Parent : Context.getParents(Node)) {
+      if (const auto *RE = Parent.get<clang::RequiresExpr>()) {
+        if (Seen.insert(RE).second)
+          for (const clang::concepts::Requirement *Requirement :
+               RE->getRequirements())
+            if (const auto *TypeReq =
+                    clang::dyn_cast<clang::concepts::TypeRequirement>(
+                        Requirement))
+              if (TypeReq->getType()->getTypeLoc().getBeginLoc() == KeywordLoc)
+                return true;
+      }
+      Worklist.push_back(Parent);
+    }
+  }
+  return false;
+}
+
+} // namespace
 
 namespace clang::tidy::readability {
 
@@ -80,6 +112,9 @@ void RedundantTypenameCheck::check(const MatchFinder::MatchResult &Result) {
   }();
 
   if (ElaboratedKeywordLoc.isInvalid())
+    return;
+
+  if (isRequiredByTypeRequirement(TL, ElaboratedKeywordLoc, *Result.Context))
     return;
 
   if (Token ElaboratedKeyword;

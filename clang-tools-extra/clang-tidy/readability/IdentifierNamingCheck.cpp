@@ -1373,7 +1373,19 @@ IdentifierNamingCheck::getDeclFailureInfo(const NamedDecl *Decl,
   if (Decl->isImplicit())
     return std::nullopt;
 
+  // inject_members is a compiler-discovered reflection annotation callback.
+  // Its spelling is part of the callback protocol and cannot be renamed.
+  if (getLangOpts().CPlusPlus29 && isa<CXXMethodDecl>(Decl) &&
+      Decl->getName() == "inject_members")
+    return std::nullopt;
+
   const SourceLocation Loc = Decl->getLocation();
+  // Names introduced by token-sequence injection live in an expansion
+  // location. A fix there may rewrite references in ordinary source while the
+  // spelling inside the token sequence remains unchanged, leaving an invalid
+  // member lookup. Like macro-expanded declarations, decline to rename these.
+  if (Loc.isMacroID() && SM.isMacroBodyExpansion(Loc))
+    return std::nullopt;
   const FileStyle &FileStyle = getStyleForFile(SM.getFilename(Loc));
   if (!FileStyle.isActive())
     return std::nullopt;

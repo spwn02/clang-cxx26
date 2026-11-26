@@ -109,6 +109,11 @@ void UseNodiscardCheck::registerMatchers(MatchFinder *Finder) {
 
 void UseNodiscardCheck::check(const MatchFinder::MatchResult &Result) {
   const auto *MatchedDecl = Result.Nodes.getNodeAs<CXXMethodDecl>("no_discard");
+  // Reflection annotation callbacks are invoked by the compiler, which consumes
+  // the returned token sequence even though there is no explicit call site.
+  if (getLangOpts().CPlusPlus29 &&
+      MatchedDecl->getName() == "inject_members")
+    return;
   // Don't make replacements if the location is invalid or in a macro.
   const SourceLocation Loc = MatchedDecl->getLocation();
   if (Loc.isInvalid() || Loc.isMacroID())
