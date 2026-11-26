@@ -36,6 +36,27 @@ def for_line(text: str, line: str) -> str:
     )
 
 
+def cxx_level_override(line: str) -> str:
+    """CMake knows no CXX_STANDARD beyond 26, so a project asking for 26 would get -std=c++26 appended after
+    the toolchain's -std=c++29. On the cxx29 line, retarget CMake's 26 level at the line's standard (the
+    cxx26 output is unchanged). The names below deliberately avoid the literal cxx26/CXX26/c++26 that for_line renames."""
+    if line == "cxx26":
+        return ""
+    std = line[3:]
+    return (
+        "# CMake has no CXX_STANDARD " + std + ": retarget its newest known level (26) at -std=c++" + std + ", so a\n"
+        "# project that sets CMAKE_CXX_STANDARD 26 -- and CMake's own import-std target -- compile in this mode.\n"
+        "# The override file is read after the compiler module; one per build directory, also for the\n"
+        "# capability-probe sub-projects, which evaluate this toolchain file themselves.\n"
+        "if(NOT CMAKE_USER_MAKE_RULES_OVERRIDE_CXX AND DEFINED CMAKE_BINARY_DIR)\n"
+        '  file(WRITE "${CMAKE_BINARY_DIR}/clang-' + line + '-level-override.cmake"\n'
+        '       "set(CMAKE_CXX@CMAKE_STD_LEVEL@_STANDARD_COMPILE_OPTION \\"-std=c++' + std + '\\")\\n"\n'
+        '       "set(CMAKE_CXX@CMAKE_STD_LEVEL@_EXTENSION_COMPILE_OPTION \\"-std=gnu++' + std + '\\")\\n")\n'
+        '  set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_BINARY_DIR}/clang-' + line + '-level-override.cmake")\n'
+        "endif()\n"
+    )
+
+
 def fail(message: str) -> NoReturn:
     raise SystemExit(message)
 
@@ -192,10 +213,12 @@ def main() -> int:
 
         template_dir = Path(__file__).resolve().parent
 
+        # for_line renames every cxx26/CXX26; CMake's newest known level is 26 on every line, so the
+        # @CMAKE_STD_LEVEL@ placeholder in the level override is resolved after the renaming.
         toolchain = for_line(render_template(
             template_dir / "toolchain.cmake.in",
-            {"CXX26_BUILD_RPATH": cmake_rpath},
-        ), line)
+            {"CXX26_BUILD_RPATH": cmake_rpath, "CXX_LEVEL_OVERRIDE": cxx_level_override(line)},
+        ), line).replace("@CMAKE_STD_LEVEL@", "26")
         (metadata_dir / "toolchain.cmake").write_text(toolchain, encoding="utf-8")
 
         activation = for_line(render_template(
