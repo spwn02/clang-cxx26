@@ -3403,8 +3403,21 @@ static bool ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
     StringRef Val = A->getValue();
     if (Val.contains('=')) {
       auto Split = Val.split('=');
-      Opts.PrebuiltModuleFiles.insert_or_assign(
+      auto [It, Inserted] = Opts.PrebuiltModuleFiles.try_emplace(
           std::string(Split.first), std::string(Split.second));
+      if (!Inserted && It->second != Split.second) {
+        bool ExistingFile = llvm::sys::fs::exists(It->second);
+        bool NewFile = llvm::sys::fs::exists(Split.second);
+        if (ExistingFile && NewFile &&
+            !llvm::sys::fs::equivalent(It->second, Split.second)) {
+          Diags.Report(diag::err_duplicate_module_file_mapping)
+              << Split.first << It->second << Split.second;
+        } else {
+          // Preserve the usual last-mapping-wins behavior when one path does
+          // not exist, and allow multiple paths to the same file.
+          It->second = Split.second;
+        }
+      }
     }
   }
   for (const auto *A : Args.filtered(OPT_fprebuilt_module_path))

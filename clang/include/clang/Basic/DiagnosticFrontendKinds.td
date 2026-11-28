@@ -219,6 +219,8 @@ def err_module_build_requires_fmodules : Error<
   "module compilation requires '-fmodules'">;
 def err_module_interface_requires_cpp_modules
     : Error<"module interface compilation requires '-std=c++20'">;
+def err_duplicate_module_file_mapping : Error<
+  "module '%0' is mapped to two different files: '%1' and '%2'">;
 def err_module_map_not_found : Error<"module map file '%0' not found">,
   DefaultFatal;
 def err_missing_module_name : Error<
