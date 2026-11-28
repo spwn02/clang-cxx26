@@ -4745,6 +4745,8 @@ TEST_P(BuildSyntaxTreeTest,
       R"cpp(
 struct P { int a; int b; };
 struct Q { Q(int); };
+struct R { R(); };
+struct D { ~D(); };
 void f() {
   [[P arr[2];]]
   [[int scalars[2];]]
@@ -4752,6 +4754,12 @@ void f() {
   [[Q no_default_ctor[2] = {Q(1), Q(2)};]]
   [[P p;]]
 }
+void no_written_initializer() {
+  [[R r[2];]]
+  [[R s;]]
+  [[D d[2];]]
+}
+[[P g[2];]]
 )cpp",
       {R"txt(
 DeclarationStatement Statement
@@ -4839,6 +4847,56 @@ DeclarationStatement Statement
 | `-DeclaratorList Declarators
 |   `-SimpleDeclarator ListElement
 |     `-'p'
+`-';'
+)txt",
+       R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'R'
+| `-DeclaratorList Declarators
+|   `-SimpleDeclarator ListElement
+|     |-'r'
+|     `-ArraySubscript
+|       |-'[' OpenParen
+|       |-IntegerLiteralExpression Size
+|       | `-'2' LiteralToken
+|       `-']' CloseParen
+`-';'
+)txt",
+       R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'R'
+| `-DeclaratorList Declarators
+|   `-SimpleDeclarator ListElement
+|     `-'s'
+`-';'
+)txt",
+       R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'D'
+| `-DeclaratorList Declarators
+|   `-SimpleDeclarator ListElement
+|     |-'d'
+|     `-ArraySubscript
+|       |-'[' OpenParen
+|       |-IntegerLiteralExpression Size
+|       | `-'2' LiteralToken
+|       `-']' CloseParen
+`-';'
+)txt",
+       R"txt(
+SimpleDeclaration
+|-'P'
+|-DeclaratorList Declarators
+| `-SimpleDeclarator ListElement
+|   |-'g'
+|   `-ArraySubscript
+|     |-'[' OpenParen
+|     |-IntegerLiteralExpression Size
+|     | `-'2' LiteralToken
+|     `-']' CloseParen
 `-';'
 )txt"}));
 }
