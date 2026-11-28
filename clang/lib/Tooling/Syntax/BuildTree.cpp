@@ -330,12 +330,11 @@ static SourceRange getDeclaratorRange(const SourceManager &SM, TypeLoc T,
     if (End.isInvalid() || SM.isBeforeInTranslationUnit(End, Name))
       End = Name;
   }
-  // Only extend the declarator when the initializer reaches beyond the part
-  // already covered by the type and name. Compiler-generated initializers can
-  // otherwise point back at the declared name.
-  if (Initializer.isValid() &&
-      SM.isBeforeInTranslationUnit(End, Initializer.getEnd())) {
-    End = Initializer.getEnd();
+  if (Initializer.isValid()) {
+    auto InitializerEnd = Initializer.getEnd();
+    assert(SM.isBeforeInTranslationUnit(End, InitializerEnd) ||
+           End == InitializerEnd);
+    End = InitializerEnd;
   }
   return SourceRange(Start, End);
 }
