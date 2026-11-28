@@ -285,6 +285,12 @@ static SourceRange getInitializerRange(Decl *D) {
     // the default argument a redeclaration inherits.
     if (const auto *P = dyn_cast<ParmVarDecl>(V); P && P->hasInheritedDefaultArg())
       return SourceRange();
+    // A default-initialized class array has a compiler-generated
+    // zero-argument construction expression at the variable's name, not a
+    // source-written initializer.
+    if (const auto *C = dyn_cast_or_null<CXXConstructExpr>(I);
+        C && C->getNumArgs() == 0 && C->getParenOrBraceRange().isInvalid())
+      return SourceRange();
     if (I && !V->isCXXForRangeDecl())
       return I->getSourceRange();
   }
@@ -313,11 +319,12 @@ static SourceRange getDeclaratorRange(const SourceManager &SM, TypeLoc T,
     if (End.isInvalid() || SM.isBeforeInTranslationUnit(End, Name))
       End = Name;
   }
-  if (Initializer.isValid()) {
-    auto InitializerEnd = Initializer.getEnd();
-    assert(SM.isBeforeInTranslationUnit(End, InitializerEnd) ||
-           End == InitializerEnd);
-    End = InitializerEnd;
+  // Only extend the declarator when the initializer reaches beyond the part
+  // already covered by the type and name. Compiler-generated initializers can
+  // otherwise point back at the declared name.
+  if (Initializer.isValid() &&
+      SM.isBeforeInTranslationUnit(End, Initializer.getEnd())) {
+    End = Initializer.getEnd();
   }
   return SourceRange(Start, End);
 }
