@@ -6596,6 +6596,168 @@ TranslationUnit Detached
 )txt"));
 }
 
+TEST_P(BuildSyntaxTreeTest, ArrayDeclarator_ImplicitClassInitialization) {
+  if (!GetParam().isCXX()) {
+    return;
+  }
+  EXPECT_TRUE(treeDumpEqual(
+      R"cpp(
+struct P { int a; int b; };
+void f() { P arr[2]; }
+)cpp",
+      R"txt(
+TranslationUnit Detached
+|-SimpleDeclaration
+| |-'struct'
+| |-'P'
+| |-'{'
+| |-SimpleDeclaration
+| | |-'int'
+| | |-DeclaratorList Declarators
+| | | `-SimpleDeclarator ListElement
+| | |   `-'a'
+| | `-';'
+| |-SimpleDeclaration
+| | |-'int'
+| | |-DeclaratorList Declarators
+| | | `-SimpleDeclarator ListElement
+| | |   `-'b'
+| | `-';'
+| |-'}'
+| `-';'
+`-SimpleDeclaration
+  |-'void'
+  |-DeclaratorList Declarators
+  | `-SimpleDeclarator ListElement
+  |   |-'f'
+  |   `-ParametersAndQualifiers
+  |     |-'(' OpenParen
+  |     `-')' CloseParen
+  `-CompoundStatement
+    |-'{' OpenParen
+    |-DeclarationStatement Statement
+    | |-SimpleDeclaration
+    | | |-'P'
+    | | `-DeclaratorList Declarators
+    | |   `-SimpleDeclarator ListElement
+    | |     |-'arr'
+    | |     `-ArraySubscript
+    | |       |-'[' OpenParen
+    | |       |-IntegerLiteralExpression Size
+    | |       | `-'2' LiteralToken
+    | |       `-']' CloseParen
+    | `-';'
+    `-'}' CloseParen
+)txt"));
+}
+
+TEST_P(BuildSyntaxTreeTest,
+       ArrayDeclarator_WrittenAndImplicitInitialization) {
+  if (!GetParam().isCXX11OrLater()) {
+    return;
+  }
+  EXPECT_TRUE(treeDumpEqualOnAnnotations(
+      R"cpp(
+struct P { int a; int b; };
+struct Q { Q(int); };
+void f() {
+  [[P arr[2];]]
+  [[int scalars[2];]]
+  { [[P arr[2] = {};]] }
+  [[Q no_default_ctor[2] = {Q(1), Q(2)};]]
+  [[P p;]]
+}
+)cpp",
+      {R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'P'
+| `-DeclaratorList Declarators
+|   `-SimpleDeclarator ListElement
+|     |-'arr'
+|     `-ArraySubscript
+|       |-'[' OpenParen
+|       |-IntegerLiteralExpression Size
+|       | `-'2' LiteralToken
+|       `-']' CloseParen
+`-';'
+)txt",
+       R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'int'
+| `-DeclaratorList Declarators
+|   `-SimpleDeclarator ListElement
+|     |-'scalars'
+|     `-ArraySubscript
+|       |-'[' OpenParen
+|       |-IntegerLiteralExpression Size
+|       | `-'2' LiteralToken
+|       `-']' CloseParen
+`-';'
+)txt",
+       R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'P'
+| `-DeclaratorList Declarators
+|   `-SimpleDeclarator ListElement
+|     |-'arr'
+|     |-ArraySubscript
+|     | |-'[' OpenParen
+|     | |-IntegerLiteralExpression Size
+|     | | `-'2' LiteralToken
+|     | `-']' CloseParen
+|     |-'='
+|     `-UnknownExpression
+|       `-UnknownExpression
+|         |-'{'
+|         `-'}'
+`-';'
+)txt",
+       R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'Q'
+| `-DeclaratorList Declarators
+|   `-SimpleDeclarator ListElement
+|     |-'no_default_ctor'
+|     |-ArraySubscript
+|     | |-'[' OpenParen
+|     | |-IntegerLiteralExpression Size
+|     | | `-'2' LiteralToken
+|     | `-']' CloseParen
+|     |-'='
+|     `-UnknownExpression
+|       `-UnknownExpression
+|         |-'{'
+|         |-UnknownExpression
+|         | |-'Q'
+|         | |-'('
+|         | |-IntegerLiteralExpression
+|         | | `-'1' LiteralToken
+|         | `-')'
+|         |-','
+|         |-UnknownExpression
+|         | |-'Q'
+|         | |-'('
+|         | |-IntegerLiteralExpression
+|         | | `-'2' LiteralToken
+|         | `-')'
+|         `-'}'
+`-';'
+)txt",
+       R"txt(
+DeclarationStatement Statement
+|-SimpleDeclaration
+| |-'P'
+| `-DeclaratorList Declarators
+|   `-SimpleDeclarator ListElement
+|     `-'p'
+`-';'
+)txt"}));
+}
+
 TEST_P(BuildSyntaxTreeTest, ArrayDeclarator_Multidimensional) {
   EXPECT_TRUE(treeDumpEqual(
       R"cpp(
